@@ -69,7 +69,7 @@ export default function WhatsAppFollowUpPage() {
     setSaving(prev => ({ ...prev, [field.key]: true }));
     setErrors(prev => ({ ...prev, [field.key]: '' }));
     try {
-      await patchSetting(field.key, value);
+      await patchSetting(field.key as string, value);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       setDrafts(prev => { const n = { ...prev }; delete n[field.key]; return n; });
       setSaved(prev => ({ ...prev, [field.key]: true }));
