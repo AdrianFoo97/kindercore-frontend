@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPenToSquare, faComment, faCalendarPlus, faBell } from '@fortawesome/free-solid-svg-icons';
@@ -833,6 +834,7 @@ export default function LeadsPage() {
   const { data: stats } = useQuery({
     queryKey: ['lead-stats'],
     queryFn: fetchLeadStats,
+    staleTime: 0,
     refetchInterval: 60_000,
   });
 
@@ -858,6 +860,44 @@ export default function LeadsPage() {
     queryClient.invalidateQueries({ queryKey: ['leads-follow-up'] });
     queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
   };
+
+  const [isExporting, setIsExporting] = useState(false);
+  async function handleExport() {
+    if (!data || data.total === 0) return;
+    setIsExporting(true);
+    try {
+      const all = await fetchLeads(1, data.total, effectiveStatus || undefined, sortBy, sortOrder);
+      const rows = all.items.map((l: Lead) => ({
+        'Submitted At': l.submittedAt,
+        'Child Name': l.childName,
+        'Parent Phone': l.parentPhone,
+        'Child Date of Birth': l.childDob ? l.childDob.toString().split('T')[0] : '',
+        'Enrolment Year': l.enrolmentYear,
+        'Relationship to Child': l.relationship ?? '',
+        'Programme': l.programme ?? '',
+        'Preferred Appointment Time': l.preferredAppointmentTime ?? '',
+        'Address / Location': l.addressLocation ?? '',
+        'Needs Transport': l.needsTransport == null ? '' : l.needsTransport ? 'Yes' : 'No',
+        'How Did You Know': l.howDidYouKnow ?? '',
+        'Status': l.status,
+        'Notes': l.notes ?? '',
+        'Lost / Declined Reason': l.lostReason ?? '',
+        'Appointment': l.appointmentStart ?? '',
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const label = filterStatus === 'active' ? 'active' : filterStatus === 'inactive' ? 'completed' : 'all';
+      a.href = url;
+      a.download = `leads-${label}-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   const handleSaved = (_updated: Lead) => {
     invalidateAll();
@@ -950,7 +990,16 @@ export default function LeadsPage() {
       <div style={styles.layout}>
         <div style={styles.main}>
           <div style={styles.toolbar}>
-        <h1 style={styles.heading}>Leads</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h1 style={styles.heading}>Leads</h1>
+          <button
+            onClick={handleExport}
+            disabled={isExporting || !data || data.total === 0}
+            style={{ padding: '5px 14px', fontSize: 13, fontWeight: 600, background: '#2f855a', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', opacity: isExporting || !data || data.total === 0 ? 0.5 : 1 }}
+          >
+            {isExporting ? 'Exporting…' : '↓ Export CSV'}
+          </button>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <div style={styles.filterRow}>
             {(['active', 'inactive', ''] as const).map((g) => (

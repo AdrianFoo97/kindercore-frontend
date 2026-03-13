@@ -1,6 +1,10 @@
 import { apiFetch } from './client.js';
 import { Lead, LeadStatus, LeadsResponse } from '../types/index.js';
 
+export function fetchLeadPhones() {
+  return apiFetch<{ id: string; parentPhone: string; childName: string; submittedAt: string }[]>('/api/leads/phones');
+}
+
 export function fetchLeads(
   page: number,
   pageSize: number,
@@ -23,6 +27,12 @@ export interface UpdateLeadPayload {
   status?: LeadStatus;
   notes?: string;
   lostReason?: string | null;
+  relationship?: string | null;
+  programme?: string | null;
+  preferredAppointmentTime?: string | null;
+  addressLocation?: string | null;
+  needsTransport?: boolean | null;
+  howDidYouKnow?: string | null;
 }
 
 export function updateLead(leadId: string, payload: UpdateLeadPayload) {
@@ -44,6 +54,7 @@ export function submitLead(payload: {
   addressLocation?: string;
   needsTransport?: boolean;
   howDidYouKnow?: string;
+  submittedAt?: string;
 }) {
   return apiFetch<Lead>('/api/leads', {
     method: 'POST',

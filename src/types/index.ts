@@ -29,6 +29,12 @@ export interface Lead {
   appointmentCreatedByUserId: string | null;
   appointmentIsPlaceholder: boolean;
   lostReason: string | null;
+  relationship: string | null;
+  programme: string | null;
+  preferredAppointmentTime: string | null;
+  addressLocation: string | null;
+  needsTransport: boolean | null;
+  howDidYouKnow: string | null;
 }
 
 export interface LeadsResponse {
