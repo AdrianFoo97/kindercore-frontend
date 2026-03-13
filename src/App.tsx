@@ -16,6 +16,7 @@ import OnboardingPage from './pages/OnboardingPage.js';
 import WhatsAppApptTemplatePage from './pages/WhatsAppApptTemplatePage.js';
 import WhatsAppFollowUpPage from './pages/WhatsAppFollowUpPage.js';
 import LeadStatusSettingsPage from './pages/LeadStatusSettingsPage.js';
+import TestToolsPage from './pages/TestToolsPage.js';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -64,6 +65,8 @@ export default function App() {
           <Route path="/onboarding" element={<ErrorBoundary><OnboardingPage /></ErrorBoundary>} />
           <Route path="/settings/packages" element={<ErrorBoundary><PackageSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/onboarding" element={<ErrorBoundary><OnboardingSettingsPage /></ErrorBoundary>} />
+          <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage tool="reset-leads" /></ErrorBoundary>} />
+          <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage tool="reset-students" /></ErrorBoundary>} />
           <Route path="/analysis/sales-marketing" element={<ErrorBoundary><SalesMarketingPage /></ErrorBoundary>} />
           <Route path="/analysis/sales" element={<ErrorBoundary><SalesAnalysisPage /></ErrorBoundary>} />
         </Route>
