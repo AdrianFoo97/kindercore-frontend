@@ -419,6 +419,9 @@ export default function PackageSettingsPage() {
 
   if (configLoading || pkgsLoading) return <p style={s.state}>Loading…</p>;
   if (isError) return <p style={{ ...s.state, color: '#e53e3e' }}>Failed to load packages config.</p>;
+
+  const programmes: string[] = Array.isArray(config?.programmes) ? config!.programmes : [];
+  const ages: number[] = Array.isArray(config?.ages) ? config!.ages : [];
   if (!isAdmin) return (
     <div style={s.page}><h1 style={s.heading}>Package Settings</h1>
       <p style={{ color: '#718096', fontSize: 13 }}>Admin role required.</p>
@@ -430,9 +433,9 @@ export default function PackageSettingsPage() {
       <h1 style={s.heading}>Package Settings</h1>
       <p style={s.subNote}>Define programmes, age groups, and assign which packages are available.</p>
       <div style={s.list}>
-        <ProgrammesEditor programmes={config!.programmes} onSaved={handleSaved} />
-        <AgesEditor ages={config!.ages} onSaved={handleSaved} />
-        <AssignmentsEditor packages={packages} programmes={config!.programmes} ages={config!.ages} years={years} onChanged={handleSaved} />
+        <ProgrammesEditor programmes={programmes} onSaved={handleSaved} />
+        <AgesEditor ages={ages} onSaved={handleSaved} />
+        <AssignmentsEditor packages={packages} programmes={programmes} ages={ages} years={years} onChanged={handleSaved} />
       </div>
     </div>
   );
