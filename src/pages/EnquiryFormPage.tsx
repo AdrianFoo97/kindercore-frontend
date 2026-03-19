@@ -386,6 +386,7 @@ export default function EnquiryFormPage() {
             padding: '24px 20px',
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
             textAlign: 'left',
+            overflow: 'hidden',
           }}>
             {/* Honeypot */}
             <div style={{ position: 'absolute', left: -9999, opacity: 0 }} aria-hidden="true">
