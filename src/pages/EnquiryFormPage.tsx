@@ -41,6 +41,9 @@ export default function EnquiryFormPage() {
     childName: '', parentPhone: '', childDob: '', enrolmentYear: new Date().getFullYear(),
     relationship: '', programme: '', howDidYouKnow: '', preferredAppointmentTime: '', addressLocation: '', needsTransport: null as boolean | null,
   });
+  const [dobDay, setDobDay] = useState('');
+  const [dobMonth, setDobMonth] = useState('');
+  const [dobYear, setDobYear] = useState('');
   const [addressOther, setAddressOther] = useState(false);
   const [sourceOther, setSourceOther] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -412,13 +415,55 @@ export default function EnquiryFormPage() {
                 <div style={{ marginBottom: 18 }}>
                   <label style={labelStyle}>出生日期 *</label>
                   <span style={helperStyle}>用于安排合适的班级</span>
-                  <div style={{ border: `1px solid ${dobError ? '#ef4444' : '#d1d5db'}`, borderRadius: 10, overflow: 'hidden' }}>
-                    <input
-                      type="date"
-                      value={form.childDob}
-                      onChange={e => { setForm(f => ({ ...f, childDob: e.target.value })); setDobError(''); validateAge(e.target.value, form.enrolmentYear); }}
-                      style={{ ...inputStyle, border: 'none', borderRadius: 0 }}
-                    />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select
+                      value={dobDay}
+                      onChange={e => {
+                        setDobDay(e.target.value); setDobError('');
+                        if (e.target.value && dobMonth && dobYear) {
+                          const dob = `${dobYear}-${dobMonth.padStart(2, '0')}-${e.target.value.padStart(2, '0')}`;
+                          setForm(f => ({ ...f, childDob: dob })); validateAge(dob, form.enrolmentYear);
+                        }
+                      }}
+                      style={{ ...inputStyle, flex: 1, appearance: 'auto', ...(dobError ? { borderColor: '#ef4444' } : {}) }}
+                    >
+                      <option value="">日</option>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                        <option key={d} value={d.toString()}>{d}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={dobMonth}
+                      onChange={e => {
+                        setDobMonth(e.target.value); setDobError('');
+                        if (dobDay && e.target.value && dobYear) {
+                          const dob = `${dobYear}-${e.target.value.padStart(2, '0')}-${dobDay.padStart(2, '0')}`;
+                          setForm(f => ({ ...f, childDob: dob })); validateAge(dob, form.enrolmentYear);
+                        }
+                      }}
+                      style={{ ...inputStyle, flex: 1, appearance: 'auto', ...(dobError ? { borderColor: '#ef4444' } : {}) }}
+                    >
+                      <option value="">月</option>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                        <option key={m} value={m.toString()}>{m}月</option>
+                      ))}
+                    </select>
+                    <select
+                      value={dobYear}
+                      onChange={e => {
+                        setDobYear(e.target.value); setDobError('');
+                        if (dobDay && dobMonth && e.target.value) {
+                          const dob = `${e.target.value}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`;
+                          setForm(f => ({ ...f, childDob: dob })); validateAge(dob, form.enrolmentYear);
+                        }
+                      }}
+                      style={{ ...inputStyle, flex: 1, appearance: 'auto', ...(dobError ? { borderColor: '#ef4444' } : {}) }}
+                    >
+                      <option value="">年</option>
+                      {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                        <option key={y} value={y.toString()}>{y}</option>
+                      ))}
+                    </select>
                   </div>
                   {dobError && (
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444', whiteSpace: 'pre-line' }}>&#9888; {dobError}</p>
