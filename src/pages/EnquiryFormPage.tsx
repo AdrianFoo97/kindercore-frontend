@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck } from '@fortawesome/free-solid-svg-icons';
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
+const API = import.meta.env.VITE_API_BASE_URL ?? '';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
