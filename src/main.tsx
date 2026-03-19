@@ -29,6 +29,29 @@ const queryClient = new QueryClient({
   },
 });
 
+// Global styles
+const globalStyle = document.createElement('style');
+globalStyle.textContent = `
+  *, *::before, *::after { font-family: system-ui, -apple-system, sans-serif; }
+
+  input, textarea, select {
+    border: 1px solid #e2e8f0 !important;
+    transition: border-color 0.15s, box-shadow 0.15s !important;
+  }
+  input:hover, textarea:hover, select:hover {
+    border-color: #cbd5e1 !important;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none !important;
+    border-color: #93c5fd !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1) !important;
+  }
+  input:focus::placeholder, textarea:focus::placeholder {
+    color: transparent !important;
+  }
+`;
+document.head.appendChild(globalStyle);
+
 createRoot(document.getElementById('root')!).render(
   <RootErrorBoundary>
     <QueryClientProvider client={queryClient}>

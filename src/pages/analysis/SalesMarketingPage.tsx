@@ -4,18 +4,21 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, BarChart, Cell, PieChart, Pie, Legend, Sector,
 } from 'recharts';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXmark } from '@fortawesome/free-solid-svg-icons';
 import { fetchAnalytics } from '../../api/leads.js';
+import { useIsMobile } from '../../hooks/useIsMobile.js';
 
 // ── Palette ───────────────────────────────────────────────────────
 const C = {
-  blue:   '#2563eb',
+  blue:   '#5a79c8',
   indigo: '#4f46e5',
   purple: '#7c3aed',
   slate:  '#94a3b8',
   green:  '#059669',
   amber:  '#d97706',
   red:    '#dc2626',
-  bg:     '#f1f5f9',
+  bg:     '#f8fafc',
   card:   '#ffffff',
   border: '#e2e8f0',
   text:   '#0f172a',
@@ -28,7 +31,7 @@ const AGE_PALETTE: Record<string, string> = {
 };
 
 const DONUT_PALETTE = [
-  '#1e40af','#1d4ed8','#2563eb','#3b82f6',
+  '#1e40af','#1d4ed8','#5a79c8','#3b82f6',
   '#60a5fa','#93c5fd','#bfdbfe','#dbeafe',
 ];
 
@@ -80,16 +83,17 @@ function KpiCard({ label, value, sub, color, children }: {
   color: string; children?: React.ReactNode;
 }) {
   return (
-    <div style={{ ...s.card, borderTop: `3px solid ${color}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '18px 20px' }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>{label}</span>
-      {children ?? <span style={{ fontSize: 40, fontWeight: 900, color, lineHeight: 1 }}>{value}</span>}
-      {sub && <span style={{ fontSize: 12, color: C.muted }}>{sub}</span>}
+    <div style={{ ...s.card, borderTop: `3px solid ${color}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '14px 12px' }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>{label}</span>
+      {children ?? <span style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1 }}>{value}</span>}
+      {sub && <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{sub}</span>}
     </div>
   );
 }
 
 // ── Page ──────────────────────────────────────────────────────────
 export default function SalesMarketingPage() {
+  const { isMobile } = useIsMobile();
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
 
@@ -137,11 +141,11 @@ export default function SalesMarketingPage() {
   }
 
   return (
-    <div style={s.page}>
+    <div style={{ ...s.page, ...(isMobile ? { padding: '20px 12px' } : {}) }}>
       <style>{`.recharts-wrapper *:focus { outline: none !important; }`}</style>
 
       {/* ── Header ── */}
-      <div style={s.pageHeader}>
+      <div style={{ ...s.pageHeader, ...(isMobile ? { flexDirection: 'column' } : {}) }}>
         <div>
           <h1 style={s.pageTitle}>Marketing Analysis</h1>
           <p style={s.pageSubtitle}>Enquiry trends, appointment performance and channel insights</p>
@@ -163,11 +167,13 @@ export default function SalesMarketingPage() {
       </div>
 
       {/* ── KPI strip ── */}
-      <div style={s.kpiRow}>
-        <KpiCard label="Appointment Rate" color={C.indigo}>
-          <RateRing rate={data.appointmentRate} />
-          <span style={{ fontSize: 12, color: C.muted }}>{data.attendedAppointments} attended of {data.completedLeads} completed</span>
-        </KpiCard>
+      <div style={{ ...s.kpiRow, ...(isMobile ? { gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 } : {}) }}>
+        <div style={isMobile ? { gridColumn: 'span 2' } : undefined}>
+          <KpiCard label="Appointment Rate" color={C.indigo}>
+            <RateRing rate={data.appointmentRate} />
+            <span style={{ fontSize: 12, color: C.muted }}>{data.attendedAppointments} attended of {data.completedLeads} completed</span>
+          </KpiCard>
+        </div>
         <KpiCard label="Total Leads" value={data.totalLeads} color={C.blue}
           sub={`in ${data.selectedYear}`} />
         <KpiCard label="Total Attended" value={data.attendedAppointments} color={C.green}
@@ -191,7 +197,7 @@ export default function SalesMarketingPage() {
                   <span
                     onClick={() => setSelectedMonth(null)}
                     style={{ marginLeft: 6, cursor: 'pointer', color: C.muted, fontWeight: 400 }}>
-                    ✕ clear
+                    <FontAwesomeIcon icon={faXmark} /> clear
                   </span>
                 </span>
               )}
@@ -275,7 +281,7 @@ export default function SalesMarketingPage() {
       </div>
 
       {/* ── Donuts ── */}
-      <div style={s.donutRow}>
+      <div style={{ ...s.donutRow, ...(isMobile ? { gridTemplateColumns: '1fr', gap: 12 } : {}) }}>
         <DonutCard
           title="Leads by Address"
           sub={selectedMonth !== null ? `${MONTH_LABELS[selectedMonth]} — where do enquiries come from?` : 'Where do enquiries come from?'}

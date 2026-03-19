@@ -1,48 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
-import { fetchStudents, withdrawStudent, reactivateStudent } from '../api/students.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faEllipsisVertical, faPen, faArrowRotateLeft, faCircleInfo, faRightFromBracket, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { fetchStudents, withdrawStudent, reactivateStudent, deleteStudent } from '../api/students.js';
 import { Student } from '../types/index.js';
 import EditStudentModal from '../components/students/EditStudentModal.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 
-const CURRENT_YEAR = new Date().getFullYear();
-const CURRENT_MONTH = new Date().getMonth() + 1;
+const CURRENT_YEAR  = new Date().getFullYear();
 
 type FilterTab = 'active' | 'enrolled' | 'graduated' | 'withdrawn';
+type SortKey   = 'name' | 'age';
+type SortDir   = 'asc'  | 'desc';
 
-function isWithdrawn(s: Student) {
-  return s.withdrawnAt != null;
-}
-function classAge(s: Student) {
-  return CURRENT_YEAR - new Date(s.lead.childDob).getFullYear();
-}
-function isGraduated(s: Student) {
-  return !isWithdrawn(s) && classAge(s) > 6;
-}
-function isEnrolled(s: Student) {
-  return !isWithdrawn(s) && !isGraduated(s) && (
-    s.enrolmentYear > CURRENT_YEAR ||
-    (s.enrolmentYear === CURRENT_YEAR && s.enrolmentMonth > CURRENT_MONTH)
-  );
-}
-function isActive(s: Student) {
-  return !isWithdrawn(s) && !isGraduated(s) && !isEnrolled(s);
-}
+function calcAge(dob: string)  { return CURRENT_YEAR - new Date(dob).getFullYear(); }
 
-function calcAge(dob: string): number {
-  return CURRENT_YEAR - new Date(dob).getFullYear();
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-MY', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  });
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-function formatEnrolmentMonth(month: number, year: number): string {
+function formatEnrolmentMonth(month: number, year: number) {
   return `${MONTH_NAMES[month - 1] ?? month} ${year}`;
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  { bg: '#fce7f3', color: '#be185d' },
+  { bg: '#ede9fe', color: '#6d28d9' },
+  { bg: '#dbeafe', color: '#1d4ed8' },
+  { bg: '#dcfce7', color: '#15803d' },
+  { bg: '#ffedd5', color: '#c2410c' },
+  { bg: '#fef9c3', color: '#a16207' },
+  { bg: '#e0f2fe', color: '#0369a1' },
+];
+function avatarColor(name: string) {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xff;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
 function exportToExcel(students: Student[], tabLabel: string) {
@@ -59,26 +60,84 @@ function exportToExcel(students: Student[], tabLabel: string) {
   XLSX.writeFile(wb, `students-${tabLabel.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
+const AGE_PALETTE: Record<number, { bg: string; color: string }> = {
+  2: { bg: '#fce7f3', color: '#9d174d' },
+  3: { bg: '#ffedd5', color: '#9a3412' },
+  4: { bg: '#fef9c3', color: '#854d0e' },
+  5: { bg: '#dcfce7', color: '#166534' },
+  6: { bg: '#dbeafe', color: '#1d4ed8' },
+};
+
+function AgeBadge({ age }: { age: number }) {
+  const { bg, color } = AGE_PALETTE[age] ?? { bg: '#f3f4f6', color: '#374151' };
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', background: bg, color, borderRadius: 6, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
+      {age}
+    </span>
+  );
+}
+
+const TAB_LABELS: Record<FilterTab, string> = {
+  active: 'Active', enrolled: 'Enrolled', graduated: 'Graduated', withdrawn: 'Withdrawn',
+};
+
+// Lifecycle stage metadata — accent is the pipeline indicator colour
+const LIFECYCLE_STAGES: { tab: FilterTab; label: string; accent: string; textColor: string }[] = [
+  { tab: 'enrolled',  label: 'Enrolled',  accent: '#d97706', textColor: '#92400e' },
+  { tab: 'active',    label: 'Active',    accent: '#059669', textColor: '#065f46' },
+  { tab: 'graduated', label: 'Graduated', accent: '#5a79c8', textColor: '#1e40af' },
+  { tab: 'withdrawn', label: 'Withdrawn', accent: '#64748b', textColor: '#334155' },
+];
+
+function actionBtn(variant: 'neutral' | 'red' | 'green'): React.CSSProperties {
+  const v = {
+    neutral: { border: '1px solid #e5e7eb', background: '#fff',    color: '#374151' },
+    red:     { border: '1px solid #fecaca', background: '#fff',    color: '#dc2626' },
+    green:   { border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#16a34a' },
+  }[variant];
+  return { padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: 'pointer', lineHeight: '1.5', ...v };
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-type SortKey = 'name' | 'age';
-type SortDir = 'asc' | 'desc';
-
 export default function StudentsPage() {
+  const { isMobile, isTablet } = useIsMobile();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<FilterTab>('active');
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [tab,              setTab]              = useState<FilterTab>('active');
+  const [search,           setSearch]           = useState('');
+  const [editingStudent,   setEditingStudent]   = useState<Student | null>(null);
   const [withdrawingStudent, setWithdrawingStudent] = useState<Student | null>(null);
-  const [withdrawDate, setWithdrawDate] = useState('');
-  const [withdrawReason, setWithdrawReason] = useState('');
+  const [withdrawDate,     setWithdrawDate]     = useState('');
+  const [withdrawReason,   setWithdrawReason]   = useState('');
   const [reactivatingStudent, setReactivatingStudent] = useState<Student | null>(null);
   const [viewingReasonStudent, setViewingReasonStudent] = useState<Student | null>(null);
-  const [groupBy, setGroupBy] = useState<'none' | 'programme' | 'age'>('none');
-  const [filterAge, setFilterAge] = useState<string>('all');
-  const [filterProgramme, setFilterProgramme] = useState<string>('all');
-  const [sortKey, setSortKey] = useState<SortKey>('age');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [page, setPage] = useState(1);
+  const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
+  const [groupBy,          setGroupBy]          = useState<'none' | 'programme' | 'age'>('none');
+  const [filterAge,        setFilterAge]        = useState<string>('all');
+  const [filterProgramme,  setFilterProgramme]  = useState<string>('all');
+  const [sortKey,          setSortKey]          = useState<SortKey>('age');
+  const [sortDir,          setSortDir]          = useState<SortDir>('asc');
+  const [page,             setPage]             = useState(1);
+  const [openMenuId,       setOpenMenuId]       = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const openMenu = useCallback((id: string, btnEl: HTMLButtonElement) => {
+    if (openMenuId === id) { setOpenMenuId(null); return; }
+    const rect = btnEl.getBoundingClientRect();
+    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    setOpenMenuId(id);
+  }, [openMenuId]);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (openMenuId && menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [openMenuId]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -86,74 +145,72 @@ export default function StudentsPage() {
     setPage(1);
   };
 
-  const { data: students = [], isPending, isError } = useQuery({
-    queryKey: ['students'],
-    queryFn: fetchStudents,
+  const { data: studentsData, isPending, isError } = useQuery({
+    queryKey: ['students', { pageSize: 1000 }],
+    queryFn: () => fetchStudents({ pageSize: 1000 }),
   });
-  const isLoading = isPending;
+  const students = studentsData?.items ?? [];
 
   const withdrawMutation = useMutation({
     mutationFn: ({ id, date, reason }: { id: string; date: string; reason: string }) =>
       withdrawStudent(id, { withdrawnAt: new Date(date).toISOString(), withdrawReason: reason || undefined }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData<Student[]>(['students'], (prev = []) =>
-        prev.map(s => s.id === updated.id ? updated : s)
-      );
-      setWithdrawingStudent(null);
-      setWithdrawDate('');
-      setWithdrawReason('');
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      setWithdrawingStudent(null); setWithdrawDate(''); setWithdrawReason('');
     },
   });
 
   const reactivateMutation = useMutation({
     mutationFn: (id: string) => reactivateStudent(id),
-    onSuccess: (updated) => {
-      queryClient.setQueryData<Student[]>(['students'], (prev = []) =>
-        prev.map(s => s.id === updated.id ? updated : s)
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
       setReactivatingStudent(null);
     },
   });
 
-  const tabFiltered = students.filter(s => {
-    if (tab === 'active') return isActive(s);
-    if (tab === 'enrolled') return isEnrolled(s);
-    if (tab === 'withdrawn') return isWithdrawn(s);
-    return isGraduated(s);
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteStudent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      setDeletingStudent(null);
+    },
   });
 
-  const allAges = [...new Set(tabFiltered.map(s => classAge(s)))].sort((a, b) => a - b);
+  const counts = {
+    active:    students.filter(s => s.status === 'active').length,
+    enrolled:  students.filter(s => s.status === 'enrolled').length,
+    graduated: students.filter(s => s.status === 'graduated').length,
+    withdrawn: students.filter(s => s.status === 'withdrawn').length,
+  };
+
+  const tabFiltered = students.filter(s => s.status === tab);
+
+  const allAges       = [...new Set(tabFiltered.map(s => calcAge(s.lead.childDob)))].sort((a, b) => a - b);
   const allProgrammes = [...new Set(tabFiltered.map(s => s.package.programme))].sort();
 
   const filtered = tabFiltered.filter(s => {
-    if (filterAge !== 'all' && classAge(s) !== Number(filterAge)) return false;
+    if (filterAge !== 'all' && calcAge(s.lead.childDob) !== Number(filterAge)) return false;
     if (filterProgramme !== 'all' && s.package.programme !== filterProgramme) return false;
+    if (search.trim() && !s.lead.childName.toLowerCase().includes(search.trim().toLowerCase())) return false;
     return true;
   });
 
-  const PAGE_SIZE = 15;
-
-  const sorted = [...filtered].sort((a, b) => {
-    const primary = sortKey === 'name'
-      ? a.lead.childName.localeCompare(b.lead.childName)
-      : classAge(a) - classAge(b);
-    const secondary = sortKey === 'name'
-      ? classAge(a) - classAge(b)
-      : a.lead.childName.localeCompare(b.lead.childName);
-    const dir = sortDir === 'asc' ? 1 : -1;
-    return primary !== 0 ? primary * dir : secondary;
+  const PAGE_SIZE  = 15;
+  const sorted     = [...filtered].sort((a, b) => {
+    const p = sortKey === 'name' ? a.lead.childName.localeCompare(b.lead.childName) : calcAge(a.lead.childDob) - calcAge(b.lead.childDob);
+    const s = sortKey === 'name' ? calcAge(a.lead.childDob) - calcAge(b.lead.childDob) : a.lead.childName.localeCompare(b.lead.childName);
+    const d = sortDir === 'asc' ? 1 : -1;
+    return p !== 0 ? p * d : s;
   });
-
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const paginated = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const safePage   = Math.min(page, totalPages);
+  const paginated  = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  // Group the paginated list into ordered sections
   const grouped: { label: string; rows: Student[] }[] = (() => {
     if (groupBy === 'none') return [{ label: '', rows: paginated }];
     const map = new Map<string, Student[]>();
     for (const s of paginated) {
-      const key = groupBy === 'programme' ? s.package.programme : `Age ${classAge(s)}`;
+      const key = groupBy === 'programme' ? s.package.programme : `Age ${calcAge(s.lead.childDob)}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(s);
     }
@@ -162,266 +219,568 @@ export default function StudentsPage() {
       .map(([label, rows]) => ({ label, rows }));
   })();
 
-  const counts = {
-    active: students.filter(isActive).length,
-    enrolled: students.filter(isEnrolled).length,
-    graduated: students.filter(isGraduated).length,
-    withdrawn: students.filter(isWithdrawn).length,
-  };
-
-  const handleSaved = (updated: Student) => {
-    queryClient.setQueryData<Student[]>(['students'], (prev = []) =>
-      prev.map(s => s.id === updated.id ? updated : s)
-    );
+  const handleSaved   = (_updated: Student) => {
+    queryClient.invalidateQueries({ queryKey: ['students'] });
     setEditingStudent(null);
   };
+  const handleTabSelect = (t: FilterTab) => {
+    setTab(t); setFilterAge('all'); setFilterProgramme('all'); setSearch(''); setPage(1);
+  };
 
-  const handleDeleted = (id: string) => {
-    queryClient.setQueryData<Student[]>(['students'], (prev = []) =>
-      prev.filter(s => s.id !== id)
-    );
-    setEditingStudent(null);
+  const currentStage = LIFECYCLE_STAGES.find(s => s.tab === tab)!;
+  const hasDateCol   = tab === 'active' || tab === 'enrolled' || tab === 'withdrawn';
+  const colCount     = hasDateCol ? 5 : 4;
+
+  const sel: React.CSSProperties = {
+    fontSize: 13, color: '#374151', padding: '5px 9px',
+    borderRadius: 6, border: '1px solid #e5e7eb',
+    background: '#fff', cursor: 'pointer', outline: 'none', appearance: 'auto' as any,
+  };
+
+  const th: React.CSSProperties = {
+    padding: '10px 16px 9px', textAlign: 'left', fontSize: 11, fontWeight: 600,
+    color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em',
+    borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap', userSelect: 'none',
+    background: '#fafafa',
+  };
+
+  const td: React.CSSProperties = {
+    padding: '10px 16px', verticalAlign: 'middle',
+    borderBottom: '1px solid #f3f4f6',
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.inner}>
-        <div style={styles.header}>
-          <h1 style={styles.heading}>Student List</h1>
-          <button
-            onClick={() => exportToExcel(sorted, tab.charAt(0).toUpperCase() + tab.slice(1))}
-            style={styles.exportBtn}
-            disabled={sorted.length === 0}
-          >
-            ↓ Export Excel
-          </button>
-        </div>
-        <div style={styles.tabs}>
-          {(['active', 'enrolled', 'graduated', 'withdrawn'] as FilterTab[]).map(t => {
-            const labels: Record<FilterTab, string> = {
-              active: 'Active',
-              enrolled: 'Enrolled',
-              graduated: 'Graduated',
-              withdrawn: 'Withdrawn',
-            };
-            return (
-              <button
-                key={t}
-                onClick={() => { setTab(t); setFilterAge('all'); setFilterProgramme('all'); setPage(1); }}
-                style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }}
-              >
-                {labels[t]}
-                <span style={{ ...styles.tabCount, ...(tab === t ? styles.tabCountActive : {}) }}>
-                  {counts[t]}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#f7f8fa', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif' }}>
+      <style>{`
+        .sp-row:hover td        { background: #f8fafc !important; }
+        .sp-edit-btn            { opacity: 0; transition: opacity 0.12s; pointer-events: none; }
+        .sp-row:hover .sp-edit-btn { opacity: 1; pointer-events: auto; }
+        .sp-dots-btn            { opacity: 0.35; transition: opacity 0.12s; }
+        .sp-row:hover .sp-dots-btn { opacity: 0.7; }
+        .sp-dots-btn:hover      { opacity: 1 !important; }
+        .sp-stage-btn:hover     { background: #f8fafc !important; }
+        .sp-th-sort             { cursor: pointer; }
+        .sp-th-sort:hover       { color: #374151 !important; }
+        .sp-search:focus        { border-color: #a5b4fc !important; background: #fff !important; outline: none; }
+        .sp-menu-item:hover     { background: #f3f4f6 !important; }
+      `}</style>
 
-        <div style={styles.toolbar}>
-          <div style={styles.toolbarGroup}>
-            <span style={styles.toolbarLabel}>Filter</span>
+      {/* ══ Zone 1 · Header ══════════════════════════════════════════════════ */}
+      <div style={{ background: '#fff', flexShrink: 0 }}>
+        <div style={{ padding: isMobile ? '22px 12px 0' : '22px 32px 0', maxWidth: 960, margin: '0 auto' }}>
+
+          {/* Title */}
+          <div style={{ marginBottom: 22 }}>
+            <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>
+              Students
+            </h1>
+          </div>
+
+          {/* ── Lifecycle pipeline ── */}
+          <div className="kc-no-scrollbar" style={{ display: 'flex', alignItems: 'stretch', ...(isMobile ? { overflowX: 'auto', justifyContent: 'flex-start' } : { justifyContent: 'center' }) }}>
+            {LIFECYCLE_STAGES.map((stage, idx) => {
+              const active = tab === stage.tab;
+              const isWd   = stage.tab === 'withdrawn';
+              return (
+                <React.Fragment key={stage.tab}>
+                  {/* Pipe separator before Withdrawn */}
+                  {isWd && (
+                    <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px 3px', color: '#e2e8f0', fontSize: 22, userSelect: 'none', lineHeight: 1 }}>
+                      |
+                    </div>
+                  )}
+                  {/* › between main stages */}
+                  {!isWd && idx > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', padding: '0 3px 3px', color: '#d1d5db', fontSize: 15, userSelect: 'none' }}>
+                      ›
+                    </div>
+                  )}
+                  <button
+                    className="sp-stage-btn"
+                    onClick={() => handleTabSelect(stage.tab)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                      gap: 3, padding: isMobile ? '6px 10px 10px' : '6px 16px 12px',
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      borderBottom: active ? `2px solid ${stage.accent}` : '2px solid transparent',
+                      marginBottom: -1, textAlign: 'left', flexShrink: 0,
+                    }}
+                  >
+                    <span style={{
+                      fontSize: isMobile ? 18 : 22, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.04em',
+                      color: active ? stage.accent : '#111827',
+                      transition: 'color 0.1s',
+                    }}>
+                      {counts[stage.tab]}
+                    </span>
+                    <span style={{
+                      fontSize: isMobile ? 9 : 10.5, fontWeight: 600, letterSpacing: '0.07em',
+                      textTransform: 'uppercase',
+                      color: active ? stage.accent : '#9ca3af',
+                      transition: 'color 0.1s',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {stage.label}
+                    </span>
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ══ Zone 2 · Toolbar ════════════════════════════════════════════════ */}
+      <div style={{ background: '#f7f8fa', padding: '10px 0', flexShrink: 0 }}>
+        <div style={{ maxWidth: 960, margin: '0 auto', padding: isMobile ? '0 12px' : '0 32px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          background: '#fff', border: '1px solid #e8eaed', borderRadius: 10,
+          padding: isMobile ? '10px 12px' : '7px 14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+          ...(isMobile ? { flexWrap: 'wrap' as const, gap: 8 } : {}),
+        }}>
+
+          {/* Search */}
+          <div style={{ position: 'relative', flexShrink: isMobile ? undefined : 0, ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"
+              style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#b0b8c8', pointerEvents: 'none' }}>
+              <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.6"/>
+              <path d="M10 10l3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+            </svg>
+            <input
+              className="sp-search"
+              type="text"
+              placeholder="Search students…"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              style={{
+                width: isMobile ? '100%' : 196, padding: '5px 10px 5px 30px', fontSize: 13,
+                borderRadius: 7, border: '1px solid #e8eaed',
+                color: '#111827', background: search ? '#fff' : '#f9fafb',
+                transition: 'border-color 0.15s, background 0.15s',
+                boxSizing: 'border-box' as const,
+              }}
+            />
+          </div>
+
+          {/* Divider */}
+          {!isMobile && <div style={{ width: 1, height: 18, background: '#e8eaed', margin: '0 6px', flexShrink: 0 }} />}
+
+          {/* Age filter */}
+          <div style={{ position: 'relative', flexShrink: 0, ...(isMobile ? { flex: 1 } : {}) }}>
             <select
               value={filterAge}
               onChange={e => { setFilterAge(e.target.value); setPage(1); }}
-              style={styles.toolbarSelect}
+              style={{
+                fontSize: 13, fontWeight: filterAge !== 'all' ? 600 : 400,
+                color: filterAge !== 'all' ? '#1d4ed8' : '#4b5563',
+                padding: '5px 26px 5px 10px', borderRadius: 6,
+                border: `1px solid ${filterAge !== 'all' ? '#bfdbfe' : '#e8eaed'}`,
+                background: filterAge !== 'all' ? '#eff6ff' : '#f9fafb',
+                cursor: 'pointer', outline: 'none', appearance: 'none' as any,
+                ...(isMobile ? { width: '100%' } : {}),
+              }}
             >
-              <option value="all">All Ages</option>
+              <option value="all">All ages</option>
               {allAges.map(a => <option key={a} value={a}>Age {a}</option>)}
             </select>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: filterAge !== 'all' ? '#3b82f6' : '#94a3b8', pointerEvents: 'none' }}>
+              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+
+          {/* Programme filter */}
+          <div style={{ position: 'relative', flexShrink: 0, ...(isMobile ? { flex: 1 } : {}) }}>
             <select
               value={filterProgramme}
               onChange={e => { setFilterProgramme(e.target.value); setPage(1); }}
-              style={styles.toolbarSelect}
+              style={{
+                fontSize: 13, fontWeight: filterProgramme !== 'all' ? 600 : 400,
+                color: filterProgramme !== 'all' ? '#1d4ed8' : '#4b5563',
+                padding: '5px 26px 5px 10px', borderRadius: 6,
+                border: `1px solid ${filterProgramme !== 'all' ? '#bfdbfe' : '#e8eaed'}`,
+                background: filterProgramme !== 'all' ? '#eff6ff' : '#f9fafb',
+                cursor: 'pointer', outline: 'none', appearance: 'none' as any,
+                ...(isMobile ? { width: '100%' } : {}),
+              }}
             >
-              <option value="all">All Programmes</option>
+              <option value="all">All programmes</option>
               {allProgrammes.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: filterProgramme !== 'all' ? '#3b82f6' : '#94a3b8', pointerEvents: 'none' }}>
+              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
-          <div style={styles.toolbarDivider} />
-          <div style={styles.toolbarGroup}>
-            <span style={styles.toolbarLabel}>Group by</span>
+
+          {/* Grouping filter */}
+          <div style={{ position: 'relative', flexShrink: 0, ...(isMobile ? { flex: 1 } : {}) }}>
             <select
               value={groupBy}
               onChange={e => setGroupBy(e.target.value as typeof groupBy)}
-              style={styles.toolbarSelect}
+              style={{
+                fontSize: 13, fontWeight: groupBy !== 'none' ? 600 : 400,
+                color: groupBy !== 'none' ? '#1d4ed8' : '#4b5563',
+                padding: '5px 26px 5px 10px', borderRadius: 6,
+                border: `1px solid ${groupBy !== 'none' ? '#bfdbfe' : '#e8eaed'}`,
+                background: groupBy !== 'none' ? '#eff6ff' : '#f9fafb',
+                cursor: 'pointer', outline: 'none', appearance: 'none' as any,
+                ...(isMobile ? { width: '100%' } : {}),
+              }}
             >
-              <option value="none">None</option>
-              <option value="programme">Programme</option>
-              <option value="age">Class Age</option>
+              <option value="none">No grouping</option>
+              <option value="programme">Group by programme</option>
+              <option value="age">Group by age</option>
             </select>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: groupBy !== 'none' ? '#3b82f6' : '#94a3b8', pointerEvents: 'none' }}>
+              <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
-          <div style={styles.toolbarDivider} />
-          <div style={styles.toolbarGroup}>
-            <span style={styles.toolbarLabel}>Sort by</span>
-            <select
-              value={sortKey}
-              onChange={e => { setSortKey(e.target.value as SortKey); setSortDir('asc'); }}
-              style={styles.toolbarSelect}
-            >
-              <option value="age">Age</option>
-              <option value="name">Name</option>
-            </select>
+
+          {!isMobile && <div style={{ flex: 1 }} />}
+
+          {/* Divider */}
+          {!isMobile && <div style={{ width: 1, height: 18, background: '#e8eaed', margin: '0 6px', flexShrink: 0 }} />}
+
+          {/* Sort */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, ...(isMobile ? { flex: 1 } : {}) }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Sort</span>
+            <div style={{ position: 'relative' }}>
+              <select
+                value={sortKey}
+                onChange={e => { setSortKey(e.target.value as SortKey); setSortDir('asc'); }}
+                style={{
+                  fontSize: 13, fontWeight: 500, color: '#374151',
+                  padding: '5px 26px 5px 10px', borderRadius: 6,
+                  border: '1px solid #e8eaed', background: '#f9fafb',
+                  cursor: 'pointer', outline: 'none', appearance: 'none' as any,
+                }}
+              >
+                <option value="age">Age</option>
+                <option value="name">Name</option>
+              </select>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }}>
+                <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
             <button
               onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-              style={styles.sortDirBtn}
               title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+              style={{
+                width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '1px solid #e8eaed', borderRadius: 6, background: '#f9fafb',
+                color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 700, lineHeight: 1,
+                flexShrink: 0,
+              }}
             >
               {sortDir === 'asc' ? '↑' : '↓'}
             </button>
           </div>
         </div>
-
-        {isLoading && <p style={styles.stateMsg}>Loading…</p>}
-        {isError && <p style={{ ...styles.stateMsg, color: '#e53e3e' }}>Failed to load students.</p>}
-
-        {!isLoading && !isError && filtered.length === 0 && (
-          <p style={styles.stateMsg}>
-            {students.length === 0 ? 'No students enrolled yet.' : `No ${tab} students.`}
-          </p>
-        )}
-
-        {filtered.length > 0 && (
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={{ ...styles.th, width: 40 }}>#</th>
-                  <th style={styles.th}>Name</th>
-                  <th style={{ ...styles.th, width: 80 }}>Age</th>
-                  <th style={styles.th}>Programme</th>
-                  {tab === 'withdrawn' && <th style={{ ...styles.th, width: 140 }}>Withdrawn Date</th>}
-                  <th style={{ ...styles.th, width: 160 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  let rowOffset = (safePage - 1) * PAGE_SIZE;
-                  return grouped.map(({ label, rows }) => (
-                  <React.Fragment key={label || '__all__'}>
-                    {label && (
-                      <tr>
-                        <td colSpan={tab === 'withdrawn' ? 6 : 5} style={styles.groupHeader}>{label} <span style={styles.groupCount}>{rows.length}</span></td>
-                      </tr>
-                    )}
-                    {rows.map((s) => {
-                  rowOffset += 1;
-                  const rowNum = rowOffset;
-                  const age = calcAge(s.lead.childDob);
-                  return (
-                    <tr key={s.id} style={styles.tr}>
-                      <td style={{ ...styles.td, color: '#a0aec0', fontSize: 12, textAlign: 'center' }}>{rowNum}</td>
-                      <td style={styles.td}>
-                        <span style={styles.name}>{s.lead.childName}</span>
-                        {s.notes && <div style={styles.noteText}>{s.notes}</div>}
-                      </td>
-                      <td style={styles.td}>
-                        <span style={ageBadgeStyle(age)}>Age {age}</span>
-                      </td>
-                      <td style={styles.td}>
-                        <span style={styles.pkgBadge}>{s.package.programme}</span>
-                      </td>
-                      {tab === 'withdrawn' && (
-                        <td style={{ ...styles.td, fontSize: 13, color: '#718096' }}>
-                          {s.withdrawnAt ? formatDate(s.withdrawnAt) : '—'}
-                        </td>
-                      )}
-                      <td style={{ ...styles.td, textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          {isWithdrawn(s) ? (
-                            <button onClick={() => setViewingReasonStudent(s)} style={styles.editBtn}>Reason</button>
-                          ) : (
-                            <button onClick={() => setEditingStudent(s)} style={styles.editBtn}>Edit</button>
-                          )}
-                          {isWithdrawn(s) ? (
-                            <button onClick={() => setReactivatingStudent(s)} style={styles.reactivateBtn}>Reactivate</button>
-                          ) : (
-                            <button onClick={() => {
-                              setWithdrawingStudent(s);
-                              setWithdrawDate(new Date().toISOString().split('T')[0]);
-                              setWithdrawReason('');
-                            }} style={styles.withdrawBtn}>Withdraw</button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                    })}
-                  </React.Fragment>
-                ));
-                })()}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {totalPages > 1 && (
-          <div style={styles.pagination}>
-            <button onClick={() => setPage(1)} disabled={safePage === 1} style={styles.pageBtn}>«</button>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} style={styles.pageBtn}>‹</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <button key={p} onClick={() => setPage(p)} style={{ ...styles.pageBtn, ...(p === safePage ? styles.pageBtnActive : {}) }}>{p}</button>
-            ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} style={styles.pageBtn}>›</button>
-            <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages} style={styles.pageBtn}>»</button>
-          </div>
-        )}
+        </div>
       </div>
+
+      {/* ══ Zone 3 · Body ═══════════════════════════════════════════════════ */}
+      <div style={{ flex: 1, padding: '18px 0 48px' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto', padding: isMobile ? '0 12px' : '0 32px' }}>
+
+        {/* Result label + Export */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10, paddingLeft: 1 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: currentStage.accent, flexShrink: 0, display: 'inline-block' }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: currentStage.textColor }}>{TAB_LABELS[tab]}</span>
+          <span style={{ fontSize: 13, color: '#d1d5db' }}>·</span>
+          <span style={{ fontSize: 13, color: '#64748b' }}>
+            {filtered.length} {filtered.length === 1 ? 'student' : 'students'}
+            {(search || filterAge !== 'all' || filterProgramme !== 'all') && ' — filtered'}
+          </span>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={() => exportToExcel(sorted, TAB_LABELS[tab])}
+            disabled={sorted.length === 0}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 12px', fontSize: 12, fontWeight: 500,
+              color: '#374151', background: '#fff',
+              border: '1px solid #d1d5db', borderRadius: 7,
+              cursor: sorted.length === 0 ? 'not-allowed' : 'pointer',
+              opacity: sorted.length === 0 ? 0.4 : 1,
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Export
+          </button>
+        </div>
+
+        {/* States */}
+        {isPending && (
+          <div style={{ padding: '80px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Loading…</div>
+        )}
+        {isError && (
+          <div style={{ padding: '80px 0', textAlign: 'center', color: '#ef4444', fontSize: 13 }}>Failed to load students.</div>
+        )}
+        {!isPending && !isError && filtered.length === 0 && (
+          <div style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 10, padding: '72px 0', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#374151' }}>
+              No {TAB_LABELS[tab].toLowerCase()} students
+            </p>
+            {(filterAge !== 'all' || filterProgramme !== 'all' || search) && (
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8' }}>Adjust your filters or search.</p>
+            )}
+          </div>
+        )}
+
+        {/* ── Table / Cards ── */}
+        {!isPending && !isError && filtered.length > 0 && isMobile && (
+          /* ── Mobile: Card layout ── */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {grouped.map(({ label, rows }) => (
+              <React.Fragment key={label || '__all__'}>
+                {label && (
+                  <div style={{
+                    padding: '8px 0 4px', fontSize: 11, fontWeight: 700,
+                    color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>
+                    {label}
+                    <span style={{ marginLeft: 8, fontWeight: 500, color: '#9ca3af', textTransform: 'none', letterSpacing: 0 }}>{rows.length}</span>
+                  </div>
+                )}
+                {rows.map(s => {
+                  const age = calcAge(s.lead.childDob);
+                  const av  = avatarColor(s.lead.childName);
+                  return (
+                    <div key={s.id} style={{
+                      background: '#fff', border: '1px solid #e8eaed', borderRadius: 10,
+                      padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
+                    }}>
+                      {/* Top row: avatar + name + menu */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                          background: av.bg, color: av.color,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 800, letterSpacing: '0.02em',
+                        }}>
+                          {initials(s.lead.childName)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.01em' }}>
+                            {s.lead.childName}
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openMenu(s.id, e.currentTarget); }}
+                          style={{
+                            width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: '1px solid #e8eaed', background: '#f9fafb', cursor: 'pointer', borderRadius: 8,
+                            color: '#64748b', fontSize: 14, flexShrink: 0,
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faEllipsisVertical} />
+                        </button>
+                      </div>
+                      {/* Info row */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 12, color: '#64748b' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <AgeBadge age={age} />
+                        </span>
+                        <span>{s.package.programme}</span>
+                        <span style={{ color: '#94a3b8' }}>
+                          {formatDate(s.lead.childDob)}
+                        </span>
+                        {(tab === 'active' || tab === 'enrolled') && (
+                          <span style={{ color: '#94a3b8' }}>
+                            Enrolled {formatEnrolmentMonth(s.enrolmentMonth, s.enrolmentYear)}
+                          </span>
+                        )}
+                        {tab === 'withdrawn' && (
+                          <span style={{ color: '#94a3b8' }}>
+                            Withdrawn {s.withdrawnAt ? formatDate(s.withdrawnAt) : '—'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+        {!isPending && !isError && filtered.length > 0 && !isMobile && (
+          /* ── Tablet / Desktop: Table layout ── */
+          <div style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ overflowX: isTablet ? 'auto' : undefined }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', ...(isTablet ? { minWidth: 700 } : {}) }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...th, paddingLeft: 20, width: '35%' }}>
+                      <span className="sp-th-sort" onClick={() => toggleSort('name')}
+                        style={sortKey === 'name' ? { color: '#374151' } : {}}>
+                        Name {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </span>
+                    </th>
+                    <th style={{ ...th, width: 72 }}>
+                      <span className="sp-th-sort" onClick={() => toggleSort('age')}
+                        style={sortKey === 'age' ? { color: '#374151' } : {}}>
+                        Age {sortKey === 'age' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      </span>
+                    </th>
+                    <th style={th}>Programme</th>
+                    {(tab === 'active' || tab === 'enrolled') && <th style={{ ...th, width: 120 }}>Enrolment</th>}
+                    {tab === 'withdrawn'                       && <th style={{ ...th, width: 130 }}>Withdrawn</th>}
+                    <th style={{ ...th, width: 148, paddingRight: 20 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => grouped.map(({ label, rows }) => (
+                    <React.Fragment key={label || '__all__'}>
+                      {label && (
+                        <tr>
+                          <td colSpan={colCount} style={{
+                            padding: '8px 20px 6px', fontSize: 11, fontWeight: 700,
+                            color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em',
+                            background: '#f8fafc', borderBottom: '1px solid #f3f4f6',
+                          }}>
+                            {label}
+                            <span style={{ marginLeft: 8, fontWeight: 500, color: '#9ca3af', textTransform: 'none', letterSpacing: 0 }}>{rows.length}</span>
+                          </td>
+                        </tr>
+                      )}
+                      {rows.map(s => {
+                        const age = calcAge(s.lead.childDob);
+                        const av  = avatarColor(s.lead.childName);
+                        return (
+                          <tr key={s.id} className="sp-row">
+                            {/* Name + avatar */}
+                            <td style={{ ...td, paddingLeft: 20 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{
+                                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                                  background: av.bg, color: av.color,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontSize: 10.5, fontWeight: 800, letterSpacing: '0.02em',
+                                }}>
+                                  {initials(s.lead.childName)}
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.01em' }}>
+                                    {s.lead.childName}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Age */}
+                            <td style={td}><AgeBadge age={age} /></td>
+
+                            {/* Programme — plain text, no badge */}
+                            <td style={{ ...td, fontSize: 13, color: '#374151' }}>{s.package.programme}</td>
+
+                            {/* Enrolment / Withdrawn date */}
+                            {(tab === 'active' || tab === 'enrolled') && (
+                              <td style={{ ...td, fontSize: 13, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                                {formatEnrolmentMonth(s.enrolmentMonth, s.enrolmentYear)}
+                              </td>
+                            )}
+                            {tab === 'withdrawn' && (
+                              <td style={{ ...td, fontSize: 13, color: '#94a3b8' }}>
+                                {s.withdrawnAt ? formatDate(s.withdrawnAt) : '—'}
+                              </td>
+                            )}
+
+                            {/* Actions */}
+                            <td style={{ ...td, paddingRight: 20 }}>
+                              <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
+                                {/* Edit — visible on row hover only (not for withdrawn) */}
+                                {s.status !== 'withdrawn' && (
+                                  <button
+                                    className="sp-edit-btn"
+                                    onClick={() => setEditingStudent(s)}
+                                    style={actionBtn('neutral')}
+                                  >
+                                    <FontAwesomeIcon icon={faPen} style={{ fontSize: 10, marginRight: 4 }} />
+                                    Edit
+                                  </button>
+                                )}
+
+                                {/* Three-dot overflow menu — always visible */}
+                                <button
+                                  className="sp-dots-btn"
+                                  onClick={(e) => { e.stopPropagation(); openMenu(s.id, e.currentTarget); }}
+                                  style={{
+                                    width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    border: 'none', background: 'none', cursor: 'pointer', borderRadius: 6,
+                                    color: '#64748b', fontSize: 14,
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faEllipsisVertical} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  )))()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center', marginTop: 20 }}>
+            <button onClick={() => setPage(1)}                                     disabled={safePage === 1}           style={pgBtn(false)}>«</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))}              disabled={safePage === 1}           style={pgBtn(false)}>‹</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button key={p} onClick={() => setPage(p)} style={pgBtn(p === safePage)}>{p}</button>
+            ))}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} style={pgBtn(false)}>›</button>
+            <button onClick={() => setPage(totalPages)}                        disabled={safePage === totalPages} style={pgBtn(false)}>»</button>
+          </div>
+        )}
+        </div>
+      </div>
+
+      {/* ══ Modals ══════════════════════════════════════════════════════════ */}
 
       {editingStudent && (
         <EditStudentModal
           student={editingStudent}
           onClose={() => setEditingStudent(null)}
           onSaved={handleSaved}
-          onDeleted={handleDeleted}
         />
       )}
 
       {withdrawingStudent && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalBox}>
-            <h3 style={styles.modalTitle}>Withdraw Student</h3>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4a5568' }}>
+        <div style={overlayStyle}>
+          <div style={modalStyle}>
+            <h3 style={mTitle}>Withdraw Student</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4b5563' }}>
               <strong>{withdrawingStudent.lead.childName}</strong> · {withdrawingStudent.package.name}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <label style={styles.modalLabel}>
+              <label style={mLabel}>
                 Withdrawal Date
-                <input
-                  type="date"
-                  value={withdrawDate}
-                  onChange={e => setWithdrawDate(e.target.value)}
-                  style={styles.modalInput}
-                  required
-                />
+                <input type="date" value={withdrawDate} onChange={e => setWithdrawDate(e.target.value)} style={mInput} required />
               </label>
-              <label style={styles.modalLabel}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  Reason <span style={{ fontWeight: 400, color: '#a0aec0' }}>(optional)</span>
-                </div>
-                <textarea
-                  value={withdrawReason}
-                  onChange={e => setWithdrawReason(e.target.value)}
-                  style={{ ...styles.modalInput, height: 72, resize: 'vertical' as const }}
-                  placeholder="e.g. moving overseas, financial reasons…"
-                />
+              <label style={mLabel}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  Reason <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span>
+                </span>
+                <textarea value={withdrawReason} onChange={e => setWithdrawReason(e.target.value)} style={{ ...mInput, height: 72, resize: 'vertical' }} placeholder="e.g. moving overseas, financial reasons…" />
               </label>
             </div>
-            <div style={{ ...styles.modalActions, marginTop: 20 }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+              <button onClick={() => { setWithdrawingStudent(null); setWithdrawDate(''); setWithdrawReason(''); }} style={mCancel} disabled={withdrawMutation.isPending}>Cancel</button>
               <button
-                onClick={() => { setWithdrawingStudent(null); setWithdrawDate(''); setWithdrawReason(''); }}
-                style={styles.modalCancelBtn}
-                disabled={withdrawMutation.isPending}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  if (!withdrawDate) return;
-                  withdrawMutation.mutate({ id: withdrawingStudent.id, date: withdrawDate, reason: withdrawReason });
-                }}
-                style={styles.modalConfirmBtn}
+                onClick={() => { if (!withdrawDate) return; withdrawMutation.mutate({ id: withdrawingStudent.id, date: withdrawDate, reason: withdrawReason }); }}
+                style={{ ...mAction, background: '#dc2626' }}
                 disabled={withdrawMutation.isPending || !withdrawDate}
               >
                 {withdrawMutation.isPending ? 'Withdrawing…' : 'Confirm Withdraw'}
@@ -432,203 +791,140 @@ export default function StudentsPage() {
       )}
 
       {viewingReasonStudent && (
-        <div style={styles.modalOverlay} onClick={() => setViewingReasonStudent(null)}>
-          <div style={styles.modalBox} onClick={e => e.stopPropagation()}>
-            <h3 style={styles.modalTitle}>Withdrawal Details</h3>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4a5568' }}>
+        <div style={overlayStyle} onClick={() => setViewingReasonStudent(null)}>
+          <div style={modalStyle} onClick={e => e.stopPropagation()}>
+            <h3 style={mTitle}>Withdrawal Details</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4b5563' }}>
               <strong>{viewingReasonStudent.lead.childName}</strong> · {viewingReasonStudent.package.name}
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#718096', marginBottom: 4 }}>Withdrawn Date</div>
-                <div style={{ fontSize: 14, color: '#2d3748' }}>
-                  {viewingReasonStudent.withdrawnAt ? formatDate(viewingReasonStudent.withdrawnAt) : '—'}
-                </div>
+                <div style={mFieldLabel}>Withdrawn Date</div>
+                <div style={{ fontSize: 14, color: '#111827' }}>{viewingReasonStudent.withdrawnAt ? formatDate(viewingReasonStudent.withdrawnAt) : '—'}</div>
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#718096', marginBottom: 4 }}>Reason</div>
-                <div style={{ fontSize: 14, color: viewingReasonStudent.withdrawReason ? '#2d3748' : '#a0aec0', fontStyle: viewingReasonStudent.withdrawReason ? 'normal' : 'italic' }}>
+                <div style={mFieldLabel}>Reason</div>
+                <div style={{ fontSize: 14, color: viewingReasonStudent.withdrawReason ? '#111827' : '#9ca3af', fontStyle: viewingReasonStudent.withdrawReason ? 'normal' : 'italic' }}>
                   {viewingReasonStudent.withdrawReason ?? 'No reason provided'}
                 </div>
               </div>
             </div>
-            <div style={{ ...styles.modalActions, marginTop: 20 }}>
-              <button onClick={() => setViewingReasonStudent(null)} style={styles.modalCancelBtn}>Close</button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+              <button onClick={() => setViewingReasonStudent(null)} style={mCancel}>Close</button>
             </div>
           </div>
         </div>
       )}
 
       {reactivatingStudent && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalBox}>
-            <h3 style={styles.modalTitle}>Reactivate Student</h3>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4a5568' }}>
+        <div style={overlayStyle}>
+          <div style={modalStyle}>
+            <h3 style={mTitle}>Reactivate Student</h3>
+            <p style={{ margin: '0 0 10px', fontSize: 14, color: '#4b5563' }}>
               <strong>{reactivatingStudent.lead.childName}</strong> · {reactivatingStudent.package.name}
             </p>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4a5568' }}>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#6b7280' }}>
               This will restore the student to active status and clear the withdrawal record.
             </p>
-            <div style={{ ...styles.modalActions }}>
-              <button
-                onClick={() => setReactivatingStudent(null)}
-                style={styles.modalCancelBtn}
-                disabled={reactivateMutation.isPending}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => reactivateMutation.mutate(reactivatingStudent.id)}
-                style={styles.modalReactivateBtn}
-                disabled={reactivateMutation.isPending}
-              >
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setReactivatingStudent(null)} style={mCancel} disabled={reactivateMutation.isPending}>Cancel</button>
+              <button onClick={() => reactivateMutation.mutate(reactivatingStudent.id)} style={{ ...mAction, background: '#16a34a' }} disabled={reactivateMutation.isPending}>
                 {reactivateMutation.isPending ? 'Reactivating…' : 'Yes, Reactivate'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {deletingStudent && (
+        <div style={overlayStyle} onClick={() => setDeletingStudent(null)}>
+          <div style={modalStyle} onClick={e => e.stopPropagation()}>
+            <h3 style={mTitle}>Delete Student</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4b5563' }}>
+              Permanently delete <strong>{deletingStudent.lead.childName}</strong>? This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeletingStudent(null)} style={mCancel} disabled={deleteMutation.isPending}>Cancel</button>
+              <button onClick={() => deleteMutation.mutate(deletingStudent.id)} style={{ ...mAction, background: '#dc2626' }} disabled={deleteMutation.isPending}>
+                {deleteMutation.isPending ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Portal-rendered overflow menu (avoids table overflow clipping) */}
+      {openMenuId && (() => {
+        const s = students.find(st => st.id === openMenuId);
+        if (!s) return null;
+        return createPortal(
+          <div ref={menuRef} style={{
+            position: 'fixed', top: menuPos.top, right: menuPos.right,
+            background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 160, zIndex: 300,
+            padding: '4px 0', overflow: 'hidden',
+          }}>
+            {s.status === 'withdrawn' ? (
+              <>
+                <button className="sp-menu-item" onClick={() => { setViewingReasonStudent(s); setOpenMenuId(null); }} style={menuItemStyle}>
+                  <FontAwesomeIcon icon={faCircleInfo} style={{ width: 14, color: '#64748b' }} /> View Reason
+                </button>
+                <button className="sp-menu-item" onClick={() => { setReactivatingStudent(s); setOpenMenuId(null); }} style={{ ...menuItemStyle, color: '#16a34a' }}>
+                  <FontAwesomeIcon icon={faArrowRotateLeft} style={{ width: 14 }} /> Reactivate
+                </button>
+                <div style={{ height: 1, background: '#f3f4f6', margin: '4px 0' }} />
+                <button className="sp-menu-item" onClick={() => { setDeletingStudent(s); setOpenMenuId(null); }} style={{ ...menuItemStyle, color: '#dc2626' }}>
+                  <FontAwesomeIcon icon={faTrash} style={{ width: 14 }} /> Delete
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="sp-menu-item" onClick={() => { setEditingStudent(s); setOpenMenuId(null); }} style={menuItemStyle}>
+                  <FontAwesomeIcon icon={faPen} style={{ width: 14, color: '#64748b' }} /> Edit Student
+                </button>
+                <div style={{ height: 1, background: '#f3f4f6', margin: '4px 0' }} />
+                <button className="sp-menu-item" onClick={() => { setWithdrawingStudent(s); setWithdrawDate(new Date().toISOString().split('T')[0]); setWithdrawReason(''); setOpenMenuId(null); }} style={{ ...menuItemStyle, color: '#dc2626' }}>
+                  <FontAwesomeIcon icon={faRightFromBracket} style={{ width: 14 }} /> Withdraw
+                </button>
+              </>
+            )}
+          </div>,
+          document.body,
+        );
+      })()}
     </div>
   );
 }
 
-const AGE_PALETTE: Record<number, { bg: string; color: string }> = {
-  2: { bg: '#fed7e2', color: '#97266d' },
-  3: { bg: '#feebc8', color: '#c05621' },
-  4: { bg: '#fefcbf', color: '#744210' },
-  5: { bg: '#c6f6d5', color: '#276749' },
-  6: { bg: '#bee3f8', color: '#2c5282' },
-};
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function ageBadgeStyle(age: number): React.CSSProperties {
-  const { bg, color } = AGE_PALETTE[age] ?? { bg: '#e2e8f0', color: '#4a5568' };
+function pgBtn(active: boolean): React.CSSProperties {
   return {
-    display: 'inline-block', padding: '2px 9px', background: bg, color,
-    borderRadius: 10, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' as const,
+    minWidth: 30, padding: '5px 9px', borderRadius: 6,
+    border: active ? '1px solid #5a79c8' : '1px solid #e5e7eb',
+    background: active ? '#5a79c8' : '#fff',
+    color: active ? '#fff' : '#374151',
+    cursor: 'pointer', fontSize: 13, fontWeight: 500,
   };
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  page: { padding: '32px 24px', fontFamily: 'system-ui, sans-serif', display: 'flex', justifyContent: 'center' },
-  inner: { width: '100%', maxWidth: 960 },
-  header: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, justifyContent: 'space-between' },
-  heading: { margin: 0, fontSize: 24 },
-  exportBtn: {
-    padding: '7px 16px', fontSize: 13, fontWeight: 600,
-    background: '#fff', color: '#2d3748',
-    border: '1px solid #e2e8f0', borderRadius: 8,
-    cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-  },
-  tabs: { display: 'flex', gap: 8, marginBottom: 24 },
-  tab: {
-    display: 'flex', alignItems: 'center', gap: 7,
-    padding: '7px 18px', borderRadius: 8, border: '1px solid #e2e8f0',
-    background: '#f7fafc', color: '#4a5568', cursor: 'pointer',
-    fontSize: 14, fontWeight: 600,
-  },
-  tabActive: {
-    background: '#2b6cb0', color: '#fff', border: '1px solid #2b6cb0',
-  },
-  tabCount: {
-    display: 'inline-block', minWidth: 20, padding: '1px 7px',
-    background: '#e2e8f0', color: '#4a5568',
-    borderRadius: 10, fontSize: 12, fontWeight: 700, textAlign: 'center' as const,
-  },
-  tabCountActive: { background: 'rgba(255,255,255,0.25)', color: '#fff' },
-  toolbar: {
-    display: 'flex', alignItems: 'center', gap: 0, marginBottom: 20,
-    background: '#f7fafc', border: '1px solid #e2e8f0',
-    borderRadius: 10, padding: '8px 16px', width: 'fit-content',
-  },
-  toolbarGroup: { display: 'flex', alignItems: 'center', gap: 8 },
-  toolbarDivider: { width: 1, height: 20, background: '#e2e8f0', margin: '0 16px' },
-  toolbarLabel: { fontSize: 12, fontWeight: 600, color: '#718096', whiteSpace: 'nowrap' as const },
-  toolbarSelect: {
-    fontSize: 13, fontWeight: 600, color: '#2d3748',
-    padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0',
-    background: '#fff', cursor: 'pointer', outline: 'none',
-  },
-  sortDirBtn: {
-    fontSize: 13, fontWeight: 700, color: '#2b6cb0',
-    padding: '4px 8px', borderRadius: 6, border: '1px solid #bee3f8',
-    background: '#ebf8ff', cursor: 'pointer', lineHeight: 1,
-  },
-  groupHeader: {
-    padding: '8px 14px', background: '#f7fafc', fontWeight: 700, fontSize: 13,
-    color: '#2d3748', borderTop: '2px solid #e2e8f0', borderBottom: '1px solid #e2e8f0',
-  },
-  groupCount: {
-    display: 'inline-block', marginLeft: 6, padding: '1px 8px', background: '#e2e8f0',
-    color: '#4a5568', borderRadius: 10, fontSize: 12, fontWeight: 700,
-  },
-  stateMsg: { color: '#718096', textAlign: 'center', marginTop: 48, fontSize: 15 },
-  tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: {
-    textAlign: 'left', padding: '10px 14px', borderBottom: '2px solid #e2e8f0',
-    background: '#f7fafc', fontWeight: 700, fontSize: 13, color: '#4a5568', whiteSpace: 'nowrap' as const,
-  },
-  tr: { borderBottom: '1px solid #edf2f7' },
-  td: { padding: '12px 14px', verticalAlign: 'middle', fontSize: 14 },
-  name: { fontWeight: 600, color: '#2d3748', fontSize: 14 },
-  subText: { fontSize: 12, color: '#718096', marginTop: 3 },
-  noteText: { fontSize: 12, color: '#a0aec0', marginTop: 2, fontStyle: 'italic' },
-  pkgBadge: {
-    display: 'inline-block', padding: '3px 10px', background: '#ebf8ff', color: '#2b6cb0',
-    border: '1px solid #bee3f8', borderRadius: 10, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' as const,
-  },
-  yearBadge: {
-    display: 'inline-block', padding: '2px 10px', background: '#f0fff4', color: '#276749',
-    border: '1px solid #9ae6b4', borderRadius: 10, fontSize: 12, fontWeight: 700,
-  },
-  editBtn: {
-    background: 'none', border: '1px solid #bee3f8', color: '#2b6cb0',
-    cursor: 'pointer', fontSize: 12, fontWeight: 600,
-    padding: '3px 10px', borderRadius: 6,
-  },
-  withdrawBtn: {
-    background: 'none', border: '1px solid #fc8181', color: '#c53030',
-    cursor: 'pointer', fontSize: 12, fontWeight: 600,
-    padding: '3px 10px', borderRadius: 6,
-  },
-  reactivateBtn: {
-    background: 'none', border: '1px solid #9ae6b4', color: '#276749',
-    cursor: 'pointer', fontSize: 12, fontWeight: 600,
-    padding: '3px 10px', borderRadius: 6,
-  },
-  modalOverlay: {
-    position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.45)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-  },
-  modalBox: {
-    background: '#fff', borderRadius: 12, padding: '28px 32px',
-    maxWidth: 420, width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-  },
-  modalTitle: { margin: '0 0 12px', fontSize: 18, fontWeight: 700, color: '#2d3748' },
-  modalActions: { display: 'flex', gap: 10, justifyContent: 'flex-end' },
-  modalLabel: { display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568' },
-  modalInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14, color: '#2d3748', background: '#fff', width: '100%', boxSizing: 'border-box' as const },
-  modalCancelBtn: {
-    padding: '8px 20px', borderRadius: 8, border: '1px solid #e2e8f0',
-    background: '#f7fafc', color: '#4a5568', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-  },
-  modalConfirmBtn: {
-    padding: '8px 20px', borderRadius: 8, border: 'none',
-    background: '#e53e3e', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-  },
-  modalReactivateBtn: {
-    padding: '8px 20px', borderRadius: 8, border: 'none',
-    background: '#38a169', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-  },
-  pagination: {
-    display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center', marginTop: 20,
-  },
-  pageBtn: {
-    minWidth: 32, padding: '5px 10px', borderRadius: 6, border: '1px solid #e2e8f0',
-    background: '#f7fafc', color: '#4a5568', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-  },
-  pageBtnActive: {
-    background: '#2b6cb0', color: '#fff', border: '1px solid #2b6cb0',
-  },
+const overlayStyle: React.CSSProperties = {
+  position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
 };
-
+const modalStyle: React.CSSProperties = {
+  background: '#fff', borderRadius: 12, padding: '28px 32px',
+  maxWidth: 420, width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
+};
+const mTitle: React.CSSProperties       = { margin: '0 0 12px', fontSize: 17, fontWeight: 700, color: '#111827' };
+const mLabel: React.CSSProperties       = { display: 'flex', flexDirection: 'column', gap: 5, fontSize: 13, fontWeight: 600, color: '#374151' };
+const mInput: React.CSSProperties       = { padding: '8px 10px', borderRadius: 7, border: '1px solid #e5e7eb', fontSize: 14, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box' };
+const mCancel: React.CSSProperties      = { padding: '8px 18px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 500 };
+const mAction: React.CSSProperties      = { padding: '8px 18px', borderRadius: 7, border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 };
+const mFieldLabel: React.CSSProperties  = { fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 };
+const menuItemStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+  padding: '8px 14px', border: 'none', background: 'none',
+  fontSize: 13, fontWeight: 500, color: '#374151', cursor: 'pointer',
+  textAlign: 'left',
+};

@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSettings, patchSetting } from '../api/settings.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPen, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
 
 const PINNED_REASON = "Didn't attend the enquiry";
 
@@ -113,10 +115,10 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
               <span style={reasonStyles.text}>{item}</span>
             )}
             {isAdmin && editingIdx !== idx && (
-              <button onClick={() => startEdit(idx)} style={reasonStyles.editBtn} title="Rename">✎</button>
+              <button onClick={() => startEdit(idx)} style={reasonStyles.editBtn} title="Rename"><FontAwesomeIcon icon={faPen} /></button>
             )}
             {isAdmin && editingIdx !== idx && (
-              <button onClick={() => removeItem(idx)} style={reasonStyles.removeBtn} title="Remove">✕</button>
+              <button onClick={() => removeItem(idx)} style={reasonStyles.removeBtn} title="Remove"><FontAwesomeIcon icon={faXmark} /></button>
             )}
           </div>
         ))}
@@ -136,7 +138,7 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
           </div>
           {error && <p style={styles.error}>{error}</p>}
           <button onClick={handleSave} disabled={saving} style={{ ...(saved ? styles.savedBtn : styles.saveBtn), marginTop: 12 }}>
-            {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save'}
+            {saving ? 'Saving…' : saved ? <>Saved <FontAwesomeIcon icon={faCheck} /></> : 'Save'}
           </button>
         </>
       )}

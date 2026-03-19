@@ -6,162 +6,34 @@ import {
   fetchPackageYears,
   createPackage,
   deletePackage,
-  patchPackageName,
-  updateProgrammes,
-  updateAges,
+  patchPackage,
 } from '../api/packages.js';
 import { Package } from '../types/index.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPen, faTrash, faCheck, faPlus, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-// ── Programme row item with original name tracking ────────────────────────────
+const AGE_COLORS: { bg: string; color: string; border: string }[] = [
+  { bg: '#dcfce7', color: '#166534', border: '#bbf7d0' },
+  { bg: '#dbeafe', color: '#1e40af', border: '#bfdbfe' },
+  { bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
+  { bg: '#fce7f3', color: '#9d174d', border: '#fbcfe8' },
+  { bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe' },
+  { bg: '#ccfbf1', color: '#115e59', border: '#99f6e4' },
+  { bg: '#fee2e2', color: '#991b1b', border: '#fecaca' },
+];
 
-interface ProgItem { original: string | null; current: string; }
-
-function ProgrammesEditor({ programmes, onSaved }: { programmes: string[]; onSaved: () => void }) {
-  const [items, setItems] = useState<ProgItem[]>(() => programmes.map((p) => ({ original: p, current: p })));
-  const [newName, setNewName] = useState('');
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [editingValue, setEditingValue] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => { setItems(programmes.map((p) => ({ original: p, current: p }))); }, [programmes]);
-
-  const addItem = () => {
-    const trimmed = newName.trim();
-    if (!trimmed || items.some((i) => i.current === trimmed)) return;
-    setItems((prev) => [...prev, { original: null, current: trimmed }]);
-    setNewName(''); setSaved(false);
-  };
-
-  const removeItem = (idx: number) => { setItems((prev) => prev.filter((_, i) => i !== idx)); setSaved(false); };
-
-  const startEdit = (idx: number) => { setEditingIdx(idx); setEditingValue(items[idx].current); };
-
-  const commitEdit = () => {
-    if (editingIdx === null) return;
-    const trimmed = editingValue.trim();
-    if (trimmed && !items.some((i, idx) => i.current === trimmed && idx !== editingIdx)) {
-      setItems((prev) => prev.map((item, i) => i === editingIdx ? { ...item, current: trimmed } : item));
-      setSaved(false);
-    }
-    setEditingIdx(null);
-  };
-
-  const handleSave = async () => {
-    setSaving(true); setError('');
-    try {
-      const renames: { from: string; to: string }[] = [];
-      const add: string[] = [];
-      const remove: string[] = [];
-      for (const item of items) {
-        if (item.original === null) add.push(item.current);
-        else if (item.original !== item.current) renames.push({ from: item.original, to: item.current });
-      }
-      for (const orig of programmes) {
-        if (!items.some((i) => i.original === orig)) remove.push(orig);
-      }
-      await updateProgrammes({ renames, add, remove });
-      setSaved(true); onSaved();
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Save failed'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div style={s.card}>
-      <div style={s.label}>Programmes</div>
-      <p style={s.desc}>Renaming or deleting cascades to package assignments.</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-        {items.map((item, idx) => (
-          <div key={idx} style={ls.row}>
-            {editingIdx === idx ? (
-              <input autoFocus style={{ ...s.input, flex: 1, padding: '4px 8px', fontSize: 13 }} value={editingValue}
-                onChange={(e) => setEditingValue(e.target.value)}
-                onBlur={commitEdit} onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingIdx(null); }} />
-            ) : (
-              <span style={ls.text}>
-                {item.current}
-                {item.original !== null && item.original !== item.current && <span style={ls.renameBadge}>was: {item.original}</span>}
-                {item.original === null && <span style={ls.newBadge}>new</span>}
-              </span>
-            )}
-            {editingIdx !== idx && <>
-              <button onClick={() => startEdit(idx)} style={ls.iconBtn} title="Rename">✎</button>
-              <button onClick={() => removeItem(idx)} style={ls.removeBtn} title="Delete">✕</button>
-            </>}
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <input style={{ ...s.input, flex: 1 }} placeholder="New programme name…" value={newName}
-          onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addItem()} />
-        <button onClick={addItem} style={ls.addBtn} disabled={!newName.trim()}>Add</button>
-      </div>
-      {error && <p style={s.error}>{error}</p>}
-      <button onClick={handleSave} disabled={saving} style={{ ...(saved ? s.savedBtn : s.saveBtn), marginTop: 12 }}>
-        {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save'}
-      </button>
-    </div>
-  );
-}
-
-// ── Ages Editor ───────────────────────────────────────────────────────────────
-
-function AgesEditor({ ages, onSaved }: { ages: number[]; onSaved: () => void }) {
-  const [items, setItems] = useState<number[]>(ages);
-  const [newAge, setNewAge] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => { setItems(ages); }, [ages]);
-
-  const addItem = () => {
-    const val = parseInt(newAge, 10);
-    if (isNaN(val) || val < 0 || items.includes(val)) return;
-    setItems((prev) => [...prev, val].sort((a, b) => a - b));
-    setNewAge(''); setSaved(false);
-  };
-
-  const handleSave = async () => {
-    setSaving(true); setError('');
-    try {
-      const add = items.filter((a) => !ages.includes(a));
-      const remove = ages.filter((a) => !items.includes(a));
-      await updateAges({ add, remove });
-      setSaved(true); onSaved();
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Save failed'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div style={s.card}>
-      <div style={s.label}>Age Groups</div>
-      <p style={s.desc}>Removing an age group deletes all its package assignments.</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-        {items.map((age) => (
-          <div key={age} style={ls.agePill}>
-            <span style={{ fontWeight: 600 }}>Age {age}</span>
-            <button onClick={() => { setItems((prev) => prev.filter((a) => a !== age)); setSaved(false); }} style={ls.agePillRemove}>✕</button>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <input style={{ ...s.input, width: 80 }} type="text" placeholder="Age…" value={newAge}
-          onChange={(e) => setNewAge(e.target.value.replace(/\D/g, ''))} onKeyDown={(e) => e.key === 'Enter' && addItem()} />
-        <button onClick={addItem} style={ls.addBtn} disabled={!newAge.trim()}>Add</button>
-      </div>
-      {error && <p style={s.error}>{error}</p>}
-      <button onClick={handleSave} disabled={saving} style={{ ...(saved ? s.savedBtn : s.saveBtn), marginTop: 12 }}>
-        {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save'}
-      </button>
-    </div>
-  );
-}
+const PROG_COLORS: { bg: string; color: string; border: string }[] = [
+  { bg: '#dbeafe', color: '#1e40af', border: '#bfdbfe' },
+  { bg: '#fce7f3', color: '#9d174d', border: '#fbcfe8' },
+  { bg: '#e0e7ff', color: '#3730a3', border: '#c7d2fe' },
+  { bg: '#dcfce7', color: '#166534', border: '#bbf7d0' },
+  { bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
+  { bg: '#ccfbf1', color: '#115e59', border: '#99f6e4' },
+  { bg: '#fee2e2', color: '#991b1b', border: '#fecaca' },
+];
 
 // ── Assignments Editor ────────────────────────────────────────────────────────
 
@@ -170,230 +42,267 @@ function AssignmentsEditor({
 }: { packages: Package[]; programmes: string[]; ages: number[]; years: number[]; onChanged: () => void }) {
   const [filterYear, setFilterYear] = useState(CURRENT_YEAR);
   const [groupBy, setGroupBy] = useState<'programme' | 'age'>('programme');
-  const [addYear, setAddYear] = useState(CURRENT_YEAR);
   const [addProg, setAddProg] = useState(programmes[0] ?? '');
   const [addAge, setAddAge] = useState<string>(ages[0] !== undefined ? String(ages[0]) : '');
-  const [addName, setAddName] = useState('');
   const [addPrice, setAddPrice] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [editingPrice, setEditingPrice] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
 
-  // Auto-fill name when year/programme/age selection changes
-  useEffect(() => {
+  useEffect(() => { if (programmes.length) setAddProg(p => p || programmes[0]); }, [programmes]);
+  useEffect(() => { if (ages.length) setAddAge(a => a || String(ages[0])); }, [ages]);
+
+  const autoName = () => {
     const prog = addProg || programmes[0] || '';
     const age = parseInt(addAge, 10);
-    if (prog && !isNaN(age)) setAddName(`${addYear} ${prog} (${age}Y)`);
-  }, [addYear, addProg, addAge, programmes]);
-
-  useEffect(() => {
-    if (programmes.length) setAddProg((p) => p || programmes[0]);
-  }, [programmes]);
-  useEffect(() => {
-    if (ages.length) setAddAge((a) => a || String(ages[0]));
-  }, [ages]);
+    return prog && !isNaN(age) ? `${filterYear} ${prog} (${age}Y)` : '';
+  };
 
   const handleAdd = async () => {
     const prog = addProg.trim();
     const age = parseInt(addAge, 10);
-    const name = addName.trim();
+    const name = autoName();
     const price = parseFloat(addPrice);
-    if (!prog || isNaN(age) || !name) { setAddError('All fields required'); return; }
-    if (addPrice.trim() === '' || isNaN(price) || price < 0) { setAddError('Please enter a valid price'); return; }
+    if (!prog || isNaN(age) || !name) { setAddError('Select programme and age'); return; }
+    if (addPrice.trim() === '' || isNaN(price) || price < 0) { setAddError('Enter a valid price'); return; }
     setAdding(true); setAddError('');
     try {
-      await createPackage({ year: addYear, programme: prog, age, name, price });
-      setFilterYear(addYear);
+      await createPackage({ year: filterYear, programme: prog, age, name, price });
+      setAddPrice(''); setShowAddForm(false);
       onChanged();
     } catch (err: unknown) { setAddError(err instanceof Error ? err.message : 'Failed to add'); }
     finally { setAdding(false); }
   };
 
   const handleDelete = async (id: string) => {
-    setConfirmDeleteId(null);
-    setDeletingId(id);
+    setConfirmDeleteId(null); setDeletingId(id);
     try { await deletePackage(id); onChanged(); }
     catch { /* ignore */ }
     finally { setDeletingId(null); }
   };
 
-  const startEditName = (pkg: Package) => { setEditingId(pkg.id); setEditingName(pkg.name); };
-
-  const commitEditName = async (id: string) => {
+  const startEdit = (pkg: Package) => { setEditingId(pkg.id); setEditingName(pkg.name); setEditingPrice(pkg.price !== null ? String(pkg.price) : ''); };
+  const commitEdit = async (id: string) => {
     const trimmed = editingName.trim();
     if (!trimmed) { setEditingId(null); return; }
+    const price = parseFloat(editingPrice);
     setSavingId(id);
-    try { await patchPackageName(id, trimmed); onChanged(); }
+    try { await patchPackage(id, { name: trimmed, ...(editingPrice.trim() !== '' && !isNaN(price) ? { price } : {}) }); onChanged(); }
     catch { /* ignore */ }
     finally { setSavingId(null); setEditingId(null); }
   };
 
-  const visiblePackages = packages.filter((p) => p.year === filterYear);
-  const usedCombos = new Set(packages.filter((p) => p.year === addYear).map((p) => `${p.programme}|${p.age}`));
-
-  // All years to show as tabs (from existing packages + current year)
+  const visible = packages.filter(p => p.year === filterYear);
+  const usedCombos = new Set(packages.filter(p => p.year === filterYear).map(p => `${p.programme}|${p.age}`));
   const allYears = [...new Set([...years, CURRENT_YEAR])].sort((a, b) => b - a);
 
-  return (
-    <div style={s.card}>
-      <div style={s.label}>Package Assignments</div>
-      <p style={s.desc}>Assign a programme to an age group to create a package. Only assigned packages appear on the pricing page.</p>
+  const formatPrice = (p: number | null) => p !== null ? `RM ${p.toFixed(2)}` : '—';
 
-      {/* Year filter tabs + Group by toggle */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <div style={as.yearTabs}>
-          {allYears.map((y) => (
-            <button key={y} onClick={() => setFilterYear(y)}
-              style={y === filterYear ? as.yearTabActive : as.yearTab}>
-              {y}
+  // ── Row renderer ──
+  const pkgRow = (pkg: Package) => (
+    <div key={pkg.id} className="pa-row" style={st.row}>
+      <div style={st.rowBadge}>
+        {groupBy === 'programme'
+          ? (() => { const idx = ages.indexOf(pkg.age); const c = AGE_COLORS[(idx >= 0 ? idx : pkg.age) % AGE_COLORS.length]; return <span style={{ ...st.pill, background: c.bg, color: c.color }}>Age {pkg.age}</span>; })()
+          : (() => { const idx = programmes.indexOf(pkg.programme); const c = PROG_COLORS[(idx >= 0 ? idx : 0) % PROG_COLORS.length]; return <span style={{ ...st.pill, background: c.bg, color: c.color }}>{pkg.programme}</span>; })()
+        }
+      </div>
+      <div style={st.rowMain}>
+        {editingId === pkg.id ? (
+          <input autoFocus style={st.editInput} value={editingName}
+            onChange={e => setEditingName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') commitEdit(pkg.id); if (e.key === 'Escape') setEditingId(null); }}
+          />
+        ) : (
+          <span style={st.rowName}>{pkg.name}</span>
+        )}
+      </div>
+      {editingId === pkg.id ? (
+        <input type="number" min="0" step="0.01" style={{ ...st.editInput, width: 90, textAlign: 'right' as const }} value={editingPrice}
+          onChange={e => setEditingPrice(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') commitEdit(pkg.id); if (e.key === 'Escape') setEditingId(null); }}
+        />
+      ) : (
+        <span style={st.rowPrice}>{formatPrice(pkg.price)}</span>
+      )}
+      <div style={st.rowActions}>
+        {editingId === pkg.id ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <button onClick={() => commitEdit(pkg.id)} disabled={savingId === pkg.id} style={{ ...st.iconBtn, color: '#16a34a', borderColor: '#bbf7d0' }} title="Save">
+              <FontAwesomeIcon icon={faCheck} />
             </button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, color: '#718096', fontWeight: 600 }}>Group by</span>
-          <div style={as.groupToggle}>
-            <button onClick={() => setGroupBy('programme')} style={groupBy === 'programme' ? as.groupBtnActive : as.groupBtn}>Programme</button>
-            <button onClick={() => setGroupBy('age')} style={groupBy === 'age' ? as.groupBtnActive : as.groupBtn}>Age</button>
+            <button onClick={() => setEditingId(null)} style={{ ...st.iconBtn, color: '#94a3b8' }} title="Cancel">
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
+          </span>
+        ) : (
+          <button onClick={() => startEdit(pkg)} style={st.iconBtn} disabled={savingId === pkg.id} title="Edit">
+            <FontAwesomeIcon icon={faPen} />
+          </button>
+        )}
+        {editingId !== pkg.id && (
+          confirmDeleteId === pkg.id ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <button onClick={() => handleDelete(pkg.id)} disabled={deletingId === pkg.id} style={st.confirmYes}>Yes</button>
+              <button onClick={() => setConfirmDeleteId(null)} style={st.confirmNo}>No</button>
+            </span>
+          ) : (
+            <button onClick={() => setConfirmDeleteId(pkg.id)} style={st.deleteIconBtn} disabled={deletingId === pkg.id} title="Remove">
+              <FontAwesomeIcon icon={faTrash} />
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  );
+
+  // ── Group renderer ──
+  const renderGroups = () => {
+    if (groupBy === 'programme') {
+      const groups = [...new Set(visible.map(p => p.programme))].sort();
+      return groups.map(prog => (
+        <div key={prog} style={{ marginBottom: 16 }}>
+          <div style={st.groupHeader}>{prog} <span style={st.groupCount}>{visible.filter(p => p.programme === prog).length}</span></div>
+          <div style={st.groupList}>
+            {visible.filter(p => p.programme === prog).sort((a, b) => a.age - b.age).map(pkgRow)}
           </div>
+        </div>
+      ));
+    } else {
+      const groups = [...new Set(visible.map(p => p.age))].sort((a, b) => a - b);
+      return groups.map(age => (
+        <div key={age} style={{ marginBottom: 16 }}>
+          <div style={st.groupHeader}>Age {age} <span style={st.groupCount}>{visible.filter(p => p.age === age).length}</span></div>
+          <div style={st.groupList}>
+            {visible.filter(p => p.age === age).sort((a, b) => a.programme.localeCompare(b.programme)).map(pkgRow)}
+          </div>
+        </div>
+      ));
+    }
+  };
+
+  return (
+    <>
+      <style>{`
+        .pa-row:hover{background:#f8fafc}
+      `}</style>
+
+      {/* ── Controls bar ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+        {/* Year dropdown */}
+        <select value={filterYear} onChange={e => setFilterYear(Number(e.target.value))} style={{
+          padding: '5px 12px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: 13, fontWeight: 600,
+          color: '#1e293b', background: '#fff', cursor: 'pointer',
+        }}>
+          {allYears.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Group by segmented control */}
+          <div style={{ display: 'inline-flex', borderRadius: 6, background: '#f1f5f9', padding: 2 }}>
+            {(['programme', 'age'] as const).map(g => (
+              <button key={g} onClick={() => setGroupBy(g)} style={{
+                padding: '4px 14px', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                border: 'none', lineHeight: '18px',
+                background: groupBy === g ? '#fff' : 'transparent',
+                color: groupBy === g ? '#1e293b' : '#94a3b8',
+                boxShadow: groupBy === g ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                transition: 'all 0.12s',
+              }}>{g === 'programme' ? 'Programme' : 'Age'}</button>
+            ))}
+          </div>
+
+          {/* Add button */}
+          {programmes.length > 0 && ages.length > 0 && (
+            <button onClick={() => setShowAddForm(v => !v)} style={{
+              padding: '5px 14px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5,
+              background: showAddForm ? '#1e293b' : '#5a79c8', color: '#fff',
+            }}>
+              <FontAwesomeIcon icon={faPlus} /> Add
+            </button>
+          )}
         </div>
       </div>
 
-      {visiblePackages.length === 0 && (
-        <p style={{ color: '#a0aec0', fontSize: 13, marginTop: 8 }}>No packages assigned for {filterYear}.</p>
-      )}
-
-      {visiblePackages.length > 0 && (() => {
-        const pkgRow = (pkg: Package) => (
-          <div key={pkg.id} style={as.row}>
-            {groupBy === 'programme'
-              ? <span style={as.ageBadge}>Age {pkg.age}</span>
-              : <span style={as.progBadge}>{pkg.programme}</span>
-            }
-            {editingId === pkg.id ? (
-              <input
-                autoFocus
-                style={{ ...s.input, flex: 1, padding: '4px 8px', fontSize: 13 }}
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                onBlur={() => commitEditName(pkg.id)}
-                onKeyDown={(e) => { if (e.key === 'Enter') commitEditName(pkg.id); if (e.key === 'Escape') setEditingId(null); }}
-              />
-            ) : (
-              <span style={as.name}>{pkg.name}</span>
-            )}
-            {editingId !== pkg.id && (
-              <button onClick={() => startEditName(pkg)} style={ls.iconBtn} disabled={savingId === pkg.id} title="Rename">✎</button>
-            )}
-            {confirmDeleteId === pkg.id ? (
-              <span style={as.confirmRow}>
-                <span style={as.confirmText}>Remove?</span>
-                <button onClick={() => handleDelete(pkg.id)} disabled={deletingId === pkg.id} style={as.confirmYes}>Yes</button>
-                <button onClick={() => setConfirmDeleteId(null)} style={as.confirmNo}>No</button>
-              </span>
-            ) : (
-              <button onClick={() => setConfirmDeleteId(pkg.id)} style={as.deleteBtn} disabled={deletingId === pkg.id} title="Remove">✕</button>
-            )}
+      {/* ── Quick add form ── */}
+      {showAddForm && (
+        <div style={st.addCard}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>New Package for {filterYear}</span>
+            <button onClick={() => { setShowAddForm(false); setAddError(''); setAddPrice(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 13 }}>
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
           </div>
-        );
-
-        if (groupBy === 'programme') {
-          const groups = [...new Set(visiblePackages.map(p => p.programme))].sort();
-          return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10 }}>
-              {groups.map(prog => (
-                <div key={prog}>
-                  <div style={as.groupHeader}>{prog}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {visiblePackages.filter(p => p.programme === prog).sort((a, b) => a.age - b.age).map(pkgRow)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-        } else {
-          const groups = [...new Set(visiblePackages.map(p => p.age))].sort((a, b) => a - b);
-          return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 10 }}>
-              {groups.map(age => (
-                <div key={age}>
-                  <div style={as.groupHeader}>Age {age}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {visiblePackages.filter(p => p.age === age).sort((a, b) => a.programme.localeCompare(b.programme)).map(pkgRow)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-        }
-      })()}
-
-      {/* Add new assignment */}
-      {programmes.length > 0 && ages.length > 0 && (
-        <div style={as.addForm}>
-          <div style={as.addFormTitle}>Add Assignment</div>
-          {/* Row 1: Year · Programme · Age */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <label style={as.fieldLabel}>
-              Year
-              <select style={{ ...as.select, width: 90 }} value={addYear} onChange={(e) => setAddYear(Number(e.target.value))}>
-                {allYears.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </label>
-            <label style={{ ...as.fieldLabel, flex: 1 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <label style={st.addFieldLabel}>
               Programme
-              <select style={as.select} value={addProg} onChange={(e) => setAddProg(e.target.value)}>
-                {programmes.map((p) => <option key={p} value={p}>{p}</option>)}
+              <select value={addProg} onChange={e => setAddProg(e.target.value)} style={st.addSelect}>
+                {programmes.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </label>
-            <label style={as.fieldLabel}>
+            <label style={st.addFieldLabel}>
               Age
-              <select style={as.select} value={addAge} onChange={(e) => setAddAge(e.target.value)}>
-                {ages.map((a) => (
+              <select value={addAge} onChange={e => setAddAge(e.target.value)} style={{ ...st.addSelect, width: 85 }}>
+                {ages.map(a => (
                   <option key={a} value={a} disabled={usedCombos.has(`${addProg}|${a}`)}>
-                    Age {a}{usedCombos.has(`${addProg}|${a}`) ? ' (exists)' : ''}
+                    {a}{usedCombos.has(`${addProg}|${a}`) ? ' (exists)' : ''}
                   </option>
                 ))}
               </select>
             </label>
-          </div>
-          {/* Row 2: Package Name · Price · Add */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <label style={{ ...as.fieldLabel, flex: 1 }}>
-              Package Name
-              <input style={s.input} value={addName} onChange={(e) => setAddName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAdd()} placeholder="e.g. 2026 Half Day (2Y)" />
-            </label>
-            <label style={as.fieldLabel}>
+            <label style={st.addFieldLabel}>
               Price (RM)
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                style={{ ...as.select, width: 110 }}
-                value={addPrice}
-                onChange={(e) => setAddPrice(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                placeholder="e.g. 500"
+              <input type="number" min="0" step="0.01" placeholder="0.00" value={addPrice}
+                onChange={e => setAddPrice(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                style={{ ...st.addInput, width: 100 }}
               />
             </label>
-            <button onClick={handleAdd} disabled={adding} style={{ ...s.saveBtn, alignSelf: 'flex-end' }}>
-              {adding ? 'Adding…' : 'Add'}
+            <button onClick={handleAdd} disabled={adding} style={st.addBtn}>
+              {adding ? '...' : 'Add Package'}
             </button>
           </div>
-          {addError && <p style={s.error}>{addError}</p>}
+          {autoName() && (
+            <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8' }}>
+              Will be created as: <strong style={{ color: '#64748b' }}>{autoName()}</strong>
+            </div>
+          )}
+          {addError && <div style={{ marginTop: 6, fontSize: 11, color: '#dc2626' }}>{addError}</div>}
         </div>
       )}
-    </div>
+
+      {/* ── Assignment list ── */}
+      {visible.length === 0 && (
+        <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+          No packages assigned for {filterYear}.
+        </div>
+      )}
+
+      {visible.length > 0 && (
+        <div>
+          {renderGroups()}
+        </div>
+      )}
+
+      {/* Summary */}
+      <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
+        {visible.length} package{visible.length !== 1 ? 's' : ''} for {filterYear}
+      </div>
+    </>
   );
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PackageSettingsPage() {
+  const { isMobile } = useIsMobile();
   const queryClient = useQueryClient();
   const raw = localStorage.getItem('user');
   const isAdmin = raw ? (JSON.parse(raw) as { role: string }).role === 'ADMIN' : false;
@@ -417,78 +326,73 @@ export default function PackageSettingsPage() {
     queryClient.invalidateQueries({ queryKey: ['package-years'] });
   };
 
-  if (configLoading || pkgsLoading) return <p style={s.state}>Loading…</p>;
-  if (isError) return <p style={{ ...s.state, color: '#e53e3e' }}>Failed to load packages config.</p>;
+  if (configLoading || pkgsLoading) return <p style={{ padding: 32, fontSize: 16, color: '#4a5568' }}>Loading...</p>;
+  if (isError) return <p style={{ padding: 32, fontSize: 16, color: '#e53e3e' }}>Failed to load packages config.</p>;
 
   const programmes: string[] = Array.isArray(config?.programmes) ? config!.programmes : [];
   const ages: number[] = Array.isArray(config?.ages) ? config!.ages : [];
+
   if (!isAdmin) return (
-    <div style={s.page}><h1 style={s.heading}>Package Settings</h1>
+    <div style={{ ...st.page, ...(isMobile ? { padding: '16px 12px', maxWidth: '100%' } : {}) }}>
+      <h1 style={st.heading}>Package Assignment</h1>
       <p style={{ color: '#718096', fontSize: 13 }}>Admin role required.</p>
     </div>
   );
 
   return (
-    <div style={s.page}>
-      <h1 style={s.heading}>Package Settings</h1>
-      <p style={s.subNote}>Define programmes, age groups, and assign which packages are available.</p>
-      <div style={s.list}>
-        <ProgrammesEditor programmes={programmes} onSaved={handleSaved} />
-        <AgesEditor ages={ages} onSaved={handleSaved} />
-        <AssignmentsEditor packages={packages} programmes={programmes} ages={ages} years={years} onChanged={handleSaved} />
+    <div style={{ ...st.page, ...(isMobile ? { padding: '16px 12px', maxWidth: '100%' } : {}) }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={st.heading}>Package Assignment</h1>
+        <p style={st.sub}>Assign programmes to age groups. Only assigned packages appear on the pricing page.</p>
       </div>
+      <AssignmentsEditor packages={packages} programmes={programmes} ages={ages} years={years} onChanged={handleSaved} />
     </div>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const s: Record<string, React.CSSProperties> = {
-  page: { padding: '32px', fontFamily: 'system-ui, sans-serif', maxWidth: 700, margin: '0 auto' },
-  heading: { margin: '0 0 4px', fontSize: 24 },
-  subNote: { color: '#718096', fontSize: 13, marginBottom: 24, marginTop: 4 },
-  state: { padding: 32, fontSize: 16, color: '#4a5568' },
-  list: { display: 'flex', flexDirection: 'column', gap: 16 },
-  card: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 20, display: 'flex', flexDirection: 'column', gap: 6 },
-  label: { fontWeight: 700, fontSize: 14, color: '#2d3748' },
-  desc: { fontSize: 12, color: '#718096', margin: 0 },
-  input: { padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 4, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' as const },
-  error: { color: '#e53e3e', fontSize: 12, margin: 0 },
-  saveBtn: { alignSelf: 'flex-end', padding: '7px 18px', background: '#4299e1', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600 },
-  savedBtn: { alignSelf: 'flex-end', padding: '7px 18px', background: '#38a169', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600 },
-};
+const st: Record<string, React.CSSProperties> = {
+  page: { padding: '32px', fontFamily: 'system-ui, sans-serif', maxWidth: 720, margin: '0 auto' },
+  heading: { margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a' },
+  sub: { margin: '4px 0 0', fontSize: 13, color: '#8893a7' },
 
-const ls: Record<string, React.CSSProperties> = {
-  row: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#f7fafc', borderRadius: 4, border: '1px solid #e2e8f0' },
-  text: { flex: 1, fontSize: 13, color: '#2d3748', display: 'flex', alignItems: 'center', gap: 8 },
-  renameBadge: { fontSize: 11, color: '#c05621', background: '#fffaf0', border: '1px solid #fbd38d', borderRadius: 8, padding: '1px 6px' },
-  newBadge: { fontSize: 11, color: '#276749', background: '#f0fff4', border: '1px solid #9ae6b4', borderRadius: 8, padding: '1px 6px' },
-  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#a0aec0', fontSize: 15, padding: '0 2px', lineHeight: 1 },
-  removeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#a0aec0', fontSize: 14, padding: '0 2px', lineHeight: 1 },
-  addBtn: { padding: '8px 16px', background: '#edf2f7', border: '1px solid #e2e8f0', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#4a5568' },
-  agePill: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: '#ebf8ff', border: '1px solid #bee3f8', borderRadius: 20, fontSize: 13, color: '#2c5282' },
-  agePillRemove: { background: 'none', border: 'none', cursor: 'pointer', color: '#90cdf4', fontSize: 12, padding: 0, lineHeight: 1 },
-};
+  // Group
+  groupHeader: {
+    fontSize: 13, fontWeight: 700, color: '#1e293b',
+    padding: '0 4px 8px', display: 'flex', alignItems: 'center', gap: 8,
+    borderBottom: '2px solid #e2e8f0', marginBottom: 6,
+  },
+  groupCount: { fontSize: 10, fontWeight: 600, color: '#94a3b8', background: '#f1f5f9', padding: '1px 7px', borderRadius: 20 },
+  groupList: { display: 'flex', flexDirection: 'column' as const, gap: 0 },
 
-const as: Record<string, React.CSSProperties> = {
-  row: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: '#f7fafc', borderRadius: 4, border: '1px solid #e2e8f0' },
-  progBadge: { fontSize: 11, fontWeight: 700, color: '#2b6cb0', background: '#ebf8ff', border: '1px solid #bee3f8', borderRadius: 10, padding: '2px 8px', whiteSpace: 'nowrap' as const },
-  ageBadge: { fontSize: 11, fontWeight: 700, color: '#276749', background: '#f0fff4', border: '1px solid #9ae6b4', borderRadius: 10, padding: '2px 8px', whiteSpace: 'nowrap' as const },
-  name: { flex: 1, fontSize: 13, color: '#2d3748', fontWeight: 500 },
-  deleteBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#fc8181', fontSize: 14, padding: '0 2px', lineHeight: 1 },
-  confirmRow: { display: 'flex', alignItems: 'center', gap: 4 },
-  confirmText: { fontSize: 12, color: '#e53e3e', fontWeight: 600 },
-  confirmYes: { padding: '2px 8px', background: '#e53e3e', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
-  confirmNo: { padding: '2px 8px', background: '#edf2f7', color: '#4a5568', border: '1px solid #e2e8f0', borderRadius: 4, cursor: 'pointer', fontSize: 12 },
-  yearTabs: { display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' as const },
-  groupToggle: { display: 'flex', border: '1px solid #e2e8f0', borderRadius: 6, overflow: 'hidden' },
-  groupBtn: { padding: '4px 12px', background: '#f7fafc', border: 'none', cursor: 'pointer', fontSize: 12, color: '#4a5568', fontWeight: 500 },
-  groupBtnActive: { padding: '4px 12px', background: '#2b6cb0', border: 'none', cursor: 'pointer', fontSize: 12, color: '#fff', fontWeight: 700 },
-  groupHeader: { fontSize: 11, fontWeight: 700, color: '#718096', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 4, paddingLeft: 2 },
-  yearTab: { padding: '4px 14px', border: '1px solid #e2e8f0', borderRadius: 20, background: '#f7fafc', cursor: 'pointer', fontSize: 13, color: '#4a5568', fontWeight: 500 },
-  yearTabActive: { padding: '4px 14px', border: '1px solid #4299e1', borderRadius: 20, background: '#ebf8ff', cursor: 'pointer', fontSize: 13, color: '#2b6cb0', fontWeight: 700 },
-  addForm: { marginTop: 14, padding: 14, background: '#f7fafc', borderRadius: 6, border: '1px dashed #cbd5e0', display: 'flex', flexDirection: 'column', gap: 10 },
-  addFormTitle: { fontSize: 13, fontWeight: 700, color: '#4a5568' },
-  fieldLabel: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, fontWeight: 600, color: '#4a5568' },
-  select: { padding: '7px 10px', border: '1px solid #cbd5e0', borderRadius: 4, fontSize: 14, fontFamily: 'inherit', background: '#fff' },
+  // Row
+  row: {
+    display: 'grid', gridTemplateColumns: 'auto 1fr 90px 60px', gap: 10, alignItems: 'center',
+    padding: '9px 12px', borderBottom: '1px solid #f1f5f9',
+  },
+  rowBadge: { flexShrink: 0 },
+  rowMain: { minWidth: 0 },
+  rowName: { fontSize: 13, color: '#475569', fontWeight: 400, overflow: 'hidden' as const, textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, display: 'block' },
+  rowPrice: { fontSize: 13, fontWeight: 600, color: '#1e293b', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' as const, textAlign: 'right' as const },
+  rowActions: { display: 'flex', gap: 4, justifyContent: 'flex-end', flexShrink: 0 },
+  editInput: { width: '100%', padding: '3px 8px', border: '1px solid #93c5fd', borderRadius: 4, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' as const },
+
+  // Badges
+  pill: { fontSize: 11, fontWeight: 700, borderRadius: 4, padding: '2px 8px', display: 'inline-block', whiteSpace: 'nowrap' as const },
+
+  // Action buttons
+  iconBtn: { background: 'none', border: '1px solid #e2e8f0', cursor: 'pointer', color: '#94a3b8', fontSize: 11, padding: '3px 6px', lineHeight: 1, borderRadius: 4, transition: 'all 0.12s' },
+  deleteIconBtn: { background: 'none', border: '1px solid #fecaca', cursor: 'pointer', color: '#fca5a5', fontSize: 11, padding: '3px 6px', lineHeight: 1, borderRadius: 4, transition: 'all 0.12s' },
+  confirmYes: { padding: '2px 8px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 },
+  confirmNo: { padding: '2px 8px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11 },
+
+  // Add card
+  addCard: {
+    padding: '14px 16px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', marginBottom: 20,
+  },
+  addFieldLabel: { display: 'flex', flexDirection: 'column' as const, gap: 4, fontSize: 11, fontWeight: 600, color: '#64748b' },
+  addSelect: { padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', background: '#fff', color: '#334155', cursor: 'pointer' },
+  addInput: { padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' as const, color: '#334155' },
+  addBtn: { padding: '6px 16px', background: '#5a79c8', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' as const, alignSelf: 'flex-end' as const },
 };

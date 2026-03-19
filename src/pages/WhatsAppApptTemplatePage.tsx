@@ -2,6 +2,8 @@ import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSettings, patchSetting } from '../api/settings.js';
 import { Settings } from '../types/index.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheck } from '@fortawesome/free-solid-svg-icons';
 
 interface FieldConfig {
   key: keyof Settings;
@@ -165,7 +167,7 @@ export default function WhatsAppApptTemplatePage() {
                 {fieldError && <p style={styles.error}>{fieldError}</p>}
                 {isAdmin && (
                   <button onClick={() => handleSave(field)} disabled={isSaving} style={isJustSaved ? styles.savedBtn : styles.saveBtn}>
-                    {isSaving ? 'Saving…' : isJustSaved ? 'Saved ✓' : 'Save'}
+                    {isSaving ? 'Saving…' : isJustSaved ? <>Saved <FontAwesomeIcon icon={faCheck} /></> : 'Save'}
                   </button>
                 )}
               </div>
@@ -201,7 +203,7 @@ export default function WhatsAppApptTemplatePage() {
                       {isAdmin && (
                         <button onClick={() => handleSave(field)} disabled={isSaving}
                           style={isJustSaved ? styles.inlineSavedBtn : styles.inlineSaveBtn}>
-                          {isSaving ? '…' : isJustSaved ? '✓' : 'Save'}
+                          {isSaving ? '…' : isJustSaved ? <FontAwesomeIcon icon={faCheck} /> : 'Save'}
                         </button>
                       )}
                     </div>

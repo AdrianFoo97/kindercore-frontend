@@ -3,7 +3,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchStudents, patchOnboardingProgress, completeOnboarding } from '../api/students.js';
 import { fetchSettings } from '../api/settings.js';
 import { Student, OnboardingTask } from '../types/index.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 import EditStudentModal from '../components/students/EditStudentModal.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheck, faXmark, faGraduationCap, faTriangleExclamation, faPen, faListCheck, faCircleCheck, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -30,11 +34,53 @@ function normalizePhone(phone: string): string {
   const cleaned = phone.replace(/[\s\-()]/g, '');
   if (cleaned.startsWith('+')) return cleaned.replace(/\D/g, '');
   if (cleaned.startsWith('0')) return '60' + cleaned.slice(1);
+  if (/^(60|65|62|66|63|91|44|1)\d+$/.test(cleaned)) return cleaned;
   return '60' + cleaned;
 }
 
 function formatStartMonth(month: number, year: number) {
   return `${MONTH_NAMES[month - 1] ?? month} ${year}`;
+}
+
+function formatStartDate(student: Student) {
+  if (student.startDate) {
+    const d = new Date(student.startDate);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  return formatStartMonth(student.enrolmentMonth, student.enrolmentYear);
+}
+
+function getAge(dob: string) {
+  const d = new Date(dob);
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--;
+  return age;
+}
+
+function getCountdown(startDate: string | null): { label: string; color: string; bg: string; urgent: boolean } | null {
+  if (!startDate) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(startDate);
+  const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const diffDays = Math.round((targetDay.getTime() - today.getTime()) / 86400000);
+
+  if (diffDays === 0)  return { label: 'Today!',        color: '#15803d', bg: '#dcfce7', urgent: true };
+  if (diffDays === 1)  return { label: 'Tomorrow',      color: '#c2410c', bg: '#ffedd5', urgent: true };
+  if (diffDays <= 7)   return { label: `In ${diffDays} days`, color: '#c2410c', bg: '#ffedd5', urgent: true };
+  if (diffDays <= 30)  return { label: `In ${diffDays} days`, color: '#b45309', bg: '#fef9c3', urgent: false };
+  if (diffDays <= 90) {
+    const weeks = Math.round(diffDays / 7);
+    return { label: `In ${weeks} week${weeks !== 1 ? 's' : ''}`, color: '#6d28d9', bg: '#f5f3ff', urgent: false };
+  }
+  if (diffDays > 0) {
+    const months = Math.round(diffDays / 30);
+    return { label: `In ${months} month${months !== 1 ? 's' : ''}`, color: '#475569', bg: '#f1f5f9', urgent: false };
+  }
+  const past = Math.abs(diffDays);
+  if (past <= 30) return { label: `${past}d ago`, color: '#94a3b8', bg: '#f8fafc', urgent: false };
+  return null;
 }
 
 function getProgress(tasks: OnboardingTask[] | null) {
@@ -49,27 +95,25 @@ function getProgress(tasks: OnboardingTask[] | null) {
 function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const isComplete = total > 0 && done === total;
+  const remaining = total - done;
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ flex: 1, height: 8, background: '#e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%',
-            width: `${pct}%`,
-            background: isComplete ? '#10b981' : '#3b82f6',
-            borderRadius: 4,
-            transition: 'width 0.3s ease',
-          }} />
-        </div>
-        <span style={{
-          fontSize: 12, fontWeight: 700, minWidth: 34, textAlign: 'right' as const,
-          color: isComplete ? '#059669' : '#3b82f6',
-        }}>
-          {pct}%
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%',
+          width: `${pct}%`,
+          background: isComplete ? '#10b981' : '#3b82f6',
+          borderRadius: 3,
+          transition: 'width 0.3s ease',
+        }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, fontWeight: 500, color: isComplete ? '#059669' : '#64748b' }}>
+          {done} of {total} tasks complete
         </span>
-        <span style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' as const }}>
-          {done}/{total} tasks
-        </span>
+        {!isComplete && (
+          <span style={{ fontSize: 11, color: '#94a3b8' }}>{remaining} remaining</span>
+        )}
       </div>
     </div>
   );
@@ -80,13 +124,13 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
 function ActionMenu({
   onViewTasks,
   onEdit,
-  waUrl,
+  onWhatsApp,
   onComplete,
   allDone,
 }: {
   onViewTasks: () => void;
   onEdit: () => void;
-  waUrl: string;
+  onWhatsApp: () => void;
   onComplete: () => void;
   allDone: boolean;
 }) {
@@ -101,22 +145,24 @@ function ActionMenu({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const item = (label: string, onClick: () => void, danger = false) => (
+  const menuItem = (icon: typeof faPen, label: string, onClick: () => void) => (
     <button
       onClick={() => { onClick(); setOpen(false); }}
       style={{
-        display: 'block', width: '100%', padding: '8px 14px',
+        display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px',
         textAlign: 'left' as const, background: 'none', border: 'none',
-        fontSize: 13, fontWeight: 500, cursor: 'pointer',
-        color: danger ? '#dc2626' : '#374151',
-        borderRadius: 6,
+        fontSize: 13, fontWeight: 400, cursor: 'pointer', color: '#374151', borderRadius: 6,
+        transition: 'background 0.1s',
       }}
-      onMouseEnter={e => (e.currentTarget.style.background = danger ? '#fef2f2' : '#f8fafc')}
+      onMouseEnter={e => (e.currentTarget.style.background = '#eef1f5')}
       onMouseLeave={e => (e.currentTarget.style.background = 'none')}
     >
+      <FontAwesomeIcon icon={icon} fixedWidth style={{ color: '#64748b', fontSize: 12 }} />
       {label}
     </button>
   );
+
+  const sep = <div style={{ height: 1, background: '#f1f5f9', margin: '4px 8px' }} />;
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -136,32 +182,23 @@ function ActionMenu({
       {open && (
         <div style={{
           position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 100,
-          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.10)', minWidth: 170, padding: '4px',
+          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.12)', minWidth: 190, padding: '4px 0',
         }}>
-          {item('View Tasks', onViewTasks)}
-          {item('Edit Student', onEdit)}
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-            style={{
-              display: 'block', padding: '8px 14px',
-              fontSize: 13, fontWeight: 500, color: '#374151',
-              textDecoration: 'none', borderRadius: 6,
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-          >
-            WhatsApp Parent
-          </a>
-          {allDone && (
-            <>
-              <div style={{ height: 1, background: '#e2e8f0', margin: '4px 0' }} />
-              {item('✓ Complete Onboarding', onComplete)}
-            </>
-          )}
+          <div style={{ padding: '2px 4px' }}>
+            {menuItem(faListCheck, 'View Tasks', onViewTasks)}
+            {menuItem(faPen, 'Edit Student', onEdit)}
+          </div>
+          {sep}
+          <div style={{ padding: '2px 4px' }}>
+            {menuItem(faWhatsapp, 'WhatsApp Parent', onWhatsApp)}
+          </div>
+          {allDone && (<>
+            {sep}
+            <div style={{ padding: '2px 4px' }}>
+              {menuItem(faCircleCheck, 'Complete Onboarding', onComplete)}
+            </div>
+          </>)}
         </div>
       )}
     </div>
@@ -172,112 +209,141 @@ function ActionMenu({
 
 function StudentOnboardingCard({
   student,
-  index,
   onViewTasks,
   onEdit,
+  onWhatsApp,
   onConfirmComplete,
   completing,
+  isMobile,
 }: {
   student: Student;
-  index: number;
   onViewTasks: () => void;
   onEdit: () => void;
+  onWhatsApp: () => void;
   onConfirmComplete: () => void;
   completing: boolean;
+  isMobile: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const { done, total, nextTask } = getProgress(student.onboardingProgress);
   const allDone = total > 0 && done === total;
   const avatarColor = getAvatarColor(student.lead.childName);
-  const waUrl = `https://web.whatsapp.com/send?phone=${normalizePhone(student.lead.parentPhone)}`;
+  const age = getAge(student.lead.childDob);
+  const countdown = getCountdown(student.startDate);
 
   return (
     <div
       style={{
         background: '#fff',
-        border: `1px solid ${hovered ? '#c7d2fe' : '#e2e8f0'}`,
-        borderRadius: 12,
-        padding: '16px 20px',
+        border: `1px solid ${allDone ? '#bbf7d0' : hovered ? '#c7d2fe' : '#e2e8f0'}`,
+        borderRadius: isMobile ? 10 : 14,
+        padding: isMobile ? '14px 12px' : '18px 20px',
         transition: 'border-color 0.15s, box-shadow 0.15s',
-        boxShadow: hovered
-          ? '0 4px 12px rgba(59,130,246,0.08)'
-          : '0 1px 3px rgba(0,0,0,0.05)',
+        boxShadow: hovered ? '0 4px 16px rgba(59,130,246,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Row: student info + actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
-        {/* Index number */}
-        <span style={{ fontSize: 12, color: '#cbd5e1', fontWeight: 600, width: 20, flexShrink: 0, textAlign: 'center' as const }}>
-          {index}
-        </span>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: isMobile ? 'center' : 'flex-start', gap: 12, marginBottom: isMobile ? 10 : 14, flexWrap: isMobile ? 'wrap' as const : 'nowrap' as const }}>
 
         {/* Avatar */}
         <div style={{
-          width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+          width: 42, height: 42, borderRadius: 12, flexShrink: 0,
           background: avatarColor.bg, color: avatarColor.color,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, fontWeight: 700, letterSpacing: '0.02em',
+          fontSize: 14, fontWeight: 700, letterSpacing: '0.02em',
         }}>
           {getInitials(student.lead.childName)}
         </div>
 
-        {/* Name + meta */}
+        {/* Name + details */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 2, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: isMobile ? 15 : 16, fontWeight: 700, color: '#0f172a', marginBottom: 4, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {student.lead.childName}
           </div>
-          <div style={{ fontSize: 12, color: '#64748b' }}>
+          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 2 }}>
             {student.package.name}
-            <span style={{ margin: '0 5px', color: '#cbd5e1' }}>·</span>
-            Age {student.package.age}Y
-            <span style={{ margin: '0 5px', color: '#cbd5e1' }}>·</span>
-            {formatStartMonth(student.enrolmentMonth, student.enrolmentYear)}
+          </div>
+          <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const }}>
+            {student.startDate ? (
+              <>
+                <span>Starting {formatStartDate(student)}</span>
+                {countdown && (
+                  <span style={{
+                    padding: '1px 7px', borderRadius: 10,
+                    background: countdown.bg, color: countdown.color,
+                    fontSize: 11, fontWeight: countdown.urgent ? 700 : 600,
+                    letterSpacing: countdown.urgent ? '0.01em' : 0,
+                  }}>
+                    {countdown.label}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span style={{ color: '#cbd5e1', fontStyle: 'italic' as const }}>First day not set</span>
+            )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {allDone ? (
-            <button
-              onClick={onConfirmComplete}
-              disabled={completing}
-              style={{
-                padding: '7px 14px', borderRadius: 8, border: 'none',
-                background: '#10b981', color: '#fff', cursor: completing ? 'default' : 'pointer',
-                fontSize: 13, fontWeight: 600, opacity: completing ? 0.6 : 1,
-                whiteSpace: 'nowrap' as const,
-              }}
-            >
-              {completing ? 'Completing…' : 'Mark Complete'}
-            </button>
-          ) : (
-            <button
-              onClick={onViewTasks}
-              style={{
-                padding: '7px 14px', borderRadius: 8, border: 'none',
-                background: '#3b82f6', color: '#fff', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
-              }}
-            >
-              {total === 0 ? 'Set Up Tasks' : 'Continue Task'}
-            </button>
-          )}
+        {/* Menu button on mobile (top-right) */}
+        {isMobile && (
           <ActionMenu
             onViewTasks={onViewTasks}
             onEdit={onEdit}
-            waUrl={waUrl}
+            onWhatsApp={onWhatsApp}
             onComplete={onConfirmComplete}
             allDone={allDone}
           />
-        </div>
+        )}
+
+        {/* Mobile button moved to bottom of card */}
+
+        {/* Primary action + menu — desktop only */}
+        {!isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {allDone ? (
+              <button
+                onClick={onConfirmComplete}
+                disabled={completing}
+                style={{
+                  padding: '8px 16px', borderRadius: 8, border: 'none',
+                  background: completing ? '#6ee7b7' : '#10b981',
+                  color: '#fff', cursor: completing ? 'default' : 'pointer',
+                  fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
+                  boxShadow: '0 1px 4px rgba(16,185,129,0.25)',
+                }}
+              >
+                {completing ? 'Completing…' : <><FontAwesomeIcon icon={faCheck} /> Mark Complete</>}
+              </button>
+            ) : (
+              <button
+                onClick={onViewTasks}
+                style={{
+                  padding: '8px 16px', borderRadius: 8, border: 'none',
+                  background: '#3b82f6', color: '#fff', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
+                  boxShadow: '0 1px 4px rgba(59,130,246,0.25)',
+                }}
+              >
+                {total === 0 ? 'Set Up Tasks' : 'Continue Tasks'}
+              </button>
+            )}
+            <ActionMenu
+              onViewTasks={onViewTasks}
+              onEdit={onEdit}
+              onWhatsApp={onWhatsApp}
+              onComplete={onConfirmComplete}
+              allDone={allDone}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Progress */}
-      <div style={{ paddingLeft: 34 }}>
+      {/* Progress section */}
+      <div style={{ paddingLeft: isMobile ? 0 : 54 }}>
         {total === 0 ? (
-          <span style={{ fontSize: 12, color: '#94a3b8' }}>No tasks configured</span>
+          <span style={{ fontSize: 12, color: '#94a3b8' }}>No tasks configured — set up tasks to begin onboarding</span>
         ) : (
           <ProgressBar done={done} total={total} />
         )}
@@ -285,15 +351,16 @@ function StudentOnboardingCard({
         {/* Next task */}
         {!allDone && nextTask && (
           <div style={{
-            marginTop: 10, padding: '8px 12px',
-            background: '#fffbeb', border: '1px solid #fde68a',
-            borderLeft: '3px solid #f59e0b',
-            borderRadius: 6, display: 'flex', alignItems: 'flex-start', gap: 8,
+            marginTop: 10, padding: '9px 12px',
+            background: '#fffbeb',
+            border: '1px solid #fde68a', borderLeft: '3px solid #f59e0b',
+            borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#b45309', whiteSpace: 'nowrap' as const, marginTop: 1 }}>
-              NEXT
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#d97706', letterSpacing: '0.06em', whiteSpace: 'nowrap' as const, textTransform: 'uppercase' as const }}>
+              Up next
             </span>
-            <span style={{ fontSize: 13, color: '#78350f', lineHeight: 1.4 }}>
+            <span style={{ width: 1, height: 12, background: '#fcd34d', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: '#92400e', lineHeight: 1.4, fontWeight: 500 }}>
               {nextTask.task}
             </span>
           </div>
@@ -301,14 +368,49 @@ function StudentOnboardingCard({
 
         {allDone && (
           <div style={{
-            marginTop: 10, padding: '7px 12px',
-            background: '#f0fdf4', border: '1px solid #bbf7d0',
-            borderRadius: 6, fontSize: 12, color: '#059669', fontWeight: 600,
+            marginTop: 10, padding: '9px 12px',
+            background: '#f0fdf4', border: '1px solid #86efac',
+            borderRadius: 8, fontSize: 13, color: '#15803d', fontWeight: 600,
+            display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            ✓ All tasks completed — ready to finalize onboarding
+            <span><FontAwesomeIcon icon={faCheck} /></span>
+            <span>All tasks completed — ready to finalize</span>
           </div>
         )}
       </div>
+
+      {/* Primary action — mobile: at bottom of card */}
+      {isMobile && (
+        <div style={{ width: '100%', display: 'flex', gap: 8, marginTop: 12 }}>
+          {allDone ? (
+            <button
+              onClick={onConfirmComplete}
+              disabled={completing}
+              style={{
+                flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none',
+                background: completing ? '#6ee7b7' : '#10b981',
+                color: '#fff', cursor: completing ? 'default' : 'pointer',
+                fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
+                boxShadow: '0 1px 4px rgba(16,185,129,0.25)',
+              }}
+            >
+              {completing ? 'Completing…' : <><FontAwesomeIcon icon={faCheck} /> Mark Complete</>}
+            </button>
+          ) : (
+            <button
+              onClick={onViewTasks}
+              style={{
+                flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none',
+                background: '#3b82f6', color: '#fff', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
+                boxShadow: '0 1px 4px rgba(59,130,246,0.25)',
+              }}
+            >
+              {total === 0 ? 'Set Up Tasks' : 'Continue Tasks'}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -359,6 +461,19 @@ function ChecklistModal({
   const allDone = doneCount === items.length && items.length > 0;
   const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
 
+  const listRef = useRef<HTMLDivElement>(null);
+  const nextTaskRef = useRef<HTMLLabelElement>(null);
+  const nextIdx = items.findIndex(t => !t.done);
+
+  useEffect(() => {
+    if (nextTaskRef.current && listRef.current) {
+      const list = listRef.current;
+      const el = nextTaskRef.current;
+      const top = el.offsetTop - list.offsetTop - list.clientHeight / 2 + el.clientHeight / 2;
+      list.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }
+  }, [nextIdx]);
+
   return (
     <div style={modal.backdrop} onClick={onClose}>
       <div style={modal.card} onClick={e => e.stopPropagation()}>
@@ -367,7 +482,7 @@ function ChecklistModal({
             <h2 style={modal.title}>Onboarding Checklist</h2>
             <p style={modal.subtitle}>{student.lead.childName} · {student.lead.parentPhone}</p>
           </div>
-          <button onClick={onClose} style={modal.closeBtn} aria-label="Close">✕</button>
+          <button onClick={onClose} style={modal.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
 
         <div style={{ marginBottom: 16 }}>
@@ -393,7 +508,7 @@ function ChecklistModal({
           </div>
         </div>
 
-        <div style={modal.list}>
+        <div ref={listRef} style={modal.list}>
           {items.length === 0 && (
             <p style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', margin: 0 }}>
               No onboarding tasks configured.
@@ -402,12 +517,13 @@ function ChecklistModal({
           {items.map((t, idx) => (
             <label
               key={idx}
+              ref={idx === nextIdx ? nextTaskRef : undefined}
               style={{
                 display: 'flex', alignItems: 'flex-start', gap: 10,
                 padding: '9px 12px',
-                background: t.done ? '#f0fdf4' : '#f8fafc',
+                background: idx === nextIdx ? '#eff6ff' : t.done ? '#f0fdf4' : '#f8fafc',
                 borderRadius: 8,
-                border: `1px solid ${t.done ? '#bbf7d0' : '#e2e8f0'}`,
+                border: `1px solid ${idx === nextIdx ? '#93c5fd' : t.done ? '#bbf7d0' : '#e2e8f0'}`,
                 cursor: 'pointer',
               }}
             >
@@ -430,7 +546,7 @@ function ChecklistModal({
         <div style={modal.footer}>
           <button onClick={markAll} disabled={allDone || saving} style={{
             padding: '8px 16px', borderRadius: 8, border: '1px solid #bfdbfe',
-            background: '#eff6ff', color: '#2563eb', cursor: allDone ? 'default' : 'pointer',
+            background: '#eff6ff', color: '#5a79c8', cursor: allDone ? 'default' : 'pointer',
             fontWeight: 600, fontSize: 13, opacity: allDone ? 0.5 : 1,
           }}>
             Mark All Done
@@ -451,20 +567,104 @@ function ChecklistModal({
 
 function SkeletonCard() {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
-        <div style={{ width: 20, height: 12, background: '#f1f5f9', borderRadius: 4 }} />
-        <div style={{ width: 38, height: 38, background: '#f1f5f9', borderRadius: 10 }} />
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '18px 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+        <div style={{ width: 42, height: 42, background: '#f1f5f9', borderRadius: 12, flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
-          <div style={{ width: '40%', height: 14, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }} />
-          <div style={{ width: '60%', height: 11, background: '#f1f5f9', borderRadius: 4 }} />
+          <div style={{ width: '38%', height: 16, background: '#f1f5f9', borderRadius: 4, marginBottom: 8 }} />
+          <div style={{ width: '55%', height: 11, background: '#f1f5f9', borderRadius: 4, marginBottom: 6 }} />
+          <div style={{ width: '35%', height: 11, background: '#f1f5f9', borderRadius: 4 }} />
         </div>
-        <div style={{ width: 110, height: 32, background: '#f1f5f9', borderRadius: 8 }} />
-        <div style={{ width: 32, height: 32, background: '#f1f5f9', borderRadius: 8 }} />
+        <div style={{ width: 120, height: 34, background: '#f1f5f9', borderRadius: 8, flexShrink: 0 }} />
+        <div style={{ width: 32, height: 32, background: '#f1f5f9', borderRadius: 8, flexShrink: 0 }} />
       </div>
-      <div style={{ paddingLeft: 34 }}>
-        <div style={{ height: 8, background: '#f1f5f9', borderRadius: 4, marginBottom: 8 }} />
-        <div style={{ width: '30%', height: 11, background: '#f1f5f9', borderRadius: 4 }} />
+      <div style={{ paddingLeft: 54 }}>
+        <div style={{ height: 6, background: '#f1f5f9', borderRadius: 3, marginBottom: 8 }} />
+        <div style={{ width: '45%', height: 11, background: '#f1f5f9', borderRadius: 4 }} />
+      </div>
+    </div>
+  );
+}
+
+// ── WhatsApp Modal ────────────────────────────────────────────────────────────
+
+function OnboardingWhatsAppModal({ phone, childName, templates, onClose }: {
+  phone: string; childName: string;
+  templates: { id: string; name: string; en: string; zh: string }[];
+  onClose: () => void;
+}) {
+  const [tplId, setTplId] = useState('none');
+  const [lang, setLang] = useState<'en' | 'zh'>('en');
+  const [message, setMessage] = useState('');
+
+  const applyTpl = (id: string, l: 'en' | 'zh') => {
+    if (id === 'none') { setMessage(''); return; }
+    const tpl = templates.find(t => t.id === id);
+    if (!tpl) return;
+    const raw = l === 'zh' ? tpl.zh : tpl.en;
+    setMessage(raw.replace(/\{\{childName\}\}/g, childName));
+  };
+
+  const handleTplChange = (id: string) => { setTplId(id); applyTpl(id, lang); };
+  const handleLangChange = (l: 'en' | 'zh') => { setLang(l); applyTpl(tplId, l); };
+  const currentTpl = templates.find(t => t.id === tplId);
+  const hasZh = tplId !== 'none' && !!currentTpl?.zh;
+
+  const openWa = () => {
+    const url = message.trim()
+      ? `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message.trim())}`
+      : `https://web.whatsapp.com/send?phone=${phone}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    onClose();
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: '24px 28px', width: '100%', maxWidth: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f172a' }}>{childName}</h2>
+            <p style={{ margin: '2px 0 0', fontSize: 13, color: '#94a3b8' }}>+{phone}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#94a3b8', padding: 2 }}><FontAwesomeIcon icon={faXmark} /></button>
+        </div>
+
+        {/* Template + Language */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <select value={tplId} onChange={e => handleTplChange(e.target.value)} style={{
+            padding: '4px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#fff', color: '#334155',
+          }}>
+            <option value="none">No template</option>
+            {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <div style={{ flex: 1 }} />
+          {hasZh && (
+            <div style={{ display: 'inline-flex', borderRadius: 6, background: '#f1f5f9', padding: 2 }}>
+              {(['en', 'zh'] as const).map(l => (
+                <button key={l} onClick={() => handleLangChange(l)} style={{
+                  padding: '2px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer', lineHeight: '16px',
+                  border: 'none', background: lang === l ? '#fff' : 'transparent',
+                  color: lang === l ? '#1e293b' : '#94a3b8',
+                  boxShadow: lang === l ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                }}>{l === 'en' ? 'EN' : '中文'}</button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <textarea
+          placeholder="Type your message..."
+          style={{ display: 'block', width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fff', height: 110, resize: 'vertical', lineHeight: 1.5, color: '#1e293b' }}
+          value={message} onChange={e => setMessage(e.target.value)}
+        />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#64748b', fontWeight: 500 }}>Cancel</button>
+          <div style={{ flex: 1 }} />
+          <button onClick={openWa} style={{ padding: '9px 20px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 1px 3px rgba(34,197,94,0.3)' }}>
+            <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 15 }} /> Send via WhatsApp
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -473,42 +673,60 @@ function SkeletonCard() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
+  const { isMobile, isTablet } = useIsMobile();
   const queryClient = useQueryClient();
-  const [selectedYear, setSelectedYear] = useState<number>(CURRENT_YEAR);
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [checklistStudent, setChecklistStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [confirmStudent, setConfirmStudent] = useState<Student | null>(null);
   const [completing, setCompleting] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [waStudent, setWaStudent] = useState<Student | null>(null);
+  const [onboardingStatusFilter, setOnboardingStatusFilter] = useState<string | null>(null);
 
-  const { data: students = [], isPending, isError } = useQuery({
-    queryKey: ['students'],
-    queryFn: fetchStudents,
-  });
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const PAGE_SIZE = 20;
-  const pending = students.filter(s => !s.onboardingCompleted && !s.withdrawnAt);
-  const availableYears = Array.from(new Set(pending.map(s => s.enrolmentYear))).sort((a, b) => b - a);
-  const yearOptions = availableYears.includes(selectedYear) ? availableYears : [selectedYear, ...availableYears];
-  const filtered = pending
-    .filter(s => s.enrolmentYear === selectedYear)
-    .sort((a, b) => a.enrolmentMonth - b.enrolmentMonth || a.lead.childName.localeCompare(b.lead.childName));
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const fetchParams: Record<string, unknown> = {
+    onboarding: 'pending' as const,
+    year: selectedYear !== 'all' ? selectedYear : undefined,
+    search: debouncedSearch || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+    sortBy: 'startDate',
+    sortOrder: 'asc' as const,
+    ...(onboardingStatusFilter ? { onboardingStatus: onboardingStatusFilter } : {}),
+  };
 
-  const handleSaved = (updated: Student) => {
-    queryClient.setQueryData<Student[]>(['students'], (prev = []) =>
-      prev.map(s => s.id === updated.id ? updated : s)
-    );
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['students', fetchParams],
+    queryFn: () => fetchStudents(fetchParams),
+  });
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+
+  const paginated = data?.items ?? [];
+  const totalStudents = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalStudents / PAGE_SIZE));
+  const availableYears = data?.availableYears ?? [];
+  const yearOptions = selectedYear !== 'all' && !availableYears.includes(selectedYear as number) ? [selectedYear as number, ...availableYears] : availableYears;
+  const { total: onboardingTotal, notStarted: notStartedCount, inProgress: inProgressCount, readyToComplete: readyCount } = data?.onboardingCounts ?? { total: 0, notStarted: 0, inProgress: 0, readyToComplete: 0 };
+
+  const invalidateStudents = () => queryClient.invalidateQueries({ queryKey: ['students'] });
+
+  const handleSaved = (_updated: Student) => {
+    invalidateStudents();
     setChecklistStudent(null);
   };
 
-  const handleEditSaved = (updated: Student) => {
-    queryClient.setQueryData<Student[]>(['students'], (prev = []) =>
-      prev.map(s => s.id === updated.id ? updated : s)
-    );
+  const handleEditSaved = (_updated: Student) => {
+    invalidateStudents();
     setEditingStudent(null);
   };
 
@@ -516,10 +734,8 @@ export default function OnboardingPage() {
     setCompleting(s.id);
     setConfirmStudent(null);
     try {
-      const updated = await completeOnboarding(s.id);
-      queryClient.setQueryData<Student[]>(['students'], (prev = []) =>
-        prev.map(x => x.id === updated.id ? updated : x)
-      );
+      await completeOnboarding(s.id);
+      invalidateStudents();
       setSuccessMsg(`${s.lead.childName} has been marked as fully onboarded.`);
       setTimeout(() => setSuccessMsg(null), 5000);
     } catch {
@@ -530,34 +746,78 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div style={{ padding: '28px 32px', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', minHeight: '100vh' }}>
-      <div style={{ maxWidth: 860, margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? '16px 12px' : '28px 32px', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', minHeight: '100vh' }}>
+      <div style={{ maxWidth: isMobile ? '100%' : 860, margin: '0 auto' }}>
 
         {/* ── Top Bar ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14, marginBottom: isMobile ? 14 : 20 }}>
+          <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 22, fontWeight: 700, color: '#0f172a', flex: 1 }}>
             Student Onboarding
           </h1>
           <select
             value={selectedYear}
-            onChange={e => { setSelectedYear(Number(e.target.value)); setPage(1); }}
+            onChange={e => { setSelectedYear(e.target.value === 'all' ? 'all' : Number(e.target.value)); setPage(1); }}
             style={{
               padding: '6px 12px', borderRadius: 8, border: '1px solid #e2e8f0',
               fontSize: 13, fontWeight: 600, color: '#374151', background: '#fff',
               cursor: 'pointer', outline: 'none',
             }}
           >
+            <option value="all">All Years</option>
             {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          {filtered.length > 0 && (
-            <span style={{
-              padding: '4px 12px', background: '#fef9c3', color: '#854d0e',
-              borderRadius: 20, fontSize: 12, fontWeight: 700, border: '1px solid #fde68a',
-            }}>
-              {filtered.length} pending
-            </span>
+        </div>
+
+        {/* ── Search Bar ── */}
+        <div style={{ position: 'relative', marginBottom: 16 }}>
+          <input
+            placeholder="Search students..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', color: '#1e293b', background: '#fff', outline: 'none' }}
+          />
+          <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 13 }} />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 2 }}>
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
           )}
         </div>
+
+        {/* ── Filter pills + total ── */}
+        {!isPending && !isError && onboardingTotal > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
+            ...(isMobile ? { overflowX: 'auto' as const, WebkitOverflowScrolling: 'touch' as const, scrollbarWidth: 'none' as const, msOverflowStyle: 'none' as const, paddingBottom: 2 } : {}),
+          }}>
+            <span style={{ fontSize: 13, color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap' as const }}>{onboardingTotal} students</span>
+            <div style={{ width: 1, height: 16, background: '#e2e8f0', flexShrink: 0 }} />
+            {[
+              { key: null as string | null, label: 'All', count: undefined as number | undefined, color: '#334155' },
+              { key: 'notStarted', label: 'Not Started', count: notStartedCount, color: '#6d28d9' },
+              { key: 'inProgress', label: 'In Progress', count: inProgressCount, color: '#b45309' },
+              { key: 'readyToComplete', label: 'Ready', count: readyCount, color: '#15803d' },
+            ].map(f => {
+              const active = onboardingStatusFilter === f.key;
+              return (
+                <button
+                  key={f.key ?? 'all'}
+                  onClick={() => { setOnboardingStatusFilter(active ? null : f.key); setPage(1); }}
+                  style={{
+                    padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', border: '1px solid', transition: 'all 0.12s',
+                    whiteSpace: 'nowrap' as const, flexShrink: 0,
+                    background: active ? f.color : '#fff',
+                    color: active ? '#fff' : (f.key ? f.color : '#64748b'),
+                    borderColor: active ? f.color : '#e2e8f0',
+                  }}
+                >
+                  {f.label}{f.count !== undefined ? ` (${f.count})` : ''}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Success Banner ── */}
         {successMsg && (
@@ -567,7 +827,7 @@ export default function OnboardingPage() {
             border: '1px solid #bbf7d0', borderRadius: 10,
             fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            <span>✓</span> {successMsg}
+            <span><FontAwesomeIcon icon={faCheck} /></span> {successMsg}
           </div>
         )}
 
@@ -584,26 +844,26 @@ export default function OnboardingPage() {
             padding: '40px 20px', textAlign: 'center', background: '#fff',
             borderRadius: 12, border: '1px solid #fecaca',
           }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontSize: 32, marginBottom: 8 }}><FontAwesomeIcon icon={faTriangleExclamation} /></div>
             <div style={{ fontSize: 14, color: '#dc2626', fontWeight: 600 }}>Failed to load students</div>
             <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Please refresh the page.</div>
           </div>
         )}
 
         {/* ── Empty state ── */}
-        {!isPending && !isError && filtered.length === 0 && (
+        {!isPending && !isError && totalStudents === 0 && (
           <div style={{
             padding: '60px 20px', textAlign: 'center', background: '#fff',
             borderRadius: 12, border: '1px solid #e2e8f0',
           }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
+            <div style={{ fontSize: 40, marginBottom: 12 }}><FontAwesomeIcon icon={faCheck} style={{ color: '#16a34a' }} /></div>
             <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>
-              {pending.length === 0 ? 'All caught up!' : `No pending students for ${selectedYear}`}
+              {totalStudents === 0 ? 'All caught up!' : `No pending students for ${selectedYear}`}
             </div>
             <div style={{ fontSize: 13, color: '#94a3b8' }}>
-              {pending.length === 0
+              {totalStudents === 0
                 ? 'All students have completed onboarding.'
-                : `There are ${pending.length} pending student(s) in other years.`}
+                : `There are ${totalStudents} pending student(s) in other years.`}
             </div>
           </div>
         )}
@@ -611,15 +871,16 @@ export default function OnboardingPage() {
         {/* ── Student List ── */}
         {paginated.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {paginated.map((s, idx) => (
+            {paginated.map((s) => (
               <StudentOnboardingCard
                 key={s.id}
                 student={s}
-                index={(safePage - 1) * PAGE_SIZE + idx + 1}
                 onViewTasks={() => setChecklistStudent(s)}
                 onEdit={() => setEditingStudent(s)}
+                onWhatsApp={() => setWaStudent(s)}
                 onConfirmComplete={() => setConfirmStudent(s)}
                 completing={completing === s.id}
+                isMobile={isMobile}
               />
             ))}
           </div>
@@ -628,22 +889,22 @@ export default function OnboardingPage() {
         {/* ── Pagination ── */}
         {totalPages > 1 && (
           <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center', marginTop: 20 }}>
-            <button onClick={() => setPage(1)} disabled={safePage === 1} style={pgBtn(safePage === 1)}>«</button>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} style={pgBtn(safePage === 1)}>‹</button>
+            <button onClick={() => setPage(1)} disabled={page === 1} style={pgBtn(page === 1)}>«</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={pgBtn(page === 1)}>‹</button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
               <button
                 key={p}
                 onClick={() => setPage(p)}
                 style={{
                   ...pgBtn(false),
-                  ...(p === safePage ? { background: '#3b82f6', color: '#fff', border: '1px solid #3b82f6' } : {}),
+                  ...(p === page ? { background: '#3b82f6', color: '#fff', border: '1px solid #3b82f6' } : {}),
                 }}
               >
                 {p}
               </button>
             ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} style={pgBtn(safePage === totalPages)}>›</button>
-            <button onClick={() => setPage(totalPages)} disabled={safePage === totalPages} style={pgBtn(safePage === totalPages)}>»</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={pgBtn(page === totalPages)}>›</button>
+            <button onClick={() => setPage(totalPages)} disabled={page === totalPages} style={pgBtn(page === totalPages)}>»</button>
           </div>
         )}
 
@@ -663,19 +924,31 @@ export default function OnboardingPage() {
           student={editingStudent}
           onClose={() => setEditingStudent(null)}
           onSaved={handleEditSaved}
-          onDeleted={() => {
-            queryClient.setQueryData<Student[]>(['students'], (prev = []) =>
-              prev.filter(s => s.id !== editingStudent.id)
-            );
-            setEditingStudent(null);
-          }}
         />
       )}
+
+      {/* WhatsApp Modal */}
+      {waStudent && (() => {
+        const phone = normalizePhone(waStudent.lead.parentPhone);
+        const childName = waStudent.lead.childName;
+        // Build template list
+        interface TplOpt { id: string; name: string; en: string; zh: string; }
+        const templates: TplOpt[] = [
+          { id: 'enquiry', name: 'Enquiry', en: String(settings?.whatsapp_template ?? ''), zh: String(settings?.whatsapp_template_zh ?? '') },
+          { id: 'follow_up', name: 'Follow Up', en: String(settings?.whatsapp_followup_template ?? ''), zh: String(settings?.whatsapp_followup_template_zh ?? '') },
+          ...(Array.isArray(settings?.whatsapp_custom_templates)
+            ? (settings.whatsapp_custom_templates as { id: string; name: string; content_en: string; content_zh: string }[]).map(t => ({
+                id: t.id, name: t.name, en: t.content_en, zh: t.content_zh,
+              }))
+            : []),
+        ];
+        return <OnboardingWhatsAppModal phone={phone} childName={childName} templates={templates} onClose={() => setWaStudent(null)} />;
+      })()}
 
       {confirmStudent && (
         <div style={modal.backdrop} onClick={() => setConfirmStudent(null)}>
           <div style={{ ...modal.card, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div style={{ marginBottom: 6, fontSize: 28 }}>🎓</div>
+            <div style={{ marginBottom: 6, fontSize: 28 }}><FontAwesomeIcon icon={faGraduationCap} /></div>
             <h2 style={{ margin: '0 0 10px', fontSize: 17, fontWeight: 700, color: '#0f172a' }}>
               Confirm Onboarding Completion
             </h2>
@@ -725,7 +998,7 @@ const modal: Record<string, React.CSSProperties> = {
   title: { margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' },
   subtitle: { margin: '4px 0 0', fontSize: 13, color: '#64748b' },
   closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#94a3b8', lineHeight: 1, padding: 4 },
-  list: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2 },
+  list: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2, maxHeight: 240 },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, paddingTop: 14, borderTop: '1px solid #f1f5f9' },
   cancelBtn: {
     padding: '8px 16px', borderRadius: 8, border: '1px solid #e2e8f0',

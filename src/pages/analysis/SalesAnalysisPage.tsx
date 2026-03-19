@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, PieChart, Pie, Cell,
 } from 'recharts';
-import { fetchSalesAnalytics } from '../../api/leads.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXmark } from '@fortawesome/free-solid-svg-icons';
+import { fetchSalesAnalytics, fetchLeadById } from '../../api/leads.js';
+import { Lead } from '../../types/index.js';
+import EditLeadModal from '../../components/leads/EditLeadModal.js';
+import { useIsMobile } from '../../hooks/useIsMobile.js';
 
 // ── Palette ───────────────────────────────────────────────────────
 const C = {
-  bg: '#f1f5f9', card: '#ffffff', border: '#e2e8f0',
+  bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0',
   text: '#0f172a', muted: '#64748b', faint: '#f8fafc',
   indigo: '#4f46e5', green: '#059669', red: '#dc2626',
-  blue: '#2563eb', slate: '#94a3b8',
+  blue: '#5a79c8', slate: '#94a3b8',
 };
 
-const DONUT_PALETTE = ['#1e40af','#1d4ed8','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
+const DONUT_PALETTE = ['#1e40af','#1d4ed8','#5a79c8','#3b82f6','#60a5fa','#93c5fd','#bfdbfe'];
 
 const STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
   ENROLLED: { label: 'Enrolled', bg: '#dcfce7', color: '#166534' },
@@ -28,6 +33,9 @@ type FilterState = { type: 'address' | 'channel'; value: string } | null;
 
 // ── Page ──────────────────────────────────────────────────────────
 export default function SalesAnalysisPage() {
+  const { isMobile } = useIsMobile();
+  const queryClient = useQueryClient();
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterState>(null);
@@ -110,11 +118,11 @@ export default function SalesAnalysisPage() {
     : data.marketingChannelBreakdown.map(d => ({ name: d.channel, value: d.count }));
 
   return (
-    <div style={s.page}>
-      <style>{`.recharts-wrapper, .recharts-wrapper svg, .recharts-wrapper *:focus { outline: none !important; }`}</style>
+    <div style={{ ...s.page, ...(isMobile ? { padding: '20px 12px' } : {}) }}>
+      <style>{`.recharts-wrapper, .recharts-wrapper svg, .recharts-wrapper *:focus { outline: none !important; } .sa-row:hover { background: #eef2fa !important; }`}</style>
 
       {/* ── Header ── */}
-      <div style={s.header}>
+      <div style={{ ...s.header, ...(isMobile ? { flexDirection: 'column' } : {}) }}>
         <div>
           <h1 style={s.title}>Sales Analysis</h1>
           <p style={s.subtitle}>Closing rate — enrolled leads vs lost sales (excludes no-shows)</p>
@@ -132,7 +140,7 @@ export default function SalesAnalysisPage() {
       </div>
 
       {/* ── KPI strip ── */}
-      <div style={s.kpiStrip}>
+      <div style={{ ...s.kpiStrip, ...(isMobile ? { gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 } : {}) }}>
         {/* Closing rate hero */}
         <div style={{ ...s.card, borderTop: `3px solid ${C.indigo}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '18px 20px', marginBottom: 0 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Closing Rate</span>
@@ -159,7 +167,7 @@ export default function SalesAnalysisPage() {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             {selectedMonth !== null && (
               <button onClick={() => { setSelectedMonth(null); setActiveFilter(null); setPage(1); }} style={s.clearBtn}>
-                ✕ {MONTH_LABELS[selectedMonth]}
+                <FontAwesomeIcon icon={faXmark} /> {MONTH_LABELS[selectedMonth]}
               </button>
             )}
             <div style={s.legendRow}>
@@ -194,7 +202,8 @@ export default function SalesAnalysisPage() {
               onClick={() => handleTabChange('LOST')}
               label={({ x, y, width, height, index }: any) => {
                 const v = data.monthlyComparison[index]?.lost ?? 0;
-                if (!v || height < 18) return null;
+                if (!v) return null;
+                if (height < 18) return <text key={`l-${x}`} x={x + width / 2} y={y - 4} textAnchor="middle" fill={C.red} fontSize={10} fontWeight={700}>{v}</text>;
                 return <text key={`l-${x}`} x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={11} fontWeight={700}>{v}</text>;
               }}>
               {data.monthlyComparison.map((_, i) => (
@@ -205,7 +214,8 @@ export default function SalesAnalysisPage() {
               onClick={() => handleTabChange('ENROLLED')}
               label={({ x, y, width, height, index }: any) => {
                 const v = data.monthlyComparison[index]?.enrolled ?? 0;
-                if (!v || height < 18) return null;
+                if (!v) return null;
+                if (height < 18) return <text key={`e-${x}`} x={x + width / 2} y={y - 4} textAnchor="middle" fill={C.green} fontSize={10} fontWeight={700}>{v}</text>;
                 return <text key={`e-${x}`} x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={11} fontWeight={700}>{v}</text>;
               }}>
               {data.monthlyComparison.map((_, i) => (
@@ -219,7 +229,7 @@ export default function SalesAnalysisPage() {
       </div>
 
       {/* ── Donuts row ── */}
-      <div style={s.donutRow}>
+      <div style={{ ...s.donutRow, ...(isMobile ? { gridTemplateColumns: '1fr', gap: 12 } : {}) }}>
         <DonutCard
           title="Leads by Address" sub="Click a segment to filter the table"
           data={addressData} filterType="address"
@@ -269,7 +279,7 @@ export default function SalesAnalysisPage() {
             </div>
             {activeFilter && (
               <button onClick={() => { setActiveFilter(null); setPage(1); }} style={s.clearBtn}>
-                ✕ Clear filter
+                <FontAwesomeIcon icon={faXmark} /> Clear filter
               </button>
             )}
           </div>
@@ -306,7 +316,7 @@ export default function SalesAnalysisPage() {
                   }
                   const sm = STATUS_META[row.status] ?? { label: row.status, bg: '#f1f5f9', color: C.muted };
                   rows.push(
-                    <tr key={row.id} style={{ background: i % 2 === 0 ? C.card : C.faint }}>
+                    <tr key={row.id} className="sa-row" style={{ background: i % 2 === 0 ? C.card : C.faint, cursor: 'pointer', transition: 'background 0.1s' }} onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead(lead); } catch { /* ignore */ } }}>
                       <td style={s.td}><span style={s.name}>{row.childName}</span></td>
                       <td style={s.td}>
                         <span style={{ ...s.badge, background: sm.bg, color: sm.color }}>{sm.label}</span>
@@ -355,6 +365,14 @@ export default function SalesAnalysisPage() {
         )}
       </div>
 
+      {editingLead && (
+        <EditLeadModal
+          lead={editingLead}
+          lostReasons={[]}
+          onClose={() => setEditingLead(null)}
+          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['sales-analytics'] }); setEditingLead(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -421,7 +439,7 @@ function DonutCard({
       <h2 style={s.cardTitle}>{title}</h2>
       <p style={{ ...s.cardSub, marginBottom: 16 }}>{sub}</p>
       {pieData.length === 0 ? <p style={s.empty}>No data yet.</p> : (
-        <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
           <div style={{ flexShrink: 0 }}>
             <PieChart width={180} height={180} style={{ outline: 'none' }}>
               {/* Main pie */}

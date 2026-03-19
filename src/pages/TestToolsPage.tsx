@@ -1,35 +1,46 @@
 import { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../api/client.js';
 
-type Tool = 'reset-leads' | 'reset-students';
+type Tool = 'reset-leads' | 'reset-students' | 'seed-dummy';
 
 export default function TestToolsPage({ tool }: { tool: Tool }) {
   const [status, setStatus] = useState<'idle' | 'confirming' | 'loading' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [note, setNote] = useState('');
 
   const config = {
     'reset-leads': {
       title: 'Reset All Leads',
       description: 'Permanently deletes every lead in the database. This cannot be undone.',
       confirmLabel: 'Yes, delete all leads',
-      action: () => apiFetch('/api/leads/reset', { method: 'DELETE' }),
-      doneMessage: 'All leads have been deleted.',
+      action: async () => { await apiFetch('/api/leads/reset', { method: 'DELETE' }); return { message: 'All leads have been deleted.', note: '' }; },
     },
     'reset-students': {
       title: 'Reset All Students',
       description: 'Permanently deletes every student record in the database. This cannot be undone.',
       confirmLabel: 'Yes, delete all students',
-      action: () => apiFetch('/api/students/reset', { method: 'DELETE' }),
-      doneMessage: 'All students have been deleted.',
+      action: async () => { await apiFetch('/api/students/reset', { method: 'DELETE' }); return { message: 'All students have been deleted.', note: '' }; },
+    },
+    'seed-dummy': {
+      title: 'Seed Dummy Leads',
+      description: 'Inserts dummy leads covering all statuses (NEW, Contacted, Appt Booked, Follow-Up, Enrolled, Lost) with realistic data. Enrolled leads also create linked student records.',
+      confirmLabel: 'Yes, seed dummy leads',
+      action: async () => {
+        const res = await apiFetch<{ message: string; students?: number; skippedStudents?: number; note?: string }>('/api/leads/seed-dummy', { method: 'POST' });
+        return { message: res.message, note: res.note ?? '' };
+      },
     },
   }[tool];
 
   async function handleConfirm() {
     setStatus('loading');
     try {
-      await config.action();
+      const result = await config.action();
       setStatus('done');
-      setMessage(config.doneMessage);
+      setMessage(result.message);
+      setNote(result.note);
     } catch (e: unknown) {
       setStatus('error');
       setMessage(e instanceof Error ? e.message : 'Something went wrong.');
@@ -44,7 +55,7 @@ export default function TestToolsPage({ tool }: { tool: Tool }) {
       {status === 'idle' && (
         <button
           onClick={() => setStatus('confirming')}
-          style={{ padding: '10px 20px', background: '#e53e3e', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
+          style={{ padding: '10px 20px', background: tool === 'seed-dummy' ? '#38a169' : '#e53e3e', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
         >
           {config.title}
         </button>
@@ -78,7 +89,10 @@ export default function TestToolsPage({ tool }: { tool: Tool }) {
 
       {status === 'done' && (
         <div style={{ background: '#f0fff4', border: '1px solid #9ae6b4', borderRadius: 10, padding: 16 }}>
-          <p style={{ color: '#276749', fontWeight: 600, fontSize: 14, margin: 0 }}>{message}</p>
+          <p style={{ color: '#276749', fontWeight: 600, fontSize: 14, margin: 0 }}>
+            {message}
+            {note && <> <FontAwesomeIcon icon={faTriangleExclamation} style={{ marginLeft: 6, color: '#d69e2e' }} /> {note}</>}
+          </p>
         </div>
       )}
 

@@ -37,6 +37,13 @@ export function patchPackageName(id: string, name: string) {
   });
 }
 
+export function patchPackage(id: string, payload: { name?: string; price?: number }) {
+  return apiFetch<Package>(`/api/packages/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function upsertPackages(items: { year: number; programme: string; age: number; price: number | null }[]) {
   return apiFetch<Package[]>('/api/packages', {
     method: 'PUT',

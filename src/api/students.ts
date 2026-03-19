@@ -1,8 +1,27 @@
 import { apiFetch } from './client.js';
-import { Student, OnboardingTask } from '../types/index.js';
+import { Student, StudentsResponse, OnboardingTask } from '../types/index.js';
 
-export function fetchStudents() {
-  return apiFetch<Student[]>('/api/students');
+export interface FetchStudentsParams {
+  status?: string;
+  onboarding?: 'pending' | 'completed' | 'all';
+  onboardingStatus?: 'notStarted' | 'inProgress' | 'readyToComplete';
+  search?: string;
+  year?: number;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export function fetchStudents(params?: FetchStudentsParams) {
+  const qs = new URLSearchParams();
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
+    });
+  }
+  const query = qs.toString();
+  return apiFetch<StudentsResponse>(`/api/students${query ? '?' + query : ''}`);
 }
 
 export function createStudent(payload: {
@@ -11,6 +30,7 @@ export function createStudent(payload: {
   enrolmentMonth: number;
   packageId: string;
   enrolledAt?: string;
+  startDate?: string;
   notes?: string;
 }) {
   return apiFetch<Student>('/api/students', {
@@ -24,6 +44,7 @@ export function updateStudent(id: string, payload: {
   enrolmentMonth?: number;
   packageId?: string;
   enrolledAt?: string;
+  startDate?: string | null;
   notes?: string | null;
   childDob?: string;
   childName?: string;

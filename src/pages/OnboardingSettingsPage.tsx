@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSettings, patchSetting } from '../api/settings.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPen, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
 
 export default function OnboardingSettingsPage() {
   const queryClient = useQueryClient();
@@ -148,10 +150,10 @@ function OnboardingEditor({
               <span style={rowStyles.text}>{item}</span>
             )}
             {isAdmin && editingIdx !== idx && (
-              <button onClick={() => startEdit(idx)} style={rowStyles.iconBtn} title="Edit">✎</button>
+              <button onClick={() => startEdit(idx)} style={rowStyles.iconBtn} title="Edit"><FontAwesomeIcon icon={faPen} /></button>
             )}
             {isAdmin && editingIdx !== idx && (
-              <button onClick={() => removeItem(idx)} style={rowStyles.iconBtn} title="Remove">✕</button>
+              <button onClick={() => removeItem(idx)} style={rowStyles.iconBtn} title="Remove"><FontAwesomeIcon icon={faXmark} /></button>
             )}
           </div>
         ))}
@@ -172,7 +174,7 @@ function OnboardingEditor({
           {error && <p style={{ color: '#e53e3e', fontSize: 12, margin: '8px 0 0' }}>{error}</p>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
             <button onClick={handleSave} disabled={saving} style={saved ? styles.savedBtn : styles.saveBtn}>
-              {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save Changes'}
+              {saving ? 'Saving…' : saved ? <>Saved <FontAwesomeIcon icon={faCheck} /></> : 'Save Changes'}
             </button>
           </div>
         </>

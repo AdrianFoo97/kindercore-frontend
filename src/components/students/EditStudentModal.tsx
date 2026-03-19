@@ -1,23 +1,33 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { updateStudent, deleteStudent } from '../../api/students.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXmark } from '@fortawesome/free-solid-svg-icons';
+import { updateStudent } from '../../api/students.js';
 import { fetchPackages, fetchPackageYears } from '../../api/packages.js';
 import { Student } from '../../types/index.js';
 
 const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+function defaultStartDate(year: number, month: number): string {
+  const now = new Date();
+  if (year === now.getFullYear() && month === now.getMonth() + 1) {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split('T')[0];
+  }
+  return `${year}-${String(month).padStart(2, '0')}-01`;
+}
+
 export default function EditStudentModal({
   student,
   onClose,
   onSaved,
-  onDeleted,
 }: {
   student: Student;
   onClose: () => void;
   onSaved: (updated: Student) => void;
-  onDeleted: (id: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'personal' | 'enquiry'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'enquiry' | 'package'>('personal');
   const [childName, setChildName] = useState(student.lead.childName);
   const [parentPhone, setParentPhone] = useState(student.lead.parentPhone);
   const [dob, setDob] = useState(student.lead.childDob.split('T')[0]);
@@ -25,10 +35,9 @@ export default function EditStudentModal({
   const [month, setMonth] = useState(student.enrolmentMonth);
   const [packageId, setPackageId] = useState(student.packageId);
   const [paymentDate, setPaymentDate] = useState(student.enrolledAt.split('T')[0]);
+  const [startDate, setStartDate] = useState(student.startDate ? student.startDate.split('T')[0] : defaultStartDate(student.enrolmentYear, student.enrolmentMonth));
   const [notes, setNotes] = useState(student.notes ?? '');
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
 
   const { data: availableYears = [] } = useQuery({
@@ -51,18 +60,6 @@ export default function EditStudentModal({
     setPackageId((matched ?? packages[0]).id);
   }, [packages]);
 
-  const handleDelete = async () => {
-    setDeleting(true); setError('');
-    try {
-      await deleteStudent(student.id);
-      onDeleted(student.id);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Delete failed');
-      setDeleting(false);
-      setConfirmDelete(false);
-    }
-  };
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!paymentDate) { setError('Please enter a payment date'); return; }
@@ -76,6 +73,7 @@ export default function EditStudentModal({
         enrolmentMonth: month,
         packageId,
         enrolledAt: new Date(paymentDate).toISOString(),
+        startDate: startDate || null,
         notes: notes || null,
       });
       onSaved(updated);
@@ -93,10 +91,10 @@ export default function EditStudentModal({
       <div style={modal.card} onClick={(e) => e.stopPropagation()}>
         <div style={modal.header}>
           <h2 style={modal.title}>Edit Student</h2>
-          <button onClick={onClose} style={modal.closeBtn} aria-label="Close">✕</button>
+          <button onClick={onClose} style={modal.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
         <p style={{ margin: '0 0 16px', fontSize: 14, color: '#4a5568' }}>
-          <strong>{childName}</strong> · {parentPhone}
+          <strong>{childName}</strong> · Age {new Date().getFullYear() - new Date(student.lead.childDob).getFullYear()}
         </p>
 
         {/* ── Tabs ── */}
@@ -110,10 +108,17 @@ export default function EditStudentModal({
           </button>
           <button
             type="button"
+            style={{ ...modal.tab, ...(activeTab === 'package' ? modal.tabActive : {}) }}
+            onClick={() => setActiveTab('package')}
+          >
+            Package Details
+          </button>
+          <button
+            type="button"
             style={{ ...modal.tab, ...(activeTab === 'enquiry' ? modal.tabActive : {}) }}
             onClick={() => setActiveTab('enquiry')}
           >
-            Enquiry Details
+            Enrolment Details
           </button>
         </div>
 
@@ -157,24 +162,8 @@ export default function EditStudentModal({
               </>
             )}
 
-            {activeTab === 'enquiry' && (
+            {activeTab === 'package' && (
               <>
-                <label style={modal.label}>
-                  Enrolment Year
-                  <select style={modal.input} value={year} onChange={e => setYear(Number(e.target.value))}>
-                    {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </label>
-
-                <label style={modal.label}>
-                  Enrolment Month
-                  <select style={modal.input} value={month} onChange={e => setMonth(Number(e.target.value))}>
-                    {MONTH_FULL.map((name, i) => (
-                      <option key={i + 1} value={i + 1}>{name}</option>
-                    ))}
-                  </select>
-                </label>
-
                 <label style={modal.label}>
                   Package
                   {packages.length === 0 ? (
@@ -185,7 +174,11 @@ export default function EditStudentModal({
                     </select>
                   )}
                 </label>
+              </>
+            )}
 
+            {activeTab === 'enquiry' && (
+              <>
                 <label style={modal.label}>
                   Payment Date
                   <input
@@ -194,6 +187,16 @@ export default function EditStudentModal({
                     value={paymentDate}
                     onChange={e => setPaymentDate(e.target.value)}
                     required
+                  />
+                </label>
+
+                <label style={modal.label}>
+                  First Day of School
+                  <input
+                    type="date"
+                    style={modal.input}
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
                   />
                 </label>
 
@@ -212,33 +215,15 @@ export default function EditStudentModal({
 
           {error && <p style={{ color: '#e53e3e', fontSize: 13, marginTop: 12 }}>{error}</p>}
 
-          {confirmDelete ? (
-            <div style={modal.confirmDeleteBox}>
-              <p style={modal.confirmDeleteText}>
-                Permanently delete <strong>{student.lead.childName}</strong>? This cannot be undone.
-              </p>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setConfirmDelete(false)} style={modal.cancelBtn} disabled={deleting}>
-                  Cancel
-                </button>
-                <button type="button" onClick={handleDelete} style={modal.deleteConfirmBtn} disabled={deleting}>
-                  {deleting ? 'Deleting…' : 'Yes, Delete'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div style={modal.footer}>
-              <button type="button" onClick={() => setConfirmDelete(true)} style={modal.deleteBtn}>
-                Delete
+          <div style={modal.footer}>
+            <div style={{ flex: 1 }} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" onClick={onClose} style={modal.cancelBtn}>Cancel</button>
+              <button type="submit" disabled={saving} style={modal.saveBtn}>
+                {saving ? 'Saving…' : 'Save'}
               </button>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button" onClick={onClose} style={modal.cancelBtn}>Cancel</button>
-                <button type="submit" disabled={saving} style={modal.saveBtn}>
-                  {saving ? 'Saving…' : 'Save'}
-                </button>
-              </div>
             </div>
-          )}
+          </div>
         </form>
       </div>
     </div>
@@ -264,8 +249,8 @@ const modal: Record<string, React.CSSProperties> = {
     display: 'flex', borderBottom: '2px solid #e2e8f0', gap: 0,
   },
   tab: {
-    padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-    border: 'none', background: 'none', color: '#a0aec0',
+    flex: 1, padding: '8px 8px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    border: 'none', background: 'none', color: '#a0aec0', textAlign: 'center' as const,
     borderBottom: '2px solid transparent', marginBottom: -2,
   },
   tabActive: {
@@ -287,18 +272,5 @@ const modal: Record<string, React.CSSProperties> = {
   saveBtn: {
     padding: '8px 20px', borderRadius: 8, border: 'none',
     background: '#3182ce', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14,
-  },
-  deleteBtn: {
-    padding: '8px 16px', borderRadius: 8, border: '1px solid #fc8181',
-    background: 'none', color: '#c53030', cursor: 'pointer', fontWeight: 600, fontSize: 14,
-  },
-  confirmDeleteBox: {
-    marginTop: 20, padding: '14px 16px', borderRadius: 10,
-    background: '#fff5f5', border: '1px solid #feb2b2',
-  },
-  confirmDeleteText: { margin: '0 0 12px', fontSize: 13, color: '#742a2a' },
-  deleteConfirmBtn: {
-    padding: '8px 18px', borderRadius: 8, border: 'none',
-    background: '#e53e3e', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14,
   },
 };

@@ -29,12 +29,15 @@ export interface Lead {
   appointmentCreatedByUserId: string | null;
   appointmentIsPlaceholder: boolean;
   lostReason: string | null;
+  statusChangedAt: string | null;
   relationship: string | null;
   programme: string | null;
   preferredAppointmentTime: string | null;
   addressLocation: string | null;
   needsTransport: boolean | null;
   howDidYouKnow: string | null;
+  ctaSource: string | null;
+  deletedAt: string | null;
 }
 
 export interface LeadsResponse {
@@ -81,12 +84,24 @@ export interface Student {
   enrolmentMonth: number;
   packageId: string;
   enrolledAt: string;
+  startDate: string | null;
   notes: string | null;
   onboardingProgress: OnboardingTask[] | null;
   onboardingCompleted: boolean;
   withdrawnAt: string | null;
   withdrawReason: string | null;
+  status: 'enrolled' | 'active' | 'graduated' | 'withdrawn';
   createdAt: string;
-  lead: { childName: string; childDob: string; parentPhone: string };
+  lead: { childName: string; childDob: string; parentPhone: string; submittedAt: string };
   package: { name: string; programme: string; age: number; year: number };
+}
+
+export interface StudentsResponse {
+  items: Student[];
+  total: number;
+  page: number;
+  pageSize: number;
+  statusCounts: { enrolled: number; active: number; graduated: number; withdrawn: number };
+  onboardingCounts: { total: number; notStarted: number; inProgress: number; readyToComplete: number };
+  availableYears: number[];
 }

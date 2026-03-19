@@ -1,33 +1,42 @@
 import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPenToSquare, faComment, faCalendarPlus, faBell } from '@fortawesome/free-solid-svg-icons';
-import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
-import { fetchLeads, updateLead, createAppointment, fetchUpcomingAppointments, fetchLeadStats, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
+import { fetchLeads, updateLead, deleteLead, fetchTrashedLeads, restoreLead, permanentDeleteLead, createAppointment, confirmAppointment, fetchUpcomingAppointments, fetchLeadStats, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
 import { fetchSettings } from '../api/settings.js';
 import { getConnectToken } from '../api/google.js';
 import { fetchPackages, fetchPackageYears } from '../api/packages.js';
 import { createStudent } from '../api/students.js';
-import { Lead, LeadStatus, Package } from '../types/index.js';
+import { Lead, LeadStatus, LeadsResponse, Package } from '../types/index.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCalendarDays, faCircleCheck, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
-const STATUSES: LeadStatus[] = [
-  'NEW',
-  'CONTACTED',
-  'APPOINTMENT_BOOKED',
-  'FOLLOW_UP',
-  'ENROLLED',
-  'LOST',
-];
-
+const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST'];
 const currentYear = new Date().getFullYear();
 const ENROLMENT_YEARS = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
-
-type SortField = 'submittedAt' | 'childName' | 'childDob' | 'enrolmentYear' | 'status';
+type SortField = 'submittedAt' | 'childName' | 'childDob' | 'enrolmentYear' | 'status' | 'intent';
 type SortOrder = 'asc' | 'desc';
+type PipelineStage = 'all_active' | 'NEW' | 'CONTACTED' | 'APPOINTMENT_BOOKED' | 'FOLLOW_UP' | 'ENROLLED' | 'LOST' | 'TRASH';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
+const CTA_SOURCE_LABELS: Record<string, string> = {
+  final: '整个页面', courses: '课程详情', methods: '学习方式', story: '故事部分', hero: '顶部',
+};
+
+function getLeadHeat(ctaSource: string | null): { level: number; label: string; color: string; tooltip: string } {
+  const sourceOrder: Record<string, number> = {
+    hero: 1, story: 2, methods: 3, courses: 4, final: 5,
+  };
+  const score = sourceOrder[ctaSource || ''] || 0;
+  const section = CTA_SOURCE_LABELS[ctaSource || ''] || '';
+  if (score >= 4) return { level: 3, label: 'Hot', color: '#ef4444', bg: '#fef2f2', icon: faFire, tooltip: 'Hot Lead' };
+  if (score >= 2) return { level: 2, label: 'Warm', color: '#f59e0b', bg: '#fffbeb', icon: faSun, tooltip: 'Warm Lead' };
+  if (score >= 1) return { level: 1, label: 'Cold', color: '#60a5fa', bg: '#eff6ff', icon: faSnowflake, tooltip: 'Cold Lead' };
+  return { level: 0, label: '', color: '', bg: '', icon: null, tooltip: '' };
+}
 
 function calcClassAge(dob: string, enrolmentYear: number): number {
   return enrolmentYear - new Date(dob).getFullYear();
@@ -42,10 +51,7 @@ function classAgeBadgeStyle(age: number): React.CSSProperties {
     6: { bg: '#bee3f8', color: '#2c5282' },
   };
   const { bg, color } = palette[age] ?? { bg: '#e2e8f0', color: '#4a5568' };
-  return {
-    display: 'inline-block', padding: '1px 7px', background: bg, color,
-    borderRadius: 10, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' as const, cursor: 'default',
-  };
+  return { display: 'inline-block', padding: '1px 7px', background: bg, color, borderRadius: 10, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' as const };
 }
 
 const YEAR_PALETTE = [
@@ -55,18 +61,18 @@ const YEAR_PALETTE = [
   { bg: '#ede9fe', color: '#5b21b6' },
   { bg: '#fce7f3', color: '#9d174d' },
 ];
+
 function enrolmentYearBadgeStyle(year: number): React.CSSProperties {
   const { bg, color } = YEAR_PALETTE[Math.abs(year - 2020) % YEAR_PALETTE.length];
-  return {
-    display: 'inline-block', padding: '1px 7px', background: bg, color,
-    borderRadius: 10, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' as const,
-  };
+  return { display: 'inline-block', padding: '1px 7px', background: bg, color, borderRadius: 10, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' as const };
 }
 
 function normalizePhone(phone: string): string {
   const cleaned = phone.replace(/[\s\-()]/g, '');
   if (cleaned.startsWith('+')) return cleaned.replace(/\D/g, '');
   if (cleaned.startsWith('0')) return '60' + cleaned.slice(1);
+  // If already starts with a country code (60=MY, 65=SG, etc.), keep as-is
+  if (/^(60|65|62|66|63|91|44|1)\d+$/.test(cleaned)) return cleaned;
   return '60' + cleaned;
 }
 
@@ -82,97 +88,470 @@ function defaultAppointmentTime(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// ── Upcoming Appointments Panel ───────────────────────────────────────────────
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
+function relTime(iso: string): { text: string; stale: boolean } {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return { text: 'just now', stale: false };
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor(diff / 3600000);
+  const mins = Math.floor(diff / 60000);
+  if (days >= 1) return { text: `${days}d ago`, stale: days >= 3 };
+  if (hours >= 1) return { text: `${hours}h ago`, stale: false };
+  if (mins <= 0) return { text: 'just now', stale: false };
+  return { text: `${mins}m ago`, stale: false };
 }
 
-function groupByDate(items: UpcomingAppointment[]): { date: string; appts: UpcomingAppointment[]; isToday: boolean }[] {
-  const map = new Map<string, UpcomingAppointment[]>();
-  for (const item of items) {
-    const key = new Date(item.appointmentStart).toLocaleDateString('en-MY', {
-      weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
-    });
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(item);
+function relDays(iso: string): { text: string; stale: boolean } {
+  const appt = new Date(iso);
+  const now = new Date();
+  const apptDay = new Date(appt.getFullYear(), appt.getMonth(), appt.getDate()).getTime();
+  const todayDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((todayDay - apptDay) / 86400000);
+  if (days <= 0) return { text: 'today', stale: false };
+  if (days === 1) return { text: '1d ago', stale: false };
+  return { text: `${days}d ago`, stale: days >= 3 };
+}
+
+function leadAgeDays(lead: Lead): number {
+  return (Date.now() - new Date(lead.submittedAt).getTime()) / 86400000;
+}
+
+function urgencyBorder(lead: Lead, orangeDays = 1, redDays = 3): string {
+  const days = leadAgeDays(lead);
+  if (lead.status === 'FOLLOW_UP') return '#f59e0b';
+  if (lead.status === 'NEW' && days > redDays) return '#ef4444';
+  if (lead.status === 'NEW' && days > orangeDays) return '#f59e0b';
+  if (lead.status === 'CONTACTED' && days > redDays * 2) return '#f59e0b';
+  return 'transparent';
+}
+
+function urgencyTooltip(lead: Lead, orangeDays = 1, redDays = 3): { label: string; rule: string } | null {
+  const days = Math.floor(leadAgeDays(lead));
+  if (lead.status === 'FOLLOW_UP') return { label: 'Follow-up pending', rule: `${days} days since visit` };
+  if (lead.status === 'NEW' && days > redDays) return { label: 'Needs attention', rule: `${days} days waiting` };
+  if (lead.status === 'NEW' && days > orangeDays) return { label: 'Contact soon', rule: `${days} days waiting` };
+  if (lead.status === 'CONTACTED' && days > redDays * 2) return { label: 'Book visit soon', rule: `${days} days since contact` };
+  return null;
+}
+
+const STATUS_VERB: Record<LeadStatus, string> = {
+  NEW:                'Submitted',
+  CONTACTED:          'Contacted',
+  APPOINTMENT_BOOKED: 'Booked',
+  FOLLOW_UP:          'Attended',
+  ENROLLED:           'Enrolled',
+  LOST:               'Lost',
+};
+
+const STATUS_CFG: Record<LeadStatus, { label: string; color: string; dot: string; bg: string }> = {
+  NEW:                { label: 'New',         color: '#2563eb', dot: '#3b82f6', bg: '#eff6ff' },
+  CONTACTED:          { label: 'Contacted',   color: '#7c3aed', dot: '#8b5cf6', bg: '#f5f3ff' },
+  APPOINTMENT_BOOKED: { label: 'Appt Confirmed', color: '#0d9488', dot: '#14b8a6', bg: '#f0fdfa' },
+  FOLLOW_UP:          { label: 'Follow-Up',   color: '#d97706', dot: '#f59e0b', bg: '#fffbeb' },
+  ENROLLED:           { label: 'Enrolled',    color: '#16a34a', dot: '#22c55e', bg: '#f0fdf4' },
+  LOST:               { label: 'Lost',        color: '#dc2626', dot: '#f87171', bg: '#fef2f2' },
+};
+
+type StatsData = {
+  NEW?: number; CONTACTED?: number; APPOINTMENT_BOOKED?: number;
+  FOLLOW_UP?: number; ENROLLED?: number; LOST?: number; TRASH?: number;
+};
+
+// ── Pipeline Nav ────────────────────────────────────────────────────────────────
+
+const ACTIVE_STAGES = [
+  { key: 'NEW' as PipelineStage,                label: 'New',         accent: '#3b82f6', bg: '#eff6ff', text: '#1d4ed8' },
+  { key: 'CONTACTED' as PipelineStage,          label: 'Contacted',   accent: '#f59e0b', bg: '#fffbeb', text: '#92400e' },
+  { key: 'APPOINTMENT_BOOKED' as PipelineStage, label: 'Appt Booked', accent: '#6366f1', bg: '#eef2ff', text: '#3730a3' },
+  { key: 'FOLLOW_UP' as PipelineStage,          label: 'Follow-Up',   accent: '#f97316', bg: '#fff7ed', text: '#c2410c' },
+];
+
+const CLOSED_STAGES = [
+  { key: 'ENROLLED' as PipelineStage, label: 'Enrolled', accent: '#22c55e', bg: '#f0fdf4', text: '#166534' },
+  { key: 'LOST' as PipelineStage,     label: 'Lost',     accent: '#f87171', bg: '#fef2f2', text: '#991b1b' },
+];
+
+function PipelineNav({ selected, onChange, stats, compact, collapsed, onToggle }: {
+  selected: PipelineStage; onChange: (stage: PipelineStage) => void; stats: StatsData | undefined; compact?: boolean; collapsed?: boolean; onToggle?: () => void;
+}) {
+  const totalActive = (stats?.NEW ?? 0) + (stats?.CONTACTED ?? 0) + (stats?.APPOINTMENT_BOOKED ?? 0) + (stats?.FOLLOW_UP ?? 0);
+  const getCount = (key: PipelineStage) => (stats as Record<string, number> | undefined)?.[key] ?? 0;
+  const allActiveSelected = selected === 'all_active';
+
+  // ── Compact horizontal mode (mobile / tablet) ──
+  if (compact) {
+    const allStages = [
+      { key: 'all_active' as PipelineStage, label: 'All', accent: '#64748b', count: totalActive },
+      ...ACTIVE_STAGES.map(s => ({ key: s.key, label: s.label, accent: s.accent, count: getCount(s.key) })),
+      ...CLOSED_STAGES.map(s => ({ key: s.key, label: s.label, accent: s.accent, count: getCount(s.key) })),
+      { key: 'TRASH' as PipelineStage, label: 'Trash', accent: '#e53e3e', count: getCount('TRASH') },
+    ];
+    return (
+      <div className="kc-no-scrollbar" style={{ display: 'flex', gap: 6, padding: '10px 12px', overflowX: 'auto', background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+        {allStages.map(s => {
+          const isSel = selected === s.key;
+          return (
+            <button key={s.key} onClick={() => onChange(s.key)} style={{
+              display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 20, border: `1.5px solid ${isSel ? s.accent : '#e5e7eb'}`,
+              background: isSel ? s.accent : '#fff', color: isSel ? '#fff' : '#6b7280', fontSize: 12, fontWeight: isSel ? 700 : 500,
+              cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, fontFamily: 'inherit',
+            }}>
+              {s.label}
+              <span style={{ fontSize: 10, fontWeight: 700, background: isSel ? 'rgba(255,255,255,0.25)' : '#f1f5f9', color: isSel ? '#fff' : '#94a3b8', borderRadius: 8, padding: '1px 6px' }}>{s.count}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
   }
-  const today = new Date();
-  return Array.from(map.entries()).map(([date, appts]) => ({
-    date,
-    appts,
-    isToday: isSameDay(new Date(appts[0].appointmentStart), today),
-  }));
-}
 
-function UpcomingPanel({ items }: { items: UpcomingAppointment[] }) {
-  const groups = groupByDate(items);
+  // ── Collapsed sidebar (icon-only with tooltips) ──
+  if (collapsed) {
+    const allStages = [
+      { key: 'all_active' as PipelineStage, label: 'All Active', accent: '#64748b', count: totalActive, icon: null, num: null },
+      ...ACTIVE_STAGES.map((s, i) => ({ key: s.key, label: s.label, accent: s.accent, count: getCount(s.key), icon: null, num: i + 1 })),
+    ];
+    const closedStages = CLOSED_STAGES.map(s => ({ key: s.key, label: s.label, accent: s.accent, count: getCount(s.key) }));
+    const trashCount = getCount('TRASH');
+
+    return (
+      <div className="kc-no-scrollbar" style={{ width: 48, flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', paddingTop: 12, gap: 2 }}>
+        {/* Expand button */}
+        <button onClick={onToggle} title="Show pipeline" style={{
+          width: 32, height: 28, border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 11, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+        }}>
+          <FontAwesomeIcon icon={faChevronRight} />
+        </button>
+
+        {/* Stage dots */}
+        {allStages.map(s => {
+          const isSel = selected === s.key;
+          return (
+            <button key={s.key} onClick={() => onChange(s.key)} title={`${s.label} (${s.count})`} style={{
+              width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+              background: isSel ? s.accent + '18' : 'none',
+            }}>
+              {s.num != null ? (
+                <span style={{
+                  width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, fontWeight: 700, background: isSel ? s.accent : '#fff', border: `2px solid ${isSel ? s.accent : '#d1d5db'}`, color: isSel ? '#fff' : '#9ca3af',
+                }}>{s.num}</span>
+              ) : (
+                <span style={{
+                  width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 8, fontWeight: 800, background: isSel ? '#64748b' : '#fff', border: `2px solid ${isSel ? '#64748b' : '#d1d5db'}`, color: isSel ? '#fff' : '#9ca3af',
+                }}>ALL</span>
+              )}
+              {s.count > 0 && (
+                <span style={{ position: 'absolute', top: 2, right: 2, fontSize: 8, fontWeight: 700, color: s.accent, lineHeight: 1 }}>{s.count}</span>
+              )}
+            </button>
+          );
+        })}
+
+        <div style={{ width: 20, height: 1, background: '#f1f5f9', margin: '6px 0' }} />
+
+        {/* Closed */}
+        {closedStages.map(s => {
+          const isSel = selected === s.key;
+          return (
+            <button key={s.key} onClick={() => onChange(s.key)} title={`${s.label} (${s.count})`} style={{
+              width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+              background: isSel ? s.accent + '18' : 'none',
+            }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: isSel ? s.accent : '#d1d5db' }} />
+              {s.count > 0 && (
+                <span style={{ position: 'absolute', top: 2, right: 2, fontSize: 8, fontWeight: 700, color: s.accent, lineHeight: 1 }}>{s.count}</span>
+              )}
+            </button>
+          );
+        })}
+
+        <div style={{ width: 20, height: 1, background: '#f1f5f9', margin: '6px 0' }} />
+
+        {/* Trash */}
+        {(() => {
+          const isSel = selected === 'TRASH';
+          return (
+            <button onClick={() => onChange('TRASH')} title={`Trash (${trashCount})`} style={{
+              width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: isSel ? '#fee2e2' : 'none', color: isSel ? '#e53e3e' : '#d1d5db', fontSize: 13,
+            }}>
+              <FontAwesomeIcon icon={faTrash} />
+            </button>
+          );
+        })()}
+      </div>
+    );
+  }
+
+  // ── Full vertical sidebar (desktop) ──
   return (
-    <div style={panel.container}>
-      <h2 style={panel.heading}>Upcoming Appointments</h2>
-      {groups.length === 0 && <p style={panel.empty}>No upcoming appointments</p>}
-      {groups.map(({ date, appts, isToday }) => (
-        <div key={date} style={panel.group}>
-          <div style={isToday ? panel.dateLabelToday : panel.dateLabel}>
-            {isToday ? `TODAY — ${date}` : date}
-          </div>
-          {appts.map((a) => (
-            <div key={a.id} style={isToday ? panel.rowToday : panel.row}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={isToday ? panel.nameToday : panel.name}>
-                  {a.appointmentIsPlaceholder && <span style={panel.phBadge}>PH</span>}
-                  {a.childName}
-                </span>
-                <FontAwesomeIcon
-                  icon={faWhatsapp}
-                  onClick={() => window.open(whatsappUrl(a.parentPhone, ''), '_blank')}
-                  title="WhatsApp"
-                  style={{ color: '#25d366', fontSize: 18, cursor: 'pointer' }}
-                />
-              </span>
-              <span style={isToday ? panel.timeToday : panel.time}>
-                {new Date(a.appointmentStart).toLocaleTimeString('en-MY', {
-                  hour: '2-digit', minute: '2-digit', hour12: true,
-                })}
-              </span>
-            </div>
-          ))}
+    <div className="kc-no-scrollbar" style={{ width: 208, flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' as const, paddingTop: 8 }}>
+
+      {/* Collapse arrow — top right */}
+      {onToggle && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 8px 8px' }}>
+          <span onClick={onToggle} title="Collapse sidebar" style={{
+            color: '#cbd5e1', fontSize: 10, padding: '4px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: 4,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.background = '#f1f5f9'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#cbd5e1'; e.currentTarget.style.background = 'transparent'; }}
+          >
+            <FontAwesomeIcon icon={faChevronLeft} />
+          </span>
         </div>
-      ))}
+      )}
+
+      {/* "Active Pipeline" header — also acts as "All Active" filter */}
+      <button onClick={() => onChange('all_active')} style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        width: '100%', padding: '7px 14px',
+        background: allActiveSelected ? '#f1f5f9' : 'none',
+        border: 'none', borderLeft: `${allActiveSelected ? 4 : 3}px solid ${allActiveSelected ? '#64748b' : 'transparent'}`,
+        cursor: 'pointer', marginBottom: 2,
+      }}>
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: allActiveSelected ? '#334155' : '#94a3b8' }}>
+          Active Pipeline
+        </span>
+        <span style={{ fontSize: allActiveSelected ? 12 : 11, fontWeight: 700, borderRadius: 10, padding: allActiveSelected ? '2px 8px' : '1px 7px', background: allActiveSelected ? '#64748b' : '#f1f5f9', color: allActiveSelected ? '#fff' : '#94a3b8', flexShrink: 0 }}>
+          {totalActive}
+        </span>
+      </button>
+
+      {/* Pipeline stages with vertical connector */}
+      <div style={{ position: 'relative' as const, marginBottom: 4 }}>
+        {/* Connector line behind the step dots */}
+        <div style={{ position: 'absolute' as const, left: 25, top: 14, bottom: 14, width: 1, background: '#e5e7eb' }} />
+
+        {ACTIVE_STAGES.map((s, idx) => {
+          const isSelected = selected === s.key;
+          const count = getCount(s.key);
+          return (
+            <button key={s.key} onClick={() => onChange(s.key)} style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+              padding: '8px 14px 8px 11px',
+              background: isSelected ? s.bg : 'none',
+              border: 'none', borderLeft: `${isSelected ? 4 : 3}px solid ${isSelected ? s.accent : 'transparent'}`,
+              cursor: 'pointer', textAlign: 'left' as const, position: 'relative' as const, zIndex: 1,
+            }}>
+              {/* Numbered step dot */}
+              <span style={{
+                width: isSelected ? 22 : 20, height: isSelected ? 22 : 20, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 800, lineHeight: 1,
+                background: isSelected ? s.accent : '#fff',
+                border: `${isSelected ? 2 : 1.5}px solid ${isSelected ? s.accent : '#d1d5db'}`,
+                color: isSelected ? '#fff' : '#9ca3af',
+                position: 'relative' as const, zIndex: 1,
+              }}>
+                {idx + 1}
+              </span>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: isSelected ? 700 : 400, color: isSelected ? s.text : '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                {s.label}
+              </span>
+              <span style={{ fontSize: isSelected ? 12 : 11, fontWeight: 700, borderRadius: 10, padding: isSelected ? '2px 8px' : '1px 7px', background: isSelected ? s.accent : '#f1f5f9', color: isSelected ? '#fff' : '#94a3b8', flexShrink: 0 }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ margin: '12px 14px 10px', borderTop: '1px solid #f1f5f9' }} />
+
+      <div style={{ padding: '0 14px 6px', fontSize: 10, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
+        Closed
+      </div>
+      {CLOSED_STAGES.map(s => {
+        const isSelected = selected === s.key;
+        const count = getCount(s.key);
+        return (
+          <button key={s.key} onClick={() => onChange(s.key)} style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            padding: '8px 14px 8px 11px',
+            background: isSelected ? s.bg : 'none',
+            border: 'none', borderLeft: `${isSelected ? 4 : 3}px solid ${isSelected ? s.accent : 'transparent'}`,
+            cursor: 'pointer', textAlign: 'left' as const,
+          }}>
+            <span style={{ width: isSelected ? 9 : 7, height: isSelected ? 9 : 7, borderRadius: '50%', flexShrink: 0, background: isSelected ? s.accent : '#d1d5db' }} />
+            <span style={{ flex: 1, fontSize: 13, fontWeight: isSelected ? 700 : 400, color: isSelected ? s.text : '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+              {s.label}
+            </span>
+            <span style={{ fontSize: isSelected ? 12 : 11, fontWeight: 700, borderRadius: 10, padding: isSelected ? '2px 8px' : '1px 7px', background: isSelected ? s.accent : '#f1f5f9', color: isSelected ? '#fff' : '#94a3b8', flexShrink: 0 }}>
+              {count}
+            </span>
+          </button>
+        );
+      })}
+
+      <div style={{ margin: '12px 14px 10px', borderTop: '1px solid #f1f5f9' }} />
+
+      {/* Trash */}
+      {(() => {
+        const isSelected = selected === 'TRASH';
+        const trashCount = getCount('TRASH');
+        return (
+          <button onClick={() => onChange('TRASH')} style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            padding: '8px 14px 8px 11px',
+            background: isSelected ? '#fff5f5' : 'none',
+            border: 'none', borderLeft: `${isSelected ? 4 : 3}px solid ${isSelected ? '#e53e3e' : 'transparent'}`,
+            cursor: 'pointer', textAlign: 'left' as const,
+          }}>
+            <FontAwesomeIcon icon={faTrash} style={{ fontSize: isSelected ? 13 : 12, color: isSelected ? '#e53e3e' : '#d1d5db', flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 13, fontWeight: isSelected ? 700 : 400, color: isSelected ? '#c53030' : '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+              Trash
+            </span>
+            {trashCount > 0 && (
+              <span style={{ fontSize: isSelected ? 12 : 11, fontWeight: 700, borderRadius: 10, padding: isSelected ? '2px 8px' : '1px 7px', background: isSelected ? '#e53e3e' : '#f1f5f9', color: isSelected ? '#fff' : '#94a3b8', flexShrink: 0 }}>
+                {trashCount}
+              </span>
+            )}
+          </button>
+        );
+      })()}
+
     </div>
   );
 }
 
-// ── Follow Up Panel ───────────────────────────────────────────────────────────
+// ── Sidebar ─────────────────────────────────────────────────────────────────────
 
-function FollowUpPanel({ leads }: { leads: Lead[] }) {
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function Sidebar({ upcomingAppts, followUpLeads, overdueApptLeads, onFollowUp, onWhatsApp, onSelectLead }: {
+  upcomingAppts: UpcomingAppointment[];
+  followUpLeads: Lead[];
+  overdueApptLeads: Lead[];
+  onFollowUp: (lead: Lead) => void;
+  onWhatsApp: (apptId: string) => void;
+  onSelectLead: (lead: Lead) => void;
+}) {
+  const today = new Date();
+  const todayAppts = upcomingAppts.filter(a => isSameDay(new Date(a.appointmentStart), today));
+  const comingAppts = upcomingAppts.filter(a => !isSameDay(new Date(a.appointmentStart), today));
+
   return (
-    <div style={panel.container}>
-      <h2 style={panel.heading}>Follow Up</h2>
-      {leads.length === 0 && <p style={panel.empty}>No follow-ups pending</p>}
-      {leads.map((lead) => (
-        <div key={lead.id} style={panel.row}>
-          <div>
-            <div style={panel.name}>{lead.childName}</div>
-            {lead.appointmentStart && (
-              <div style={{ fontSize: 11, color: '#e53e3e', marginTop: 1 }}>
-                {new Date(lead.appointmentStart).toLocaleDateString('en-MY', {
-                  day: '2-digit', month: 'short', year: 'numeric',
-                })}
-              </div>
-            )}
-          </div>
-          <a
-            href={`https://web.whatsapp.com/send?phone=${normalizePhone(lead.parentPhone)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: 16, textDecoration: 'none' }}
-            title={lead.parentPhone}
-          >💬</a>
+    <div className="kc-no-scrollbar" style={{ width: 224, flexShrink: 0, display: 'flex', flexDirection: 'column' as const, gap: 12, position: 'sticky' as const, top: 0, maxHeight: '100vh', overflowY: 'auto' as const }}>
+
+      {/* Visit Status Pending — always shown, amber only when there are items */}
+      <div style={sp.box}>
+        <div style={{ ...sp.header, background: overdueApptLeads.length > 0 ? '#fffbeb' : '#fff', borderBottom: '1px solid #f1f5f9' }}>
+          <span style={{ ...sp.title, color: overdueApptLeads.length > 0 ? '#92400e' : '#1a202c' }}>
+            {overdueApptLeads.length > 0 ? <><FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 4 }} /> </> : ''}Visit Status Pending
+          </span>
+          {overdueApptLeads.length > 0
+            ? <span style={{ ...sp.badge, background: '#f59e0b', color: '#fff' }}>{overdueApptLeads.length}</span>
+            : <span style={{ fontSize: 11, color: '#94a3b8' }}><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 4 }} /> All clear</span>}
         </div>
-      ))}
+        {overdueApptLeads.length > 0 ? (
+          <>
+            <div style={{ padding: '6px 14px 4px', fontSize: 11, color: '#b45309' }}>
+              Appointment passed — update their status
+            </div>
+            {overdueApptLeads.slice(0, 5).map(lead => (
+              <div key={lead.id} onClick={() => onSelectLead(lead)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid #fef3c7', cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#fef3c7')}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{lead.childName}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{lead.parentPhone}</div>
+                </div>
+                <span style={{ fontSize: 10, color: '#b45309' }}>→</span>
+              </div>
+            ))}
+            {overdueApptLeads.length > 5 && (
+              <div style={{ padding: '4px 14px 8px', fontSize: 11, color: '#94a3b8' }}>+{overdueApptLeads.length - 5} more</div>
+            )}
+          </>
+        ) : null}
+      </div>
+
+      {/* Today */}
+      <div style={sp.box}>
+        <div style={{ ...sp.header, background: '#fff', borderBottom: '1px solid #f1f5f9' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#1a202c' }}>Today</span>
+          <span style={{ fontSize: 11, color: '#94a3b8' }}>
+            {today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+          </span>
+        </div>
+
+        {/* Appointments today */}
+        <div style={{ borderBottom: '1px solid #f1f5f9' }}>
+          <div style={sp.sectionLabel}>Appointments</div>
+          {todayAppts.length === 0 ? (
+            <div style={{ padding: '4px 14px 10px', fontSize: 12, color: '#cbd5e0' }}>None scheduled</div>
+          ) : (
+            todayAppts.map(a => (
+              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', background: '#fffbeb', borderBottom: '1px solid #fef3c7' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>
+                    {a.appointmentIsPlaceholder && <span style={sp.ph}>PH</span>}
+                    {a.childName}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#d97706' }}>
+                    {new Date(a.appointmentStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  </div>
+                </div>
+                <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn} title="WhatsApp"><FontAwesomeIcon icon={faWhatsapp} /></button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Follow-ups needed */}
+        <div>
+          <div style={sp.sectionLabel}>Follow-Ups Needed</div>
+          {followUpLeads.length === 0 ? (
+            <div style={{ padding: '4px 14px 10px', fontSize: 12, color: '#cbd5e0' }}><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 4 }} /> All clear</div>
+          ) : (
+            <>
+              {followUpLeads.slice(0, 5).map(lead => (
+                <div key={lead.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid #f8fafc' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{lead.childName}</div>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>{lead.parentPhone}</div>
+                  </div>
+                  <button onClick={() => onFollowUp(lead)} style={sp.waBtn} title="WhatsApp Follow-Up"><FontAwesomeIcon icon={faWhatsapp} /></button>
+                </div>
+              ))}
+              {followUpLeads.length > 5 && (
+                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: '#94a3b8' }}>+{followUpLeads.length - 5} more</div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Upcoming visits */}
+      {comingAppts.length > 0 && (
+        <div style={sp.box}>
+          <div style={sp.header}>
+            <span style={sp.title}>Upcoming Visits</span>
+            <span style={sp.badge}>{comingAppts.length}</span>
+          </div>
+          {comingAppts.slice(0, 5).map(a => (
+            <div key={a.id} style={sp.row}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: '#2d3748' }}>
+                  {a.appointmentIsPlaceholder && <span style={sp.ph}>PH</span>}
+                  {a.childName}
+                </div>
+                <div style={{ fontSize: 11, color: '#718096' }}>
+                  {new Date(a.appointmentStart).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}
+                  {' · '}
+                  {new Date(a.appointmentStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </div>
+              </div>
+              <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn} title="WhatsApp"><FontAwesomeIcon icon={faWhatsapp} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   );
 }
@@ -182,9 +561,9 @@ function FollowUpPanel({ leads }: { leads: Lead[] }) {
 function applyWaTemplate(template: string, childName: string, dt: string, address: string, durationMinutes: number): string {
   const d = new Date(dt);
   const end = new Date(d.getTime() + durationMinutes * 60_000);
-  const dateStr = d.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
-  const timeStr = d.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true });
-  const endTimeStr = end.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const endTimeStr = end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
   return template
     .replace(/\{\{childName\}\}/g, childName)
     .replace(/\{\{appointmentDate\}\}/g, dateStr)
@@ -194,19 +573,10 @@ function applyWaTemplate(template: string, childName: string, dt: string, addres
 }
 
 function AppointmentModal({
-  lead,
-  waTemplate,
-  waTemplateZh,
-  address,
-  durationMinutes,
-  onClose,
-  onConfirm,
+  lead, waTemplate, waTemplateZh, address, durationMinutes, upcomingAppts, onClose, onConfirm,
 }: {
-  lead: Lead;
-  waTemplate: string;
-  waTemplateZh: string;
-  address: string;
-  durationMinutes: number;
+  lead: Lead; waTemplate: string; waTemplateZh: string; address: string; durationMinutes: number;
+  upcomingAppts: UpcomingAppointment[];
   onClose: () => void;
   onConfirm: (appointmentStart: string, waMessage: string, isPlaceholder: boolean) => Promise<void>;
 }) {
@@ -218,7 +588,7 @@ function AppointmentModal({
       })()
     : defaultAppointmentTime();
   const [dateTime, setDateTime] = useState(initialDateTime);
-  const [isPlaceholder, setIsPlaceholder] = useState(lead.appointmentIsPlaceholder ?? !lead.appointmentStart);
+  const isPlaceholder = lead.status === 'NEW' || lead.status === 'CONTACTED';
   const [message, setMessage] = useState(() => applyWaTemplate(waTemplate, lead.childName, initialDateTime, address, durationMinutes));
   const [messageEdited, setMessageEdited] = useState(false);
   const [messageZh, setMessageZh] = useState(() => waTemplateZh ? applyWaTemplate(waTemplateZh, lead.childName, initialDateTime, address, durationMinutes) : '');
@@ -227,112 +597,109 @@ function AppointmentModal({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!messageEdited) setMessage(applyWaTemplate(waTemplate, lead.childName, dateTime, address, durationMinutes));
-  }, [dateTime]);
-
-  useEffect(() => {
-    if (!messageZhEdited && waTemplateZh) setMessageZh(applyWaTemplate(waTemplateZh, lead.childName, dateTime, address, durationMinutes));
-  }, [dateTime]);
-
-  const handleWhatsApp = () => {
-    window.open(whatsappUrl(lead.parentPhone, message), '_blank');
-  };
-
-  const handleWhatsAppZh = () => {
-    window.open(whatsappUrl(lead.parentPhone, messageZh), '_blank');
-  };
+  useEffect(() => { if (!messageEdited) setMessage(applyWaTemplate(waTemplate, lead.childName, dateTime, address, durationMinutes)); }, [dateTime]);
+  useEffect(() => { if (!messageZhEdited && waTemplateZh) setMessageZh(applyWaTemplate(waTemplateZh, lead.childName, dateTime, address, durationMinutes)); }, [dateTime]);
 
   const handleConfirm = async () => {
     if (!dateTime) { setError('Please select a date and time.'); return; }
-    setConfirming(true);
-    setError('');
-    try {
-      await onConfirm(new Date(dateTime).toISOString(), message, isPlaceholder);
-      onClose();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to book appointment');
-    } finally {
-      setConfirming(false);
-    }
+    setConfirming(true); setError('');
+    try { await onConfirm(new Date(dateTime).toISOString(), message, isPlaceholder); onClose(); }
+    catch (err: unknown) { setError(err instanceof Error ? err.message : 'Failed to book appointment'); }
+    finally { setConfirming(false); }
   };
 
+  const apptEndTime = dateTime ? (() => {
+    const start = new Date(dateTime);
+    const end = new Date(start.getTime() + durationMinutes * 60_000);
+    const fmt = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const fmtDate = start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    return `${fmtDate} · ${fmt(start)} – ${fmt(end)}`;
+  })() : null;
+
+  const clashes = dateTime ? (() => {
+    const start = new Date(dateTime);
+    const end = new Date(start.getTime() + durationMinutes * 60_000);
+    return upcomingAppts.filter(a => {
+      if (a.id === lead.id) return false;
+      const aStart = new Date(a.appointmentStart);
+      const aEnd = a.appointmentEnd ? new Date(a.appointmentEnd) : new Date(aStart.getTime() + durationMinutes * 60_000);
+      return aStart < end && aEnd > start;
+    });
+  })() : [];
+
   return (
-    <div style={apptModal.backdrop} onClick={onClose}>
-      <div style={apptModal.card} onClick={(e) => e.stopPropagation()}>
-        <div style={apptModal.header}>
+    <div style={am.backdrop} onClick={onClose}>
+      <div style={am.card} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={am.header}>
           <div>
-            <h2 style={apptModal.title}>Book Appointment</h2>
-            <p style={apptModal.subtitle}>{lead.childName} · {lead.parentPhone}</p>
+            <h2 style={am.title}>{lead.appointmentStart ? 'Reschedule Appointment' : 'Book Appointment'}</h2>
+            <p style={am.subtitle}>{lead.childName} · {lead.parentPhone}</p>
           </div>
-          <button onClick={onClose} style={apptModal.closeBtn} aria-label="Close">✕</button>
+          <button onClick={onClose} style={am.closeBtn}><FontAwesomeIcon icon={faXmark} /></button>
         </div>
 
-        <label style={apptModal.label}>
-          Appointment Date & Time
-          <input
-            type="datetime-local"
-            style={apptModal.input}
-            value={dateTime}
-            onChange={(e) => { setDateTime(e.target.value); }}
-            required
-          />
-        </label>
+        {/* Date & Time */}
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
+            <span style={am.sectionLabel}>Date &amp; Time</span>
+            {apptEndTime && <span style={{ fontSize: 12, color: '#4a5568' }}>{apptEndTime}</span>}
+          </div>
+          <input type="datetime-local" style={am.input} value={dateTime} onChange={e => setDateTime(e.target.value)} required />
+        </div>
 
-        <label style={apptModal.placeholderCheck}>
-          <input
-            type="checkbox"
-            checked={isPlaceholder}
-            onChange={(e) => setIsPlaceholder(e.target.checked)}
-          />
-          Is Placeholder
-        </label>
+        {clashes.length > 0 && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', marginBottom: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 5 }}>
+              <FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 4 }} /> Clashes with {clashes.length} existing appointment{clashes.length > 1 ? 's' : ''}
+            </div>
+            {clashes.map(c => {
+              const cStart = new Date(c.appointmentStart);
+              const cEnd = c.appointmentEnd ? new Date(c.appointmentEnd) : new Date(cStart.getTime() + durationMinutes * 60_000);
+              const fmt = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+              return (
+                <div key={c.id} style={{ fontSize: 12, color: '#b91c1c', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{c.childName}</span>
+                  <span style={{ color: '#ef4444' }}>{fmt(cStart)} – {fmt(cEnd)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        <div style={{ marginTop: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-            <div style={apptModal.label}>WhatsApp Message</div>
+        <div style={am.divider} />
+
+        {/* WhatsApp Message */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+            <span style={am.sectionLabel}>WhatsApp Message</span>
             {waTemplateZh && (
               <div style={{ display: 'flex', gap: 4 }}>
-                <button
-                  onClick={() => setLang('en')}
-                  style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #cbd5e0', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: lang === 'en' ? '#3182ce' : '#f7fafc', color: lang === 'en' ? '#fff' : '#4a5568' }}
-                >EN</button>
-                <button
-                  onClick={() => setLang('zh')}
-                  style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #cbd5e0', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: lang === 'zh' ? '#3182ce' : '#f7fafc', color: lang === 'zh' ? '#fff' : '#4a5568' }}
-                >中文</button>
+                <button onClick={() => setLang('en')} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #cbd5e0', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: lang === 'en' ? '#3182ce' : '#f7fafc', color: lang === 'en' ? '#fff' : '#4a5568' }}>EN</button>
+                <button onClick={() => setLang('zh')} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #cbd5e0', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: lang === 'zh' ? '#3182ce' : '#f7fafc', color: lang === 'zh' ? '#fff' : '#4a5568' }}>中文</button>
               </div>
             )}
           </div>
           {lang === 'en' ? (
-            <>
-              <textarea
-                style={{ ...apptModal.input, height: 100, resize: 'vertical' }}
-                value={message}
-                onChange={(e) => { setMessage(e.target.value); setMessageEdited(true); }}
-              />
-              <button onClick={handleWhatsApp} style={{ ...apptModal.waBtn, marginTop: 8, width: '100%' }}>
-                📱 WhatsApp
-              </button>
-            </>
+            <textarea style={{ ...am.input, height: 110, resize: 'vertical' }} value={message} onChange={e => { setMessage(e.target.value); setMessageEdited(true); }} />
           ) : (
-            <>
-              <textarea
-                style={{ ...apptModal.input, height: 100, resize: 'vertical' }}
-                value={messageZh}
-                onChange={(e) => { setMessageZh(e.target.value); setMessageZhEdited(true); }}
-              />
-              <button onClick={handleWhatsAppZh} style={{ ...apptModal.waBtn, marginTop: 8, width: '100%' }}>
-                📱 WhatsApp (中文)
-              </button>
-            </>
+            <textarea style={{ ...am.input, height: 110, resize: 'vertical' }} value={messageZh} onChange={e => { setMessageZh(e.target.value); setMessageZhEdited(true); }} />
           )}
         </div>
 
-        {error && <p style={apptModal.error}>{error}</p>}
+        {error && <p style={am.error}>{error}</p>}
 
-        <div style={apptModal.footer}>
-          <button onClick={handleConfirm} disabled={confirming} style={{ ...apptModal.confirmBtn, marginLeft: 'auto' }}>
+        {/* Footer */}
+        <div style={am.footer}>
+          <button onClick={onClose} style={am.cancelBtn}>Cancel</button>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={() => window.open(whatsappUrl(lead.parentPhone, lang === 'en' ? message : messageZh), '_blank', 'noopener,noreferrer')}
+            style={am.waBtn}
+          >
+            <FontAwesomeIcon icon={faWhatsapp} style={{ marginRight: 6 }} />{lang === 'zh' ? 'WhatsApp (中文)' : 'WhatsApp'}
+          </button>
+          <button onClick={handleConfirm} disabled={confirming} style={am.confirmBtn}>
             {confirming ? 'Booking…' : 'Confirm'}
           </button>
         </div>
@@ -341,97 +708,227 @@ function AppointmentModal({
   );
 }
 
-// ── Follow Up Modal ───────────────────────────────────────────────────────────
+// ── WhatsApp Modal ─────────────────────────────────────────────────────────────
 
-function applyFollowUpTemplate(template: string, lead: Lead, address: string, durationMinutes: number): string {
-  const childName = lead.childName;
-  const dt = lead.appointmentStart;
+interface WhatsAppContact {
+  childName: string; parentPhone: string;
+  status?: LeadStatus; appointmentStart?: string | null; notes?: string | null;
+  submittedAt?: string; childDob?: string;
+}
+
+interface WaTemplateOption { id: string; name: string; content_en: string; content_zh: string; }
+
+function applyTemplatePlaceholders(template: string, contact: WhatsAppContact, address: string, durationMinutes: number): string {
+  const childName = contact.childName;
+  const dt = contact.appointmentStart;
   if (dt) {
     const d = new Date(dt);
     const end = new Date(d.getTime() + durationMinutes * 60_000);
-    const dateStr = d.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
-    const timeStr = d.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true });
-    const endTimeStr = end.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const endTimeStr = end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
     return template
-      .replace(/\{\{childName\}\}/g, childName)
-      .replace(/\{\{appointmentDate\}\}/g, dateStr)
-      .replace(/\{\{appointmentTime\}\}/g, timeStr)
-      .replace(/\{\{appointmentEndTime\}\}/g, endTimeStr)
+      .replace(/\{\{childName\}\}/g, childName).replace(/\{\{appointmentDate\}\}/g, dateStr)
+      .replace(/\{\{appointmentTime\}\}/g, timeStr).replace(/\{\{appointmentEndTime\}\}/g, endTimeStr)
       .replace(/\{\{address\}\}/g, address);
   }
-  return template
-    .replace(/\{\{childName\}\}/g, childName)
-    .replace(/\{\{appointmentDate\}\}/g, '')
-    .replace(/\{\{appointmentTime\}\}/g, '')
-    .replace(/\{\{appointmentEndTime\}\}/g, '')
-    .replace(/\{\{address\}\}/g, address);
+  return template.replace(/\{\{childName\}\}/g, childName).replace(/\{\{appointmentDate\}\}/g, '')
+    .replace(/\{\{appointmentTime\}\}/g, '').replace(/\{\{appointmentEndTime\}\}/g, '').replace(/\{\{address\}\}/g, address);
 }
 
-function FollowUpModal({
-  lead,
-  waTemplate,
-  waTemplateZh,
-  address,
-  durationMinutes,
-  onClose,
-}: {
-  lead: Lead;
-  waTemplate: string;
-  waTemplateZh: string;
-  address: string;
-  durationMinutes: number;
-  onClose: () => void;
+function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, durationMinutes, onClose }: {
+  contact: WhatsAppContact; defaultTemplate?: string; templates: WaTemplateOption[]; address: string; durationMinutes: number; onClose: () => void;
 }) {
-  const [message, setMessage] = useState(() => applyFollowUpTemplate(waTemplate, lead, address, durationMinutes));
-  const [messageZh, setMessageZh] = useState(() => waTemplateZh ? applyFollowUpTemplate(waTemplateZh, lead, address, durationMinutes) : '');
+  const [templateId, setTemplateId] = useState(defaultTemplate);
   const [lang, setLang] = useState<'en' | 'zh'>('en');
+  const [edited, setEdited] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    setMessage(applyFollowUpTemplate(waTemplate, lead, address, durationMinutes));
-  }, [waTemplate]);
-
-  useEffect(() => {
-    if (waTemplateZh) setMessageZh(applyFollowUpTemplate(waTemplateZh, lead, address, durationMinutes));
-  }, [waTemplateZh]);
-
-  const handleWhatsApp = () => {
-    window.open(whatsappUrl(lead.parentPhone, lang === 'en' ? message : messageZh), '_blank');
+  const resolve = (id: string, l: 'en' | 'zh') => {
+    if (id === 'none') return '';
+    const tpl = templates.find(t => t.id === id);
+    if (!tpl) return '';
+    const content = l === 'zh' ? tpl.content_zh : tpl.content_en;
+    if (!content) return '';
+    return applyTemplatePlaceholders(content, contact, address, durationMinutes);
   };
 
+  const [messages, setMessages] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = { none_en: '', none_zh: '' };
+    for (const t of templates) {
+      init[`${t.id}_en`] = resolve(t.id, 'en');
+      init[`${t.id}_zh`] = resolve(t.id, 'zh');
+    }
+    return init;
+  });
+
+  const key = `${templateId}_${lang}`;
+  const currentMsg = messages[key] ?? '';
+  const currentTpl = templates.find(t => t.id === templateId);
+  const hasZh = templateId !== 'none' && !!currentTpl?.content_zh;
+
+  const handleTemplateChange = (id: string) => {
+    setTemplateId(id);
+    if (id === 'none') return;
+    const enKey = `${id}_en`;
+    const zhKey = `${id}_zh`;
+    if (!edited[enKey]) setMessages(m => ({ ...m, [enKey]: resolve(id, 'en') }));
+    if (!edited[zhKey]) setMessages(m => ({ ...m, [zhKey]: resolve(id, 'zh') }));
+  };
+
+  // Lead context info
+  const statusCfg = contact.status ? STATUS_CFG[contact.status] : null;
+  const apptInfo = contact.appointmentStart ? (() => {
+    const d = new Date(contact.appointmentStart);
+    const { text: rel } = relDays(contact.appointmentStart);
+    const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return { dateStr, timeStr, rel };
+  })() : null;
+
+  const childAge = contact.childDob ? (() => {
+    const dob = new Date(contact.childDob);
+    const now = new Date();
+    let y = now.getFullYear() - dob.getFullYear();
+    if (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) y--;
+    return y >= 0 ? y : null;
+  })() : null;
+
+  const submittedStr = contact.submittedAt ? (() => {
+    const d = new Date(contact.submittedAt);
+    const { text: rel } = relDays(contact.submittedAt);
+    const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${dateStr} (${rel})`;
+  })() : null;
+
+  const hasMetadata = !!(childAge !== null || submittedStr || apptInfo);
+
+  // Segmented language control
+  const langSeg = hasZh ? (
+    <div style={{ display: 'inline-flex', borderRadius: 6, background: '#f1f5f9', padding: 2 }}>
+      {(['en', 'zh'] as const).map(t => (
+        <button key={t} onClick={() => setLang(t)} style={{
+          padding: '3px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', lineHeight: '16px',
+          border: 'none', borderRadius: 4,
+          background: lang === t ? '#fff' : 'transparent',
+          color: lang === t ? '#1e293b' : '#94a3b8',
+          boxShadow: lang === t ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+          transition: 'all 0.15s',
+        }}>{t === 'en' ? 'EN' : '中文'}</button>
+      ))}
+    </div>
+  ) : null;
+
   return (
-    <div style={apptModal.backdrop} onClick={onClose}>
-      <div style={apptModal.card} onClick={(e) => e.stopPropagation()}>
-        <div style={apptModal.header}>
-          <div>
-            <h2 style={apptModal.title}>Follow Up</h2>
-            <p style={apptModal.subtitle}>{lead.childName} · {lead.parentPhone}</p>
-          </div>
-          <button onClick={onClose} style={apptModal.closeBtn} aria-label="Close">✕</button>
-        </div>
+    <div style={am.backdrop} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', overflow: 'hidden' as const }} onClick={e => e.stopPropagation()}>
 
-        <div style={{ marginTop: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-            <div style={apptModal.label}>WhatsApp Message</div>
-            {waTemplateZh && (
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button onClick={() => setLang('en')} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #cbd5e0', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: lang === 'en' ? '#3182ce' : '#f7fafc', color: lang === 'en' ? '#fff' : '#4a5568' }}>EN</button>
-                <button onClick={() => setLang('zh')} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #cbd5e0', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: lang === 'zh' ? '#3182ce' : '#f7fafc', color: lang === 'zh' ? '#fff' : '#4a5568' }}>中文</button>
+        {/* ── Header ── */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f172a' }}>{contact.childName}</h2>
+                {statusCfg && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: statusCfg.color, flexShrink: 0 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusCfg.dot }} />
+                    {statusCfg.label}
+                  </span>
+                )}
               </div>
-            )}
+              <p style={{ margin: '3px 0 0', fontSize: 13, color: '#78849b', fontVariantNumeric: 'tabular-nums' }}>{contact.parentPhone}</p>
+            </div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#b0b8c9', padding: '2px 4px', lineHeight: 1, borderRadius: 4 }}><FontAwesomeIcon icon={faXmark} /></button>
           </div>
-          <textarea
-            style={{ ...apptModal.input, height: 120, resize: 'vertical' }}
-            value={lang === 'en' ? message : messageZh}
-            onChange={(e) => lang === 'en' ? setMessage(e.target.value) : setMessageZh(e.target.value)}
-          />
-          <button onClick={handleWhatsApp} style={{ ...apptModal.waBtn, marginTop: 8, width: '100%' }}>
-            📱 WhatsApp{lang === 'zh' ? ' (中文)' : ''}
-          </button>
         </div>
 
-        <div style={apptModal.footer}>
-          <button onClick={onClose} style={{ ...apptModal.confirmBtn, background: '#718096', marginLeft: 'auto' }}>
-            Close
+        {/* ── Lead Context ── */}
+        {(hasMetadata || contact.notes) && (
+          <div style={{ padding: '0 24px' }}>
+            <div style={{ background: '#fafbfc', borderRadius: 8, border: '1px solid #ebeef3', marginTop: 16 }}>
+              {/* Metadata grid */}
+              {hasMetadata && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '5px 0', padding: '11px 14px', fontSize: 12 }}>
+                  {childAge !== null && (<>
+                    <span style={{ color: '#8893a7', paddingRight: 14, fontWeight: 500 }}>Age</span>
+                    <span style={{ color: '#1e293b', fontWeight: 500 }}>{childAge} years old</span>
+                  </>)}
+                  {submittedStr && (<>
+                    <span style={{ color: '#8893a7', paddingRight: 14, fontWeight: 500 }}>Enquiry</span>
+                    <span style={{ color: '#475569' }}>{submittedStr}</span>
+                  </>)}
+                  {apptInfo && (<>
+                    <span style={{ color: '#8893a7', paddingRight: 14, fontWeight: 500 }}>Visit</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ color: '#1e293b', fontWeight: 500 }}>{apptInfo.dateStr}, {apptInfo.timeStr}</span>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: '#b45309', background: '#fef9c3', borderRadius: 20, padding: '1px 8px', lineHeight: '16px' }}>{apptInfo.rel}</span>
+                    </div>
+                  </>)}
+                </div>
+              )}
+              {/* Notes */}
+              {contact.notes && (
+                <div style={{
+                  padding: '9px 14px 10px', fontSize: 12, color: '#64748b', lineHeight: 1.5, whiteSpace: 'pre-wrap' as const,
+                  ...(hasMetadata ? { borderTop: '1px solid #ebeef3' } : {}),
+                  background: hasMetadata ? '#f5f6f8' : 'transparent', borderRadius: hasMetadata ? '0 0 8px 8px' : 8,
+                }}>
+                  <span style={{ color: '#8893a7', fontSize: 10, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', display: 'block', marginBottom: 3 }}>Note</span>
+                  <span style={{ color: '#475569' }}>{contact.notes}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Message Composer ── */}
+        <div style={{ padding: '16px 24px 0' }}>
+          {/* Controls row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <select value={templateId} onChange={e => handleTemplateChange(e.target.value)} style={{
+              padding: '4px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', appearance: 'auto' as const, background: '#fff', color: '#334155',
+            }}>
+              <option value="none">No template</option>
+              {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <div style={{ flex: 1 }} />
+            {langSeg}
+          </div>
+
+          {/* Textarea */}
+          <textarea
+            placeholder="Type your message..."
+            style={{
+              display: 'block', width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
+              fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' as const, background: '#fff',
+              height: 120, resize: 'vertical' as const, lineHeight: 1.5, color: '#1e293b',
+            }}
+            value={currentMsg}
+            onChange={e => { setMessages(m => ({ ...m, [key]: e.target.value })); setEdited(ed => ({ ...ed, [key]: true })); }}
+          />
+          {edited[key] && templateId !== 'none' && (
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, fontStyle: 'italic' as const }}>Modified from template</div>
+          )}
+        </div>
+
+        {/* ── Footer ── */}
+        <div style={{ padding: '16px 24px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={onClose} style={{
+            padding: '8px 16px', background: 'none', border: 'none', borderRadius: 8,
+            cursor: 'pointer', fontSize: 13, color: '#94a3b8', fontWeight: 500,
+          }}>Cancel</button>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={() => window.open(whatsappUrl(contact.parentPhone, currentMsg), '_blank', 'noopener,noreferrer')}
+            style={{
+              padding: '9px 22px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8,
+              cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7,
+              boxShadow: '0 1px 3px rgba(34,197,94,0.3)',
+            }}
+          >
+            <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 15 }} />
+            Send via WhatsApp
+            <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9, opacity: 0.7, marginLeft: 1 }} />
           </button>
         </div>
       </div>
@@ -439,326 +936,473 @@ function FollowUpModal({
   );
 }
 
-// ── Edit Modal ────────────────────────────────────────────────────────────────
+// ── Decline Modal ──────────────────────────────────────────────────────────────
 
-const PINNED_LOST_REASON = "Didn't attend the enquiry";
-const DEFAULT_LOST_REASONS = [
-  PINNED_LOST_REASON,
-  'Transportation', 'Operating Hours', 'Distance', 'Enrolled other school',
-  'Fee too expensive', 'Special Need', 'Class Full', "Didn't reply", 'Under Age',
-];
-
-interface EditForm {
-  childName: string;
-  parentPhone: string;
-  childDob: string;
-  enrolmentYear: string;
-  status: LeadStatus;
-  notes: string;
-  lostReason: string;
-}
-
-function EditModal({
-  lead,
-  lostReasons,
-  onClose,
-  onSaved,
-}: {
-  lead: Lead;
-  lostReasons: string[];
-  onClose: () => void;
-  onSaved: (updated: Lead) => void;
+function DeclineModal({ lead, lostReasons, onClose, onDeclined }: {
+  lead: Lead; lostReasons: string[]; onClose: () => void; onDeclined: () => void;
 }) {
-  const [form, setForm] = useState<EditForm>({
-    childName: lead.childName,
-    parentPhone: lead.parentPhone,
-    childDob: lead.childDob.split('T')[0],
-    enrolmentYear: String(lead.enrolmentYear),
-    status: lead.status,
-    notes: lead.notes ?? '',
-    lostReason: lead.lostReason ?? '',
-  });
+  const [reason, setReason] = useState('');
+  const [otherText, setOtherText] = useState('');
+  const [notes, setNotes] = useState(lead.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const isOther = reason === 'Others';
+  const finalReason = isOther ? otherText.trim() : reason;
 
-  const set = (field: keyof EditForm) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  ) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (form.status === 'LOST' && !form.lostReason) {
-      setError('Please select a reason for marking this lead as Lost.');
-      return;
-    }
+  const handleConfirm = async () => {
+    if (!reason) { setError('Please select a reason.'); return; }
+    if (isOther && !otherText.trim()) { setError('Please describe the reason.'); return; }
     setSaving(true);
-    setError('');
     try {
-      const payload: UpdateLeadPayload = {
-        childName: form.childName,
-        parentPhone: form.parentPhone,
-        childDob: form.childDob,
-        enrolmentYear: Number(form.enrolmentYear),
-        status: form.status,
-        notes: form.notes,
-        lostReason: form.status === 'LOST' ? form.lostReason : null,
-      };
-      const updated = await updateLead(lead.id, payload);
-      onSaved(updated);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
+      await updateLead(lead.id, { status: 'LOST', lostReason: finalReason, notes: notes.trim() });
+      onDeclined(); onClose();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Failed'); }
+    finally { setSaving(false); }
   };
 
   return (
-    <div style={modal.backdrop} onClick={onClose}>
-      <div style={modal.card} onClick={(e) => e.stopPropagation()}>
-        <div style={modal.header}>
-          <h2 style={modal.title}>Edit Lead</h2>
-          <button onClick={onClose} style={modal.closeBtn} aria-label="Close">✕</button>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Not Enrolling</h3>
+        <p style={{ margin: '0 0 10px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
+        <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 12 }}>
+          <span>Notes <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(optional)</span></span>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Add any remarks before confirming…"
+            style={{ padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', background: '#fafafa', resize: 'vertical' as const, height: 72, lineHeight: 1.5 }}
+          />
+        </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: '#4a5568', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span>Reason <span style={{ color: '#e53e3e' }}>*</span></span>
+            <select value={reason} onChange={e => { setReason(e.target.value); setError(''); }}
+              style={{ padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 6, fontSize: 14, fontFamily: 'inherit', background: '#fafafa' }}>
+              <option value="">— select reason —</option>
+              {lostReasons.map(r => <option key={r} value={r}>{r}</option>)}
+              <option value="Others">Others</option>
+            </select>
+          </label>
+          {isOther && (
+            <textarea
+              autoFocus
+              placeholder="Describe the reason…"
+              value={otherText}
+              onChange={e => { setOtherText(e.target.value); setError(''); }}
+              style={{ padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 6, fontSize: 14, fontFamily: 'inherit', background: '#fafafa', resize: 'vertical', height: 80 }}
+            />
+          )}
+        </div>
+        {error && <p style={{ color: '#e53e3e', fontSize: 12, marginTop: 8 }}>{error}</p>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', background: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: 7, cursor: 'pointer', fontSize: 13, color: '#4a5568' }}>Cancel</button>
+          <button onClick={handleConfirm} disabled={saving}
+            style={{ padding: '8px 18px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+            {saving ? 'Saving…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit Modal ─────────────────────────────────────────────────────────────────
+
+const PINNED_LOST_REASON = "Didn't attend the enquiry";
+const DEFAULT_LOST_REASONS = [
+  PINNED_LOST_REASON, 'Transportation', 'Operating Hours', 'Distance', 'Enrolled other school',
+  'Fee too expensive', 'Special Need', 'Class Full', "Didn't reply", 'Under Age',
+];
+
+function NotesModal({ lead, onClose, onSaved }: {
+  lead: Lead; onClose: () => void; onSaved: (updated: Lead) => void;
+}) {
+  const [notes, setNotes] = useState(lead.notes ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    setSaving(true); setError('');
+    try {
+      const updated = await updateLead(lead.id, { notes });
+      onSaved(updated);
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div style={mo.backdrop} onClick={onClose}>
+      <div style={{ ...mo.card, maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+        <div style={mo.header}>
+          <h2 style={mo.title}><FontAwesomeIcon icon={faNoteSticky} style={{ marginRight: 8, color: '#94a3b8' }} />Notes — {lead.childName}</h2>
+          <button onClick={onClose} style={mo.closeBtn}><FontAwesomeIcon icon={faXmark} /></button>
+        </div>
+        <textarea
+          autoFocus
+          style={{ ...mo.input, height: 120, resize: 'vertical', fontSize: 13, lineHeight: 1.5 }}
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Add notes about this lead..."
+        />
+        {error && <p style={{ color: '#e53e3e', fontSize: 13, marginTop: 8 }}>{error}</p>}
+        <div style={mo.footer}>
+          <button type="button" onClick={onClose} style={mo.cancelBtn}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={mo.saveBtn}>{saving ? 'Saving...' : 'Save'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface EditForm {
+  childName: string; parentPhone: string; childDob: string;
+  enrolmentYear: string; status: LeadStatus; notes: string; lostReason: string;
+  relationship: string; programme: string; howDidYouKnow: string;
+  addressLocation: string; needsTransport: string; preferredAppointmentTime: string;
+}
+
+const RELATIONSHIP_OPTIONS = ['Mother', 'Father', 'Guardian', 'Grandparent', 'Other'];
+const PROGRAMME_OPTIONS = [
+  { value: 'Core', label: '日常课程 Core' },
+  { value: 'Core+Music', label: '日常+音乐 Core+Music' },
+  { value: 'FullDay', label: 'Full Day 学习生活' },
+];
+const MARKETING_CHANNELS = ['Facebook', 'Instagram', 'Google', 'Friend Referral', 'Walk-in', 'Banner/Flyer', 'Other'];
+
+type EditTab = 'child' | 'contact' | 'other';
+const EDIT_TABS: { key: EditTab; label: string }[] = [
+  { key: 'child', label: 'Child' },
+  { key: 'contact', label: 'Contact' },
+  { key: 'other', label: 'Other' },
+];
+
+function programmeLabel(val: string): string {
+  return PROGRAMME_OPTIONS.find(p => p.value === val)?.label || val || '—';
+}
+function transportLabel(val: boolean | number | null): string {
+  if (val === true || val === 1) return 'Yes';
+  if (val === false || val === 0) return 'No';
+  return '—';
+}
+function statusDisplayLabel(s: string): string {
+  const map: Record<string, string> = { NEW: 'New', CONTACTED: 'Contacted', APPOINTMENT_BOOKED: 'Appt Booked', FOLLOW_UP: 'Follow-Up', ENROLLED: 'Enrolled', LOST: 'Lost' };
+  return map[s] || s;
+}
+
+function EditModal({ lead, lostReasons, onClose, onSaved }: {
+  lead: Lead; lostReasons: string[]; onClose: () => void; onSaved: (updated: Lead) => void;
+}) {
+  const [tab, setTab] = useState<EditTab>('child');
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<EditForm>({
+    childName: lead.childName, parentPhone: lead.parentPhone,
+    childDob: lead.childDob.split('T')[0], enrolmentYear: String(lead.enrolmentYear),
+    status: lead.status, notes: lead.notes ?? '', lostReason: lead.lostReason ?? '',
+    relationship: lead.relationship ?? '', programme: lead.programme ?? '',
+    howDidYouKnow: lead.howDidYouKnow ?? '', addressLocation: lead.addressLocation ?? '',
+    needsTransport: lead.needsTransport === null ? '' : lead.needsTransport ? 'yes' : 'no',
+    preferredAppointmentTime: lead.preferredAppointmentTime ?? '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const set = (field: keyof EditForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm(prev => ({ ...prev, [field]: e.target.value }));
+
+  const childAge = lead.enrolmentYear - new Date(lead.childDob).getFullYear();
+  const statusCfg = STATUS_CFG[lead.status];
+  const statusDate = lead.statusChangedAt || lead.submittedAt;
+  const statusDaysAgo = Math.floor((Date.now() - new Date(statusDate).getTime()) / 86400000);
+  const statusAction: Record<string, string> = { NEW: 'Submitted', CONTACTED: 'Contacted', APPOINTMENT_BOOKED: 'Booked', FOLLOW_UP: 'Attended', ENROLLED: 'Enrolled', LOST: 'Lost' };
+  const statusTimeLabel = `${statusAction[lead.status] || 'Updated'} ${statusDaysAgo === 0 ? 'today' : `${statusDaysAgo}d ago`}`;
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form.status === 'LOST' && !form.lostReason) { setError('Please select a reason for marking this lead as Lost.'); return; }
+    setSaving(true); setError('');
+    try {
+      const payload: UpdateLeadPayload = {
+        childName: form.childName, parentPhone: form.parentPhone, childDob: form.childDob,
+        enrolmentYear: Number(form.enrolmentYear), status: form.status, notes: form.notes,
+        lostReason: form.status === 'LOST' ? form.lostReason : null,
+        relationship: form.relationship || null, programme: form.programme || null,
+        howDidYouKnow: form.howDidYouKnow || null, addressLocation: form.addressLocation || null,
+        needsTransport: form.needsTransport === '' ? null : form.needsTransport === 'yes',
+        preferredAppointmentTime: form.preferredAppointmentTime || null,
+      };
+      const updated = await updateLead(lead.id, payload);
+      onSaved(updated);
+      setEditing(false);
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
+  const handleCancel = () => {
+    setForm({
+      childName: lead.childName, parentPhone: lead.parentPhone,
+      childDob: lead.childDob.split('T')[0], enrolmentYear: String(lead.enrolmentYear),
+      status: lead.status, notes: lead.notes ?? '', lostReason: lead.lostReason ?? '',
+      relationship: lead.relationship ?? '', programme: lead.programme ?? '',
+      howDidYouKnow: lead.howDidYouKnow ?? '', addressLocation: lead.addressLocation ?? '',
+      needsTransport: lead.needsTransport === null ? '' : lead.needsTransport ? 'yes' : 'no',
+      preferredAppointmentTime: lead.preferredAppointmentTime ?? '',
+    });
+    setEditing(false);
+    setError('');
+  };
+
+  const ViewRow = ({ label, value }: { label: string; value: string }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
+      <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 13, color: value && value !== '—' ? '#1e293b' : '#cbd5e1', fontWeight: 500 }}>{value || '—'}</span>
+    </div>
+  );
+
+  return (
+    <div style={mo.backdrop} onClick={onClose}>
+      <div style={{ ...mo.card, maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+
+        {/* ── Profile Header ── */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>{lead.childName}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: '#64748b' }}>
+                  Age {childAge} · {lead.enrolmentYear} Intake
+                  {lead.programme ? ` · ${programmeLabel(lead.programme)}` : ''}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+                  background: statusCfg.dot + '18', color: statusCfg.color,
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusCfg.dot }} />
+                  {statusCfg.label}
+                </span>
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                  {lead.relationship && `${lead.relationship} · `}{statusTimeLabel}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
+              {!editing && (
+                <button onClick={() => setEditing(true)} style={{
+                  padding: '4px 10px', fontSize: 11, fontWeight: 600, color: '#64748b',
+                  background: 'none', border: '1px solid #e2e8f0', borderRadius: 5,
+                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+                }}>
+                  <FontAwesomeIcon icon={faPen} style={{ fontSize: 10, marginRight: 4 }} />Edit
+                </button>
+              )}
+              <button onClick={onClose} style={{ ...mo.closeBtn, fontSize: 16 }}><FontAwesomeIcon icon={faXmark} /></button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Tabs ── */}
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #e2e8f0', marginBottom: 18 }}>
+          {EDIT_TABS.map(t => (
+            <button key={t.key} type="button" onClick={() => setTab(t.key)} style={{
+              padding: '7px 18px', fontSize: 12, fontWeight: tab === t.key ? 700 : 500, cursor: 'pointer',
+              background: 'none', border: 'none', borderBottom: tab === t.key ? '2px solid #3c339a' : '2px solid transparent',
+              color: tab === t.key ? '#3c339a' : '#b0b8c4', transition: 'all 0.15s',
+            }}>{t.label}</button>
+          ))}
         </div>
 
         <form onSubmit={handleSave}>
-          <div style={modal.grid}>
-            <label style={modal.label}>
-              Child Name
-              <input style={modal.input} value={form.childName} onChange={set('childName')} required />
-            </label>
-            <label style={modal.label}>
-              Parent Phone
-              <input style={modal.input} value={form.parentPhone} onChange={set('parentPhone')} required />
-            </label>
-            <label style={modal.label}>
-              Date of Birth
-              <input
-                style={modal.input}
-                type="date"
-                value={form.childDob}
-                onChange={set('childDob')}
-                max={new Date().toISOString().split('T')[0]}
-                required
-              />
-            </label>
-            <label style={modal.label}>
-              Enrolment Year
-              <select style={modal.input} value={form.enrolmentYear} onChange={set('enrolmentYear')}>
-                {ENROLMENT_YEARS.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </label>
-            <label style={modal.label}>
-              Status
-              <select style={modal.input} value={form.status} onChange={set('status')}>
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-            {form.status === 'LOST' && (
-              <label style={modal.label}>
-                <span>Lost Reason <span style={{ color: '#e53e3e' }}>*</span></span>
-                <select style={modal.input} value={form.lostReason} onChange={set('lostReason')} required>
-                  <option value="">— select reason —</option>
-                  {lostReasons.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </label>
+          <div style={{ minHeight: 180 }}>
+            {/* ── Child tab ── */}
+            {tab === 'child' && !editing && (
+              <div>
+                <ViewRow label="Child Name" value={lead.childName} />
+                <ViewRow label="Date of Birth" value={new Date(lead.childDob).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} />
+                <ViewRow label="Enrollment Year" value={String(lead.enrolmentYear)} />
+                <ViewRow label="Programme" value={programmeLabel(lead.programme ?? '')} />
+              </div>
+            )}
+            {tab === 'child' && editing && (
+              <div style={mo.grid}>
+                <label style={mo.label}>Child Name<input style={mo.input} value={form.childName} onChange={set('childName')} required /></label>
+                <label style={mo.label}>Date of Birth<input style={mo.input} type="date" value={form.childDob} onChange={set('childDob')} max={new Date().toISOString().split('T')[0]} required /></label>
+                <label style={mo.label}>Enrollment Year
+                  <select style={mo.input} value={form.enrolmentYear} onChange={set('enrolmentYear')}>
+                    {ENROLMENT_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </label>
+                <label style={mo.label}>Programme<input style={mo.input} value={form.programme} onChange={set('programme')} placeholder="e.g. Core, FullDay" /></label>
+              </div>
+            )}
+
+            {/* ── Contact tab ── */}
+            {tab === 'contact' && !editing && (
+              <div>
+                <ViewRow label="Phone" value={lead.parentPhone} />
+                <ViewRow label="Relationship" value={lead.relationship || '—'} />
+                <ViewRow label="Location" value={lead.addressLocation || '—'} />
+                <ViewRow label="Transport" value={transportLabel(lead.needsTransport)} />
+              </div>
+            )}
+            {tab === 'contact' && editing && (
+              <div style={mo.grid}>
+                <label style={mo.label}>Phone<input style={mo.input} value={form.parentPhone} onChange={set('parentPhone')} required /></label>
+                <label style={mo.label}>Relationship
+                  <select style={mo.input} value={form.relationship} onChange={set('relationship')}>
+                    <option value="">—</option>
+                    {RELATIONSHIP_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </label>
+                <label style={mo.label}>Location<input style={mo.input} value={form.addressLocation} onChange={set('addressLocation')} placeholder="e.g. Bukit Indah" /></label>
+                <label style={mo.label}>Transport
+                  <select style={mo.input} value={form.needsTransport} onChange={set('needsTransport')}>
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+            )}
+
+            {/* ── Other tab ── */}
+            {tab === 'other' && !editing && (
+              <div>
+                <ViewRow label="Source" value={lead.howDidYouKnow || '—'} />
+                <ViewRow label="Visit Preference" value={lead.preferredAppointmentTime || '—'} />
+                <ViewRow label="Status" value={statusDisplayLabel(lead.status)} />
+                {lead.status === 'LOST' && <ViewRow label="Lost Reason" value={lead.lostReason || '—'} />}
+                {lead.notes && (
+                  <div style={{ marginTop: 12, background: '#f8fafc', borderRadius: 8, padding: '10px 14px' }}>
+                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Notes</span>
+                    <p style={{ fontSize: 13, color: '#475569', margin: '4px 0 0', lineHeight: 1.6 }}>{lead.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {tab === 'other' && editing && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={mo.grid}>
+                  <label style={mo.label}>Source
+                    <select style={mo.input} value={form.howDidYouKnow} onChange={set('howDidYouKnow')}>
+                      <option value="">—</option>
+                      {MARKETING_CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </label>
+                  <label style={mo.label}>Visit Preference<input style={mo.input} value={form.preferredAppointmentTime} onChange={set('preferredAppointmentTime')} placeholder="e.g. Weekday afternoon" /></label>
+                  <label style={mo.label}>Status
+                    <select style={mo.input} value={form.status} onChange={set('status')}>
+                      {STATUSES.filter(s => s !== 'ENROLLED' || lead.status === 'ENROLLED').map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </label>
+                  {form.status === 'LOST' && (
+                    <label style={mo.label}>
+                      <span>Lost Reason <span style={{ color: '#e53e3e' }}>*</span></span>
+                      <select style={mo.input} value={form.lostReason} onChange={set('lostReason')} required>
+                        <option value="">— select reason —</option>
+                        {lostReasons.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </label>
+                  )}
+                </div>
+                <label style={mo.label}>
+                  Notes
+                  <textarea style={{ ...mo.input, height: 60, resize: 'vertical' }} value={form.notes} onChange={set('notes')} placeholder="Optional notes..." />
+                </label>
+              </div>
             )}
           </div>
 
-          <label style={{ ...modal.label, display: 'block', marginTop: 12 }}>
-            Notes
-            <textarea
-              style={{ ...modal.input, height: 80, resize: 'vertical' }}
-              value={form.notes}
-              onChange={set('notes')}
-              placeholder="Optional notes…"
-            />
-          </label>
+          {error && <p style={{ color: '#e53e3e', fontSize: 13, marginTop: 8 }}>{error}</p>}
 
-          {error && <p style={{ color: '#e53e3e', marginTop: 8 }}>{error}</p>}
-
-          <div style={modal.footer}>
-            <button type="button" onClick={onClose} style={modal.cancelBtn}>Cancel</button>
-            <button type="submit" disabled={saving} style={modal.saveBtn}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+          {editing && (
+            <div style={mo.footer}>
+              <button type="button" onClick={handleCancel} style={mo.cancelBtn}>Cancel</button>
+              <button type="submit" disabled={saving} style={mo.saveBtn}>{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          )}
         </form>
       </div>
     </div>
   );
 }
 
-// ── Enrolment Modal ───────────────────────────────────────────────────────────
+// ── Enrollment Modal ────────────────────────────────────────────────────────────
 
-function EnrolmentModal({
-  lead,
-  onClose,
-  onEnrolled,
-}: {
-  lead: Lead;
-  onClose: () => void;
-  onEnrolled: () => void;
-}) {
-  const { data: availableYears = [], isLoading: loadingYears } = useQuery({
-    queryKey: ['packageYears'],
-    queryFn: fetchPackageYears,
-  });
-
-  const defaultYear = availableYears.includes(lead.enrolmentYear)
-    ? lead.enrolmentYear
-    : availableYears[0] ?? lead.enrolmentYear;
-
+function EnrollmentModal({ lead, onClose, onEnrolled }: { lead: Lead; onClose: () => void; onEnrolled: () => void }) {
   const todayStr = new Date().toISOString().split('T')[0];
-
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const [paymentDate, setPaymentDate] = useState(todayStr);
+  const [startDate, setStartDate] = useState(() => {
+    const ref = lead.appointmentStart ?? lead.submittedAt;
+    const base = ref ? new Date(ref) : new Date();
+    base.setDate(base.getDate() + 7);
+    return base.toISOString().split('T')[0];
+  });
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const year = selectedYear ?? defaultYear;
+  const enrolmentYear = startDate ? new Date(startDate).getFullYear() : new Date().getFullYear();
+  const enrolmentMonth = startDate ? new Date(startDate).getMonth() + 1 : new Date().getMonth() + 1;
 
+  const { data: availableYears = [] } = useQuery({ queryKey: ['packageYears'], queryFn: fetchPackageYears });
   const { data: packages = [], isLoading: loadingPkgs } = useQuery({
-    queryKey: ['packages', year],
-    queryFn: () => fetchPackages(year),
-    enabled: !!year,
+    queryKey: ['packages', enrolmentYear], queryFn: () => fetchPackages(enrolmentYear), enabled: !!enrolmentYear,
   });
 
-  // Reset package selection when year changes
-  useEffect(() => {
-    setSelectedPackageId('');
-  }, [year]);
-
-  // Auto-select package matching child's age for the selected year
+  useEffect(() => { setSelectedPackageId(''); }, [enrolmentYear]);
   useEffect(() => {
     if (packages.length > 0) {
-      const childAge = year - new Date(lead.childDob).getFullYear();
-      const matched = packages.find((p) => p.age === childAge);
+      const childAge = enrolmentYear - new Date(lead.childDob).getFullYear();
+      const matched = packages.find((p: Package) => p.age === childAge);
       setSelectedPackageId((matched ?? packages[0]).id);
     }
   }, [packages]);
 
   const handleSubmit = async () => {
+    if (!startDate) { setError('Please enter a first day of school'); return; }
     if (!selectedPackageId) { setError('Please select a package'); return; }
     if (!paymentDate) { setError('Please enter a payment date'); return; }
+    if (!availableYears.includes(enrolmentYear)) { setError(`No packages available for ${enrolmentYear}`); return; }
     setSubmitting(true); setError('');
     try {
-      await createStudent({
-        leadId: lead.id,
-        enrolmentYear: year,
-        enrolmentMonth: selectedMonth,
-        packageId: selectedPackageId,
-        enrolledAt: new Date(paymentDate).toISOString(),
-        notes: notes || undefined,
-      });
-      onEnrolled();
-      onClose();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Enrolment failed');
-    } finally {
-      setSubmitting(false);
-    }
+      await createStudent({ leadId: lead.id, enrolmentYear, enrolmentMonth, packageId: selectedPackageId, enrolledAt: new Date(paymentDate).toISOString(), startDate, notes: notes || undefined });
+      onEnrolled(); onClose();
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Enrollment failed'); }
+    finally { setSubmitting(false); }
   };
 
   return (
-    <div style={modal.backdrop} onClick={onClose}>
-      <div style={modal.card} onClick={(e) => e.stopPropagation()}>
-        <div style={modal.header}>
-          <h2 style={modal.title}>Enrol Student</h2>
-          <button onClick={onClose} style={modal.closeBtn} aria-label="Close">✕</button>
+    <div style={mo.backdrop} onClick={onClose}>
+      <div style={mo.card} onClick={e => e.stopPropagation()}>
+        <div style={mo.header}>
+          <h2 style={mo.title}>Enroll Student</h2>
+          <button onClick={onClose} style={mo.closeBtn}><FontAwesomeIcon icon={faXmark} /></button>
         </div>
-        <p style={{ margin: '0 0 16px', fontSize: 14, color: '#4a5568' }}>
-          Enrolling <strong>{lead.childName}</strong>
-        </p>
-
+        <p style={{ margin: '0 0 16px', fontSize: 14, color: '#4a5568' }}>Enrolling <strong>{lead.childName}</strong></p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <label style={modal.label}>
-            Enrolment Year
-            {loadingYears ? (
-              <span style={{ fontSize: 13, color: '#a0aec0', marginTop: 4 }}>Loading years…</span>
-            ) : availableYears.length === 0 ? (
-              <span style={{ fontSize: 13, color: '#e53e3e', marginTop: 4 }}>No packages configured. Add them in Settings → Packages.</span>
-            ) : (
-              <select
-                style={modal.input}
-                value={year}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-              >
-                {availableYears.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            )}
-          </label>
-
-          <label style={modal.label}>
-            Enrolment Month
-            <select
-              style={modal.input}
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            >
-              {['January','February','March','April','May','June','July','August','September','October','November','December'].map((name, i) => (
-                <option key={i + 1} value={i + 1}>{name}</option>
-              ))}
-            </select>
-          </label>
-
-          <label style={modal.label}>
+          <label style={mo.label}>Payment Date<input type="date" style={mo.input} value={paymentDate} onChange={e => setPaymentDate(e.target.value)} required /></label>
+          <label style={mo.label}>
             Package
-            {loadingPkgs ? (
-              <span style={{ fontSize: 13, color: '#a0aec0', marginTop: 4 }}>Loading packages…</span>
-            ) : packages.length === 0 ? (
-              <span style={{ fontSize: 13, color: '#e53e3e', marginTop: 4 }}>No packages for {year}. Add them in Settings → Packages.</span>
-            ) : (
-              <select style={modal.input} value={selectedPackageId} onChange={(e) => setSelectedPackageId(e.target.value)}>
-                {packages.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            )}
+            {loadingPkgs ? <span style={{ fontSize: 13, color: '#a0aec0', marginTop: 4 }}>Loading…</span>
+              : packages.length === 0 ? <span style={{ fontSize: 13, color: '#e53e3e', marginTop: 4 }}>No packages for {enrolmentYear}.</span>
+              : <select style={mo.input} value={selectedPackageId} onChange={e => setSelectedPackageId(e.target.value)}>
+                  {packages.map((p: Package) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>}
           </label>
-
-          <label style={modal.label}>
-            Payment Date
-            <input
-              type="date"
-              style={modal.input}
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
-              required
-            />
+          <label style={mo.label}>
+            First Day of School
+            <input type="date" style={mo.input} value={startDate} onChange={e => setStartDate(e.target.value)} required />
           </label>
-
-          <label style={modal.label}>
-            Notes
-            <textarea
-              style={{ ...modal.input, height: 72, resize: 'vertical' }}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes…"
-            />
-          </label>
+          <label style={mo.label}>Notes<textarea style={{ ...mo.input, height: 72, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" /></label>
         </div>
-
         {error && <p style={{ color: '#e53e3e', fontSize: 13, marginTop: 12 }}>{error}</p>}
-
-        <div style={modal.footer}>
-          <button onClick={onClose} style={modal.cancelBtn}>Cancel</button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || availableYears.length === 0 || packages.length === 0}
-            style={{ ...modal.saveBtn, background: '#38a169' }}
-          >
-            {submitting ? 'Enrolling…' : 'Confirm Enrolment'}
+        <div style={mo.footer}>
+          <button onClick={onClose} style={mo.cancelBtn}>Cancel</button>
+          <button onClick={handleSubmit} disabled={submitting || availableYears.length === 0 || packages.length === 0} style={{ ...mo.saveBtn, background: '#38a169' }}>
+            {submitting ? 'Enrolling…' : 'Confirm Enrollment'}
           </button>
         </div>
       </div>
@@ -766,90 +1410,148 @@ function EnrolmentModal({
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function LeadsPage() {
+  const { isMobile, isTablet } = useIsMobile();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-
-  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
-  const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [bookingLead, setBookingLead] = useState<Lead | null>(null);
-  const [followUpLead, setFollowUpLead] = useState<Lead | null>(null);
-  const [enrolingLead, setEnrolingLead] = useState<Lead | null>(null);
-  const [rowResults, setRowResults] = useState<Record<string, { link?: string | null; error?: string }>>({});
-  const [filterStatus, setFilterStatus] = useState('active');
-  const [completedSubFilter, setCompletedSubFilter] = useState<'' | 'ENROLLED' | 'LOST'>('');
+  const [pageSize, setPageSize] = useState(15);
+  const [selectedStage, setSelectedStage] = useState<PipelineStage>('all_active');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sortBy, setSortBy] = useState<SortField>('submittedAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const effectiveStatus = filterStatus === 'inactive' && completedSubFilter ? completedSubFilter : filterStatus;
-
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['leads', page, pageSize, effectiveStatus, sortBy, sortOrder],
-    queryFn: () => fetchLeads(page, pageSize, effectiveStatus || undefined, sortBy, sortOrder),
-  });
-
-  const handleSort = (field: SortField) => {
-    if (sortBy === field) {
-      setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(searchInput.trim()); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [notesLead, setNotesLead] = useState<Lead | null>(null);
+  const [bookingLead, setBookingLead] = useState<Lead | null>(null);
+  const [whatsappContact, setWhatsappContact] = useState<WhatsAppContact | null>(null);
+  const [whatsappDefaultTemplate, setWhatsappDefaultTemplate] = useState('none');
+  const openWhatsApp = (contact: WhatsAppContact, template = 'none') => { setWhatsappContact(contact); setWhatsappDefaultTemplate(template); };
+  const findLeadById = (id: string): Lead | undefined => {
+    for (const key of [['leads'], ['leads-follow-up'], ['leads-appt-booked']] as const) {
+      const cached = queryClient.getQueriesData<LeadsResponse>({ queryKey: key });
+      for (const [, resp] of cached) { const found = resp?.items?.find(l => l.id === id); if (found) return found; }
     }
-    setPage(1);
+    return undefined;
   };
+  const [enrollingLead, setEnrollingLead] = useState<Lead | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [deleteLeadTarget, setDeleteLeadTarget] = useState<Lead | null>(null);
+  const [confirmBookingLead, setConfirmBookingLead] = useState<Lead | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [rowResults, setRowResults] = useState<Record<string, { link?: string | null; error?: string }>>({});
+  const [isExporting, setIsExporting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; link?: string; action?: { label: string; onClick: () => void } } | null>(null);
+  const [attendedLead, setAttendedLead] = useState<Lead | null>(null);
+  const [attendedNotes, setAttendedNotes] = useState('');
+  const [decliningLead, setDecliningLead] = useState<Lead | null>(null);
 
-  const handleFilterStatus = (status: string) => {
-    setFilterStatus(status);
-    setCompletedSubFilter('');
-    setPage(1);
-  };
+  useEffect(() => {
+    const close = () => setMenuOpenId(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, []);
 
-  const sortIndicator = (field: SortField) => (
-    <span style={{ marginLeft: 4, color: sortBy === field ? '#2d3748' : '#cbd5e0' }}>
-      {sortBy === field ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'}
-    </span>
-  );
+  const apiFilterStatus = selectedStage === 'all_active' ? 'active' : selectedStage;
 
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: fetchSettings,
+  const handleStageSelect = (stage: PipelineStage) => { setSelectedStage(stage); setPage(1); };
+
+  const apiSort = sortBy === 'intent' ? 'submittedAt' : sortBy;
+  const apiOrder = sortBy === 'intent' ? 'desc' : sortOrder;
+  const { data: rawData, isLoading, isError, error } = useQuery({
+    queryKey: ['leads', page, pageSize, apiFilterStatus, apiSort, apiOrder, debouncedSearch],
+    queryFn: () => fetchLeads(page, pageSize, apiFilterStatus || undefined, apiSort, apiOrder, debouncedSearch || undefined),
+    enabled: selectedStage !== 'TRASH',
+    refetchInterval: 30_000,
+    staleTime: 0,
   });
+
+  const data = rawData ? {
+    ...rawData,
+    items: sortBy === 'intent'
+      ? [...rawData.items].sort((a, b) => {
+          const scoreA = getLeadHeat(a.ctaSource).level;
+          const scoreB = getLeadHeat(b.ctaSource).level;
+          return sortOrder === 'desc' ? scoreB - scoreA : scoreA - scoreB;
+        })
+      : rawData.items,
+  } : undefined;
+
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
 
   const { data: upcomingAppts = [] } = useQuery({
-    queryKey: ['upcomingAppointments'],
-    queryFn: fetchUpcomingAppointments,
-    refetchInterval: 60_000,
+    queryKey: ['upcomingAppointments'], queryFn: fetchUpcomingAppointments, refetchInterval: 60_000,
   });
 
   const { data: followUpData } = useQuery({
     queryKey: ['leads-follow-up'],
-    queryFn: () => fetchLeads(1, 50, 'FOLLOW_UP', 'appointmentStart', 'asc'),
+    queryFn: () => fetchLeads(1, 50, 'FOLLOW_UP', 'submittedAt', 'asc'),
     refetchInterval: 60_000,
   });
   const followUpLeads = followUpData?.items ?? [];
 
-  const { data: stats } = useQuery({
-    queryKey: ['lead-stats'],
-    queryFn: fetchLeadStats,
-    staleTime: 0,
+  const { data: apptBookedData } = useQuery({
+    queryKey: ['leads-appt-booked'],
+    queryFn: () => fetchLeads(1, 50, 'APPOINTMENT_BOOKED', 'submittedAt', 'asc'),
     refetchInterval: 60_000,
   });
 
-  const waTemplate =
-    settings?.whatsapp_template ??
-    'Hi, this is Ten Toes Preschool. Thanks for your enquiry for {{childName}}. Would you like to arrange a school visit?';
+  const { data: stats } = useQuery({
+    queryKey: ['lead-stats'], queryFn: fetchLeadStats, staleTime: 0, refetchInterval: 60_000,
+  });
+
+  const { data: trashedLeads = [] } = useQuery({
+    queryKey: ['leads-trash'],
+    queryFn: fetchTrashedLeads,
+    enabled: selectedStage === 'TRASH',
+  });
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const el = document.getElementById(`lead-row-${highlightId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const t = setTimeout(() => setHighlightId(null), 2000);
+    return () => clearTimeout(t);
+  }, [highlightId, data]);
+
+  // Open edit modal from URL param ?edit=<leadId>
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && data?.items) {
+      const lead = data.items.find(l => l.id === editId) ?? findLeadById(editId);
+      if (lead) { setEditingLead(lead); setSearchParams({}, { replace: true }); }
+    }
+  }, [searchParams, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const waTemplate = settings?.whatsapp_template ?? 'Hi, this is KinderTech. Thanks for your enquiry for {{childName}}. Would you like to arrange a school visit?';
   const waTemplateZh = settings?.whatsapp_template_zh ?? '';
-  const followUpTemplate = settings?.whatsapp_followup_template ?? 'Hi, just following up on {{childName}}\'s enquiry. Do you have any questions?';
+  const followUpTemplate = settings?.whatsapp_followup_template ?? "Hi, just following up on {{childName}}'s enquiry. Do you have any questions?";
   const followUpTemplateZh = settings?.whatsapp_followup_template_zh ?? '';
   const kinderAddress = typeof settings?.kinder_address === 'string' ? settings.kinder_address : '';
   const apptDuration = typeof settings?.appointment_duration_minutes === 'number' ? settings.appointment_duration_minutes : 30;
 
+  // Build unified template list for WhatsApp modal
+  const waTemplates: WaTemplateOption[] = [
+    { id: 'enquiry', name: 'Enquiry', content_en: String(waTemplate), content_zh: String(waTemplateZh) },
+    { id: 'follow_up', name: 'Follow Up', content_en: String(followUpTemplate), content_zh: String(followUpTemplateZh) },
+    ...(Array.isArray(settings?.whatsapp_custom_templates)
+      ? (settings.whatsapp_custom_templates as { id: string; name: string; content_en: string; content_zh: string }[]).map(t => ({
+          id: t.id, name: t.name, content_en: t.content_en, content_zh: t.content_zh,
+        }))
+      : []),
+  ];
   const lostReasons: string[] = (() => {
     const raw = Array.isArray(settings?.lost_reasons) ? settings.lost_reasons as string[] : DEFAULT_LOST_REASONS;
-    // Always ensure pinned reason is first
     return [PINNED_LOST_REASON, ...raw.filter(r => r !== PINNED_LOST_REASON)];
   })();
 
@@ -858,63 +1560,18 @@ export default function LeadsPage() {
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['leads'] });
     queryClient.invalidateQueries({ queryKey: ['leads-follow-up'] });
+    queryClient.invalidateQueries({ queryKey: ['leads-appt-booked'] });
     queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
-  };
-
-  const [isExporting, setIsExporting] = useState(false);
-  async function handleExport() {
-    if (!data || data.total === 0) return;
-    setIsExporting(true);
-    try {
-      const all = await fetchLeads(1, data.total, effectiveStatus || undefined, sortBy, sortOrder);
-      const rows = all.items.map((l: Lead) => ({
-        'Submitted At': l.submittedAt,
-        'Child Name': l.childName,
-        'Parent Phone': l.parentPhone,
-        'Child Date of Birth': l.childDob ? l.childDob.toString().split('T')[0] : '',
-        'Enrolment Year': l.enrolmentYear,
-        'Relationship to Child': l.relationship ?? '',
-        'Programme': l.programme ?? '',
-        'Preferred Appointment Time': l.preferredAppointmentTime ?? '',
-        'Address / Location': l.addressLocation ?? '',
-        'Needs Transport': l.needsTransport == null ? '' : l.needsTransport ? 'Yes' : 'No',
-        'How Did You Know': l.howDidYouKnow ?? '',
-        'Status': l.status,
-        'Notes': l.notes ?? '',
-        'Lost / Declined Reason': l.lostReason ?? '',
-        'Appointment': l.appointmentStart ?? '',
-      }));
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const csv = XLSX.utils.sheet_to_csv(ws);
-      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const label = filterStatus === 'active' ? 'active' : filterStatus === 'inactive' ? 'completed' : 'all';
-      a.href = url;
-      a.download = `leads-${label}-${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setIsExporting(false);
-    }
-  }
-
-  const handleSaved = (_updated: Lead) => {
-    invalidateAll();
-    setEditingLead(null);
-  };
-
-  const handleFollowUp = (lead: Lead) => {
-    setFollowUpLead(lead);
+    queryClient.invalidateQueries({ queryKey: ['upcomingAppointments'] });
   };
 
   const handleConfirmAppointment = async (lead: Lead, appointmentStart: string, waMessage: string, isPlaceholder: boolean) => {
     try {
       const result = await createAppointment(lead.id, appointmentStart, waMessage, isPlaceholder);
-      setRowResults((prev) => ({ ...prev, [lead.id]: { link: result.googleEventLink } }));
+      setRowResults(prev => ({ ...prev, [lead.id]: { link: result.googleEventLink } }));
       invalidateAll();
       queryClient.invalidateQueries({ queryKey: ['upcomingAppointments'] });
-      if (result.googleEventLink) window.open(result.googleEventLink, '_blank');
+      showToast('Appointment booked — calendar event created.', 'success', result.googleEventLink ?? undefined);
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('Google calendar not connected')) {
         const { url } = await getConnectToken();
@@ -926,511 +1583,947 @@ export default function LeadsPage() {
     }
   };
 
+  async function handleExport() {
+    if (!data || data.total === 0) return;
+    setIsExporting(true);
+    try {
+      const all = await fetchLeads(1, data.total, apiFilterStatus || undefined, sortBy, sortOrder);
+      const rows = all.items.map((l: Lead) => ({
+        'Submitted At': l.submittedAt, 'Child Name': l.childName, 'Parent Phone': l.parentPhone,
+        'Child Date of Birth': l.childDob ? l.childDob.toString().split('T')[0] : '',
+        'Enrollment Year': l.enrolmentYear, 'Relationship to Child': l.relationship ?? '',
+        'Programme': l.programme ?? '', 'Preferred Appointment Time': l.preferredAppointmentTime ?? '',
+        'Address / Location': l.addressLocation ?? '',
+        'Needs Transport': l.needsTransport == null ? '' : l.needsTransport ? 'Yes' : 'No',
+        'How Did You Know': l.howDidYouKnow ?? '', 'Status': l.status,
+        'Notes': l.notes ?? '', 'Lost / Declined Reason': l.lostReason ?? '',
+        'Appointment': l.appointmentStart ?? '',
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leads-${apiFilterStatus || 'all'}-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally { setIsExporting(false); }
+  }
+
+  const urgencyOrangeDays = typeof settings?.urgency_orange_days === 'number' ? settings.urgency_orange_days : 1;
+  const urgencyRedDays = typeof settings?.urgency_red_days === 'number' ? settings.urgency_red_days : 3;
+
+  function showToast(message: string, type: 'success' | 'error' = 'success', link?: string, action?: { label: string; onClick: () => void }) {
+    setToast({ message, type, link, action });
+    setTimeout(() => setToast(null), 6000);
+  }
+
+  async function markAttendance(lead: Lead, attended: boolean, notes?: string) {
+    try {
+      await updateLead(lead.id, attended
+        ? { status: 'FOLLOW_UP', ...(notes ? { notes } : {}) }
+        : { status: 'LOST', lostReason: 'No show' },
+      );
+      invalidateAll();
+      if (attended) {
+        const id = lead.id;
+        showToast(`${lead.childName} marked as attended — moved to`, 'success', undefined, { label: 'Follow Up', onClick: () => { handleStageSelect('FOLLOW_UP'); setHighlightId(id); } });
+      } else {
+        const id = lead.id;
+        showToast(`${lead.childName} marked as no show — moved to`, 'success', undefined, { label: 'Lost', onClick: () => { handleStageSelect('LOST'); setHighlightId(id); } });
+      }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Update failed', 'error');
+    }
+  }
+
+  async function confirmBookingDirect(lead: Lead) {
+    try {
+      const result = await confirmAppointment(lead.id);
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads-appt-booked'] });
+      queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['upcomingAppointments'] });
+      showToast('Booking confirmed — calendar event updated.', 'success', result.googleEventLink ?? undefined);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to confirm booking', 'error');
+    }
+  }
+
+  // ── Button style system ──
+  const btnBase: React.CSSProperties = { padding: '5px 12px', border: '1px solid', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' as const, lineHeight: '18px', transition: 'all .12s ease' };
+  const btnStyles = {
+    bookVisit:       { ...btnBase, background: '#eef2fa', color: '#5a79c8', borderColor: '#c7d2e8' },
+    confirmBooking:  { ...btnBase, background: '#eef2fa', color: '#5a79c8', borderColor: '#c7d2e8' },
+    attended:        { ...btnBase, background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' },
+    enroll:          { ...btnBase, background: '#f0fdf4', color: '#15803d', borderColor: '#bbf7d0' },
+    noShow:          { ...btnBase, background: '#fef2f2', color: '#dc2626', borderColor: '#fecaca' },
+    notEnrolling:    { ...btnBase, background: '#fff', color: '#9f1239', borderColor: '#e2e8f0' },
+    followUp:        { ...btnBase, background: '#eef2fa', color: '#5a79c8', borderColor: '#c7d2e8' },
+  };
+
+  function getPrimaryAction(lead: Lead): { label: React.ReactNode; style: React.CSSProperties; action: () => void } | null {
+    switch (lead.status) {
+      case 'NEW':
+        return { label: <><FontAwesomeIcon icon={faCalendarDays} style={{ marginRight: 6 }} /> Book Visit</>, style: btnStyles.bookVisit, action: () => setBookingLead(lead) };
+      case 'CONTACTED':
+        if (lead.appointmentIsPlaceholder && lead.appointmentStart) {
+          return { label: <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Booking</>, style: btnStyles.confirmBooking, action: () => setConfirmBookingLead(lead) };
+        }
+        return { label: <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Booking</>, style: btnStyles.confirmBooking, action: () => setBookingLead(lead) };
+      case 'APPOINTMENT_BOOKED':
+        return { label: <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Attended</>, style: btnStyles.attended, action: () => { setAttendedLead(lead); setAttendedNotes(''); } };
+      case 'FOLLOW_UP':
+        return { label: <><FontAwesomeIcon icon={faEnvelope} style={{ marginRight: 6 }} /> Follow Up</>, style: btnStyles.followUp, action: () => openWhatsApp(lead, 'follow_up') };
+      default:
+        return null;
+    }
+  }
+
+  const STAGE_TITLES: Record<PipelineStage, string> = {
+    all_active: 'All Active Leads', NEW: 'New Leads', CONTACTED: 'Contacted',
+    APPOINTMENT_BOOKED: 'Appointment Booked', FOLLOW_UP: 'Follow-Up',
+    ENROLLED: 'Enrolled', LOST: 'Lost / Declined', TRASH: 'Trash',
+  };
+  const pageTitle = STAGE_TITLES[selectedStage];
+  const isClosed = selectedStage === 'ENROLLED' || selectedStage === 'LOST';
+  const isTrash = selectedStage === 'TRASH';
+
+  const currentStageCfg = selectedStage !== 'all_active' && selectedStage !== 'TRASH'
+    ? [...ACTIVE_STAGES, ...CLOSED_STAGES].find(s => s.key === selectedStage)
+    : null;
+  const stageAccentColor = currentStageCfg?.accent ?? '#1a202c';
+  const stageBgColor = currentStageCfg?.bg ?? '#f8fafc';
+  const stageTextColor = currentStageCfg?.text ?? '#374151';
+
   return (
-    <div style={styles.page}>
-      {editingLead && (
-        <EditModal
-          lead={editingLead}
-          lostReasons={lostReasons}
-          onClose={() => setEditingLead(null)}
-          onSaved={handleSaved}
-        />
-      )}
-      {bookingLead && (
-        <AppointmentModal
-          lead={bookingLead}
-          waTemplate={waTemplate}
-          waTemplateZh={waTemplateZh}
-          address={kinderAddress}
-          durationMinutes={apptDuration}
-          onClose={() => setBookingLead(null)}
-          onConfirm={(start, msg, isPlaceholder) => handleConfirmAppointment(bookingLead, start, msg, isPlaceholder)}
-        />
-      )}
-      {followUpLead && (
-        <FollowUpModal
-          lead={followUpLead}
-          waTemplate={followUpTemplate}
-          waTemplateZh={followUpTemplateZh}
-          address={kinderAddress}
-          durationMinutes={apptDuration}
-          onClose={() => setFollowUpLead(null)}
-        />
-      )}
-      {enrolingLead && (
-        <EnrolmentModal
-          lead={enrolingLead}
-          onClose={() => setEnrolingLead(null)}
-          onEnrolled={() => { invalidateAll(); setEnrolingLead(null); }}
-        />
-      )}
+    <div style={{ display: 'flex', flexDirection: isTablet ? 'column' : 'row', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', height: '100%', overflow: 'hidden' }}>
+      <style>{`.kc-no-scrollbar::-webkit-scrollbar{display:none}.kc-no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}@keyframes kcFadeHL{0%{background:#fefce8}100%{background:transparent}}.kc-hl{animation:kcFadeHL 2s forwards}textarea:focus::placeholder{color:transparent}.kc-mi{display:flex;align-items:center;width:100%;padding:7px 12px;text-align:left;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:#374151;font-weight:400;text-decoration:none;box-sizing:border-box;transition:background .1s}.kc-mi:hover{background:#eef1f5}.kc-mi-danger{color:#dc2626!important}.kc-mi-danger:hover{background:#fef2f2!important}.kc-row{transition:background .15s ease}.kc-row:hover{background:#f1f5f9!important}.kc-phone .kc-copy{opacity:0;transition:opacity .12s}.kc-phone:hover .kc-copy{opacity:1}`}</style>
 
-      <div style={styles.statsRow}>
-        {([
-          { label: 'New',         key: 'NEW',                color: '#3182ce', bg: '#ebf8ff' },
-          { label: 'Contacted',   key: 'CONTACTED',          color: '#6b46c1', bg: '#faf5ff' },
-          { label: 'Appt Booked', key: 'APPOINTMENT_BOOKED', color: '#2f855a', bg: '#f0fff4' },
-          { label: 'Follow Up',   key: 'FOLLOW_UP',          color: '#c05621', bg: '#fffaf0' },
-        ] as { label: string; key: keyof typeof stats; color: string; bg: string }[]).map(({ label, key, color, bg }) => (
-          <div
-            key={key}
-            onClick={() => handleFilterStatus(key as string)}
-            style={{
-              ...styles.statCard, background: bg, cursor: 'pointer',
-              outline: filterStatus === key ? `2px solid ${color}` : 'none',
-              outlineOffset: 2,
-            }}
-          >
-            <div style={{ ...styles.statCount, color }}>{stats?.[key] ?? '—'}</div>
-            <div style={styles.statLabel}>{label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={styles.layout}>
-        <div style={styles.main}>
-          <div style={styles.toolbar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h1 style={styles.heading}>Leads</h1>
-          <button
-            onClick={handleExport}
-            disabled={isExporting || !data || data.total === 0}
-            style={{ padding: '5px 14px', fontSize: 13, fontWeight: 600, background: '#2f855a', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', opacity: isExporting || !data || data.total === 0 ? 0.5 : 1 }}
-          >
-            {isExporting ? 'Exporting…' : '↓ Export CSV'}
-          </button>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <div style={styles.filterRow}>
-            {(['active', 'inactive', ''] as const).map((g) => (
-              <button
-                key={g || 'all'}
-                onClick={() => handleFilterStatus(g)}
-                style={filterStatus === g ? styles.filterBtnActive : styles.filterBtn}
-              >
-                {g === '' ? 'All' : g === 'active' ? 'Active' : 'Completed'}
-              </button>
-            ))}
-          </div>
-          {filterStatus === 'inactive' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: '#a0aec0', fontWeight: 600 }}>Show:</span>
-              {([['', 'All'], ['ENROLLED', 'Enrolled'], ['LOST', 'Lost']] as const).map(([val, label]) => (
-                <button
-                  key={val || 'all-completed'}
-                  onClick={() => { setCompletedSubFilter(val); setPage(1); }}
-                  style={completedSubFilter === val ? subFilterBtnActiveStyle(val) : styles.subFilterBtn}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: 'fixed', top: isMobile ? 60 : 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'success' ? '#276749' : '#c53030', color: '#fff', padding: isMobile ? '10px 14px' : '14px 28px', borderRadius: 10, fontSize: isMobile ? 12 : 15, fontWeight: 500, boxShadow: '0 6px 32px rgba(0,0,0,0.3)', whiteSpace: isMobile ? 'normal' as const : 'nowrap', display: 'flex', alignItems: 'center', gap: 8, width: isMobile ? 'calc(100vw - 32px)' : undefined, maxWidth: isMobile ? 'calc(100vw - 32px)' : undefined, boxSizing: 'border-box' }}>
+          <span>{toast.type === 'success' ? <FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> : <FontAwesomeIcon icon={faCircleXmark} style={{ marginRight: 6 }} />}{toast.message}{toast.action && (
+            <span onClick={() => { toast.action!.onClick(); setToast(null); }}
+              style={{ color: '#fff', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', marginLeft: 4 }}>
+              {toast.action.label}
+            </span>
+          )}</span>
+          {toast.link && (
+            <a href={toast.link} target="_blank" rel="noreferrer" style={{ color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'underline', opacity: 0.9 }}>
+              View in Calendar <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ marginLeft: 6 }} />
+            </a>
           )}
         </div>
-      </div>
-
-      {isLoading && <p style={styles.stateMsg}>Loading…</p>}
-      {isError && (
-        <p style={{ ...styles.stateMsg, color: '#e53e3e' }}>
-          Error: {(error as Error).message}
-        </p>
       )}
 
-      {data && (
-        <>
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={{ ...styles.th, width: 40 }}>#</th>
-                  <th style={{ ...styles.th, cursor: 'pointer' }} onClick={() => handleSort('submittedAt')}>Submitted{sortIndicator('submittedAt')}</th>
-                  <th style={{ ...styles.th, cursor: 'pointer' }} onClick={() => handleSort('childName')}>Child Name{sortIndicator('childName')}</th>
-                  <th style={styles.th}>Class / Year</th>
-                  <th style={styles.th}>Appointment</th>
-                  <th style={{ ...styles.th, cursor: 'pointer' }} onClick={() => handleSort('status')}>Status{sortIndicator('status')}</th>
-                  <th style={styles.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((lead: Lead, idx: number) => {
-                  const result = rowResults[lead.id];
-                  const rowNum = (page - 1) * pageSize + idx + 1;
-                  const isHovered = hoveredRow === lead.id;
+      {/* Attended modal */}
+      {attendedLead && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setAttendedLead(null)}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: '#1a202c', marginBottom: 4 }}>Mark as Attended</h3>
+            <p style={{ fontSize: 13, color: '#718096', marginBottom: 18 }}>{attendedLead.childName} · {attendedLead.parentPhone}</p>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#4a5568' }}>
+              Notes (optional)
+              <textarea
+                value={attendedNotes}
+                onChange={e => setAttendedNotes(e.target.value)}
+                placeholder="e.g. Parents are interested, will decide next week…"
+                style={{ display: 'block', width: '100%', marginTop: 6, padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 8, fontSize: 13, resize: 'vertical', height: 90, boxSizing: 'border-box' }}
+              />
+            </label>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setAttendedLead(null)} style={{ padding: '8px 18px', background: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={async () => { const l = attendedLead; setAttendedLead(null); await markAttendance(l, true, attendedNotes || undefined); }} style={{ padding: '8px 18px', background: '#38a169', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Attended</button>
+            </div>
+          </div>
+        </div>
+      )}
 
-                  return (
-                    <tr key={lead.id}
-                      style={{ ...styles.tr, background: isHovered ? '#f0f4ff' : undefined }}
-                      onMouseEnter={() => setHoveredRow(lead.id)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                    >
-                      <td style={{ ...styles.td, color: '#a0aec0', fontSize: 12, textAlign: 'center', width: 40 }}>{rowNum}</td>
-                      <td style={styles.td}>
-                        {new Date(lead.submittedAt).toLocaleString('en-MY', {
-                          day: '2-digit', month: 'short', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit',
-                        })}
-                      </td>
-                      <td style={styles.td}>{lead.childName}</td>
-                      <td style={styles.td}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <span
-                            title={new Date(lead.childDob).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            style={classAgeBadgeStyle(calcClassAge(lead.childDob, lead.enrolmentYear))}
-                          >
-                            Age {calcClassAge(lead.childDob, lead.enrolmentYear)}
-                          </span>
-                          <span style={enrolmentYearBadgeStyle(lead.enrolmentYear)}>{lead.enrolmentYear}</span>
+      {confirmDialog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmDialog(null)}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '28px 32px', minWidth: 320, maxWidth: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <p style={{ margin: '0 0 24px', fontSize: 15, fontWeight: 600, color: '#1a202c', lineHeight: 1.5 }}>{confirmDialog.message}</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmDialog(null)} style={{ padding: '8px 18px', background: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} style={{ padding: '8px 18px', background: '#3182ce', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmBookingLead && (() => {
+        const lead = confirmBookingLead;
+        const start = lead.appointmentStart ? new Date(lead.appointmentStart) : null;
+        const end = lead.appointmentEnd ? new Date(lead.appointmentEnd) : (start ? new Date(start.getTime() + apptDuration * 60000) : null);
+        const fmt = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        const fmtTime = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const clashes = start && end ? upcomingAppts.filter(a => {
+          if (a.id === lead.id) return false;
+          const aStart = new Date(a.appointmentStart);
+          const aEnd = a.appointmentEnd ? new Date(a.appointmentEnd) : new Date(aStart.getTime() + apptDuration * 60000);
+          return aStart < end && aEnd > start;
+        }) : [];
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmBookingLead(null)}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px', minWidth: 340, maxWidth: 440, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Confirm Booking</h3>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
+
+              {start ? (
+                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '12px 14px', marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>{fmt(start)}</div>
+                  <div style={{ fontSize: 13, color: '#16a34a' }}>{fmtTime(start)}{end ? ` – ${fmtTime(end)}` : ''}</div>
+                </div>
+              ) : (
+                <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#854d0e' }}>No appointment time set</div>
+              )}
+
+              {clashes.length > 0 && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 6 }}><FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 4 }} /> {clashes.length} clashing appointment{clashes.length > 1 ? 's' : ''}</div>
+                  {clashes.map(c => (
+                    <div key={c.id} style={{ fontSize: 12, color: '#b91c1c', marginBottom: 2 }}>
+                      {c.childName} · {fmtTime(new Date(c.appointmentStart))}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button onClick={() => setConfirmBookingLead(null)} style={{ padding: '8px 18px', background: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                <button onClick={() => { setConfirmBookingLead(null); confirmBookingDirect(lead); }} style={{ padding: '8px 18px', background: clashes.length > 0 ? '#dc2626' : '#38a169', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                  {clashes.length > 0 ? 'Confirm Anyway' : <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Booking</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {editingLead && (
+        <EditModal lead={editingLead} lostReasons={lostReasons} onClose={() => setEditingLead(null)}
+          onSaved={(_updated: Lead) => { invalidateAll(); queryClient.invalidateQueries({ queryKey: ['students'] }); setEditingLead(null); }} />
+      )}
+      {notesLead && (
+        <NotesModal lead={notesLead} onClose={() => setNotesLead(null)}
+          onSaved={() => { invalidateAll(); setNotesLead(null); }} />
+      )}
+      {bookingLead && (
+        <AppointmentModal lead={bookingLead} waTemplate={waTemplate} waTemplateZh={waTemplateZh}
+          address={kinderAddress} durationMinutes={apptDuration} upcomingAppts={upcomingAppts}
+          onClose={() => setBookingLead(null)}
+          onConfirm={(start, msg, isPlaceholder) => handleConfirmAppointment(bookingLead, start, msg, isPlaceholder)} />
+      )}
+      {whatsappContact && (
+        <WhatsAppModal contact={whatsappContact} defaultTemplate={whatsappDefaultTemplate}
+          templates={waTemplates}
+          address={kinderAddress} durationMinutes={apptDuration} onClose={() => setWhatsappContact(null)} />
+      )}
+      {enrollingLead && (
+        <EnrollmentModal lead={enrollingLead} onClose={() => setEnrollingLead(null)}
+          onEnrolled={() => { const { childName } = enrollingLead; invalidateAll(); queryClient.invalidateQueries({ queryKey: ['students'] }); setEnrollingLead(null); showToast(`${childName} enrolled —`, 'success', undefined, { label: 'View Onboarding', onClick: () => navigate('/onboarding') }); }} />
+      )}
+      {decliningLead && (
+        <DeclineModal lead={decliningLead} lostReasons={lostReasons} onClose={() => setDecliningLead(null)}
+          onDeclined={() => { const { childName, id } = decliningLead; invalidateAll(); showToast(`${childName} marked as not enrolling — moved to`, 'success', undefined, { label: 'Lost', onClick: () => { handleStageSelect('LOST'); setHighlightId(id); } }); }} />
+      )}
+
+      {deleteLeadTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setDeleteLeadTarget(null)}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700, color: '#1a202c' }}>Move to Trash</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4a5568' }}>
+              Move <strong>{deleteLeadTarget.childName}</strong> to Trash? You can restore it later.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeleteLeadTarget(null)}
+                style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f7fafc', color: '#4a5568', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+                Cancel
+              </button>
+              <button onClick={async () => {
+                const { id, childName } = deleteLeadTarget;
+                setDeleteLeadTarget(null);
+                try {
+                  await deleteLead(id);
+                  invalidateAll();
+                  queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
+                  showToast(`${childName} moved to`, 'success', undefined, { label: 'Trash', onClick: () => handleStageSelect('TRASH') });
+                } catch { showToast('Failed to delete lead', 'error'); }
+              }}
+                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#e53e3e', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+                Move to Trash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Left Pipeline Nav — desktop: vertical sidebar, mobile/tablet: horizontal pills */}
+      {!isTablet && (
+        <PipelineNav selected={selectedStage} onChange={handleStageSelect} stats={stats} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
+      )}
+
+      {/* Content area — this is the ONE scroll container; scrollbar appears at the far right edge */}
+      <div style={{ flex: 1, overflowY: 'auto', height: '100%', minWidth: 0 }}>
+        {isTablet && <PipelineNav selected={selectedStage} onChange={handleStageSelect} stats={stats} compact />}
+        <div style={{ maxWidth: 1380, margin: '0 auto', display: 'flex', gap: isTablet ? 0 : 24, padding: isMobile ? '16px 12px' : isTablet ? '20px 16px' : '28px 32px', alignItems: 'flex-start', minWidth: 0, boxSizing: 'border-box' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+
+          {/* Title row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            {selectedStage === 'all_active' && (
+              <>
+                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a202c' }}>All Active Leads</h1>
+                {data && <span style={{ fontSize: 13, color: '#a0aec0', fontWeight: 400 }}>{data.total} leads</span>}
+              </>
+            )}
+            {selectedStage !== 'all_active' && !isTrash && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: 14, color: '#9ca3af', fontWeight: 400 }}>Leads</span>
+                <span style={{ fontSize: 14, color: '#d1d5db' }}>›</span>
+                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: stageAccentColor }}>{STAGE_TITLES[selectedStage]}</h1>
+                {data && <span style={{ fontSize: 13, color: '#a0aec0', fontWeight: 400, marginLeft: 4 }}>{data.total} leads</span>}
+              </div>
+            )}
+            {isTrash && (
+              <>
+                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#c53030' }}>Trash</h1>
+                <span style={{ fontSize: 13, color: '#a0aec0', fontWeight: 400 }}>{trashedLeads.length} leads</span>
+              </>
+            )}
+          </div>
+
+          {/* Search + Sort + Export toolbar */}
+          {!isTrash && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+              {/* Search — full width on mobile */}
+              <div style={{ position: 'relative', flex: 1, ...(isMobile ? { width: '100%', flexBasis: '100%' } : {}) }}>
+                <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#b0b8c9', fontSize: 12 }} />
+                <input
+                  placeholder="Search by name or phone..."
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
+                  style={{ width: '100%', padding: '7px 30px 7px 32px', border: '1px solid #e8ecf1', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', color: '#1e293b', background: '#f8fafc', outline: 'none' }}
+                />
+                {searchInput && (
+                  <button onClick={() => setSearchInput('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 11, padding: 2 }}>
+                    <FontAwesomeIcon icon={faXmark} />
+                  </button>
+                )}
+              </div>
+              {/* Sort */}
+              <select
+                value={`${sortBy}:${sortOrder}`}
+                onChange={e => {
+                  const [field, order] = e.target.value.split(':');
+                  setSortBy(field as SortField); setSortOrder(order as SortOrder); setPage(1);
+                }}
+                style={{ padding: '7px 10px', border: '1px solid #e8ecf1', borderRadius: 7, fontSize: 13, color: '#64748b', background: '#fff', cursor: 'pointer', flexShrink: 0, ...(isMobile ? { flex: 4 } : {}) }}
+              >
+                <option value="submittedAt:desc">Newest first</option>
+                <option value="submittedAt:asc">Oldest first</option>
+                <option value="childName:asc">Name A→Z</option>
+                <option value="childName:desc">Name Z→A</option>
+                <option value="enrolmentYear:asc">Year ↑</option>
+                <option value="enrolmentYear:desc">Year ↓</option>
+                <option value="intent:desc">Intent Hot→Cool</option>
+                <option value="intent:asc">Intent Cool→Hot</option>
+              </select>
+              {/* Export */}
+              <button
+                onClick={handleExport} disabled={isExporting || !data || data.total === 0}
+                style={{ padding: '7px 12px', fontSize: 12, fontWeight: 500, background: '#fff', color: '#64748b', border: '1px solid #e8ecf1', borderRadius: 7, cursor: 'pointer', opacity: isExporting || !data || data.total === 0 ? 0.5 : 1, whiteSpace: 'nowrap', flexShrink: 0, ...(isMobile ? { flex: 1 } : {}) }}
+              >
+                {isExporting ? 'Exporting...' : '↓ Export'}
+              </button>
+            </div>
+          )}
+
+          {!isTrash && isLoading && <div style={{ padding: 40, textAlign: 'center', color: '#718096', fontSize: 14 }}>Loading…</div>}
+          {!isTrash && isError && <div style={{ padding: 20, color: '#e53e3e', fontSize: 14 }}>Error: {(error as Error).message}</div>}
+
+          {isTrash && trashedLeads.length === 0 && (
+            <div style={{ padding: '60px 20px', textAlign: 'center', background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}><FontAwesomeIcon icon={faTrash} /></div>
+              <div style={{ fontWeight: 600, color: '#4a5568', marginBottom: 6 }}>Trash is empty</div>
+              <div style={{ fontSize: 13, color: '#a0aec0' }}>Deleted leads will appear here.</div>
+            </div>
+          )}
+
+          {isTrash && trashedLeads.length > 0 && (
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10 }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={tH}>Lead</th>
+                    <th style={tH}>Phone</th>
+                    <th style={tH}>Status</th>
+                    <th style={tH}>Deleted</th>
+                    <th style={{ ...tH, textAlign: 'right' as const }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trashedLeads.map((lead: Lead) => (
+                    <tr key={lead.id} className="kc-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={tD}>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: '#1a202c' }}>{lead.childName}</div>
+                        <div style={{ fontSize: 11, color: '#a0aec0', marginTop: 2 }}>
+                          Submitted {new Date(lead.submittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </div>
                       </td>
-                      <td style={{ ...styles.td, color: '#4a5568', fontSize: 13 }}>
-                        {lead.appointmentStart
-                          ? new Date(lead.appointmentStart).toLocaleString('en-MY', {
-                              day: '2-digit', month: 'short', year: 'numeric',
-                              hour: '2-digit', minute: '2-digit', hour12: true,
-                            })
-                          : <span style={{ color: '#cbd5e0' }}>—</span>}
+                      <td style={{ ...tD, fontSize: 13, color: '#4a5568' }}>{lead.parentPhone}</td>
+                      <td style={tD}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, color: STATUS_CFG[lead.status].color }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_CFG[lead.status].dot }} />
+                          {STATUS_CFG[lead.status].label}
+                        </span>
                       </td>
-                      <td style={styles.td}>
-                        <span style={statusBadge(lead.status)}>{lead.status}</span>
+                      <td style={{ ...tD, fontSize: 13, color: '#718096' }}>
+                        {lead.deletedAt ? new Date(lead.deletedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                       </td>
-                      <td style={styles.td}>
-                        <div style={styles.actions}>
-                          <button onClick={() => setEditingLead(lead)} style={styles.editBtn}>
-                            <FontAwesomeIcon icon={faPenToSquare} style={{ marginRight: 5 }} />Edit
-                          </button>
-
-                          <a
-                            href={`https://web.whatsapp.com/send?phone=${normalizePhone(lead.parentPhone)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={styles.waBtn}
+                      <td style={{ ...tD, position: 'relative' as const, textAlign: 'right' as const }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button
+                            onClick={() => {
+                              setConfirmDialog({
+                                message: `Restore ${lead.childName}? They will return to ${STATUS_CFG[lead.status].label}.`,
+                                onConfirm: async () => {
+                                  try {
+                                    await restoreLead(lead.id);
+                                    invalidateAll();
+                                    queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
+                                    const stage = lead.status as PipelineStage;
+                                    showToast(`${lead.childName} restored to`, 'success', undefined, {
+                                      label: STATUS_CFG[lead.status].label,
+                                      onClick: () => { handleStageSelect(stage); setHighlightId(lead.id); },
+                                    });
+                                  } catch { showToast('Failed to restore lead', 'error'); }
+                                },
+                              });
+                            }}
+                            style={{ padding: '6px 14px', background: '#dbeafe', color: '#1d4ed8', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
                           >
-                            <FontAwesomeIcon icon={faComment} style={{ marginRight: 5 }} />WhatsApp
-                          </a>
-
-                          {(['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP'] as LeadStatus[]).includes(lead.status) && (
+                            ↩ Restore
+                          </button>
+                          <div style={{ position: 'relative' as const }}>
                             <button
-                              onClick={() => setBookingLead(lead)}
-                              style={styles.apptBtn}
-                            >
-                              <FontAwesomeIcon icon={faCalendarPlus} style={{ marginRight: 5 }} />
-                              {lead.status === 'NEW' ? 'Book Appt' : 'Reschedule Appt'}
-                            </button>
-                          )}
-
-                          {lead.status === 'FOLLOW_UP' && (
-                            <button
-                              onClick={() => handleFollowUp(lead)}
-                              style={styles.followUpActiveBtn}
-                            >
-                              <FontAwesomeIcon icon={faBell} style={{ marginRight: 5 }} />Follow Up
-                            </button>
-                          )}
-
-                          {lead.status !== 'ENROLLED' && lead.status !== 'LOST' && (
-                            <button
-                              onClick={() => setEnrolingLead(lead)}
-                              style={styles.enrolBtn}
-                            >
-                              Enrol
-                            </button>
-                          )}
-
-                          {result?.error && (
-                            <span style={styles.rowError}>{result.error}</span>
-                          )}
+                              onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === `trash-${lead.id}` ? null : `trash-${lead.id}`); }}
+                              style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '3px 9px', fontSize: 15, color: '#718096', lineHeight: 1 }}
+                            >⋮</button>
+                            {menuOpenId === `trash-${lead.id}` && (
+                              <div onClick={e => e.stopPropagation()} style={{ position: 'absolute' as const, right: 0, top: '100%', zIndex: 200, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', minWidth: 160, padding: 4 }}>
+                                <button
+                                  onClick={() => {
+                                    setMenuOpenId(null);
+                                    setConfirmDialog({
+                                      message: `Permanently delete ${lead.childName}? This cannot be undone.`,
+                                      onConfirm: async () => {
+                                        try {
+                                          await permanentDeleteLead(lead.id);
+                                          queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
+                                          queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
+                                          showToast(`${lead.childName} permanently deleted`, 'success');
+                                        } catch { showToast('Failed to delete', 'error'); }
+                                      },
+                                    });
+                                  }}
+                                  className={`${mI} kc-mi-danger`}
+                                >
+                                  <FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8 }} /> Delete Forever
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={styles.paging}>
-            <span style={styles.pageInfo}>{data.total} total</span>
-            <div style={styles.pagingControls}>
-              <button
-                onClick={() => setPage(1)}
-                disabled={page === 1}
-                style={styles.pageBtn}
-                title="First page"
-              >
-                «
-              </button>
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                style={styles.pageBtn}
-              >
-                ‹ Prev
-              </button>
-              <span style={styles.pageChip}>
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                style={styles.pageBtn}
-              >
-                Next ›
-              </button>
-              <button
-                onClick={() => setPage(totalPages)}
-                disabled={page >= totalPages}
-                style={styles.pageBtn}
-                title="Last page"
-              >
-                »
-              </button>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <span style={styles.pageInfo} />
-          </div>
-          <div style={styles.pagingRowsRow}>
-            <label style={styles.rowsLabel}>
-              Rows per page:
-              <select
-                value={pageSize}
-                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-                style={styles.rowsSelect}
-              >
-                {[10, 20, 30, 50].map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </>
-      )}
+          )}
+
+          {!isTrash && data && data.items.length === 0 && (
+            <div style={{ padding: '60px 20px', textAlign: 'center', background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}><FontAwesomeIcon icon={faCalendarDays} /></div>
+              <div style={{ fontWeight: 600, color: '#4a5568', marginBottom: 6 }}>No leads here</div>
+              <div style={{ fontSize: 13, color: '#a0aec0' }}>Leads appear here as they progress through the pipeline.</div>
+            </div>
+          )}
+
+          {!isTrash && data && data.items.length > 0 && isMobile && (
+            /* ── Mobile card view ── */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {data.items.map((lead: Lead) => {
+                const urgency = isClosed ? 'transparent' : urgencyBorder(lead, urgencyOrangeDays, urgencyRedDays);
+                const urgencyTip = urgency !== 'transparent' ? urgencyTooltip(lead, urgencyOrangeDays, urgencyRedDays) : null;
+                const primaryAction = getPrimaryAction(lead);
+                const cfg = STATUS_CFG[lead.status];
+                const rt = lead.status === 'FOLLOW_UP' && lead.appointmentStart
+                  ? relDays(lead.appointmentStart)
+                  : relTime(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt);
+                return (
+                  <div key={lead.id} id={`lead-row-${lead.id}`} className={highlightId === lead.id ? 'kc-hl' : ''}
+                    style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '12px 14px', borderLeft: `4px solid ${urgency === 'transparent' ? '#e5e7eb' : urgency}`, position: 'relative' }}>
+                    {/* Top: Name + Status + Menu */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{lead.childName}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, color: cfg.color, fontWeight: 600 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot }} />{cfg.label}
+                          </span>
+                          {getLeadHeat(lead.ctaSource).label && (() => {
+                            const heat = getLeadHeat(lead.ctaSource);
+                            return (
+                              <span title={heat.tooltip} style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                background: heat.bg,
+                                color: heat.color,
+                                fontSize: 9,
+                                fontWeight: 600,
+                                padding: '2px 6px',
+                                borderRadius: 8,
+                                cursor: 'default',
+                              }}>
+                                {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 8 }} />}
+                                {heat.label}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                          {lead.relationship && <span style={{ color: '#8893a7' }}>{lead.relationship} · </span>}
+                          <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
+                            {STATUS_VERB[lead.status]} {rt.text}
+                          </span>
+                        </div>
+                      </div>
+                      <button onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === lead.id ? null : lead.id); }}
+                        style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '4px 10px', fontSize: 16, color: '#718096', lineHeight: 1, flexShrink: 0 }}>⋮</button>
+                    </div>
+                    {/* Details row */}
+                    <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
+                      <span>{lead.enrolmentYear} · Age {calcClassAge(lead.childDob, lead.enrolmentYear)}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <FontAwesomeIcon icon={faPhone} style={{ fontSize: 9, color: '#94a3b8' }} />{lead.parentPhone}
+                      </span>
+                    </div>
+                    {urgencyTip && (
+                      <div style={{ marginTop: 6 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: urgency, cursor: 'default' }}>
+                          <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 9 }} />{urgencyTip.label}
+                        </span>
+                      </div>
+                    )}
+                    {/* Primary action */}
+                    {primaryAction && !isClosed && (
+                      <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button onClick={e => { e.stopPropagation(); primaryAction.action(); }}
+                          style={{ ...primaryAction.style, padding: '6px 12px', fontSize: 12, borderRadius: 6, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+                          {primaryAction.label}
+                        </button>
+                        {lead.status === 'APPOINTMENT_BOOKED' && (
+                          <button onClick={e => { e.stopPropagation(); setConfirmDialog({ message: `Mark ${lead.childName} as No Show?`, onConfirm: () => markAttendance(lead, false) }); }}
+                            style={{ ...btnStyles.noShow, padding: '6px 12px', fontSize: 12, borderRadius: 6, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+                            <FontAwesomeIcon icon={faCircleXmark} style={{ marginRight: 6 }} /> No Show
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {/* Context menu */}
+                    {menuOpenId === lead.id && (() => {
+                      const hasScheduleActions = lead.status === 'CONTACTED' || lead.status === 'APPOINTMENT_BOOKED';
+                      const hasEnroll = lead.status !== 'ENROLLED' && lead.status !== 'LOST';
+                      const sep = <div style={{ height: 1, background: '#f1f5f9', margin: '4px 8px' }} />;
+                      return (
+                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', right: 10, top: 44, zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 4px 24px rgba(0,0,0,0.12)', minWidth: 200, padding: '4px 0' }}>
+                          <div style={{ padding: '2px 4px' }}>
+                            <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> View Lead</button>
+                            <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Edit Notes</button>
+                            {hasScheduleActions && (
+                              <button onClick={() => { setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Reschedule Appt</button>
+                            )}
+                          </div>
+                          {sep}
+                          <div style={{ padding: '2px 4px' }}>
+                            {isMobile && (
+                              <button onClick={() => { window.location.href = `tel:${lead.parentPhone}`; setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPhone} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Call</button>
+                            )}
+                            <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Send WhatsApp</button>
+                          </div>
+                          {hasEnroll && (<>{sep}<div style={{ padding: '2px 4px' }}>
+                            <button onClick={() => { setEnrollingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faGraduationCap} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Enroll Student</button>
+                          </div></>)}
+                          {sep}
+                          <div style={{ padding: '2px 4px' }}>
+                            <button onClick={() => { setDeleteLeadTarget(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8 }} /> Delete</button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })}
+
+              {/* Mobile pagination */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 0', fontSize: 13 }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={pB}>‹</button>
+                  <span style={{ fontWeight: 600, color: '#2b6cb0', padding: '4px 10px', background: '#ebf4ff', borderRadius: 5 }}>{page}/{totalPages}</span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={pB}>›</button>
+                </div>
+                <span style={{ color: '#94a3b8', fontSize: 11 }}>{data.total} leads</span>
+              </div>
+            </div>
+          )}
+
+          {!isTrash && data && data.items.length > 0 && !isMobile && (
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', position: 'relative' as const, overflowX: isTablet ? 'auto' : undefined }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, minWidth: isTablet ? 700 : undefined }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ width: 4, padding: 0, borderTopLeftRadius: 10 }} />
+                    <th style={tH}>Lead</th>
+                    <th style={tH}>Enrolment</th>
+                    <th style={tH}>Phone</th>
+                    {isClosed
+                      ? <th style={tH}>Closed</th>
+                      : <th style={tH}>Visit</th>
+                    }
+                    {isClosed
+                      ? <th style={tH}>Reason</th>
+                      : <th style={{ ...tH, textAlign: 'right' as const }}>Next Action</th>
+                    }
+                    <th style={{ ...tH, width: 44, textAlign: 'center' as const }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.items.map((lead: Lead) => {
+                    const urgency = isClosed ? 'transparent' : urgencyBorder(lead, urgencyOrangeDays, urgencyRedDays);
+                    const urgencyTip = urgency !== 'transparent' ? urgencyTooltip(lead, urgencyOrangeDays, urgencyRedDays) : null;
+                    const primaryAction = getPrimaryAction(lead);
+                    const cfg = STATUS_CFG[lead.status];
+                    const isMenuOpen = menuOpenId === lead.id;
+                    const rt = lead.status === 'FOLLOW_UP' && lead.appointmentStart
+                      ? relDays(lead.appointmentStart)
+                      : relTime(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt);
+                    return (
+                      <tr key={lead.id} id={`lead-row-${lead.id}`} className={`kc-row${highlightId === lead.id ? ' kc-hl' : ''}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        {/* Urgency stripe */}
+                        <td style={{ width: 4, padding: 0, background: urgency, minWidth: 4 }} title={urgencyTip?.rule} />
+
+                        {/* Lead info */}
+                        <td style={tD}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{lead.childName}</span>
+                            {getLeadHeat(lead.ctaSource).label && (() => {
+                              const heat = getLeadHeat(lead.ctaSource);
+                              return (
+                                <span title={heat.tooltip} style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  background: heat.bg,
+                                  color: heat.color,
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  padding: '3px 8px',
+                                  borderRadius: 10,
+                                  cursor: 'default',
+                                  whiteSpace: 'nowrap' as const,
+                                }}>
+                                  {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 9 }} />}
+                                  {heat.label}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#b0b8c9', marginTop: 2 }}>
+                            {lead.relationship && <span style={{ color: '#8893a7' }}>{lead.relationship} · </span>}
+                            <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
+                              {STATUS_VERB[lead.status]} {rt.text}
+                            </span>
+                          </div>
+                          {urgencyTip && (
+                            <div style={{ marginTop: 3 }}>
+                              <span title={urgencyTip.rule} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: urgency, padding: '0 0', lineHeight: '16px', cursor: 'default' }}>
+                                <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 9 }} />
+                                {urgencyTip.label}
+                              </span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Enrolment */}
+                        <td style={{ ...tD, fontSize: 13 }}>
+                          <div style={{ fontWeight: 500, color: '#1e293b', fontVariantNumeric: 'tabular-nums' }}>{lead.enrolmentYear}</div>
+                          <div style={{ fontSize: 11, color: '#94a3b8' }}>Age {calcClassAge(lead.childDob, lead.enrolmentYear)}</div>
+                        </td>
+
+                        {/* Phone */}
+                        <td style={{ ...tD, fontSize: 13, color: '#475569' }}>
+                          <span className="kc-phone" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'default', fontVariantNumeric: 'tabular-nums' }}>
+                            <FontAwesomeIcon icon={faPhone} style={{ color: '#94a3b8', fontSize: 10 }} />
+                            {lead.parentPhone}
+                            <FontAwesomeIcon icon={faCopy} className="kc-copy"
+                              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(lead.parentPhone); showToast('Phone number copied', 'success'); }}
+                              style={{ color: '#cbd5e1', fontSize: 10, cursor: 'pointer' }} />
+                          </span>
+                        </td>
+
+                        {/* Visit + Status combined */}
+                        {isClosed ? (
+                          <td style={{ ...tD, fontSize: 13, color: '#4a5568' }}>
+                            {lead.statusChangedAt
+                              ? new Date(lead.statusChangedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                              : <span style={{ color: '#d1d5db' }}>—</span>}
+                          </td>
+                        ) : (
+                          <td style={{ ...tD, fontSize: 13 }}>
+                            {lead.appointmentStart ? (() => {
+                              const apptDate = new Date(lead.appointmentStart);
+                              const isPast = lead.status === 'APPOINTMENT_BOOKED' && apptDate < new Date();
+                              const visitStatus = lead.status === 'FOLLOW_UP'
+                                ? { label: 'Attended', color: '#16a34a', dot: '#22c55e' }
+                                : isPast
+                                ? { label: 'Update Status', color: '#92400e', dot: '#f59e0b' }
+                                : lead.appointmentIsPlaceholder
+                                ? { label: 'Pending', color: '#d97706', dot: '#f59e0b' }
+                                : { label: 'Confirmed', color: '#2563eb', dot: '#3b82f6' };
+                              return (
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500, color: isPast ? '#b45309' : '#374151', fontSize: 13, whiteSpace: 'nowrap' as const }}>
+                                    <FontAwesomeIcon icon={faCalendarDays} style={{ color: isPast ? '#d97706' : '#94a3b8', fontSize: 11 }} />
+                                    {apptDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                    <span style={{ color: isPast ? '#d97706' : '#b0b8c9', fontWeight: 400, fontSize: 12 }}>
+                                      {apptDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                    </span>
+                                  </div>
+                                  <div style={{ marginTop: 4 }}>
+                                    <span style={{
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      color: cfg.color,
+                                      background: cfg.bg,
+                                      padding: '2px 7px',
+                                      borderRadius: 8,
+                                      border: `1px solid ${cfg.dot}20`,
+                                      whiteSpace: 'nowrap' as const,
+                                    }}>
+                                      {cfg.label}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })() : (
+                              <span style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: cfg.color,
+                                background: cfg.bg,
+                                padding: '3px 9px',
+                                borderRadius: 8,
+                                border: `1px solid ${cfg.dot}20`,
+                              }}>
+                                {cfg.label}
+                              </span>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Next Action / Reason */}
+                        {isClosed ? (
+                          <td style={{ ...tD, fontSize: 13, color: '#6b7280', maxWidth: 180 }}>
+                            {lead.lostReason ?? <span style={{ color: '#d1d5db' }}>—</span>}
+                          </td>
+                        ) : (
+                          <td style={{ ...tD, textAlign: 'right' as const }} onClick={e => e.stopPropagation()}>
+                            {lead.status === 'FOLLOW_UP' ? (
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <button onClick={() => setEnrollingLead(lead)} style={btnStyles.enroll}>
+                                  <FontAwesomeIcon icon={faGraduationCap} style={{ marginRight: 6 }} /> Enroll
+                                </button>
+                                <button onClick={() => setDecliningLead(lead)} style={btnStyles.notEnrolling}>
+                                  <FontAwesomeIcon icon={faXmark} style={{ marginRight: 6 }} /> Not Enrolling
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                                {primaryAction ? (
+                                  <button onClick={primaryAction.action} style={primaryAction.style}>
+                                    {primaryAction.label}
+                                  </button>
+                                ) : <span style={{ fontSize: 12, color: '#e2e8f0' }}>—</span>}
+                                {lead.status === 'APPOINTMENT_BOOKED' && (
+                                  <button
+                                    onClick={() => setConfirmDialog({ message: `Mark ${lead.childName} as No Show?`, onConfirm: () => markAttendance(lead, false) })}
+                                    style={btnStyles.noShow}
+                                  >
+                                    <FontAwesomeIcon icon={faCircleXmark} style={{ marginRight: 6 }} /> No Show
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        )}
+
+                        {/* Overflow menu */}
+                        <td style={{ ...tD, position: 'relative' as const, width: 44, textAlign: 'center' as const, padding: '8px 6px' }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); setMenuOpenId(isMenuOpen ? null : lead.id); }}
+                            style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '3px 9px', fontSize: 15, color: '#718096', lineHeight: 1 }}
+                          >⋮</button>
+                          {isMenuOpen && (() => {
+                            const hasScheduleActions = lead.status === 'CONTACTED' || lead.status === 'APPOINTMENT_BOOKED';
+                            const hasEnroll = lead.status !== 'ENROLLED' && lead.status !== 'LOST';
+                            const sep = <div style={{ height: 1, background: '#f1f5f9', margin: '4px 8px' }} />;
+                            return (
+                              <div
+                                onClick={e => e.stopPropagation()}
+                                style={{ position: 'absolute' as const, right: 6, top: '100%', zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 4px 24px rgba(0,0,0,0.12)', minWidth: 200, padding: '4px 0' }}
+                              >
+                                {/* Edit & Schedule */}
+                                <div style={{ padding: '2px 4px' }}>
+                                  <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> View Lead</button>
+                                  <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Edit Notes</button>
+                                  {hasScheduleActions && (
+                                    <button onClick={() => { setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Reschedule Appt</button>
+                                  )}
+                                </div>
+
+                                {/* Communication */}
+                                {sep}
+                                <div style={{ padding: '2px 4px' }}>
+                                  <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Send WhatsApp</button>
+                                </div>
+
+                                {/* Conversion */}
+                                {hasEnroll && (<>
+                                  {sep}
+                                  <div style={{ padding: '2px 4px' }}>
+                                    <button onClick={() => { setEnrollingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faGraduationCap} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Enroll Student</button>
+                                  </div>
+                                </>)}
+
+                                {/* Danger */}
+                                {sep}
+                                <div style={{ padding: '2px 4px' }}>
+                                  <button onClick={() => { setDeleteLeadTarget(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8 }} /> Delete</button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Pagination */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid #f1f5f9', background: '#fafafa' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13, color: '#718096' }}>Rows:</span>
+                  <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                    style={{ padding: '4px 8px', border: '1px solid #e2e8f0', borderRadius: 5, fontSize: 13, cursor: 'pointer' }}>
+                    {[10, 15, 20, 30, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button onClick={() => setPage(1)} disabled={page === 1} style={pB}>«</button>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={pB}>‹ Prev</button>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#2b6cb0', padding: '4px 12px', background: '#ebf4ff', borderRadius: 5 }}>{page} / {totalPages}</span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={pB}>Next ›</button>
+                  <button onClick={() => setPage(totalPages)} disabled={page >= totalPages} style={pB}>»</button>
+                </div>
+                <span style={{ fontSize: 13, color: '#718096' }}>{data.total} leads</span>
+              </div>
+            </div>
+          )}
         </div>
-        <div style={styles.sidebar}>
-          <UpcomingPanel items={upcomingAppts} />
-          <FollowUpPanel leads={followUpLeads} />
-        </div>
-      </div>
+
+        {/* Sidebar — sticky within the scroll container (hidden on mobile/tablet) */}
+        {!isTablet && (
+          <Sidebar
+            upcomingAppts={upcomingAppts}
+            followUpLeads={followUpLeads}
+            overdueApptLeads={(apptBookedData?.items ?? []).filter(l => !upcomingAppts.some(a => a.id === l.id))}
+            onFollowUp={lead => openWhatsApp(lead, 'follow_up')}
+            onWhatsApp={id => { const lead = findLeadById(id); if (lead) openWhatsApp(lead); }}
+            onSelectLead={lead => { handleStageSelect('APPOINTMENT_BOOKED'); setHighlightId(lead.id); }}
+          />
+        )}
+        </div>{/* end inner flex row */}
+      </div>{/* end scroll container */}
     </div>
   );
 }
 
+// ── Style constants ────────────────────────────────────────────────────────────
 
-function statusBadge(status: Lead['status']): React.CSSProperties {
-  const palette: Record<Lead['status'], { bg: string; color: string }> = {
-    NEW:                { bg: '#dbeafe', color: '#1e40af' },
-    CONTACTED:          { bg: '#fef3c7', color: '#92400e' },
-    APPOINTMENT_BOOKED: { bg: '#a7f3d0', color: '#065f46' },
-    FOLLOW_UP:          { bg: '#ffedd5', color: '#9a3412' },
-    ENROLLED:           { bg: '#bbf7d0', color: '#14532d' },
-    LOST:               { bg: '#fecaca', color: '#991b1b' },
-  };
-  const { bg, color } = palette[status] ?? { bg: '#e2e8f0', color: '#4a5568' };
-  return {
-    padding: '2px 8px',
-    borderRadius: 12,
-    background: bg,
-    color,
-    fontSize: 12,
-    fontWeight: 600,
-    whiteSpace: 'nowrap',
-  };
-}
-
-function subFilterBtnActiveStyle(val: string): React.CSSProperties {
-  return {
-    padding: '4px 10px', borderRadius: 12, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-    ...(val === 'ENROLLED'
-      ? { background: '#276749', border: '1px solid #276749', color: '#fff' }
-      : val === 'LOST'
-      ? { background: '#c53030', border: '1px solid #c53030', color: '#fff' }
-      : { background: '#2b6cb0', border: '1px solid #2b6cb0', color: '#fff' }),
-  };
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  page: { padding: '24px 32px', fontFamily: 'system-ui, sans-serif' },
-  statsRow: { display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
-  statCard: {
-    flex: '1 1 140px', padding: '16px 20px', borderRadius: 8,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-  },
-  statCount: { fontSize: 32, fontWeight: 800, lineHeight: 1 },
-  statLabel: { fontSize: 12, fontWeight: 600, color: '#718096', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' },
-  toolbar: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
-  heading: { margin: 0, fontSize: 24 },
-  filterRow: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' },
-  filterBtn: {
-    padding: '5px 12px', background: '#edf2f7', border: '1px solid #e2e8f0',
-    borderRadius: 16, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#4a5568',
-  },
-  filterBtnActive: {
-    padding: '5px 12px', background: '#2b6cb0', border: '1px solid #2b6cb0',
-    borderRadius: 16, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#fff',
-  },
-  subFilterBtn: {
-    padding: '4px 10px', background: '#edf2f7', border: '1px solid #e2e8f0',
-    borderRadius: 12, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#4a5568',
-  },
-  layout: { display: 'flex', gap: 20, alignItems: 'flex-start' },
-  main: { flex: 1, minWidth: 0 },
-  sidebar: {
-    display: 'flex', flexDirection: 'column', gap: 12,
-    width: 260, flexShrink: 0,
-    position: 'sticky', top: 16, alignSelf: 'flex-start',
-    maxHeight: 'calc(100vh - 80px)', overflowY: 'auto',
-  },
-  stateMsg: { fontSize: 16, color: '#4a5568' },
-  tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', minWidth: 960 },
-  th: {
-    textAlign: 'left', padding: '10px 12px', borderBottom: '2px solid #e2e8f0',
-    background: '#f7fafc', fontWeight: 700, fontSize: 13, color: '#4a5568', whiteSpace: 'nowrap',
-  },
-  tr: { borderBottom: '1px solid #edf2f7' },
-  td: { padding: '10px 12px', verticalAlign: 'middle', fontSize: 14 },
-  actions: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
-  editBtn: {
-    padding: '4px 10px', background: '#edf2f7', color: '#2d3748',
-    border: '1px solid #e2e8f0', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-  },
-  waBtn: {
-    padding: '4px 10px', background: '#25D366', color: '#fff',
-    borderRadius: 4, textDecoration: 'none', fontSize: 13, fontWeight: 600,
-  },
-  apptBtn: {
-    padding: '4px 10px', background: '#4299e1', color: '#fff',
-    border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13,
-  },
-  followUpActiveBtn: {
-    padding: '4px 10px', background: '#ed8936', color: '#fff',
-    border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-  },
-  enrolBtn: {
-    padding: '4px 10px', background: '#38a169', color: '#fff',
-    border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-  },
-  rowError: { color: '#e53e3e', fontSize: 12 },
-  paging: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20, flexWrap: 'wrap' },
-  pagingControls: { display: 'flex', alignItems: 'center', gap: 4 },
-  pageBtn: {
-    padding: '5px 10px', background: '#fff', border: '1px solid #e2e8f0',
-    borderRadius: 6, cursor: 'pointer', fontSize: 14, color: '#4a5568', fontWeight: 500,
-    transition: 'background 0.15s',
-  },
-  pageChip: {
-    padding: '5px 14px', background: '#ebf4ff', border: '1px solid #bee3f8',
-    borderRadius: 6, fontSize: 13, fontWeight: 700, color: '#2b6cb0', whiteSpace: 'nowrap' as const,
-  },
-  pageInfo: { color: '#718096', fontSize: 13 },
-  pagingRowsRow: { display: 'flex', justifyContent: 'center', marginTop: 8 },
-  rowsLabel: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#4a5568', fontWeight: 500 },
-  rowsSelect: {
-    padding: '5px 8px', border: '1px solid #e2e8f0', borderRadius: 6,
-    fontSize: 13, color: '#2d3748', background: '#fff', cursor: 'pointer',
-  },
+const tH: React.CSSProperties = {
+  textAlign: 'left', padding: '9px 14px', fontWeight: 600, fontSize: 11,
+  color: '#8893a7', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap',
 };
 
-const modal: Record<string, React.CSSProperties> = {
-  backdrop: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-  },
-  card: {
-    background: '#fff', borderRadius: 8, padding: 28, width: '100%',
-    maxWidth: 560, boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-  },
+const tD: React.CSSProperties = { padding: '10px 14px', verticalAlign: 'middle' };
+
+const mI = 'kc-mi';
+
+const pB: React.CSSProperties = {
+  padding: '5px 10px', background: '#fff', border: '1px solid #e2e8f0',
+  borderRadius: 5, cursor: 'pointer', fontSize: 13, color: '#4a5568',
+};
+
+// Sidebar panel styles
+const sp = {
+  box: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' } as React.CSSProperties,
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid #f1f5f9', background: '#fafafa' } as React.CSSProperties,
+  title: { fontSize: 13, fontWeight: 700, color: '#374151' } as React.CSSProperties,
+  badge: { background: '#f59e0b', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 700 } as React.CSSProperties,
+  sectionLabel: { padding: '5px 14px', fontSize: 10, fontWeight: 800, color: '#a0aec0', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: '#f8fafc' } as React.CSSProperties,
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 14px', borderBottom: '1px solid #f8fafc', gap: 8 } as React.CSSProperties,
+  empty: { padding: '24px 14px', textAlign: 'center' as const, fontSize: 13, color: '#a0aec0' } as React.CSSProperties,
+  waBtn: { background: 'none', border: 'none', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', fontSize: 18, lineHeight: 1, flexShrink: 0, color: '#25d366' } as React.CSSProperties,
+  ph: { display: 'inline-block', padding: '0 4px', background: '#7c3aed', color: '#fff', borderRadius: 3, fontSize: 9, fontWeight: 800, marginRight: 4, verticalAlign: 'middle' } as React.CSSProperties,
+  followUpBtn: { background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600, flexShrink: 0 } as React.CSSProperties,
+};
+
+// Modal styles
+const mo: Record<string, React.CSSProperties> = {
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  card: { background: '#fff', borderRadius: 8, padding: 28, width: '100%', maxWidth: 560, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { margin: 0, fontSize: 18 },
   closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#718096', lineHeight: 1 },
   grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   label: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, fontWeight: 600, color: '#2d3748' },
-  input: {
-    padding: '7px 10px', border: '1px solid #cbd5e0', borderRadius: 4,
-    fontSize: 14, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
-  },
+  input: { padding: '7px 10px', border: '1px solid #cbd5e0', borderRadius: 4, fontSize: 14, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' },
   footer: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
-  cancelBtn: {
-    padding: '8px 18px', background: '#edf2f7', border: '1px solid #e2e8f0',
-    borderRadius: 4, cursor: 'pointer', fontSize: 14,
-  },
-  saveBtn: {
-    padding: '8px 18px', background: '#4299e1', color: '#fff',
-    border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14, fontWeight: 600,
-  },
+  cancelBtn: { padding: '8px 18px', background: '#edf2f7', border: '1px solid #e2e8f0', borderRadius: 4, cursor: 'pointer', fontSize: 14 },
+  saveBtn: { padding: '8px 18px', background: '#4299e1', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 14, fontWeight: 600 },
 };
 
-const apptModal: Record<string, React.CSSProperties> = {
-  backdrop: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-  },
-  card: {
-    background: '#fff', borderRadius: 10, padding: 28, width: '100%',
-    maxWidth: 500, boxShadow: '0 8px 40px rgba(0,0,0,0.25)',
-  },
+const am: Record<string, React.CSSProperties> = {
+  backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
+  card: { background: '#fff', borderRadius: 12, padding: 28, maxWidth: 500, boxShadow: '0 8px 40px rgba(0,0,0,0.25)', boxSizing: 'border-box' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  title: { margin: '0 0 4px', fontSize: 18 },
-  subtitle: { margin: 0, fontSize: 13, color: '#718096' },
-  closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#718096', lineHeight: 1 },
-  label: { display: 'flex', flexDirection: 'column', gap: 5, fontSize: 13, fontWeight: 600, color: '#2d3748' },
-  input: {
-    padding: '8px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6,
-    fontSize: 14, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
-  },
-  error: { color: '#e53e3e', fontSize: 13, marginTop: 10, marginBottom: 0 },
-  footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 20 },
-  waBtn: {
-    padding: '9px 16px', background: '#25D366', color: '#fff',
-    border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 600,
-  },
-  rescheduleBtn: {
-    padding: '9px 20px', background: '#ed8936', color: '#fff',
-    border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 700,
-  },
-  confirmBtn: {
-    padding: '9px 20px', background: '#2b6cb0', color: '#fff',
-    border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 700,
-  },
-  placeholderCheck: {
-    display: 'flex', alignItems: 'center', gap: 8, marginTop: 10,
-    fontSize: 13, color: '#4a5568', cursor: 'pointer', fontWeight: 600,
-  },
-};
-
-const panel: Record<string, React.CSSProperties> = {
-  container: {
-    background: '#fff', border: '1px solid #e2e8f0',
-    borderRadius: 8, padding: '16px 0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-  },
-  heading: {
-    margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: '#2d3748',
-    padding: '0 16px', textTransform: 'uppercase', letterSpacing: '0.05em',
-  },
-  empty: { padding: '0 16px', color: '#a0aec0', fontSize: 13 },
-  group: { marginBottom: 12 },
-  dateLabel: {
-    padding: '6px 16px', background: '#ebf8ff', color: '#2b6cb0',
-    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-  },
-  row: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '7px 16px', borderBottom: '1px solid #f7fafc',
-  },
-  name: { fontSize: 13, fontWeight: 600, color: '#2d3748' },
-  time: { fontSize: 12, color: '#718096', whiteSpace: 'nowrap' as const },
-  dateLabelToday: {
-    padding: '6px 16px', background: '#fffaf0', color: '#c05621',
-    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-    borderLeft: '3px solid #ed8936',
-  },
-  rowToday: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '7px 16px', borderBottom: '1px solid #feebc8', background: '#fffaf0',
-  },
-  nameToday: { fontSize: 13, fontWeight: 700, color: '#c05621' },
-  timeToday: { fontSize: 12, color: '#dd6b20', whiteSpace: 'nowrap' as const, fontWeight: 600 },
-  phBadge: {
-    display: 'inline-block', padding: '0 5px', marginRight: 4,
-    background: '#6b46c1', color: '#fff', borderRadius: 4,
-    fontSize: 10, fontWeight: 800, verticalAlign: 'middle', letterSpacing: '0.03em',
-  },
+  title: { margin: 0, fontSize: 18, fontWeight: 700, color: '#1a202c' },
+  subtitle: { margin: '4px 0 0', fontSize: 13, color: '#718096' },
+  closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#718096', lineHeight: 1, marginLeft: 8 },
+  sectionLabel: { fontSize: 11, fontWeight: 700, color: '#a0aec0', letterSpacing: '0.07em', textTransform: 'uppercase' },
+  label: { fontSize: 13, fontWeight: 600, color: '#2d3748' },
+  input: { display: 'block', width: '100%', marginTop: 0, padding: '9px 11px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fafafa' },
+  divider: { borderTop: '1px solid #f1f5f9', margin: '18px 0' },
+  error: { color: '#e53e3e', fontSize: 13, marginTop: 8 },
+  footer: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 20 },
+  cancelBtn: { padding: '9px 16px', background: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: 7, cursor: 'pointer', fontSize: 14, color: '#4a5568', fontWeight: 500 },
+  waBtn: { padding: '9px 16px', background: '#25D366', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  confirmBtn: { padding: '9px 22px', background: '#2b6cb0', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 14, fontWeight: 700 },
 };

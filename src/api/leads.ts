@@ -5,17 +5,23 @@ export function fetchLeadPhones() {
   return apiFetch<{ id: string; parentPhone: string; childName: string; submittedAt: string }[]>('/api/leads/phones');
 }
 
+export function fetchLeadById(id: string) {
+  return apiFetch<Lead>(`/api/leads/${id}`);
+}
+
 export function fetchLeads(
   page: number,
   pageSize: number,
   status?: string,
   sortBy?: string,
   sortOrder?: string,
+  search?: string,
 ) {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (status) params.set('status', status);
   if (sortBy) params.set('sortBy', sortBy);
   if (sortOrder) params.set('sortOrder', sortOrder);
+  if (search) params.set('search', search);
   return apiFetch<LeadsResponse>(`/api/leads?${params}`);
 }
 
@@ -62,6 +68,22 @@ export function submitLead(payload: {
   });
 }
 
+export function deleteLead(id: string) {
+  return apiFetch<void>(`/api/leads/${id}`, { method: 'DELETE' });
+}
+
+export function fetchTrashedLeads() {
+  return apiFetch<Lead[]>('/api/leads/trash');
+}
+
+export function restoreLead(id: string) {
+  return apiFetch<Lead>(`/api/leads/${id}/restore`, { method: 'POST' });
+}
+
+export function permanentDeleteLead(id: string) {
+  return apiFetch<void>(`/api/leads/${id}/permanent`, { method: 'DELETE' });
+}
+
 export interface UpcomingAppointment {
   id: string;
   childName: string;
@@ -82,6 +104,7 @@ export interface LeadStats {
   FOLLOW_UP: number;
   ENROLLED: number;
   LOST: number;
+  TRASH: number;
 }
 
 export function fetchLeadStats() {
@@ -152,5 +175,12 @@ export function createAppointment(leadId: string, appointmentStart: string, what
   return apiFetch<{ googleEventId: string; googleEventLink: string }>(
     `/api/leads/${leadId}/appointment`,
     { method: 'POST', body: JSON.stringify({ appointmentStart, whatsappMessage, isPlaceholder }) },
+  );
+}
+
+export function confirmAppointment(leadId: string) {
+  return apiFetch<{ googleEventId: string; googleEventLink: string }>(
+    `/api/leads/${leadId}/confirm-appointment`,
+    { method: 'POST' },
   );
 }

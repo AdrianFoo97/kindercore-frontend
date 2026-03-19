@@ -1,10 +1,14 @@
 import { useState, useRef, useCallback, DragEvent, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheck, faXmark, faTriangleExclamation, faArrowRight, faFile, faArrowsRotate } from '@fortawesome/free-solid-svg-icons';
 import { submitLead, updateLead, fetchLeadPhones } from '../api/leads.js';
 import { fetchPackages, createPackage } from '../api/packages.js';
-import { createStudent } from '../api/students.js';
+import { createStudent, patchOnboardingProgress, completeOnboarding } from '../api/students.js';
 import { LeadStatus, Package } from '../types/index.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -392,7 +396,7 @@ async function importRow(row: ParsedRow, packages: Package[]): Promise<void> {
 async function tryCreateStudent(leadId: string, row: ParsedRow, packages: Package[]): Promise<void> {
   const birthYear = parseInt(row.childDob.split('-')[0]);
   const ageAtEnrolment = row.enrolmentYear! - birthYear;
-  const enrolmentMonth = row.submittedAt ? new Date(row.submittedAt).getUTCMonth() + 1 : 1;
+  const enrolmentMonth = row.submittedAt ? new Date(row.submittedAt).getMonth() + 1 : new Date().getMonth() + 1;
 
   // Match by year + programme + age, then fallback to year + programme only
   let pkg =
@@ -415,8 +419,15 @@ async function tryCreateStudent(leadId: string, row: ParsedRow, packages: Packag
     packages.push(pkg); // cache it so duplicate rows reuse the same package
   }
 
+  const now = new Date();
+  const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const enrolledDate = row.submittedAt ? new Date(row.submittedAt) : null;
+  const isRecentEnrolment =
+    enrolledDate !== null &&
+    enrolledDate >= oneMonthAgo;
+
   try {
-    await createStudent({
+    const student = await createStudent({
       leadId,
       enrolmentYear: row.enrolmentYear!,
       enrolmentMonth,
@@ -424,6 +435,12 @@ async function tryCreateStudent(leadId: string, row: ParsedRow, packages: Packag
       ...(row.submittedAt ? { enrolledAt: row.submittedAt } : {}),
       ...(row.notes ? { notes: row.notes } : {}),
     });
+
+    if (!isRecentEnrolment && student.onboardingProgress && student.onboardingProgress.length > 0) {
+      const allDone = student.onboardingProgress.map((t: { task: string; done: boolean }) => ({ ...t, done: true }));
+      await patchOnboardingProgress(student.id, allDone);
+      await completeOnboarding(student.id);
+    }
   } catch {
     // Ignore — student may already exist for this lead
   }
@@ -476,13 +493,13 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 | 4 }) {
                   : styles.stepCircleInactive),
               }}
             >
-              {isDone ? '✓' : s.n}
+              {isDone ? <FontAwesomeIcon icon={faCheck} /> : s.n}
             </div>
             <span
               style={{
                 ...styles.stepLabel,
                 fontWeight: isActive || isDone ? 600 : 400,
-                color: isActive ? '#2b6cb0' : isDone ? '#38a169' : '#a0aec0',
+                color: isActive ? '#2b6cb0' : isDone ? '#5b9a6f' : '#a0aec0',
               }}
             >
               {s.label}
@@ -491,7 +508,7 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 | 4 }) {
               <div
                 style={{
                   ...styles.stepConnector,
-                  background: isDone ? '#38a169' : '#e2e8f0',
+                  background: isDone ? '#5b9a6f' : '#e2e8f0',
                 }}
               />
             )}
@@ -549,7 +566,9 @@ function ColumnReference() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ImportLeadsPage() {
+  const { isMobile } = useIsMobile();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step / flow state
@@ -792,8 +811,8 @@ export default function ImportLeadsPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div style={styles.page}>
-      <div style={styles.inner}>
+    <div style={{ ...styles.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}>
+      <div style={{ ...styles.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
 
         {/* ── Page header ─────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 24 }}>
@@ -844,7 +863,7 @@ export default function ImportLeadsPage() {
                   height="40"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke={isDragOver ? '#2b6cb0' : dropError ? '#e53e3e' : '#a0aec0'}
+                  stroke={isDragOver ? '#2b6cb0' : dropError ? '#c47272' : '#a0aec0'}
                   strokeWidth="1.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -858,7 +877,7 @@ export default function ImportLeadsPage() {
 
               {dropError ? (
                 <>
-                  <p style={{ ...styles.dropPrimary, color: '#e53e3e' }}>{dropError}</p>
+                  <p style={{ ...styles.dropPrimary, color: '#c47272' }}>{dropError}</p>
                   <p style={styles.dropSecondary}>Click to try again with a .csv or .xlsx file</p>
                 </>
               ) : isDragOver ? (
@@ -915,7 +934,7 @@ export default function ImportLeadsPage() {
               {/* ── File summary bar ──────────────────────────────────────── */}
               <div style={styles.fileSummaryBar}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: 20 }}>📄</span>
+                  <span style={{ fontSize: 20 }}><FontAwesomeIcon icon={faFile} /></span>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14, color: '#1a202c' }}>{fileName}</div>
                     <div style={{ fontSize: 12, color: '#718096', marginTop: 2 }}>
@@ -936,13 +955,13 @@ export default function ImportLeadsPage() {
                 </div>
                 <div style={{ ...styles.statCard, background: '#f0fff4', borderColor: '#9ae6b4' }}>
                   <div style={{ ...styles.statValue, color: '#276749' }}>{validRows.length}</div>
-                  <div style={{ ...styles.statLabel, color: '#38a169' }}>Ready to import</div>
+                  <div style={{ ...styles.statLabel, color: '#5b9a6f' }}>Ready to import</div>
                 </div>
                 <div style={{ ...styles.statCard, ...(errorRows.length > 0 ? { background: '#fff5f5', borderColor: '#fed7d7' } : {}) }}>
                   <div style={{ ...styles.statValue, color: errorRows.length > 0 ? '#c53030' : '#a0aec0' }}>
                     {errorRows.length}
                   </div>
-                  <div style={{ ...styles.statLabel, color: errorRows.length > 0 ? '#e53e3e' : '#a0aec0' }}>
+                  <div style={{ ...styles.statLabel, color: errorRows.length > 0 ? '#c47272' : '#a0aec0' }}>
                     {errorRows.length === 1 ? 'Row with errors' : 'Rows with errors'}
                   </div>
                 </div>
@@ -965,7 +984,7 @@ export default function ImportLeadsPage() {
               {/* ── Validation banner ─────────────────────────────────────── */}
               {totalRows === 0 ? (
                 <div style={{ ...styles.validationBanner, background: '#fff5f5', borderColor: '#fed7d7' }}>
-                  <span style={{ fontSize: 20, flexShrink: 0 }}>✕</span>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}><FontAwesomeIcon icon={faXmark} /></span>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, color: '#c53030', marginBottom: 3 }}>No data found</div>
                     <div style={{ fontSize: 13, color: '#9b2c2c', lineHeight: 1.5 }}>
@@ -975,7 +994,7 @@ export default function ImportLeadsPage() {
                 </div>
               ) : allValid ? (
                 <div style={{ ...styles.validationBanner, background: '#f0fff4', borderColor: '#9ae6b4' }}>
-                  <span style={{ fontSize: 20, flexShrink: 0, color: '#38a169' }}>✓</span>
+                  <span style={{ fontSize: 20, flexShrink: 0, color: '#5b9a6f' }}><FontAwesomeIcon icon={faCheck} /></span>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, color: '#276749', marginBottom: 3 }}>
                       All {validRows.length} {validRows.length === 1 ? 'row passes' : 'rows pass'} validation
@@ -987,7 +1006,7 @@ export default function ImportLeadsPage() {
                 </div>
               ) : allErrors ? (
                 <div style={{ ...styles.validationBanner, background: '#fff5f5', borderColor: '#fed7d7' }}>
-                  <span style={{ fontSize: 20, flexShrink: 0, color: '#c53030' }}>✕</span>
+                  <span style={{ fontSize: 20, flexShrink: 0, color: '#c53030' }}><FontAwesomeIcon icon={faXmark} /></span>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, color: '#c53030', marginBottom: 3 }}>
                       All {errorRows.length} {errorRows.length === 1 ? 'row has' : 'rows have'} errors
@@ -999,7 +1018,7 @@ export default function ImportLeadsPage() {
                 </div>
               ) : (
                 <div style={{ ...styles.validationBanner, background: '#fffff0', borderColor: '#ecc94b' }}>
-                  <span style={{ fontSize: 20, flexShrink: 0, color: '#d69e2e' }}>⚠</span>
+                  <span style={{ fontSize: 20, flexShrink: 0, color: '#d69e2e' }}><FontAwesomeIcon icon={faTriangleExclamation} /></span>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, color: '#744210', marginBottom: 3 }}>
                       {validRows.length} of {totalRows} rows are ready
@@ -1018,7 +1037,7 @@ export default function ImportLeadsPage() {
                 <div style={styles.errorPanel}>
                   <div style={styles.errorPanelHeader}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13, color: '#c53030' }}>
-                      <span>✕</span>
+                      <span><FontAwesomeIcon icon={faXmark} /></span>
                       {errorRows.length} {errorRows.length === 1 ? 'row' : 'rows'} will be skipped
                     </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -1060,7 +1079,7 @@ export default function ImportLeadsPage() {
                         style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left' }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 14 }}>🔁</span>
+                          <span style={{ fontSize: 14 }}><FontAwesomeIcon icon={faArrowsRotate} /></span>
                           <span style={{ fontWeight: 600, fontSize: 13, color: '#9a3412' }}>
                             {dbDuplicateRows.length} {dbDuplicateRows.length === 1 ? 'lead' : 'leads'} already in your system
                           </span>
@@ -1090,7 +1109,7 @@ export default function ImportLeadsPage() {
                         style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left' }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 14 }}>⚠</span>
+                          <span style={{ fontSize: 14 }}><FontAwesomeIcon icon={faTriangleExclamation} /></span>
                           <span style={{ fontWeight: 600, fontSize: 13, color: '#744210' }}>
                             {fileDuplicateRows.length} {fileDuplicateRows.length === 1 ? 'row is a' : 'rows are'} duplicate{fileDuplicateRows.length !== 1 ? 's' : ''} within this file
                           </span>
@@ -1208,7 +1227,7 @@ export default function ImportLeadsPage() {
                             <td style={styles.td}>
                               {hasErr ? (
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                                  <span style={{ color: '#e53e3e', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>✕</span>
+                                  <span style={{ color: '#c47272', fontWeight: 700, fontSize: 12, flexShrink: 0 }}><FontAwesomeIcon icon={faXmark} /></span>
                                   <span style={{ color: '#c53030', fontSize: 12 }}>
                                     {row.errors[0]}{row.errors.length > 1 ? ` (+${row.errors.length - 1} more)` : ''}
                                   </span>
@@ -1228,7 +1247,7 @@ export default function ImportLeadsPage() {
                                 </div>
                               ) : (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                  <span style={{ color: '#38a169', fontWeight: 700, fontSize: 12 }}>✓</span>
+                                  <span style={{ color: '#5b9a6f', fontWeight: 700, fontSize: 12 }}><FontAwesomeIcon icon={faCheck} /></span>
                                   <span style={{ color: '#276749', fontSize: 12 }}>Ready</span>
                                 </div>
                               )}
@@ -1276,7 +1295,7 @@ export default function ImportLeadsPage() {
                   {dbDuplicateRows.length > 0 && (
                     <div style={{ ...styles.confirmRow, flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
                       <span style={{ ...styles.confirmLabel, fontWeight: 600, color: '#9a3412' }}>
-                        🔁 {dbDuplicateRows.length} {dbDuplicateRows.length === 1 ? 'lead' : 'leads'} already in system — how should we handle them?
+                        <FontAwesomeIcon icon={faArrowsRotate} /> {dbDuplicateRows.length} {dbDuplicateRows.length === 1 ? 'lead' : 'leads'} already in system — how should we handle them?
                       </span>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {(
@@ -1304,7 +1323,7 @@ export default function ImportLeadsPage() {
                   {fileDuplicateRows.length > 0 && (
                     <div style={{ ...styles.confirmRow, flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
                       <span style={{ ...styles.confirmLabel, fontWeight: 600, color: '#744210' }}>
-                        ⚠ {fileDuplicateRows.length} {fileDuplicateRows.length === 1 ? 'phone number appears' : 'phone numbers appear'} multiple times in this file — which to keep?
+                        <FontAwesomeIcon icon={faTriangleExclamation} /> {fileDuplicateRows.length} {fileDuplicateRows.length === 1 ? 'phone number appears' : 'phone numbers appear'} multiple times in this file — which to keep?
                       </span>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {(
@@ -1355,8 +1374,8 @@ export default function ImportLeadsPage() {
                       }}
                     >
                       {duplicateAction === 'update' && rowsToImport.some(r => r.isDuplicate)
-                        ? `Import ${rowsToImport.filter(r => !r.isDuplicate).length} + Update ${rowsToImport.filter(r => r.isDuplicate).length} →`
-                        : `Import ${rowsToImport.length} ${rowsToImport.length === 1 ? 'Lead' : 'Leads'} →`
+                        ? <>Import {rowsToImport.filter(r => !r.isDuplicate).length} + Update {rowsToImport.filter(r => r.isDuplicate).length} <FontAwesomeIcon icon={faArrowRight} style={{ marginLeft: 6 }} /></>
+                        : <>Import {rowsToImport.length} {rowsToImport.length === 1 ? 'Lead' : 'Leads'} <FontAwesomeIcon icon={faArrowRight} style={{ marginLeft: 6 }} /></>
                       }
                     </button>
                   </div>
@@ -1426,13 +1445,13 @@ export default function ImportLeadsPage() {
                 {/* Icon */}
                 <div style={styles.doneIconWrapper}>
                   {allOk && (
-                    <div style={{ ...styles.doneIcon, ...styles.doneIconSuccess }}>✓</div>
+                    <div style={{ ...styles.doneIcon, ...styles.doneIconSuccess }}><FontAwesomeIcon icon={faCheck} /></div>
                   )}
                   {allFailed && (
-                    <div style={{ ...styles.doneIcon, ...styles.doneIconError }}>✕</div>
+                    <div style={{ ...styles.doneIcon, ...styles.doneIconError }}><FontAwesomeIcon icon={faXmark} /></div>
                   )}
                   {partial && (
-                    <div style={{ ...styles.doneIcon, ...styles.doneIconWarning }}>⚠</div>
+                    <div style={{ ...styles.doneIcon, ...styles.doneIconWarning }}><FontAwesomeIcon icon={faTriangleExclamation} /></div>
                   )}
                 </div>
 
@@ -1498,10 +1517,10 @@ export default function ImportLeadsPage() {
               <div style={styles.doneActions}>
                 {!allFailed && (
                   <button
-                    onClick={() => navigate('/leads')}
+                    onClick={() => { queryClient.invalidateQueries({ queryKey: ['leads'] }); queryClient.invalidateQueries({ queryKey: ['lead-stats'] }); navigate('/leads'); }}
                     style={styles.btnPrimary}
                   >
-                    View leads →
+                    View leads <FontAwesomeIcon icon={faArrowRight} style={{ marginLeft: 6 }} />
                   </button>
                 )}
                 <button onClick={resetToUpload} style={styles.btnSecondary}>
@@ -1553,15 +1572,16 @@ const styles: Record<string, React.CSSProperties> = {
   stepRow: {
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 0,
     marginBottom: 28,
     marginTop: 20,
-    flexWrap: 'wrap',
   },
   stepItem: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   stepCircle: {
     width: 28,
@@ -1579,7 +1599,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#fff',
   },
   stepCircleDone: {
-    background: '#38a169',
+    background: '#5b9a6f',
     color: '#fff',
   },
   stepCircleInactive: {
@@ -1622,7 +1642,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#ebf4ff',
   },
   dropZoneError: {
-    borderColor: '#e53e3e',
+    borderColor: '#c47272',
     background: '#fff5f5',
   },
   dropIcon: {
@@ -1891,7 +1911,7 @@ const styles: Record<string, React.CSSProperties> = {
   summaryIcon: {
     fontSize: 18,
     fontWeight: 700,
-    color: '#38a169',
+    color: '#5b9a6f',
     flexShrink: 0,
     lineHeight: 1.2,
   },
@@ -1934,7 +1954,7 @@ const styles: Record<string, React.CSSProperties> = {
   errorRowBadge: {
     display: 'inline-block',
     padding: '1px 7px',
-    background: '#e53e3e',
+    background: '#c47272',
     color: '#fff',
     borderRadius: 10,
     fontSize: 11,
@@ -2019,7 +2039,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     fontWeight: 700,
     background: '#f0fff4',
-    color: '#38a169',
+    color: '#5b9a6f',
     border: '1px solid #9ae6b4',
   },
 
@@ -2128,11 +2148,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
   },
   doneIconSuccess: {
-    background: '#38a169',
+    background: '#5b9a6f',
     color: '#fff',
   },
   doneIconError: {
-    background: '#e53e3e',
+    background: '#c47272',
     color: '#fff',
   },
   doneIconWarning: {
