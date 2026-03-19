@@ -7,7 +7,6 @@ const API = import.meta.env.VITE_API_BASE_URL ?? '';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  maxWidth: '100%',
   padding: '14px 14px',
   border: '1px solid #d1d5db',
   borderRadius: 10,
@@ -188,8 +187,7 @@ export default function EnquiryFormPage() {
       fontFamily: "'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif",
       background: '#f0f4f8',
     }}>
-      <style>{`input[type="date"] { -webkit-min-logical-width: calc(100% - 16px) !important; }`}</style>
-      <div style={{ maxWidth: 480, width: '100%', margin: '0 auto', minHeight: '100vh', boxSizing: 'border-box' }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh' }}>
 
         {/* Back button — hide on success */}
         {!submitted && (
@@ -414,12 +412,14 @@ export default function EnquiryFormPage() {
                 <div style={{ marginBottom: 18 }}>
                   <label style={labelStyle}>出生日期 *</label>
                   <span style={helperStyle}>用于安排合适的班级</span>
-                  <input
-                    type="date"
-                    value={form.childDob}
-                    onChange={e => { setForm(f => ({ ...f, childDob: e.target.value })); setDobError(''); validateAge(e.target.value, form.enrolmentYear); }}
-                    style={{ ...inputStyle, ...(dobError ? { borderColor: '#ef4444' } : {}) }}
-                  />
+                  <div style={{ border: `1px solid ${dobError ? '#ef4444' : '#d1d5db'}`, borderRadius: 10, overflow: 'hidden' }}>
+                    <input
+                      type="date"
+                      value={form.childDob}
+                      onChange={e => { setForm(f => ({ ...f, childDob: e.target.value })); setDobError(''); validateAge(e.target.value, form.enrolmentYear); }}
+                      style={{ ...inputStyle, border: 'none', borderRadius: 0 }}
+                    />
+                  </div>
                   {dobError && (
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444', whiteSpace: 'pre-line' }}>&#9888; {dobError}</p>
                   )}
