@@ -410,14 +410,14 @@ export default function EnquiryFormPage() {
                   )}
                 </div>
 
-                <div style={{ marginBottom: 18 }}>
+                <div style={{ marginBottom: 18, overflow: 'hidden' }}>
                   <label style={labelStyle}>出生日期 *</label>
                   <span style={helperStyle}>用于安排合适的班级</span>
                   <input
                     type="date"
                     value={form.childDob}
                     onChange={e => { setForm(f => ({ ...f, childDob: e.target.value })); setDobError(''); validateAge(e.target.value, form.enrolmentYear); }}
-                    style={{ ...inputStyle, ...(dobError ? { borderColor: '#ef4444' } : {}) }}
+                    style={{ ...inputStyle, display: 'block', ...(dobError ? { borderColor: '#ef4444' } : {}) }}
                   />
                   {dobError && (
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444', whiteSpace: 'pre-line' }}>&#9888; {dobError}</p>
