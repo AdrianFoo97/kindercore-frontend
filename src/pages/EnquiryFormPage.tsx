@@ -7,6 +7,7 @@ const API = import.meta.env.VITE_API_BASE_URL ?? '';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
+  maxWidth: '100%',
   padding: '14px 14px',
   border: '1px solid #d1d5db',
   borderRadius: 10,
@@ -386,7 +387,6 @@ export default function EnquiryFormPage() {
             padding: '24px 20px',
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
             textAlign: 'left',
-            overflow: 'hidden',
           }}>
             {/* Honeypot */}
             <div style={{ position: 'absolute', left: -9999, opacity: 0 }} aria-hidden="true">
