@@ -109,7 +109,7 @@ export default function LandingPage() {
           borderRadius: 16,
           boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
           lineHeight: 1.9,
-          fontSize: 17,
+          fontSize: 19,
           color: '#475569',
           textAlign: 'center' as const,
         }}>
@@ -135,7 +135,7 @@ export default function LandingPage() {
             <br />
             会的越多，反而越有优势。
           </p>
-          <p style={{ margin: '0 0 28px', color: '#1a1a8e', fontWeight: 700, fontSize: 22 }}>
+          <p style={{ margin: '0 0 28px', color: '#1a1a8e', fontWeight: 700, fontSize: 26 }}>
             但现在不一样了
           </p>
           <p style={{ margin: '0 0 28px' }}>
@@ -161,11 +161,11 @@ export default function LandingPage() {
           <p style={{ margin: '0 0 28px' }}>
             而是当他不知道的时候，
             <br />
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#1a1a8e' }}>会不会去问、</span>
+            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会去问、</span>
             <br />
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#1a1a8e' }}>会不会去尝试、</span>
+            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会去尝试、</span>
             <br />
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#1a1a8e' }}>并且一步一步找到答案。</span>
+            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>并且一步一步找到答案。</span>
           </p>
           <p style={{ margin: '0 0 28px' }}>
             所以在 Ten Toes，
@@ -177,17 +177,17 @@ export default function LandingPage() {
           <p style={{ margin: '0 0 20px' }}>
             当面对新事物时，
             <br />
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#1a1a8e' }}>愿不愿意主动去尝试</span>
+            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>愿不愿意主动去尝试</span>
           </p>
           <p style={{ margin: '0 0 20px' }}>
             当遇到困难时，
             <br />
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#1a1a8e' }}>会不会轻易放弃</span>
+            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会轻易放弃</span>
           </p>
           <p style={{ margin: '0 0 28px' }}>
             当遇到问题时，
             <br />
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#1a1a8e' }}>会不会自己去寻找答案。</span>
+            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会自己去寻找答案。</span>
           </p>
           <p style={{ margin: '0 0 28px' }}>
             也因此，
@@ -199,7 +199,7 @@ export default function LandingPage() {
             <br />
             让孩子慢慢学会
           </p>
-          <p style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#1a1a8e' }}>
+          <p style={{ margin: 0, fontSize: 28, fontWeight: 700, color: '#1a1a8e' }}>
             去问、去试、去找到答案。
           </p>
         </section>
