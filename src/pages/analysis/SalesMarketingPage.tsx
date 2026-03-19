@@ -83,7 +83,7 @@ function KpiCard({ label, value, sub, color, children }: {
   color: string; children?: React.ReactNode;
 }) {
   return (
-    <div style={{ ...s.card, borderTop: `3px solid ${color}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '14px 12px' }}>
+    <div style={{ background: C.card, borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)', borderTop: `3px solid ${color}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '14px 12px' }}>
       <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>{label}</span>
       {children ?? <span style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1 }}>{value}</span>}
       {sub && <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{sub}</span>}
@@ -168,7 +168,7 @@ export default function SalesMarketingPage() {
 
       {/* ── KPI strip ── */}
       <div style={{ ...s.kpiRow, ...(isMobile ? { gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 } : {}) }}>
-        <div style={isMobile ? { gridColumn: 'span 2' } : undefined}>
+        <div style={{ ...(isMobile ? { gridColumn: 'span 2' } : {}), height: '100%' }}>
           <KpiCard label="Appointment Rate" color={C.indigo}>
             <RateRing rate={data.appointmentRate} />
             <span style={{ fontSize: 12, color: C.muted }}>{data.attendedAppointments} attended of {data.completedLeads} completed</span>
