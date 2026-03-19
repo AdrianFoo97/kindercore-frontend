@@ -113,52 +113,52 @@ export default function LandingPage() {
           color: '#475569',
           textAlign: 'center' as const,
         }}>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             在陪伴孩子成长的过程中，
             <br />
             我们慢慢有一个很深的感受。
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             以前我们会觉得，
             <br />
             孩子只要把 academic 学好，就够了。
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             在那个时候，
             <br />
             这样的方式，确实是有用的。
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             因为在以前，
             <br />
             答案并不容易找到，
             <br />
             会的越多，反而越有优势。
           </p>
-          <p style={{ margin: '0 0 28px', color: '#1a1a8e', fontWeight: 700, fontSize: 26 }}>
+          <p style={{ margin: '0 0 40px', color: '#1a1a8e', fontWeight: 700, fontSize: 26 }}>
             但现在不一样了
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             手机、Internet，甚至 AI，
             <br />
             让答案变得<span style={{ color: '#1a1a8e', fontWeight: 600 }}>随时都可以找到。</span>
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             也正因为这样，
             <br />
             如果孩子只是习惯记住答案，
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             当他遇到没有"现成答案"的问题时，
             <br />
             反而更容易卡住，不知道怎么办。
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             所以现在真正重要的，
             <br />
             已经不再是孩子知道多少，
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             而是当他不知道的时候，
             <br />
             <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会去问、</span>
@@ -167,29 +167,29 @@ export default function LandingPage() {
             <br />
             <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>并且一步一步找到答案。</span>
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             所以在 Ten Toes，
             <br />
             我们更注重的是，
             <br />
             孩子在学习的过程中
           </p>
-          <p style={{ margin: '0 0 20px' }}>
+          <p style={{ margin: '0 0 32px' }}>
             当面对新事物时，
             <br />
             <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>愿不愿意主动去尝试</span>
           </p>
-          <p style={{ margin: '0 0 20px' }}>
+          <p style={{ margin: '0 0 32px' }}>
             当遇到困难时，
             <br />
             <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会轻易放弃</span>
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             当遇到问题时，
             <br />
             <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会自己去寻找答案。</span>
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             也因此，
             <br />
             我们更在意的，
@@ -629,7 +629,7 @@ export default function LandingPage() {
           fontSize: 15,
           lineHeight: 1.9,
         }}>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             这些课程，
             <br />
             虽然内容不同，
@@ -646,19 +646,19 @@ export default function LandingPage() {
           {/* Divider */}
           <div style={{ width: 40, height: 2, background: 'rgba(255,255,255,0.2)', margin: '32px auto' }} />
 
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             也正因为这样的学习方式，
             <br />
             孩子会慢慢变得更独立，
             <br />
             也更愿意自己尝试解决问题。
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             这些改变，
             <br />
             不只发生在学校。
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 40px' }}>
             很多家长，
             <br />
             也在生活中看到了同样的变化。
