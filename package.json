@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && rm -rf public_html && cp -r dist public_html",
+    "build:test": "tsc && vite build --mode test && rm -rf public_html && cp -r dist public_html",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
