@@ -74,6 +74,7 @@ describe('LeadsPage', () => {
           needsTransport: null,
           howDidYouKnow: null,
           statusChangedAt: null,
+          ctaSource: null,
           deletedAt: null,
         },
       ],

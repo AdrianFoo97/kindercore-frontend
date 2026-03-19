@@ -20,8 +20,8 @@ function programmeLabel(val: string): string {
 }
 
 function transportLabel(val: boolean | null): string {
-  if (val === true || val === 1) return 'Yes';
-  if (val === false || val === 0) return 'No';
+  if (val === true || (val as unknown) === 1) return 'Yes';
+  if (val === false || (val as unknown) === 0) return 'No';
   return '—';
 }
 

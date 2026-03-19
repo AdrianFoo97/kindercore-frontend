@@ -26,7 +26,7 @@ const CTA_SOURCE_LABELS: Record<string, string> = {
   final: '整个页面', courses: '课程详情', methods: '学习方式', story: '故事部分', hero: '顶部',
 };
 
-function getLeadHeat(ctaSource: string | null): { level: number; label: string; color: string; tooltip: string } {
+function getLeadHeat(ctaSource: string | null): { level: number; label: string; color: string; bg: string; icon: typeof faFire | null; tooltip: string } {
   const sourceOrder: Record<string, number> = {
     hero: 1, story: 2, methods: 3, courses: 4, final: 5,
   };
