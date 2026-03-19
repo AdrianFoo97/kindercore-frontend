@@ -188,7 +188,7 @@ export default function EnquiryFormPage() {
       fontFamily: "'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif",
       background: '#f0f4f8',
     }}>
-      <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh', overflowX: 'hidden' }}>
+      <div style={{ maxWidth: 480, width: '100%', margin: '0 auto', minHeight: '100vh', boxSizing: 'border-box' }}>
 
         {/* Back button — hide on success */}
         {!submitted && (
