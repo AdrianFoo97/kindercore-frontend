@@ -188,7 +188,7 @@ export default function EnquiryFormPage() {
       fontFamily: "'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif",
       background: '#f0f4f8',
     }}>
-      <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh' }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh', overflowX: 'hidden' }}>
 
         {/* Back button — hide on success */}
         {!submitted && (
@@ -417,7 +417,7 @@ export default function EnquiryFormPage() {
                     type="date"
                     value={form.childDob}
                     onChange={e => { setForm(f => ({ ...f, childDob: e.target.value })); setDobError(''); validateAge(e.target.value, form.enrolmentYear); }}
-                    style={{ ...inputStyle, ...(dobError ? { borderColor: '#ef4444' } : {}) }}
+                    style={{ ...inputStyle, WebkitAppearance: 'none', appearance: 'none', ...(dobError ? { borderColor: '#ef4444' } : {}) }}
                   />
                   {dobError && (
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444', whiteSpace: 'pre-line' }}>&#9888; {dobError}</p>
