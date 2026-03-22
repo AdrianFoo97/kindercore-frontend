@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function Navbar() {
@@ -147,16 +147,24 @@ export default function Navbar() {
             <div style={mPanel}>
               <button
                 className={mobile ? '' : 'nav-drop-item'}
-                style={{ ...mPanelItem, width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' as const, background: 'none', fontFamily: 'inherit' }}
+                style={{ ...mPanelItem, width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' as const, background: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10 }}
                 onClick={() => { closeAll(); setWaPhone(''); setWaMessage(''); setWaTemplate('none'); setWaLang('en'); setWhatsappModal(true); }}>
-                Open WhatsApp
+                <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 14, color: '#25D366', width: 16 }} />
+                WhatsApp
               </button>
               <button
                 className={mobile ? '' : 'nav-drop-item'}
-                style={{ ...mPanelItem, width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' as const, background: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
+                style={{ ...mPanelItem, width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' as const, background: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10 }}
                 onClick={() => { closeAll(); window.open('/enquiry', '_blank'); }}>
-                Landing Page <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9, opacity: 0.6 }} />
+                <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 11, color: '#94a3b8', width: 16 }} />
+                Landing Page
               </button>
+              <NavLink to="/tools/operations-planner" className={mobile ? '' : 'nav-drop-item'}
+                style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                onClick={closeAll}>
+                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Operations Planner
+              </NavLink>
             </div>
           )}
         </div>
@@ -172,26 +180,26 @@ export default function Navbar() {
               const close = () => closeAll();
               const sep = mobile
                 ? <div style={{ height: 1, background: '#e5e7eb', margin: '2px 20px' }} />
-                : <div style={{ height: 1, background: '#f0f0f0', margin: '6px 0' }} />;
+                : <div style={{ height: 1, background: '#f0f0f0', margin: '4px 8px' }} />;
               const section = (icon: typeof faUsers, label: string) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: mobile ? '10px 20px 5px' : '10px 16px 5px', fontSize: 10, fontWeight: 700, color: '#8893a7', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
-                  <FontAwesomeIcon icon={icon} style={{ fontSize: 10, width: 12, color: '#b0b8c9' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px 5px' : '10px 14px 4px', fontSize: 10, fontWeight: 700, color: '#8893a7', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
+                  <FontAwesomeIcon icon={icon} style={{ fontSize: 10, width: 14, color: '#b0b8c9' }} />
                   {label}
                 </div>
               );
               const link = (to: string, label: string) => (
                 <NavLink to={to} className={mobile ? '' : 'nav-drop-item'}
                   style={({ isActive }) => ({
-                    display: 'block', padding: mobile ? '8px 20px 8px 44px' : '6px 16px 6px 35px', fontSize: 13, textDecoration: 'none',
+                    display: 'block', padding: mobile ? '8px 20px 8px 44px' : '7px 14px 7px 36px', fontSize: 13, textDecoration: 'none',
                     color: isActive ? '#3c339a' : '#374151',
-                    fontWeight: isActive ? 600 : 400,
+                    fontWeight: isActive ? 600 : 500,
                     background: isActive ? '#eef0fa' : 'none',
-                    borderRadius: 0,
+                    borderRadius: 6,
                   })}
                   onClick={close}>{label}</NavLink>
               );
               return (
-                <div style={mobile ? { ...mPanel } : { position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: '#fff', borderRadius: 8, boxShadow: '0 8px 30px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06)', minWidth: 230, zIndex: 100, padding: '4px 0', border: '1px solid #e5e7eb' }}>
+                <div style={mobile ? { ...mPanel } : { position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#fff', borderRadius: 10, boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)', minWidth: 240, zIndex: 100, padding: '6px', border: '1px solid #e8eaed', maxHeight: '80vh', overflowY: 'auto' }}>
                   {section(faUsers, 'CRM')}
                   {link('/settings/leads', 'Leads')}
                   {sep}
@@ -203,6 +211,12 @@ export default function Navbar() {
                   {link('/settings/packages/age-groups', 'Age Groups')}
                   {link('/settings/packages/assignment', 'Package Assignment')}
                   {link('/packages', 'Pricing')}
+                  {sep}
+                  {section(faCalendarDays, 'Timetable')}
+                  {link('/settings/timetable/teachers', 'Teachers')}
+                  {link('/settings/timetable/classes', 'Classes')}
+                  {link('/settings/timetable/subjects', 'Subjects')}
+                  {link('/settings/timetable/tasks', 'Tasks')}
                   {sep}
                   {section(faMessage, 'Communication')}
                   {link('/settings/whatsapp-templates', 'Message Templates')}
@@ -248,9 +262,10 @@ export default function Navbar() {
   return (
     <>
     <style>{`
+      .nav-drop-item { border-radius: 6px !important; transition: background 0.1s ease; }
       .nav-drop-item:hover { background: #f1f5f9 !important; }
-      .nav-link { transition: all 0.12s ease; }
-      .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.1); }
+      .nav-link { transition: all 0.15s ease; }
+      .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.12); }
     `}</style>
     <nav style={{ ...styles.nav, padding: isTablet ? '0 12px' : '0 24px' }}>
       {/* ── Mobile/Tablet: hamburger on left ── */}
@@ -531,25 +546,26 @@ const styles: Record<string, React.CSSProperties> = {
   // Unified panel style for all dropdowns
   panel: {
     position: 'absolute',
-    top: 'calc(100% + 6px)',
+    top: 'calc(100% + 8px)',
     left: 0,
     background: '#fff',
-    borderRadius: 8,
-    boxShadow: '0 8px 30px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06)',
-    minWidth: 190,
+    borderRadius: 10,
+    boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+    minWidth: 200,
     zIndex: 100,
-    border: '1px solid #e5e7eb',
-    padding: '4px 0',
+    border: '1px solid #e8eaed',
+    padding: '6px',
   },
   panelItem: {
     display: 'block',
-    padding: '7px 14px',
+    padding: '9px 14px',
     color: '#374151',
     textDecoration: 'none',
     fontSize: 13,
-    fontWeight: 400,
+    fontWeight: 500,
     whiteSpace: 'nowrap',
     background: 'none',
+    borderRadius: 6,
   },
   panelItemActive: {
     color: '#3c339a',
@@ -565,7 +581,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   userName: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: 500 },
   logoutBtn: {
-    padding: '5px 12px',
+    padding: '5px 14px',
     background: 'rgba(255,255,255,0.15)',
     color: '#fff',
     border: '1px solid rgba(255,255,255,0.25)',

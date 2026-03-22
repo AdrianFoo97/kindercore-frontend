@@ -105,3 +105,69 @@ export interface StudentsResponse {
   onboardingCounts: { total: number; notStarted: number; inProgress: number; readyToComplete: number };
   availableYears: number[];
 }
+
+// ── Operations Planner ───────────────────────────────────────────────────────
+
+export interface Teacher {
+  id: string;
+  name: string;
+  color: string;
+  isActive: boolean;
+  allowedSubjectIds: string[] | null;
+  allowedClassroomIds: string[] | null;
+  workStartMinute: number | null;
+  workEndMinute: number | null;
+  workDays: number[] | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Classroom {
+  id: string;
+  name: string;
+  capacity: number | null;
+  startMinute: number | null;
+  endMinute: number | null;
+  daysOfWeek: number[] | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlannerSubject {
+  id: string;
+  name: string;
+  color: string;
+  lessonsPerWeek: number | null;
+  defaultDuration: number | null;
+  classLessons: Record<string, number> | null;
+  createdAt: string;
+}
+
+export interface PlannerTask {
+  id: string;
+  name: string;
+  category: 'TEACHING' | 'ADMIN' | 'DUTY' | 'BREAK' | 'OTHER';
+  color: string;
+  defaultDuration: number;
+  createdAt: string;
+}
+
+export interface ScheduleBlock {
+  id: string;
+  weekDate: string;
+  dayOfWeek: number;
+  startMinute: number;
+  durationMinutes: number;
+  teacherId: string | null;
+  subjectId: string | null;
+  taskId: string | null;
+  classroomId: string | null;
+  assignedTeacherIds: string[] | null;
+  notes: string | null;
+  teacher: { id: string; name: string; color: string } | null;
+  subject: { id: string; name: string; color: string } | null;
+  task: { id: string; name: string; category: string; color: string } | null;
+  classroom: { id: string; name: string } | null;
+  conflicts?: Array<{ type: string; description: string }>;
+}
