@@ -83,11 +83,12 @@ function getCountdown(startDate: string | null): { label: string; color: string;
   return null;
 }
 
-function getProgress(tasks: OnboardingTask[] | null) {
-  if (!tasks || tasks.length === 0) return { done: 0, total: 0, nextTask: null };
-  const done = tasks.filter(t => t.done).length;
-  const nextTask = tasks.find(t => !t.done) ?? null;
-  return { done, total: tasks.length, nextTask };
+function getProgress(tasks: OnboardingTask[] | string | null) {
+  const parsed: OnboardingTask[] = Array.isArray(tasks) ? tasks : (typeof tasks === 'string' ? (() => { try { return JSON.parse(tasks); } catch { return []; } })() : []);
+  if (!parsed || parsed.length === 0) return { done: 0, total: 0, nextTask: null };
+  const done = parsed.filter(t => t.done).length;
+  const nextTask = parsed.find(t => !t.done) ?? null;
+  return { done, total: parsed.length, nextTask };
 }
 
 // ── ProgressBar ───────────────────────────────────────────────────────────────
@@ -426,7 +427,8 @@ function ChecklistModal({
   onClose: () => void;
   onSaved: (updated: Student) => void;
 }) {
-  const existingTasks = student.onboardingProgress ?? [];
+  const raw = student.onboardingProgress;
+  const existingTasks: OnboardingTask[] = Array.isArray(raw) ? raw : (typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return []; } })() : []);
   const [items, setItems] = useState<OnboardingTask[]>(existingTasks);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
