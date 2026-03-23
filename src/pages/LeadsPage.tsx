@@ -425,15 +425,14 @@ function isSameDay(a: Date, b: Date): boolean {
 }
 
 // ── Summary Strip (compact metrics above table) ───────────────────────────────
-function SummaryStrip({ todayApptCount, followUpCount, overdueCount, upcomingCount, onOpen }: {
-  todayApptCount: number; followUpCount: number; overdueCount: number; upcomingCount: number;
+function SummaryStrip({ appointmentCount, followUpCount, overdueCount, onOpen }: {
+  appointmentCount: number; followUpCount: number; overdueCount: number;
   onOpen: (tab: string) => void;
 }) {
   const items = [
-    { key: 'today', label: 'Today', count: todayApptCount, icon: faCalendarDays, color: '#1d4ed8', bg: '#eff6ff' },
+    { key: 'appointments', label: 'Appointments', count: appointmentCount, icon: faCalendarDays, color: '#1d4ed8', bg: '#eff6ff' },
     { key: 'overdue', label: 'Status Pending', count: overdueCount, icon: faTriangleExclamation, color: '#d97706', bg: '#fffbeb', alert: overdueCount > 0 },
     { key: 'followups', label: 'Follow-Ups', count: followUpCount, icon: faArrowRight, color: '#7c3aed', bg: '#f5f3ff' },
-    { key: 'upcoming', label: 'Upcoming Visits', count: upcomingCount, icon: faCalendarDays, color: '#0891b2', bg: '#ecfeff' },
   ];
   return (
     <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
@@ -470,10 +469,9 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
   const comingAppts = upcomingAppts.filter(a => !isSameDay(new Date(a.appointmentStart), today));
 
   const tabs = [
-    { key: 'today', label: 'Today', icon: faCalendarDays, count: todayAppts.length, color: '#1d4ed8' },
+    { key: 'appointments', label: 'Appointments', icon: faCalendarDays, count: upcomingAppts.length, color: '#1d4ed8' },
     { key: 'overdue', label: 'Pending', icon: faTriangleExclamation, count: overdueApptLeads.length, color: '#d97706', alert: overdueApptLeads.length > 0 },
     { key: 'followups', label: 'Follow-Up', icon: faPhone, count: followUpLeads.length, color: '#7c3aed' },
-    { key: 'upcoming', label: 'Visits', icon: faCalendarDays, count: comingAppts.length, color: '#0891b2' },
   ];
 
   // ── Collapsed: icon strip ──
@@ -484,7 +482,7 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
           <FontAwesomeIcon icon={faChevronLeft} />
         </button>
         {tabs.map(t => (
-          <button key={t.key} onClick={() => { onTabChange(t.key); if (!expanded) onToggle(); }}
+          <button key={t.key} onClick={() => onTabChange(t.key)}
             title={t.label}
             style={{
               width: 34, height: 34, borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -541,13 +539,14 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
 
       {/* Active tab content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-        {activeTab === 'today' && (
+        {activeTab === 'appointments' && (
           <>
+            {/* Today's appointments */}
             <div style={{ padding: '6px 14px 4px', fontSize: 10, fontWeight: 700, color: '#b0b8c9', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              {today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+              Today · {today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
             </div>
             {todayAppts.length === 0 ? (
-              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No appointments today</div>
+              <div style={{ padding: '8px 14px 12px', fontSize: 12, color: '#cbd5e1' }}>No appointments today</div>
             ) : todayAppts.map(a => (
               <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
                 <div>
@@ -559,6 +558,27 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
                 <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
               </div>
             ))}
+            {/* Upcoming visits */}
+            {comingAppts.length > 0 && (
+              <>
+                <div style={{ padding: '10px 14px 4px', fontSize: 10, fontWeight: 700, color: '#b0b8c9', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  Upcoming
+                </div>
+                {comingAppts.map(a => (
+                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.childName}</div>
+                      <div style={{ fontSize: 11, color: '#718096' }}>
+                        {new Date(a.appointmentStart).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}
+                        {' · '}
+                        {new Date(a.appointmentStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                      </div>
+                    </div>
+                    <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
+                  </div>
+                ))}
+              </>
+            )}
           </>
         )}
 
@@ -606,25 +626,6 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
           </>
         )}
 
-        {activeTab === 'upcoming' && (
-          <>
-            {comingAppts.length === 0 ? (
-              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No upcoming visits</div>
-            ) : comingAppts.map(a => (
-              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.childName}</div>
-                  <div style={{ fontSize: 11, color: '#718096' }}>
-                    {new Date(a.appointmentStart).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}
-                    {' · '}
-                    {new Date(a.appointmentStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                  </div>
-                </div>
-                <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
-              </div>
-            ))}
-          </>
-        )}
       </div>
     </div>
   );
@@ -1570,7 +1571,7 @@ export default function LeadsPage() {
   const [selectedStage, setSelectedStage] = useState<PipelineStage>('all_active');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [panelTab, setPanelTab] = useState('today');
+  const [panelTab, setPanelTab] = useState('appointments');
   const [sortBy, setSortBy] = useState<SortField>('submittedAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [searchInput, setSearchInput] = useState('');
@@ -1598,6 +1599,7 @@ export default function LeadsPage() {
   const [deleteLeadTarget, setDeleteLeadTarget] = useState<Lead | null>(null);
   const [confirmBookingLead, setConfirmBookingLead] = useState<Lead | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [rowResults, setRowResults] = useState<Record<string, { link?: string | null; error?: string }>>({});
   const [isExporting, setIsExporting] = useState(false);
@@ -2025,7 +2027,7 @@ export default function LeadsPage() {
       )}
 
       {/* Content area — this is the ONE scroll container; scrollbar appears at the far right edge */}
-      <div style={{ flex: 1, overflowY: 'auto', height: '100%', minWidth: 0 }}>
+      <div style={{ flex: 1, overflowY: 'auto', height: '100%', minWidth: 0, width: 0 }}>
         {isTablet && <PipelineNav selected={selectedStage} onChange={handleStageSelect} stats={stats} compact />}
         <div style={{ maxWidth: 1380, margin: '0 auto', padding: isMobile ? '16px 12px' : isTablet ? '20px 16px' : '28px 32px', minWidth: 0, boxSizing: 'border-box', width: '100%' }}>
         <div style={{ minWidth: 0 }}>
@@ -2116,22 +2118,6 @@ export default function LeadsPage() {
             </div>
           )}
 
-          {/* Summary strip */}
-          {!isTrash && !isMobile && (() => {
-            const today = new Date();
-            const todayApptCount = upcomingAppts.filter(a => isSameDay(new Date(a.appointmentStart), today)).length;
-            const overdueList = (apptBookedData?.items ?? []).filter(l => !upcomingAppts.some(a => a.id === l.id));
-            const comingCount = upcomingAppts.filter(a => !isSameDay(new Date(a.appointmentStart), today)).length;
-            return (
-              <SummaryStrip
-                todayApptCount={todayApptCount}
-                followUpCount={followUpLeads.length}
-                overdueCount={overdueList.length}
-                upcomingCount={comingCount}
-                onOpen={tab => { setPanelTab(tab); setPanelOpen(o => panelTab === tab ? !o : true); }}
-              />
-            );
-          })()}
 
           {!isTrash && isLoading && <div style={{ padding: 40, textAlign: 'center', color: '#718096', fontSize: 14 }}>Loading…</div>}
           {!isTrash && isError && <div style={{ padding: 20, color: '#e53e3e', fontSize: 14 }}>Error: {(error as Error).message}</div>}
@@ -2400,21 +2386,21 @@ export default function LeadsPage() {
           )}
 
           {!isTrash && data && data.items.length > 0 && !isMobile && (
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', position: 'relative' as const, overflowX: isTablet ? 'auto' : undefined }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, minWidth: isTablet ? 700 : undefined }}>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', position: 'relative' as const }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, tableLayout: 'fixed' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <th style={{ width: 4, padding: 0, borderTopLeftRadius: 10 }} />
-                    <th style={tH}>Lead</th>
-                    <th style={tH}>Enrolment</th>
-                    <th style={tH}>Phone</th>
+                    <th style={{ ...tH, width: '25%' }}>Lead</th>
+                    <th style={{ ...tH, width: '10%' }}>Enrolment</th>
+                    <th style={{ ...tH, width: '15%' }}>Phone</th>
                     {isClosed
-                      ? <th style={tH}>Closed</th>
-                      : <th style={tH}>Visit</th>
+                      ? <th style={{ ...tH, width: '15%' }}>Closed</th>
+                      : <th style={{ ...tH, width: '18%' }}>Visit</th>
                     }
                     {isClosed
-                      ? <th style={tH}>Reason</th>
-                      : <th style={{ ...tH, textAlign: 'right' as const }}>Next Action</th>
+                      ? <th style={{ ...tH, width: 'auto' }}>Reason</th>
+                      : <th style={{ ...tH, textAlign: 'right' as const, width: 'auto' }}>Next Action</th>
                     }
                     <th style={{ ...tH, width: 44, textAlign: 'center' as const }} />
                   </tr>
@@ -2561,19 +2547,16 @@ export default function LeadsPage() {
                         ) : (
                           <td style={{ ...tD, textAlign: 'right' as const }} onClick={e => e.stopPropagation()}>
                             {lead.status === 'FOLLOW_UP' ? (
-                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
                                 <button onClick={() => setEnrollingLead(lead)} style={btnStyles.enroll}>
                                   <FontAwesomeIcon icon={faGraduationCap} style={{ marginRight: 6 }} /> Enroll
                                 </button>
                                 <button onClick={() => setDecliningLead(lead)} style={btnStyles.notEnrolling}>
                                   <FontAwesomeIcon icon={faXmark} style={{ marginRight: 6 }} /> Not Enrolling
                                 </button>
-                                <button onClick={() => setRejectingLead(lead)} style={btnStyles.reject}>
-                                  <FontAwesomeIcon icon={faXmark} style={{ marginRight: 6 }} /> Reject
-                                </button>
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
                                 {primaryAction ? (
                                   <button onClick={primaryAction.action} style={primaryAction.style}>
                                     {primaryAction.label}
@@ -2595,7 +2578,14 @@ export default function LeadsPage() {
                         {/* Overflow menu */}
                         <td style={{ ...tD, position: 'relative' as const, width: 44, textAlign: 'center' as const, padding: '8px 6px' }}>
                           <button
-                            onClick={e => { e.stopPropagation(); setMenuOpenId(isMenuOpen ? null : lead.id); }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (!isMenuOpen) {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                              }
+                              setMenuOpenId(isMenuOpen ? null : lead.id);
+                            }}
                             style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '3px 9px', fontSize: 15, color: '#718096', lineHeight: 1 }}
                           >⋮</button>
                           {isMenuOpen && (() => {
@@ -2605,7 +2595,7 @@ export default function LeadsPage() {
                             return (
                               <div
                                 onClick={e => e.stopPropagation()}
-                                style={{ position: 'absolute' as const, right: 6, top: '100%', zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}
+                                style={{ position: 'fixed' as const, top: menuPos.top, right: menuPos.right, zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}
                               >
                                 {(() => {
                                   const secLabel = (label: string, icon?: any) => <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: 6 }}>{icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}{label}</div>;
@@ -2706,7 +2696,7 @@ const tH: React.CSSProperties = {
   color: '#8893a7', letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap',
 };
 
-const tD: React.CSSProperties = { padding: '10px 14px', verticalAlign: 'middle' };
+const tD: React.CSSProperties = { padding: '10px 14px', verticalAlign: 'middle', overflow: 'hidden', textOverflow: 'ellipsis' };
 
 const mI = 'kc-mi';
 
