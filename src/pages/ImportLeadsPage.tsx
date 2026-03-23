@@ -430,8 +430,7 @@ async function tryCreateStudent(leadId: string, row: ParsedRow, packages: Packag
     null;
 
   if (!pkg) {
-    if (!import.meta.env.DEV) return; // in production, skip silently — package must be configured manually
-    // DEV only: auto-create a package so the student can be enrolled
+    // Auto-create a package so the student can be enrolled
     const programme = row.programme ?? 'Full Day';
     pkg = await createPackage({
       year: row.enrolmentYear!,
