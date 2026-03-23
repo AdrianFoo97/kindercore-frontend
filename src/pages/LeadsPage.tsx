@@ -10,7 +10,7 @@ import { createStudent } from '../api/students.js';
 import { Lead, LeadStatus, LeadsResponse, Package } from '../types/index.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarDays, faCircleCheck, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
@@ -424,137 +424,208 @@ function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-function Sidebar({ upcomingAppts, followUpLeads, overdueApptLeads, onFollowUp, onWhatsApp, onSelectLead }: {
-  upcomingAppts: UpcomingAppointment[];
-  followUpLeads: Lead[];
-  overdueApptLeads: Lead[];
-  onFollowUp: (lead: Lead) => void;
-  onWhatsApp: (apptId: string) => void;
-  onSelectLead: (lead: Lead) => void;
+// ── Summary Strip (compact metrics above table) ───────────────────────────────
+function SummaryStrip({ todayApptCount, followUpCount, overdueCount, upcomingCount, onOpen }: {
+  todayApptCount: number; followUpCount: number; overdueCount: number; upcomingCount: number;
+  onOpen: (tab: string) => void;
+}) {
+  const items = [
+    { key: 'today', label: 'Today', count: todayApptCount, icon: faCalendarDays, color: '#1d4ed8', bg: '#eff6ff' },
+    { key: 'overdue', label: 'Status Pending', count: overdueCount, icon: faTriangleExclamation, color: '#d97706', bg: '#fffbeb', alert: overdueCount > 0 },
+    { key: 'followups', label: 'Follow-Ups', count: followUpCount, icon: faArrowRight, color: '#7c3aed', bg: '#f5f3ff' },
+    { key: 'upcoming', label: 'Upcoming Visits', count: upcomingCount, icon: faCalendarDays, color: '#0891b2', bg: '#ecfeff' },
+  ];
+  return (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+      {items.map(it => (
+        <button key={it.key} onClick={() => onOpen(it.key)} style={{
+          display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px',
+          background: it.alert ? it.bg : '#fff', border: `1px solid ${it.alert ? it.color + '40' : '#e5e7eb'}`,
+          borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600,
+          color: it.count > 0 ? it.color : '#94a3b8', transition: 'all 0.15s',
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = it.color; e.currentTarget.style.background = it.bg; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = it.alert ? it.color + '40' : '#e5e7eb'; e.currentTarget.style.background = it.alert ? it.bg : '#fff'; }}
+        >
+          <FontAwesomeIcon icon={it.icon} style={{ fontSize: 11 }} />
+          {it.label}
+          <span style={{
+            padding: '1px 7px', borderRadius: 10, fontSize: 11, fontWeight: 700,
+            background: it.count > 0 ? it.color : '#e5e7eb', color: it.count > 0 ? '#fff' : '#94a3b8',
+          }}>{it.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Right Context Panel (docked, collapsible like left nav) ───────────────────
+function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppts, followUpLeads, overdueApptLeads, onFollowUp, onWhatsApp, onSelectLead }: {
+  expanded: boolean; activeTab: string; onToggle: () => void; onTabChange: (tab: string) => void;
+  upcomingAppts: UpcomingAppointment[]; followUpLeads: Lead[]; overdueApptLeads: Lead[];
+  onFollowUp: (lead: Lead) => void; onWhatsApp: (apptId: string) => void; onSelectLead: (lead: Lead) => void;
 }) {
   const today = new Date();
   const todayAppts = upcomingAppts.filter(a => isSameDay(new Date(a.appointmentStart), today));
   const comingAppts = upcomingAppts.filter(a => !isSameDay(new Date(a.appointmentStart), today));
 
-  return (
-    <div className="kc-no-scrollbar" style={{ width: 224, flexShrink: 0, display: 'flex', flexDirection: 'column' as const, gap: 12, position: 'sticky' as const, top: 0, maxHeight: '100vh', overflowY: 'auto' as const }}>
+  const tabs = [
+    { key: 'today', label: 'Today', icon: faCalendarDays, count: todayAppts.length, color: '#1d4ed8' },
+    { key: 'overdue', label: 'Pending', icon: faTriangleExclamation, count: overdueApptLeads.length, color: '#d97706', alert: overdueApptLeads.length > 0 },
+    { key: 'followups', label: 'Follow-Up', icon: faPhone, count: followUpLeads.length, color: '#7c3aed' },
+    { key: 'upcoming', label: 'Visits', icon: faCalendarDays, count: comingAppts.length, color: '#0891b2' },
+  ];
 
-      {/* Visit Status Pending — always shown, amber only when there are items */}
-      <div style={sp.box}>
-        <div style={{ ...sp.header, background: overdueApptLeads.length > 0 ? '#fffbeb' : '#fff', borderBottom: '1px solid #f1f5f9' }}>
-          <span style={{ ...sp.title, color: overdueApptLeads.length > 0 ? '#92400e' : '#1a202c' }}>
-            {overdueApptLeads.length > 0 ? <><FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 4 }} /> </> : ''}Visit Status Pending
-          </span>
-          {overdueApptLeads.length > 0
-            ? <span style={{ ...sp.badge, background: '#f59e0b', color: '#fff' }}>{overdueApptLeads.length}</span>
-            : <span style={{ fontSize: 11, color: '#94a3b8' }}><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 4 }} /> All clear</span>}
-        </div>
-        {overdueApptLeads.length > 0 ? (
-          <>
-            <div style={{ padding: '6px 14px 4px', fontSize: 11, color: '#b45309' }}>
-              Appointment passed — update their status
-            </div>
-            {overdueApptLeads.slice(0, 5).map(lead => (
-              <div key={lead.id} onClick={() => onSelectLead(lead)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid #fef3c7', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#fef3c7')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{lead.childName}</div>
-                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{lead.parentPhone}</div>
-                </div>
-                <span style={{ fontSize: 10, color: '#b45309' }}>→</span>
-              </div>
-            ))}
-            {overdueApptLeads.length > 5 && (
-              <div style={{ padding: '4px 14px 8px', fontSize: 11, color: '#94a3b8' }}>+{overdueApptLeads.length - 5} more</div>
+  // ── Collapsed: icon strip ──
+  if (!expanded) {
+    return (
+      <div className="kc-no-scrollbar" style={{ width: 48, flexShrink: 0, background: '#fff', borderLeft: '1px solid #e2e8f0', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 12, gap: 2 }}>
+        <button onClick={onToggle} style={{ width: 34, height: 34, borderRadius: 8, border: 'none', background: '#f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 12, marginBottom: 8 }}>
+          <FontAwesomeIcon icon={faChevronLeft} />
+        </button>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => { onTabChange(t.key); if (!expanded) onToggle(); }}
+            title={t.label}
+            style={{
+              width: 34, height: 34, borderRadius: 8, border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+              background: t.alert ? '#fffbeb' : 'transparent', color: t.alert ? t.color : '#94a3b8', fontSize: 13,
+            }}>
+            <FontAwesomeIcon icon={t.icon} />
+            {t.count > 0 && (
+              <span style={{
+                position: 'absolute', top: 2, right: 2, fontSize: 9, fontWeight: 700,
+                background: t.alert ? t.color : '#94a3b8', color: '#fff',
+                borderRadius: 10, padding: '0 4px', lineHeight: '15px', minWidth: 15, textAlign: 'center',
+              }}>{t.count}</span>
             )}
-          </>
-        ) : null}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  // ── Expanded: full panel ──
+  return (
+    <div className="kc-no-scrollbar" style={{ width: 260, flexShrink: 0, background: '#fff', borderLeft: '1px solid #e2e8f0', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      {/* Header with toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px 8px' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Context</span>
+        <button onClick={onToggle} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 4 }}>
+          <FontAwesomeIcon icon={faChevronRight} />
+        </button>
       </div>
 
-      {/* Today */}
-      <div style={sp.box}>
-        <div style={{ ...sp.header, background: '#fff', borderBottom: '1px solid #f1f5f9' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#1a202c' }}>Today</span>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>
-            {today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
-          </span>
-        </div>
+      {/* Tab buttons */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '0 8px 8px' }}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => onTabChange(t.key)} style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7,
+            border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: activeTab === t.key ? 600 : 500,
+            background: activeTab === t.key ? (t.alert ? '#fffbeb' : '#f1f5f9') : 'transparent',
+            color: activeTab === t.key ? t.color : '#64748b', fontFamily: 'inherit',
+            transition: 'all 0.12s',
+          }}>
+            <FontAwesomeIcon icon={t.icon} style={{ fontSize: 11, width: 14 }} />
+            {t.label}
+            <span style={{
+              marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+              background: t.count > 0 ? (t.alert ? t.color : '#e5e7eb') : '#f1f5f9',
+              color: t.count > 0 ? (t.alert ? '#fff' : '#374151') : '#cbd5e1',
+            }}>{t.count}</span>
+          </button>
+        ))}
+      </div>
 
-        {/* Appointments today */}
-        <div style={{ borderBottom: '1px solid #f1f5f9' }}>
-          <div style={sp.sectionLabel}>Appointments</div>
-          {todayAppts.length === 0 ? (
-            <div style={{ padding: '4px 14px 10px', fontSize: 12, color: '#cbd5e0' }}>None scheduled</div>
-          ) : (
-            todayAppts.map(a => (
-              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', background: '#fffbeb', borderBottom: '1px solid #fef3c7' }}>
+      <div style={{ height: 1, background: '#f1f5f9', margin: '0 14px' }} />
+
+      {/* Active tab content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+        {activeTab === 'today' && (
+          <>
+            <div style={{ padding: '6px 14px 4px', fontSize: 10, fontWeight: 700, color: '#b0b8c9', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              {today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+            </div>
+            {todayAppts.length === 0 ? (
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No appointments today</div>
+            ) : todayAppts.map(a => (
+              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>
-                    {a.appointmentIsPlaceholder && <span style={sp.ph}>PH</span>}
-                    {a.childName}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#d97706' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.childName}</div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>
                     {new Date(a.appointmentStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
                   </div>
                 </div>
-                <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn} title="WhatsApp"><FontAwesomeIcon icon={faWhatsapp} /></button>
+                <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </>
+        )}
 
-        {/* Follow-ups needed */}
-        <div>
-          <div style={sp.sectionLabel}>Follow-Ups Needed</div>
-          {followUpLeads.length === 0 ? (
-            <div style={{ padding: '4px 14px 10px', fontSize: 12, color: '#cbd5e0' }}><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 4 }} /> All clear</div>
-          ) : (
-            <>
-              {followUpLeads.slice(0, 5).map(lead => (
-                <div key={lead.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 14px', borderBottom: '1px solid #f8fafc' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{lead.childName}</div>
-                    <div style={{ fontSize: 11, color: '#9ca3af' }}>{lead.parentPhone}</div>
+        {activeTab === 'overdue' && (
+          <>
+            {overdueApptLeads.length === 0 ? (
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>
+                <FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 5, color: '#22c55e' }} /> All clear
+              </div>
+            ) : (
+              <>
+                <div style={{ padding: '6px 14px 4px', fontSize: 10, color: '#b45309' }}>Update their status</div>
+                {overdueApptLeads.map(lead => (
+                  <div key={lead.id} onClick={() => onSelectLead(lead)}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#fffbeb')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{lead.childName}</div>
+                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{lead.parentPhone}</div>
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} style={{ color: '#d97706', fontSize: 11 }} />
                   </div>
-                  <button onClick={() => onFollowUp(lead)} style={sp.waBtn} title="WhatsApp Follow-Up"><FontAwesomeIcon icon={faWhatsapp} /></button>
-                </div>
-              ))}
-              {followUpLeads.length > 5 && (
-                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: '#94a3b8' }}>+{followUpLeads.length - 5} more</div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+                ))}
+              </>
+            )}
+          </>
+        )}
 
-      {/* Upcoming visits */}
-      {comingAppts.length > 0 && (
-        <div style={sp.box}>
-          <div style={sp.header}>
-            <span style={sp.title}>Upcoming Visits</span>
-            <span style={sp.badge}>{comingAppts.length}</span>
-          </div>
-          {comingAppts.slice(0, 5).map(a => (
-            <div key={a.id} style={sp.row}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 13, color: '#2d3748' }}>
-                  {a.appointmentIsPlaceholder && <span style={sp.ph}>PH</span>}
-                  {a.childName}
-                </div>
-                <div style={{ fontSize: 11, color: '#718096' }}>
-                  {new Date(a.appointmentStart).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}
-                  {' · '}
-                  {new Date(a.appointmentStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                </div>
+        {activeTab === 'followups' && (
+          <>
+            {followUpLeads.length === 0 ? (
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>
+                <FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 5, color: '#22c55e' }} /> All clear
               </div>
-              <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn} title="WhatsApp"><FontAwesomeIcon icon={faWhatsapp} /></button>
-            </div>
-          ))}
-        </div>
-      )}
+            ) : followUpLeads.map(lead => (
+              <div key={lead.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{lead.childName}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{lead.parentPhone}</div>
+                </div>
+                <button onClick={() => onFollowUp(lead)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
+              </div>
+            ))}
+          </>
+        )}
 
+        {activeTab === 'upcoming' && (
+          <>
+            {comingAppts.length === 0 ? (
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No upcoming visits</div>
+            ) : comingAppts.map(a => (
+              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.childName}</div>
+                  <div style={{ fontSize: 11, color: '#718096' }}>
+                    {new Date(a.appointmentStart).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}
+                    {' · '}
+                    {new Date(a.appointmentStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  </div>
+                </div>
+                <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -1498,6 +1569,8 @@ export default function LeadsPage() {
   const [pageSize, setPageSize] = useState(15);
   const [selectedStage, setSelectedStage] = useState<PipelineStage>('all_active');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelTab, setPanelTab] = useState('today');
   const [sortBy, setSortBy] = useState<SortField>('submittedAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [searchInput, setSearchInput] = useState('');
@@ -1780,7 +1853,7 @@ export default function LeadsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: isTablet ? 'column' : 'row', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', height: '100%', overflow: 'hidden' }}>
-      <style>{`.kc-no-scrollbar::-webkit-scrollbar{display:none}.kc-no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}@keyframes kcFadeHL{0%{background:#fefce8}100%{background:transparent}}.kc-hl{animation:kcFadeHL 2s forwards}textarea:focus::placeholder{color:transparent}.kc-mi{display:flex;align-items:center;width:100%;padding:8px 12px;text-align:left;background:none;border:none;border-radius:8px;cursor:pointer;font-size:13px;color:#374151;font-weight:500;text-decoration:none;box-sizing:border-box;transition:all .12s ease;letter-spacing:-0.01em;line-height:1.3}.kc-mi:hover{background:#f1f5f9}.kc-mi:active{background:#e8ecf1}.kc-mi-danger{color:#dc2626!important;font-weight:500}.kc-mi-danger:hover{background:#fef2f2!important}.kc-row{transition:background .15s ease}.kc-row:hover{background:#f1f5f9!important}.kc-phone .kc-copy{opacity:0;transition:opacity .12s}.kc-phone:hover .kc-copy{opacity:1}`}</style>
+      <style>{`.kc-no-scrollbar::-webkit-scrollbar{display:none}.kc-no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}@keyframes kcFadeHL{0%{background:#fefce8}100%{background:transparent}}.kc-hl{animation:kcFadeHL 2s forwards}textarea:focus::placeholder{color:transparent}.kc-mi{display:flex;align-items:center;width:100%;padding:8px 12px;text-align:left;background:none;border:none;border-radius:8px;cursor:pointer;font-size:13px;color:#374151;font-weight:500;text-decoration:none;box-sizing:border-box;transition:all .12s ease;letter-spacing:-0.01em;line-height:1.3}.kc-mi:hover{background:#f1f5f9}.kc-mi:active{background:#e8ecf1}.kc-mi-danger{color:#dc2626!important;font-weight:500}.kc-mi-danger:hover{background:#fef2f2!important}.kc-row{transition:background .15s ease}.kc-row:hover{background:#f1f5f9!important}.kc-phone .kc-copy{opacity:0;transition:opacity .12s}.kc-phone:hover .kc-copy{opacity:1}@keyframes kc-slide-in{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
 
       {/* Toast */}
       {toast && (
@@ -1954,8 +2027,8 @@ export default function LeadsPage() {
       {/* Content area — this is the ONE scroll container; scrollbar appears at the far right edge */}
       <div style={{ flex: 1, overflowY: 'auto', height: '100%', minWidth: 0 }}>
         {isTablet && <PipelineNav selected={selectedStage} onChange={handleStageSelect} stats={stats} compact />}
-        <div style={{ maxWidth: 1380, margin: '0 auto', display: 'flex', gap: isTablet ? 0 : 24, padding: isMobile ? '16px 12px' : isTablet ? '20px 16px' : '28px 32px', alignItems: 'flex-start', minWidth: 0, boxSizing: 'border-box' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ maxWidth: 1380, margin: '0 auto', padding: isMobile ? '16px 12px' : isTablet ? '20px 16px' : '28px 32px', minWidth: 0, boxSizing: 'border-box', width: '100%' }}>
+        <div style={{ minWidth: 0 }}>
 
           {/* Title row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -2042,6 +2115,23 @@ export default function LeadsPage() {
               </button>
             </div>
           )}
+
+          {/* Summary strip */}
+          {!isTrash && !isMobile && (() => {
+            const today = new Date();
+            const todayApptCount = upcomingAppts.filter(a => isSameDay(new Date(a.appointmentStart), today)).length;
+            const overdueList = (apptBookedData?.items ?? []).filter(l => !upcomingAppts.some(a => a.id === l.id));
+            const comingCount = upcomingAppts.filter(a => !isSameDay(new Date(a.appointmentStart), today)).length;
+            return (
+              <SummaryStrip
+                todayApptCount={todayApptCount}
+                followUpCount={followUpLeads.length}
+                overdueCount={overdueList.length}
+                upcomingCount={comingCount}
+                onOpen={tab => { setPanelTab(tab); setPanelOpen(o => panelTab === tab ? !o : true); }}
+              />
+            );
+          })()}
 
           {!isTrash && isLoading && <div style={{ padding: 40, textAlign: 'center', color: '#718096', fontSize: 14 }}>Loading…</div>}
           {!isTrash && isError && <div style={{ padding: 20, color: '#e53e3e', fontSize: 14 }}>Error: {(error as Error).message}</div>}
@@ -2588,19 +2678,23 @@ export default function LeadsPage() {
           )}
         </div>
 
-        {/* Sidebar — sticky within the scroll container (hidden on mobile/tablet) */}
-        {!isTablet && (
-          <Sidebar
-            upcomingAppts={upcomingAppts}
-            followUpLeads={followUpLeads}
-            overdueApptLeads={(apptBookedData?.items ?? []).filter(l => !upcomingAppts.some(a => a.id === l.id))}
-            onFollowUp={lead => openWhatsApp(lead, 'follow_up')}
-            onWhatsApp={id => { const lead = findLeadById(id); if (lead) openWhatsApp(lead); }}
-            onSelectLead={lead => { handleStageSelect('APPOINTMENT_BOOKED'); setHighlightId(lead.id); }}
-          />
-        )}
         </div>{/* end inner flex row */}
       </div>{/* end scroll container */}
+
+      {/* Right context panel — docked like left nav */}
+      {!isTablet && (
+        <ContextPanel
+          expanded={panelOpen} activeTab={panelTab}
+          onToggle={() => setPanelOpen(o => !o)}
+          onTabChange={tab => { setPanelTab(tab); setPanelOpen(true); }}
+          upcomingAppts={upcomingAppts}
+          followUpLeads={followUpLeads}
+          overdueApptLeads={(apptBookedData?.items ?? []).filter(l => !upcomingAppts.some(a => a.id === l.id))}
+          onFollowUp={lead => openWhatsApp(lead, 'follow_up')}
+          onWhatsApp={id => { const lead = findLeadById(id); if (lead) openWhatsApp(lead); }}
+          onSelectLead={lead => { handleStageSelect('APPOINTMENT_BOOKED'); setHighlightId(lead.id); }}
+        />
+      )}
     </div>
   );
 }
