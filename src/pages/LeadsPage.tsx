@@ -599,6 +599,7 @@ function AppointmentModal({
   const [lang, setLang] = useState<'en' | 'zh'>('en');
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
+  const { data: googleStatus } = useQuery({ queryKey: ['google-status'], queryFn: () => import('../api/google.js').then(m => m.getGoogleStatus()), staleTime: 60_000 });
 
   useEffect(() => { if (!messageEdited) setMessage(applyWaTemplate(waTemplate, lead.childName, dateTime, address, durationMinutes)); }, [dateTime]);
   useEffect(() => { if (!messageZhEdited && waTemplateZh) setMessageZh(applyWaTemplate(waTemplateZh, lead.childName, dateTime, address, durationMinutes)); }, [dateTime]);
@@ -636,7 +637,13 @@ function AppointmentModal({
         {/* Header */}
         <div style={am.header}>
           <div>
-            <h2 style={am.title}>{lead.appointmentStart ? 'Reschedule Appointment' : 'Book Appointment'}</h2>
+            <h2 style={am.title}>
+              {lead.appointmentStart ? 'Reschedule Appointment' : 'Book Appointment'}
+              <span
+                title={googleStatus?.connected ? `Connected to Google Calendar · ${googleStatus.email || ''}` : 'Google Calendar not connected — appointment will not sync'}
+                style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: googleStatus?.connected ? '#22c55e' : '#f59e0b', marginLeft: 8, verticalAlign: 'middle', cursor: 'help' }}
+              />
+            </h2>
             <p style={am.subtitle}>{lead.childName} · {lead.parentPhone}</p>
           </div>
           <button onClick={onClose} style={am.closeBtn}><FontAwesomeIcon icon={faXmark} /></button>
