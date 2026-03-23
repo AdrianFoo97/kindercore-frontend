@@ -127,12 +127,14 @@ function ActionMenu({
   onEdit,
   onWhatsApp,
   onComplete,
+  onCompleteAll,
   allDone,
 }: {
   onViewTasks: () => void;
   onEdit: () => void;
   onWhatsApp: () => void;
   onComplete: () => void;
+  onCompleteAll: () => void;
   allDone: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -194,6 +196,12 @@ function ActionMenu({
           <div style={{ padding: '2px 4px' }}>
             {menuItem(faWhatsapp, 'WhatsApp Parent', onWhatsApp)}
           </div>
+          {!allDone && (<>
+            {sep}
+            <div style={{ padding: '2px 4px' }}>
+              {menuItem(faCheck, 'Complete All Tasks', onCompleteAll)}
+            </div>
+          </>)}
           {allDone && (<>
             {sep}
             <div style={{ padding: '2px 4px' }}>
@@ -214,6 +222,7 @@ function StudentOnboardingCard({
   onEdit,
   onWhatsApp,
   onConfirmComplete,
+  onCompleteAll,
   completing,
   isMobile,
 }: {
@@ -222,6 +231,7 @@ function StudentOnboardingCard({
   onEdit: () => void;
   onWhatsApp: () => void;
   onConfirmComplete: () => void;
+  onCompleteAll: () => void;
   completing: boolean;
   isMobile: boolean;
 }) {
@@ -294,6 +304,7 @@ function StudentOnboardingCard({
             onEdit={onEdit}
             onWhatsApp={onWhatsApp}
             onComplete={onConfirmComplete}
+            onCompleteAll={onCompleteAll}
             allDone={allDone}
           />
         )}
@@ -335,6 +346,7 @@ function StudentOnboardingCard({
               onEdit={onEdit}
               onWhatsApp={onWhatsApp}
               onComplete={onConfirmComplete}
+              onCompleteAll={onCompleteAll}
               allDone={allDone}
             />
           </div>
@@ -881,6 +893,14 @@ export default function OnboardingPage() {
                 onEdit={() => setEditingStudent(s)}
                 onWhatsApp={() => setWaStudent(s)}
                 onConfirmComplete={() => setConfirmStudent(s)}
+                onCompleteAll={async () => {
+                  const tasks: Array<{ task: string; done: boolean }> = Array.isArray(s.onboardingProgress) ? s.onboardingProgress : [];
+                  if (tasks.length > 0) {
+                    const allDone = tasks.map(t => ({ ...t, done: true }));
+                    await patchOnboardingProgress(s.id, allDone);
+                  }
+                  invalidateStudents();
+                }}
                 completing={completing === s.id}
                 isMobile={isMobile}
               />

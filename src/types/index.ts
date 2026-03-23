@@ -11,7 +11,8 @@ export type LeadStatus =
   | 'APPOINTMENT_BOOKED'
   | 'FOLLOW_UP'
   | 'ENROLLED'
-  | 'LOST';
+  | 'LOST'
+  | 'REJECTED';
 
 export interface Lead {
   id: string;

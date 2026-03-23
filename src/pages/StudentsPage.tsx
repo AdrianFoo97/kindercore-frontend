@@ -112,7 +112,7 @@ export default function StudentsPage() {
   const [reactivatingStudent, setReactivatingStudent] = useState<Student | null>(null);
   const [viewingReasonStudent, setViewingReasonStudent] = useState<Student | null>(null);
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
-  const [groupBy,          setGroupBy]          = useState<'none' | 'programme' | 'age'>('none');
+  const [groupBy,          setGroupBy]          = useState<'none' | 'programme' | 'age'>('age');
   const [filterAge,        setFilterAge]        = useState<string>('all');
   const [filterProgramme,  setFilterProgramme]  = useState<string>('all');
   const [sortKey,          setSortKey]          = useState<SortKey>('age');

@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark } from '@fortawesome/free-solid-svg-icons';
 import { fetchSalesAnalytics, fetchLeadById } from '../../api/leads.js';
 import { Lead } from '../../types/index.js';
+import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
 import EditLeadModal from '../../components/leads/EditLeadModal.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 
@@ -40,6 +41,7 @@ export default function SalesAnalysisPage() {
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterState>(null);
   const [statusTab, setStatusTab] = useState<'ALL' | 'ENROLLED' | 'LOST'>('ALL');
+  const [chartMode, setChartMode] = useState<'talks' | 'closed'>('talks');
   const [page, setPage] = useState(1);
 
   const { data, isLoading, isError } = useQuery({
@@ -76,7 +78,12 @@ export default function SalesAnalysisPage() {
       )
     : statusLeads;
 
-  const sortedLeads = [...filteredLeads].sort((a, b) => a.enrolmentYear - b.enrolmentYear);
+  const sortedLeads = [...filteredLeads].sort((a, b) => {
+    if (a.enrolmentYear !== b.enrolmentYear) return a.enrolmentYear - b.enrolmentYear;
+    // Within same year: enrolled first, then lost
+    const statusOrder = (s: string) => s === 'ENROLLED' ? 0 : 1;
+    return statusOrder(a.status) - statusOrder(b.status);
+  });
   const pageCount = Math.max(1, Math.ceil(sortedLeads.length / PAGE_SIZE));
   const safePage  = Math.min(page, pageCount);
   const pagedLeads = sortedLeads.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -104,17 +111,26 @@ export default function SalesAnalysisPage() {
     const idx = MONTH_LABELS.indexOf(payload.activeLabel);
     if (idx === -1) return;
     const monthData = data.monthlyComparison[idx];
-    if (!monthData || (monthData.enrolled === 0 && monthData.lost === 0)) return;
+    if (chartMode === 'closed') {
+      if (!monthData || monthData.enrolled === 0) return;
+    } else {
+      if (!monthData || (monthData.enrolled === 0 && monthData.lost === 0)) return;
+    }
     setSelectedMonth(prev => prev === idx ? null : idx);
     setActiveFilter(null);
+    if (chartMode === 'closed') setStatusTab('ENROLLED');
+    else setStatusTab('ALL');
     setPage(1);
   };
 
-  const addressData = selectedMonth !== null
-    ? deriveBreakdown(monthLeads, 'addressLocation')
+  const chartFilteredLeads = chartMode === 'closed'
+    ? monthLeads.filter((r: any) => r.status === 'ENROLLED')
+    : monthLeads;
+  const addressData = selectedMonth !== null || chartMode === 'closed'
+    ? deriveBreakdown(chartFilteredLeads, 'addressLocation')
     : data.addressBreakdown.map(d => ({ name: d.location, value: d.count }));
-  const channelData = selectedMonth !== null
-    ? deriveBreakdown(monthLeads, 'howDidYouKnow')
+  const channelData = selectedMonth !== null || chartMode === 'closed'
+    ? deriveBreakdown(chartFilteredLeads, 'howDidYouKnow')
     : data.marketingChannelBreakdown.map(d => ({ name: d.channel, value: d.count }));
 
   return (
@@ -154,63 +170,89 @@ export default function SalesAnalysisPage() {
 
       {/* ── YoY monthly comparison ── */}
       <div style={s.card}>
+        {/* Toggle centered */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 8, padding: 2 }}>
+            <button onClick={() => { setChartMode('talks'); setStatusTab('ALL'); setSelectedMonth(null); setActiveFilter(null); setPage(1); }}
+              style={{ padding: '6px 16px', fontSize: 12, fontWeight: chartMode === 'talks' ? 700 : 500, border: 'none', borderRadius: 6, cursor: 'pointer', background: chartMode === 'talks' ? '#fff' : 'transparent', color: chartMode === 'talks' ? C.text : C.muted, boxShadow: chartMode === 'talks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', fontFamily: 'inherit' }}>
+              Sales Talks
+            </button>
+            <button onClick={() => { setChartMode('closed'); setStatusTab('ENROLLED'); setSelectedMonth(null); setActiveFilter(null); setPage(1); }}
+              style={{ padding: '6px 16px', fontSize: 12, fontWeight: chartMode === 'closed' ? 700 : 500, border: 'none', borderRadius: 6, cursor: 'pointer', background: chartMode === 'closed' ? '#fff' : 'transparent', color: chartMode === 'closed' ? C.green : C.muted, boxShadow: chartMode === 'closed' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', fontFamily: 'inherit' }}>
+              Closed Sales
+            </button>
+          </div>
+        </div>
         <div style={s.cardHeaderRow}>
           <div>
-            <h2 style={s.cardTitle}>Closed Leads by Month — Year over Year</h2>
+            <h2 style={s.cardTitle}>{chartMode === 'talks' ? 'Sales Talks' : 'Closed Sales'} by Month — Year over Year</h2>
             <p style={s.cardSub}>
               {selectedMonth !== null
                 ? <><strong>{MONTH_LABELS[selectedMonth]}</strong> selected · click again to clear</>
-                : <>Comparing {data.selectedYear} vs {data.prevYear} · click a bar to filter</>
+                : <>{chartMode === 'talks' ? 'Enrolled + lost' : 'Enrolled students'} — {data.selectedYear} vs {data.prevYear} · click a bar to filter</>
               }
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' as const }}>
             {selectedMonth !== null && (
               <button onClick={() => { setSelectedMonth(null); setActiveFilter(null); setPage(1); }} style={s.clearBtn}>
                 <FontAwesomeIcon icon={faXmark} /> {MONTH_LABELS[selectedMonth]}
               </button>
             )}
             <div style={s.legendRow}>
-              <span style={s.legendItem}><span style={{ ...s.dot, background: C.red }} /><span style={{ fontSize: 11, color: C.muted }}>Lost</span></span>
+              {chartMode === 'talks' && <span style={s.legendItem}><span style={{ ...s.dot, background: C.red }} /><span style={{ fontSize: 11, color: C.muted }}>Lost</span></span>}
               <span style={s.legendItem}><span style={{ ...s.dot, background: C.green }} /><span style={{ fontSize: 11, color: C.muted }}>Enrolled</span></span>
-              <span style={s.legendItem}><span style={{ ...s.dot, background: C.slate }} /><span style={{ fontSize: 11, color: C.muted }}>{data.prevYear}</span></span>
+              <span style={s.legendItem}>
+                <svg width={20} height={10} style={{ flexShrink: 0 }}>
+                  <line x1={0} y1={5} x2={20} y2={5} stroke={C.slate} strokeWidth={2} strokeDasharray="4 3" />
+                  <circle cx={10} cy={5} r={2.5} fill={C.slate} />
+                </svg>
+                <span style={{ fontSize: 11, color: C.muted }}>{data.prevYear}</span>
+              </span>
             </div>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={240}>
-          <ComposedChart data={data.monthlyComparison} margin={{ top: 8, right: 16, left: 0, bottom: 0 }} style={{ outline: 'none', cursor: 'pointer' }} onClick={handleMonthClick}>
+          <ComposedChart data={data.monthlyComparison.map((d: any) => ({ ...d, previous: chartMode === 'closed' ? d.previousClosed : d.previousTalks }))} margin={{ top: 8, right: 16, left: 0, bottom: 0 }} style={{ outline: 'none', cursor: 'pointer' }} onClick={handleMonthClick}>
             <CartesianGrid vertical={false} stroke={C.border} />
             <XAxis dataKey="month" tick={{ fontSize: 12, fill: C.muted }} axisLine={false} tickLine={false} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} width={26} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} width={26}
+              domain={[0, Math.max(...data.monthlyComparison.map((d: any) => Math.max(d.enrolled + d.lost, d.previousTalks ?? 0))) + 1]} />
             <Tooltip
               cursor={{ fill: 'transparent' }}
               content={({ active, payload, label }: any) => {
                 if (!active || !payload?.length) return null;
-                const enrolled = payload.find((p: any) => p.dataKey === 'enrolled')?.value ?? 0;
-                const lost = payload.find((p: any) => p.dataKey === 'lost')?.value ?? 0;
-                const previous = payload.find((p: any) => p.dataKey === 'previous')?.value ?? 0;
+                const d = payload[0]?.payload;
+                if (!d) return null;
+                const enrolled = d.enrolled ?? 0;
+                const lost = d.lost ?? 0;
+                const prevE = d.prevEnrolled ?? 0;
+                const prevL = d.prevLost ?? 0;
                 return (
                   <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 12 }}>
                     <div style={{ fontWeight: 700, marginBottom: 6, color: C.text }}>{label}</div>
-                    <div style={{ color: C.text }}>{data.selectedYear}: <strong>{enrolled + lost}</strong></div>
-                    <div style={{ color: C.muted }}>{data.prevYear}: {previous}</div>
+                    {chartMode === 'talks'
+                      ? <div style={{ color: C.text }}>{data.selectedYear}: <strong>{enrolled + lost}</strong> ({enrolled} enrolled, {lost} lost)</div>
+                      : <div style={{ color: C.green }}>{data.selectedYear}: <strong>{enrolled}</strong> enrolled</div>
+                    }
+                    {chartMode === 'talks'
+                      ? <div style={{ color: C.muted }}>{data.prevYear}: {prevE + prevL} ({prevE} enrolled, {prevL} lost)</div>
+                      : <div style={{ color: C.muted }}>{data.prevYear}: {prevE} enrolled</div>
+                    }
                   </div>
                 );
               }}
             />
-            <Bar dataKey="lost" stackId="a" radius={[0, 0, 0, 0]} maxBarSize={36} name="lost" activeBar={false}
-              onClick={() => handleTabChange('LOST')}
-              label={({ x, y, width, height, index }: any) => {
-                const v = data.monthlyComparison[index]?.lost ?? 0;
-                if (!v) return null;
-                if (height < 18) return <text key={`l-${x}`} x={x + width / 2} y={y - 4} textAnchor="middle" fill={C.red} fontSize={10} fontWeight={700}>{v}</text>;
-                return <text key={`l-${x}`} x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={11} fontWeight={700}>{v}</text>;
-              }}>
-              {data.monthlyComparison.map((_, i) => (
-                <Cell key={i} fill={C.red} opacity={selectedMonth === null || selectedMonth === i ? 1 : 0.35} />
-              ))}
-            </Bar>
-            <Bar dataKey="enrolled" stackId="a" radius={[4, 4, 0, 0]} maxBarSize={36} name="enrolled" activeBar={false}
+            <Bar dataKey="enrolled" stackId="a" maxBarSize={36} name="enrolled" activeBar={false}
+              shape={(props: any) => {
+                const { x, y, width, height, index } = props;
+                if (!height) return null;
+                const hasLost = chartMode === 'talks' && data.monthlyComparison[index]?.lost > 0;
+                const r = 4;
+                const topR = hasLost ? 0 : r;
+                // bottom bar: flat bottom, rounded top only if no lost above
+                return <path d={`M${x + topR},${y} Q${x},${y} ${x},${y + topR} L${x},${y + height} L${x + width},${y + height} L${x + width},${y + topR} Q${x + width},${y} ${x + width - topR},${y} Z`} fill={props.fill} opacity={props.opacity} />;
+              }}
               onClick={() => handleTabChange('ENROLLED')}
               label={({ x, y, width, height, index }: any) => {
                 const v = data.monthlyComparison[index]?.enrolled ?? 0;
@@ -222,6 +264,26 @@ export default function SalesAnalysisPage() {
                 <Cell key={i} fill={C.green} opacity={selectedMonth === null || selectedMonth === i ? 1 : 0.35} />
               ))}
             </Bar>
+            {chartMode === 'talks' && (
+            <Bar dataKey="lost" stackId="a" maxBarSize={36} name="lost" activeBar={false}
+              shape={(props: any) => {
+                const { x, y, width, height } = props;
+                if (!height) return null;
+                const r = 4;
+                return <path d={`M${x + r},${y} Q${x},${y} ${x},${y + r} L${x},${y + height} L${x + width},${y + height} L${x + width},${y + r} Q${x + width},${y} ${x + width - r},${y} Z`} fill={props.fill} opacity={props.opacity} />;
+              }}
+              onClick={() => handleTabChange('LOST')}
+              label={({ x, y, width, height, index }: any) => {
+                const v = data.monthlyComparison[index]?.lost ?? 0;
+                if (!v) return null;
+                if (height < 18) return <text key={`l-${x}`} x={x + width / 2} y={y - 4} textAnchor="middle" fill={C.red} fontSize={10} fontWeight={700}>{v}</text>;
+                return <text key={`l-${x}`} x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={11} fontWeight={700}>{v}</text>;
+              }}>
+              {data.monthlyComparison.map((_: any, i: number) => (
+                <Cell key={i} fill={C.red} opacity={selectedMonth === null || selectedMonth === i ? 1 : 0.35} />
+              ))}
+            </Bar>
+            )}
             <Line dataKey="previous" stroke={C.slate} strokeWidth={2} strokeDasharray="5 4"
               dot={{ r: 3, fill: C.slate }} activeDot={{ r: 5 }} name="previous" />
           </ComposedChart>
@@ -235,12 +297,14 @@ export default function SalesAnalysisPage() {
           data={addressData} filterType="address"
           activeValue={activeFilter?.type === 'address' ? activeFilter.value : undefined}
           onSegmentClick={handleSegmentClick}
+          colorFn={getAddressColor}
         />
         <DonutCard
           title="Marketing Channel" sub="Click a segment to filter the table"
           data={channelData} filterType="channel"
           activeValue={activeFilter?.type === 'channel' ? activeFilter.value : undefined}
           onSegmentClick={handleSegmentClick}
+          colorFn={getChannelColor}
         />
       </div>
 
@@ -323,7 +387,7 @@ export default function SalesAnalysisPage() {
                       </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>{row.age}</td>
                       <td style={s.td}>{row.addressLocation ?? <span style={{ color: '#cbd5e1' }}>—</span>}</td>
-                      <td style={s.td}>{row.howDidYouKnow ?? <span style={{ color: '#cbd5e1' }}>—</span>}</td>
+                      <td style={s.td}>{row.howDidYouKnow ? <span style={{ color: getChannelColor(row.howDidYouKnow, 0), fontWeight: 600 }}>{row.howDidYouKnow}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}</td>
                       <td style={{ ...s.td, color: C.muted, maxWidth: 220 }}>
                         {row.notes ?? <span style={{ color: '#cbd5e1' }}>—</span>}
                       </td>
@@ -339,11 +403,7 @@ export default function SalesAnalysisPage() {
         {/* Pagination */}
         {pageCount > 1 && (
           <div style={s.pagination}>
-            <span style={{ fontSize: 12, color: C.muted }}>
-              Page {safePage} of {pageCount} · {filteredLeads.length} leads
-            </span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <PagBtn label="«" onClick={() => setPage(1)} disabled={safePage === 1} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <PagBtn label="‹" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} />
               {Array.from({ length: pageCount }, (_, i) => i + 1)
                 .filter(p => p === 1 || p === pageCount || Math.abs(p - safePage) <= 1)
@@ -354,13 +414,13 @@ export default function SalesAnalysisPage() {
                 }, [])
                 .map((p, i) =>
                   p === '…'
-                    ? <span key={`e${i}`} style={{ padding: '4px 8px', fontSize: 13, color: C.muted }}>…</span>
+                    ? <span key={`e${i}`} style={{ width: 32, textAlign: 'center' as const, fontSize: 12, color: C.muted }}>…</span>
                     : <PagBtn key={p} label={String(p)} onClick={() => setPage(p as number)} active={safePage === p} />
                 )
               }
               <PagBtn label="›" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage === pageCount} />
-              <PagBtn label="»" onClick={() => setPage(pageCount)} disabled={safePage === pageCount} />
             </div>
+            <span style={{ fontSize: 11, color: C.muted }}>{filteredLeads.length} leads</span>
           </div>
         )}
       </div>
@@ -409,13 +469,15 @@ function StatCard({ label, value, color, sub }: { label: string; value: number; 
 const TOP_N = 5;
 
 function DonutCard({
-  title, sub, data, filterType, activeValue, onSegmentClick,
+  title, sub, data, filterType, activeValue, onSegmentClick, colorFn,
 }: {
   title: string; sub: string; data: { name: string; value: number }[];
   filterType: 'address' | 'channel';
   activeValue?: string;
   onSegmentClick: (type: 'address' | 'channel', value: string) => void;
+  colorFn?: (name: string, index: number) => string;
 }) {
+  const getColor = colorFn ?? ((_name: string, i: number) => DONUT_PALETTE[i % DONUT_PALETTE.length]);
   const [showOthers, setShowOthers] = useState(false);
   const total = data.reduce((a, b) => a + b.value, 0);
   const hasOthers = data.length > TOP_N;
@@ -449,7 +511,7 @@ function DonutCard({
                 onClick={handlePieClick}>
                 {pieData.map((d, i) => (
                   <Cell key={i}
-                    fill={DONUT_PALETTE[i % DONUT_PALETTE.length]}
+                    fill={getColor(d.name, i)}
                     opacity={activeValue === undefined || activeValue === d.name ? 1 : 0.3}
                     style={{ cursor: 'pointer', outline: 'none' }} />
                 ))}
@@ -463,7 +525,7 @@ function DonutCard({
                   onClick={handlePieClick}>
                   {pieData.map((_, i) => (
                     <Cell key={i}
-                      fill={i === othersIndex ? DONUT_PALETTE[i % DONUT_PALETTE.length] : 'transparent'}
+                      fill={i === othersIndex ? getColor(pieData[i]?.name ?? '', i) : 'transparent'}
                       stroke={i === othersIndex ? '#fff' : 'none'}
                       strokeWidth={i === othersIndex ? 2 : 0}
                       style={{ cursor: 'pointer', outline: 'none' }} />
@@ -479,7 +541,7 @@ function DonutCard({
             {showOthers && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '4px 10px', fontSize: 11 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: DONUT_PALETTE[othersIndex % DONUT_PALETTE.length], display: 'inline-block' }} />
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: getColor('Others', othersIndex), display: 'inline-block' }} />
                   <span style={{ color: C.text }}>Others</span>
                   <span style={{ fontWeight: 700, color: C.text }}>{othersValue}</span>
                   <span style={{ color: C.muted }}>{Math.round(othersValue / total * 100)}%</span>
@@ -500,7 +562,7 @@ function DonutCard({
                     transition: 'background 0.15s',
                   }}
                 >
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: DONUT_PALETTE[i % DONUT_PALETTE.length], flexShrink: 0, display: 'inline-block', opacity: activeValue === undefined || isActive ? 1 : 0.4 }} />
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: getColor(d.name, i), flexShrink: 0, display: 'inline-block', opacity: activeValue === undefined || isActive ? 1 : 0.4 }} />
                   <span style={{ flex: 1, fontSize: 13, color: isOthersRow ? C.blue : isActive ? C.blue : C.text, fontWeight: isActive ? 700 : 400 }}>
                     {d.name}{isOthersRow && <span style={{ fontSize: 11, marginLeft: 4, color: C.muted }}>▸</span>}
                   </span>
@@ -519,12 +581,15 @@ function DonutCard({
 }
 
 function PagBtn({ label, onClick, disabled, active }: { label: string; onClick: () => void; disabled?: boolean; active?: boolean }) {
+  const isArrow = label === '‹' || label === '›';
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      padding: '4px 10px', fontSize: 13, borderRadius: 6, border: `1px solid ${C.border}`,
-      background: active ? C.indigo : disabled ? C.faint : C.card,
-      color: active ? '#fff' : disabled ? '#cbd5e1' : C.text,
-      cursor: disabled ? 'default' : 'pointer', fontWeight: active ? 700 : 400,
+      width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: isArrow ? 16 : 12, borderRadius: 8, border: 'none',
+      background: active ? C.indigo : 'transparent',
+      color: active ? '#fff' : disabled ? '#d1d5db' : C.muted,
+      cursor: disabled ? 'default' : 'pointer', fontWeight: active ? 700 : 500,
+      fontFamily: 'inherit', transition: 'all 0.12s',
     }}>{label}</button>
   );
 }
@@ -553,7 +618,7 @@ const s: Record<string, any> = {
 
   clearBtn: { padding: '6px 14px', fontSize: 12, fontWeight: 600, background: '#fee2e2', color: C.red, border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 },
 
-  pagination: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', gap: 8 },
+  pagination: { display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}`, gap: 8 },
 
   table:  { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th:     { padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `2px solid ${C.border}`, whiteSpace: 'nowrap' },

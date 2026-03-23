@@ -4,9 +4,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faXmark, faTriangleExclamation, faArrowRight, faFile, faArrowsRotate } from '@fortawesome/free-solid-svg-icons';
-import { submitLead, updateLead, fetchLeadPhones } from '../api/leads.js';
+import { submitLead, updateLead, fetchLeadPhones, UpdateLeadPayload } from '../api/leads.js';
 import { fetchPackages, createPackage } from '../api/packages.js';
-import { createStudent, patchOnboardingProgress, completeOnboarding } from '../api/students.js';
+import { createStudent, updateStudent, patchOnboardingProgress, completeOnboarding } from '../api/students.js';
 import { LeadStatus, Package } from '../types/index.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 
@@ -21,6 +21,7 @@ const VALID_STATUSES: LeadStatus[] = [
   'FOLLOW_UP',
   'ENROLLED',
   'LOST',
+  'REJECTED',
 ];
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -42,9 +43,10 @@ const COLUMN_REFERENCE = [
   { header: 'Address / Location',        field: 'addressLocation',          required: false, hint: 'Area or full address' },
   { header: 'Needs Transport',           field: 'needsTransport',           required: false, hint: 'Yes or No' },
   { header: 'How Did You Know',          field: 'howDidYouKnow',            required: false, hint: 'e.g. Facebook, Google, Friend' },
-  { header: 'Status',                    field: 'status',                   required: false, hint: 'NEW / CONTACTED / APPOINTMENT_BOOKED / FOLLOW_UP / ENROLLED / LOST' },
+  { header: 'Status',                    field: 'status',                   required: false, hint: 'NEW / CONTACTED / APPOINTMENT_BOOKED / FOLLOW_UP / ENROLLED / LOST / REJECTED' },
   { header: 'Notes',                     field: 'notes',                    required: false, hint: 'Any additional notes' },
-  { header: 'Lost / Declined Reason',    field: 'lostReason',               required: false, hint: 'Only relevant when Status is LOST' },
+  { header: 'Lost / Declined Reason',    field: 'lostReason',               required: false, hint: 'Only relevant when Status is LOST or REJECTED' },
+  { header: 'Appointment Date',          field: 'appointmentDate',          required: false, hint: 'YYYY-MM-DD, sets appointment without creating calendar event' },
 ] as const;
 
 const SAMPLE_CSV_ROW = [
@@ -62,6 +64,7 @@ const SAMPLE_CSV_ROW = [
   'NEW',                        // Status
   'Interested in full-day programme', // Notes
   '',                           // Lost / Declined Reason
+  '',                           // Appointment Date
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,6 +87,8 @@ interface ParsedRow {
   status?: LeadStatus;
   notes?: string;
   lostReason?: string;
+  appointmentDate?: string;
+  attended?: boolean;
   errors: string[];
   isDuplicate?: boolean;        // phone matches an existing lead in the DB
   existingLeadId?: string;      // the ID of the matching DB lead
@@ -191,6 +196,10 @@ const HEADER_MAP: Record<string, string> = {
   lostreason: 'lostReason',
   declinedreason: 'lostReason',
   lostorreason: 'lostReason',
+  // Appointment Date
+  appointmentdate: 'appointmentDate',
+  appointment: 'appointmentDate',
+  attended: 'attended',
 };
 
 function parseCsv(text: string): ParsedRow[] {
@@ -296,6 +305,8 @@ function parseCsv(text: string): ParsedRow[] {
       status,
       notes: raw['notes'] || undefined,
       lostReason: raw['lostReason'] || undefined,
+      appointmentDate: raw['appointmentDate'] || undefined,
+      attended: raw['attended'] ? /^(yes|true|1)$/i.test(String(raw['attended']).trim()) : undefined,
       errors,
     });
   }
@@ -349,6 +360,7 @@ function downloadErrorReport(rows: ParsedRow[]) {
       r.status ?? '',
       r.notes ?? '',
       r.lostReason ?? '',
+      r.appointmentDate ?? '',
       r.errors.join('; '),
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
     return cells;
@@ -378,14 +390,26 @@ async function importRow(row: ParsedRow, packages: Package[]): Promise<void> {
   const needsUpdate =
     (row.status && row.status !== 'NEW') ||
     (row.notes && row.notes.trim() !== '') ||
-    (row.lostReason && row.lostReason.trim() !== '');
+    (row.lostReason && row.lostReason.trim() !== '') ||
+    (row.appointmentDate && row.appointmentDate.trim() !== '') ||
+    row.attended !== undefined;
 
   if (needsUpdate) {
-    await updateLead(lead.id, {
+    const updateData: UpdateLeadPayload = {
       ...(row.status ? { status: row.status } : {}),
       ...(row.notes ? { notes: row.notes } : {}),
       ...(row.lostReason ? { lostReason: row.lostReason } : {}),
-    });
+      ...(row.attended !== undefined ? { attended: row.attended } : {}),
+    };
+    if (row.appointmentDate) {
+      const apptDate = new Date(row.appointmentDate);
+      if (!isNaN(apptDate.getTime())) {
+        updateData.appointmentStart = apptDate.toISOString();
+        const endDate = new Date(apptDate.getTime() + 60 * 60 * 1000); // 1 hour
+        updateData.appointmentEnd = endDate.toISOString();
+      }
+    }
+    await updateLead(lead.id, updateData);
   }
 
   if (row.status === 'ENROLLED') {
@@ -419,12 +443,10 @@ async function tryCreateStudent(leadId: string, row: ParsedRow, packages: Packag
     packages.push(pkg); // cache it so duplicate rows reuse the same package
   }
 
-  const now = new Date();
-  const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const enrolledDate = row.submittedAt ? new Date(row.submittedAt) : null;
-  const isRecentEnrolment =
-    enrolledDate !== null &&
-    enrolledDate >= oneMonthAgo;
+  const currentYear = new Date().getFullYear();
+  const submittedYear = row.submittedAt ? new Date(row.submittedAt).getFullYear() : null;
+  // Onboarding NOT completed if both timestamp year and enrolment year are current year
+  const isCurrentYearEnrolment = submittedYear === currentYear && row.enrolmentYear === currentYear;
 
   try {
     const student = await createStudent({
@@ -436,10 +458,18 @@ async function tryCreateStudent(leadId: string, row: ParsedRow, packages: Packag
       ...(row.notes ? { notes: row.notes } : {}),
     });
 
-    if (!isRecentEnrolment && student.onboardingProgress && student.onboardingProgress.length > 0) {
-      const allDone = student.onboardingProgress.map((t: { task: string; done: boolean }) => ({ ...t, done: true }));
-      await patchOnboardingProgress(student.id, allDone);
-      await completeOnboarding(student.id);
+    if (!isCurrentYearEnrolment) {
+      // Set start date = timestamp + 7 days
+      const enrolledDate = row.submittedAt ? new Date(row.submittedAt) : new Date();
+      const startDate = new Date(enrolledDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+      await updateStudent(student.id, { startDate: startDate.toISOString().slice(0, 10) });
+
+      // Mark all onboarding tasks as completed
+      if (student.onboardingProgress && student.onboardingProgress.length > 0) {
+        const allDone = student.onboardingProgress.map((t: { task: string; done: boolean }) => ({ ...t, done: true }));
+        await patchOnboardingProgress(student.id, allDone);
+        await completeOnboarding(student.id);
+      }
     }
   } catch {
     // Ignore — student may already exist for this lead
@@ -458,6 +488,7 @@ function statusStyle(s: string): React.CSSProperties {
     FOLLOW_UP:          { background: '#feebc8', color: '#c05621' },
     ENROLLED:           { background: '#c6f6d5', color: '#276749' },
     LOST:               { background: '#fed7d7', color: '#9b2c2c' },
+    REJECTED:           { background: '#fef3c7', color: '#92400e' },
   };
   return map[s] ?? { background: '#edf2f7', color: '#4a5568' };
 }
@@ -743,6 +774,12 @@ export default function ImportLeadsPage() {
         ...(row.status ? { status: row.status } : {}),
         ...(row.notes !== undefined ? { notes: row.notes } : {}),
         ...(row.lostReason !== undefined ? { lostReason: row.lostReason ?? null } : {}),
+        ...(row.appointmentDate ? (() => {
+          const d = new Date(row.appointmentDate);
+          if (isNaN(d.getTime())) return {};
+          return { appointmentStart: d.toISOString(), appointmentEnd: new Date(d.getTime() + 3600000).toISOString() };
+        })() : {}),
+        ...(row.attended !== undefined ? { attended: row.attended } : {}),
       });
       if (row.status === 'ENROLLED') {
         await tryCreateStudent(row.existingLeadId, row, packages);

@@ -16,12 +16,14 @@ export function fetchLeads(
   sortBy?: string,
   sortOrder?: string,
   search?: string,
+  year?: number,
 ) {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (status) params.set('status', status);
   if (sortBy) params.set('sortBy', sortBy);
   if (sortOrder) params.set('sortOrder', sortOrder);
   if (search) params.set('search', search);
+  if (year) params.set('year', String(year));
   return apiFetch<LeadsResponse>(`/api/leads?${params}`);
 }
 
@@ -39,6 +41,9 @@ export interface UpdateLeadPayload {
   addressLocation?: string | null;
   needsTransport?: boolean | null;
   howDidYouKnow?: string | null;
+  appointmentStart?: string | null;
+  appointmentEnd?: string | null;
+  attended?: boolean;
 }
 
 export function updateLead(leadId: string, payload: UpdateLeadPayload) {
@@ -104,11 +109,13 @@ export interface LeadStats {
   FOLLOW_UP: number;
   ENROLLED: number;
   LOST: number;
+  REJECTED: number;
   TRASH: number;
 }
 
-export function fetchLeadStats() {
-  return apiFetch<LeadStats>('/api/leads/stats');
+export function fetchLeadStats(year?: number) {
+  const params = year ? `?year=${year}` : '';
+  return apiFetch<LeadStats>(`/api/leads/stats${params}`);
 }
 
 export interface MonthlyAgeEntry {
@@ -126,6 +133,8 @@ export interface AnalyticsData {
   attendedAppointments: number;
   noShowLeads: number;
   appointmentRate: number;
+  pendingLeads: number;
+  rejectedLeads: number;
   monthlyComparison: { month: string; current: number; previous: number }[];
   monthlyByAge: MonthlyAgeEntry[];
   addressBreakdown: { location: string; count: number }[];

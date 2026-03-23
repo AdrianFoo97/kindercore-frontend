@@ -26,14 +26,18 @@ const C = {
 };
 
 const AGE_PALETTE: Record<string, string> = {
-  '2': '#1e3a8a', '3': '#1d4ed8', '4': '#4f46e5',
-  '5': '#7c3aed', '6': '#a78bfa', 'other': '#cbd5e1',
+  'Below 2': '#94a3b8',
+  '2': '#0ea5e9', '3': '#3b82f6', '4': '#8b5cf6',
+  '5': '#a855f7', '6': '#d946ef', '7': '#f43f5e',
+  'Above 7': '#f97316',
 };
 
 const DONUT_PALETTE = [
   '#1e40af','#1d4ed8','#5a79c8','#3b82f6',
   '#60a5fa','#93c5fd','#bfdbfe','#dbeafe',
 ];
+
+import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
 
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -166,21 +170,32 @@ export default function SalesMarketingPage() {
         </div>
       </div>
 
-      {/* ── KPI strip ── */}
-      <div style={{ ...s.kpiRow, ...(isMobile ? { gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 } : {}) }}>
-        <div style={{ ...(isMobile ? { gridColumn: 'span 2' } : {}), height: '100%' }}>
+      {/* ── KPI strip — row 1: appointment metrics ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16, marginBottom: 12 }}>
+        <div style={{ height: '100%' }}>
           <KpiCard label="Appointment Rate" color={C.indigo}>
             <RateRing rate={data.appointmentRate} />
-            <span style={{ fontSize: 12, color: C.muted }}>{data.attendedAppointments} attended of {data.completedLeads} completed</span>
+            <span style={{ fontSize: 12, color: C.muted }}>{data.attendedAppointments} of {data.attendedAppointments + data.noShowLeads} booked</span>
           </KpiCard>
         </div>
-        <KpiCard label="Total Leads" value={data.totalLeads} color={C.blue}
-          sub={`in ${data.selectedYear}`} />
+        <KpiCard label="Completed" value={data.attendedAppointments + data.noShowLeads} color={C.indigo}
+          sub="attended + didn't attend" />
         <KpiCard label="Total Attended" value={data.attendedAppointments} color={C.green}
           sub="completed leads who attended" />
         <KpiCard label="Total Didn't Attend" value={data.noShowLeads} color={C.red}
           sub="marked as didn't attend" />
-        <KpiCard label="Active / Pending" value={data.totalLeads - data.completedLeads} color={C.amber}
+      </div>
+      {/* ── KPI strip — row 2: lead overview ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16, marginBottom: 20 }}>
+        <KpiCard label="Lead Quality Rate" color={C.green}>
+          <RateRing rate={data.totalLeads > 0 ? (data.attendedAppointments + data.noShowLeads) / data.totalLeads : 0} />
+          <span style={{ fontSize: 12, color: C.muted }}>{data.attendedAppointments + data.noShowLeads} completed of {data.totalLeads} leads</span>
+        </KpiCard>
+        <KpiCard label="Total Leads" value={data.totalLeads} color={C.blue}
+          sub={`in ${data.selectedYear}`} />
+        <KpiCard label="Rejected" value={data.rejectedLeads} color={'#92400e'}
+          sub="rejected by school" />
+        <KpiCard label="Active / Pending" value={data.pendingLeads} color={C.amber}
           sub="no final outcome yet" />
       </div>
 
@@ -222,7 +237,13 @@ export default function SalesMarketingPage() {
               contentStyle={{ borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12 }}
               formatter={(v: number, name: string) => [v, name === 'current' ? String(data.selectedYear) : String(data.prevYear)]}
             />
-            <Bar dataKey="current" radius={[4, 4, 0, 0]} maxBarSize={32} name="current" activeBar={false}>
+            <Bar dataKey="current" radius={[4, 4, 0, 0]} maxBarSize={32} name="current" activeBar={false}
+              label={({ x, y, width, height, index }: any) => {
+                const v = data.monthlyComparison[index]?.current ?? 0;
+                if (!v) return null;
+                if (height < 18) return <text key={`c-${x}`} x={x + width / 2} y={y - 4} textAnchor="middle" fill={C.blue} fontSize={10} fontWeight={700}>{v}</text>;
+                return <text key={`c-${x}`} x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={11} fontWeight={700}>{v}</text>;
+              }}>
               {data.monthlyComparison.map((entry, i) => {
                 const monthIdx = MONTH_LABELS.indexOf(entry.month);
                 const dimmed = selectedMonth !== null && monthIdx !== selectedMonth;
@@ -249,7 +270,7 @@ export default function SalesMarketingPage() {
             {ageKeys.map(k => (
               <span key={k} style={s.legendInlineItem}>
                 <span style={s.legendDot(AGE_PALETTE[k] ?? '#ccc')} />
-                <span style={s.legendText}>Age {k}</span>
+                <span style={s.legendText}>{/^\d+$/.test(k) ? `Age ${k}` : k}</span>
               </span>
             ))}
           </div>
@@ -265,14 +286,28 @@ export default function SalesMarketingPage() {
                 <Tooltip
                   cursor={false}
                   contentStyle={{ borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12 }}
-                  formatter={(v: number, k: string) => [v, `Age ${k}`]}
+                  formatter={(v: number, k: string) => [v, /^\d+$/.test(k) ? `Age ${k}` : k]}
                 />
                 {ageKeys.map((age, i) => (
                   <Bar key={age} dataKey={age} stackId="a"
                     fill={AGE_PALETTE[age] ?? DONUT_PALETTE[i]}
-                    radius={i === ageKeys.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
                     maxBarSize={48}
-                    activeBar={false}>
+                    activeBar={false}
+                    shape={(props: any) => {
+                      const { x, y, width, height, index } = props;
+                      if (!height) return null;
+                      // Check if this is the topmost visible bar
+                      const monthData = filteredMonthlyByAge[index];
+                      const isTop = !ageKeys.slice(i + 1).some(k => (monthData?.[k] ?? 0) > 0);
+                      const r = isTop ? 4 : 0;
+                      return <path d={`M${x + r},${y} Q${x},${y} ${x},${y + r} L${x},${y + height} L${x + width},${y + height} L${x + width},${y + r} Q${x + width},${y} ${x + width - r},${y} Z`} fill={props.fill} />;
+                    }}
+                    label={i === ageKeys.length - 1 ? ({ x, y, width, index }: any) => {
+                      const monthData = filteredMonthlyByAge[index];
+                      const total = monthData?.total ?? 0;
+                      if (!total) return null;
+                      return <text key={`t-${x}`} x={x + width / 2} y={y - 6} textAnchor="middle" fill={C.muted} fontSize={11} fontWeight={700}>{total}</text>;
+                    } : false}>
                   </Bar>
                 ))}
               </BarChart>
@@ -287,12 +322,14 @@ export default function SalesMarketingPage() {
           sub={selectedMonth !== null ? `${MONTH_LABELS[selectedMonth]} — where do enquiries come from?` : 'Where do enquiries come from?'}
           data={addressData}
           topN={5}
+          colorFn={getAddressColor}
         />
         <DonutCard
           title="Marketing Channel"
           sub={selectedMonth !== null ? `${MONTH_LABELS[selectedMonth]} — how did they hear about us?` : 'How did they hear about us?'}
           data={channelData}
           topN={5}
+          colorFn={getChannelColor}
         />
       </div>
 
@@ -301,7 +338,8 @@ export default function SalesMarketingPage() {
 }
 
 // ── Donut card ────────────────────────────────────────────────────
-function DonutCard({ title, sub, data, topN }: { title: string; sub: string; data: { name: string; value: number }[]; topN?: number }) {
+function DonutCard({ title, sub, data, topN, colorFn }: { title: string; sub: string; data: { name: string; value: number }[]; topN?: number; colorFn?: (name: string, index: number) => string }) {
+  const getColor = colorFn ?? ((_name: string, i: number) => DONUT_PALETTE[i % DONUT_PALETTE.length]);
   const [showOthers, setShowOthers] = useState(false);
   const hasOthers = topN != null && data.length > topN;
   const othersItems = hasOthers ? data.slice(topN) : [];
@@ -340,7 +378,7 @@ function DonutCard({ title, sub, data, topN }: { title: string; sub: string; dat
                   isAnimationActive={false} style={{ outline: 'none' }}
                   onClick={handlePieClick}>
                   {pieData.map((_, i) => (
-                    <Cell key={i} fill={DONUT_PALETTE[i % DONUT_PALETTE.length]}
+                    <Cell key={i} fill={getColor(pieData[i]?.name ?? '', i)}
                       style={{ cursor: i === othersIndex ? 'pointer' : 'default' }} />
                   ))}
                 </Pie>
@@ -353,7 +391,7 @@ function DonutCard({ title, sub, data, topN }: { title: string; sub: string; dat
                     onClick={handlePieClick}>
                     {pieData.map((_, i) => (
                       <Cell key={i}
-                        fill={i === othersIndex ? DONUT_PALETTE[i % DONUT_PALETTE.length] : 'transparent'}
+                        fill={i === othersIndex ? getColor(pieData[i]?.name ?? '', i) : 'transparent'}
                         stroke={i === othersIndex ? '#fff' : 'none'}
                         strokeWidth={i === othersIndex ? 2 : 0}
                         style={{ cursor: 'pointer' }} />
@@ -369,7 +407,7 @@ function DonutCard({ title, sub, data, topN }: { title: string; sub: string; dat
             {showOthers && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#eff6ff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '5px 12px', fontSize: 12 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: DONUT_PALETTE[othersIndex % DONUT_PALETTE.length], display: 'inline-block' }} />
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: getColor('Others', othersIndex), display: 'inline-block' }} />
                   <span style={{ color: C.text }}>Others</span>
                   <span style={{ fontWeight: 700, color: C.text }}>{othersValue} leads</span>
                   <span style={{ color: C.muted }}>{pct(othersValue / total)}</span>
@@ -389,7 +427,7 @@ function DonutCard({ title, sub, data, topN }: { title: string; sub: string; dat
                 }}
                   onClick={d.name === 'Others' && hasOthers && !showOthers ? () => setShowOthers(true) : undefined}
                 >
-                  <span style={{ ...s.legendDot(DONUT_PALETTE[i % DONUT_PALETTE.length]), flexShrink: 0 }} />
+                  <span style={{ ...s.legendDot(getColor(d.name, i)), flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 12, color: C.text }}>{d.name}</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{d.value}</span>
                   <span style={{ fontSize: 12, color: C.muted, width: 36, textAlign: 'right' }}>

@@ -10,15 +10,15 @@ import { createStudent } from '../api/students.js';
 import { Lead, LeadStatus, LeadsResponse, Package } from '../types/index.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarDays, faCircleCheck, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
-const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST'];
+const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
 const currentYear = new Date().getFullYear();
 const ENROLMENT_YEARS = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
 type SortField = 'submittedAt' | 'childName' | 'childDob' | 'enrolmentYear' | 'status' | 'intent';
 type SortOrder = 'asc' | 'desc';
-type PipelineStage = 'all_active' | 'NEW' | 'CONTACTED' | 'APPOINTMENT_BOOKED' | 'FOLLOW_UP' | 'ENROLLED' | 'LOST' | 'TRASH';
+type PipelineStage = 'all_active' | 'NEW' | 'CONTACTED' | 'APPOINTMENT_BOOKED' | 'FOLLOW_UP' | 'ENROLLED' | 'LOST' | 'REJECTED' | 'TRASH';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -140,6 +140,7 @@ const STATUS_VERB: Record<LeadStatus, string> = {
   FOLLOW_UP:          'Attended',
   ENROLLED:           'Enrolled',
   LOST:               'Lost',
+  REJECTED:           'Rejected',
 };
 
 const STATUS_CFG: Record<LeadStatus, { label: string; color: string; dot: string; bg: string }> = {
@@ -149,11 +150,12 @@ const STATUS_CFG: Record<LeadStatus, { label: string; color: string; dot: string
   FOLLOW_UP:          { label: 'Follow-Up',   color: '#d97706', dot: '#f59e0b', bg: '#fffbeb' },
   ENROLLED:           { label: 'Enrolled',    color: '#16a34a', dot: '#22c55e', bg: '#f0fdf4' },
   LOST:               { label: 'Lost',        color: '#dc2626', dot: '#f87171', bg: '#fef2f2' },
+  REJECTED:           { label: 'Rejected',    color: '#92400e', dot: '#d97706', bg: '#fffbeb' },
 };
 
 type StatsData = {
   NEW?: number; CONTACTED?: number; APPOINTMENT_BOOKED?: number;
-  FOLLOW_UP?: number; ENROLLED?: number; LOST?: number; TRASH?: number;
+  FOLLOW_UP?: number; ENROLLED?: number; LOST?: number; REJECTED?: number; TRASH?: number;
 };
 
 // ── Pipeline Nav ────────────────────────────────────────────────────────────────
@@ -168,6 +170,7 @@ const ACTIVE_STAGES = [
 const CLOSED_STAGES = [
   { key: 'ENROLLED' as PipelineStage, label: 'Enrolled', accent: '#22c55e', bg: '#f0fdf4', text: '#166534' },
   { key: 'LOST' as PipelineStage,     label: 'Lost',     accent: '#f87171', bg: '#fef2f2', text: '#991b1b' },
+  { key: 'REJECTED' as PipelineStage, label: 'Rejected', accent: '#d97706', bg: '#fffbeb', text: '#92400e' },
 ];
 
 function PipelineNav({ selected, onChange, stats, compact, collapsed, onToggle }: {
@@ -1007,6 +1010,73 @@ function DeclineModal({ lead, lostReasons, onClose, onDeclined }: {
   );
 }
 
+// ── Reject Modal ────────────────────────────────────────────────────────────────
+
+function RejectModal({ lead, lostReasons, onClose, onRejected }: {
+  lead: Lead; lostReasons: string[]; onClose: () => void; onRejected: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [otherText, setOtherText] = useState('');
+  const [notes, setNotes] = useState(lead.notes ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const isOther = reason === 'Others';
+  const finalReason = isOther ? otherText.trim() : reason;
+
+  const handleConfirm = async () => {
+    if (!reason) { setError('Please select a reason.'); return; }
+    if (isOther && !otherText.trim()) { setError('Please describe the reason.'); return; }
+    setSaving(true);
+    try {
+      await updateLead(lead.id, { status: 'REJECTED', lostReason: finalReason, notes: notes.trim() });
+      onRejected(); onClose();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Failed'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Reject Lead</h3>
+        <p style={{ margin: '0 0 10px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
+        <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 12 }}>
+          <span>Notes <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(optional)</span></span>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Add any remarks before rejecting…"
+            style={{ padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', background: '#fafafa', resize: 'vertical' as const, height: 72, lineHeight: 1.5 }}
+          />
+        </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: '#4a5568', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span>Reason <span style={{ color: '#e53e3e' }}>*</span></span>
+            <select value={reason} onChange={e => { setReason(e.target.value); setError(''); }}
+              style={{ padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 6, fontSize: 13, background: '#fafafa', cursor: 'pointer' }}>
+              <option value="">— select reason —</option>
+              {lostReasons.map(r => <option key={r} value={r}>{r}</option>)}
+              <option value="Others">Others</option>
+            </select>
+          </label>
+          {isOther && (
+            <input value={otherText} onChange={e => { setOtherText(e.target.value); setError(''); }}
+              placeholder="Describe the reason…" autoFocus
+              style={{ padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 6, fontSize: 13, background: '#fafafa' }} />
+          )}
+        </div>
+        {error && <p style={{ color: '#e53e3e', fontSize: 13, marginTop: 6 }}>{error}</p>}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f7fafc', color: '#4a5568', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Cancel</button>
+          <button onClick={handleConfirm} disabled={saving}
+            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#92400e', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving…' : 'Reject'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Edit Modal ─────────────────────────────────────────────────────────────────
 
 const PINNED_LOST_REASON = "Didn't attend the enquiry";
@@ -1086,7 +1156,7 @@ function transportLabel(val: boolean | number | null): string {
   return '—';
 }
 function statusDisplayLabel(s: string): string {
-  const map: Record<string, string> = { NEW: 'New', CONTACTED: 'Contacted', APPOINTMENT_BOOKED: 'Appt Booked', FOLLOW_UP: 'Follow-Up', ENROLLED: 'Enrolled', LOST: 'Lost' };
+  const map: Record<string, string> = { NEW: 'New', CONTACTED: 'Contacted', APPOINTMENT_BOOKED: 'Appt Booked', FOLLOW_UP: 'Follow-Up', ENROLLED: 'Enrolled', LOST: 'Lost', REJECTED: 'Rejected' };
   return map[s] || s;
 }
 
@@ -1113,18 +1183,18 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
   const statusCfg = STATUS_CFG[lead.status];
   const statusDate = lead.statusChangedAt || lead.submittedAt;
   const statusDaysAgo = Math.floor((Date.now() - new Date(statusDate).getTime()) / 86400000);
-  const statusAction: Record<string, string> = { NEW: 'Submitted', CONTACTED: 'Contacted', APPOINTMENT_BOOKED: 'Booked', FOLLOW_UP: 'Attended', ENROLLED: 'Enrolled', LOST: 'Lost' };
+  const statusAction: Record<string, string> = { NEW: 'Submitted', CONTACTED: 'Contacted', APPOINTMENT_BOOKED: 'Booked', FOLLOW_UP: 'Attended', ENROLLED: 'Enrolled', LOST: 'Lost', REJECTED: 'Rejected' };
   const statusTimeLabel = `${statusAction[lead.status] || 'Updated'} ${statusDaysAgo === 0 ? 'today' : `${statusDaysAgo}d ago`}`;
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.status === 'LOST' && !form.lostReason) { setError('Please select a reason for marking this lead as Lost.'); return; }
+    if ((form.status === 'LOST' || form.status === 'REJECTED') && !form.lostReason) { setError(`Please select a reason for marking this lead as ${form.status === 'REJECTED' ? 'Rejected' : 'Lost'}.`); return; }
     setSaving(true); setError('');
     try {
       const payload: UpdateLeadPayload = {
         childName: form.childName, parentPhone: form.parentPhone, childDob: form.childDob,
         enrolmentYear: Number(form.enrolmentYear), status: form.status, notes: form.notes,
-        lostReason: form.status === 'LOST' ? form.lostReason : null,
+        lostReason: (form.status === 'LOST' || form.status === 'REJECTED') ? form.lostReason : null,
         relationship: form.relationship || null, programme: form.programme || null,
         howDidYouKnow: form.howDidYouKnow || null, addressLocation: form.addressLocation || null,
         needsTransport: form.needsTransport === '' ? null : form.needsTransport === 'yes',
@@ -1272,7 +1342,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                 <ViewRow label="Source" value={lead.howDidYouKnow || '—'} />
                 <ViewRow label="Visit Preference" value={lead.preferredAppointmentTime || '—'} />
                 <ViewRow label="Status" value={statusDisplayLabel(lead.status)} />
-                {lead.status === 'LOST' && <ViewRow label="Lost Reason" value={lead.lostReason || '—'} />}
+                {(lead.status === 'LOST' || lead.status === 'REJECTED') && <ViewRow label={lead.status === 'REJECTED' ? 'Reject Reason' : 'Lost Reason'} value={lead.lostReason || '—'} />}
                 {lead.notes && (
                   <div style={{ marginTop: 12, background: '#f8fafc', borderRadius: 8, padding: '10px 14px' }}>
                     <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Notes</span>
@@ -1293,12 +1363,12 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                   <label style={mo.label}>Visit Preference<input style={mo.input} value={form.preferredAppointmentTime} onChange={set('preferredAppointmentTime')} placeholder="e.g. Weekday afternoon" /></label>
                   <label style={mo.label}>Status
                     <select style={mo.input} value={form.status} onChange={set('status')}>
-                      {STATUSES.filter(s => s !== 'ENROLLED' || lead.status === 'ENROLLED').map(s => <option key={s} value={s}>{s}</option>)}
+                      {STATUSES.filter(s => (s !== 'ENROLLED' || lead.status === 'ENROLLED') && (s !== 'REJECTED' || lead.status === 'REJECTED')).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </label>
-                  {form.status === 'LOST' && (
+                  {(form.status === 'LOST' || form.status === 'REJECTED') && (
                     <label style={mo.label}>
-                      <span>Lost Reason <span style={{ color: '#e53e3e' }}>*</span></span>
+                      <span>{form.status === 'REJECTED' ? 'Reject' : 'Lost'} Reason <span style={{ color: '#e53e3e' }}>*</span></span>
                       <select style={mo.input} value={form.lostReason} onChange={set('lostReason')} required>
                         <option value="">— select reason —</option>
                         {lostReasons.map(r => <option key={r} value={r}>{r}</option>)}
@@ -1455,6 +1525,7 @@ export default function LeadsPage() {
   const [attendedLead, setAttendedLead] = useState<Lead | null>(null);
   const [attendedNotes, setAttendedNotes] = useState('');
   const [decliningLead, setDecliningLead] = useState<Lead | null>(null);
+  const [rejectingLead, setRejectingLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     const close = () => setMenuOpenId(null);
@@ -1463,14 +1534,17 @@ export default function LeadsPage() {
   }, []);
 
   const apiFilterStatus = selectedStage === 'all_active' ? 'active' : selectedStage;
+  const isClosed = selectedStage === 'ENROLLED' || selectedStage === 'LOST' || selectedStage === 'REJECTED';
+  const [closedYear, setClosedYear] = useState<number>(new Date().getFullYear());
+  const apiYear = isClosed ? closedYear : undefined;
 
   const handleStageSelect = (stage: PipelineStage) => { setSelectedStage(stage); setPage(1); };
 
   const apiSort = sortBy === 'intent' ? 'submittedAt' : sortBy;
   const apiOrder = sortBy === 'intent' ? 'desc' : sortOrder;
   const { data: rawData, isLoading, isError, error } = useQuery({
-    queryKey: ['leads', page, pageSize, apiFilterStatus, apiSort, apiOrder, debouncedSearch],
-    queryFn: () => fetchLeads(page, pageSize, apiFilterStatus || undefined, apiSort, apiOrder, debouncedSearch || undefined),
+    queryKey: ['leads', page, pageSize, apiFilterStatus, apiSort, apiOrder, debouncedSearch, apiYear],
+    queryFn: () => fetchLeads(page, pageSize, apiFilterStatus || undefined, apiSort, apiOrder, debouncedSearch || undefined, apiYear),
     enabled: selectedStage !== 'TRASH',
     refetchInterval: 30_000,
     staleTime: 0,
@@ -1507,7 +1581,7 @@ export default function LeadsPage() {
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['lead-stats'], queryFn: fetchLeadStats, staleTime: 0, refetchInterval: 60_000,
+    queryKey: ['lead-stats', closedYear], queryFn: () => fetchLeadStats(closedYear), staleTime: 0, refetchInterval: 60_000,
   });
 
   const { data: trashedLeads = [] } = useQuery({
@@ -1661,6 +1735,7 @@ export default function LeadsPage() {
     noShow:          { ...btnBase, background: '#fef2f2', color: '#dc2626', borderColor: '#fecaca' },
     notEnrolling:    { ...btnBase, background: '#fff', color: '#9f1239', borderColor: '#e2e8f0' },
     followUp:        { ...btnBase, background: '#eef2fa', color: '#5a79c8', borderColor: '#c7d2e8' },
+    reject:          { ...btnBase, background: '#fffbeb', color: '#92400e', borderColor: '#fde68a' },
   };
 
   function getPrimaryAction(lead: Lead): { label: React.ReactNode; style: React.CSSProperties; action: () => void } | null {
@@ -1684,10 +1759,9 @@ export default function LeadsPage() {
   const STAGE_TITLES: Record<PipelineStage, string> = {
     all_active: 'All Active Leads', NEW: 'New Leads', CONTACTED: 'Contacted',
     APPOINTMENT_BOOKED: 'Appointment Booked', FOLLOW_UP: 'Follow-Up',
-    ENROLLED: 'Enrolled', LOST: 'Lost / Declined', TRASH: 'Trash',
+    ENROLLED: 'Enrolled', LOST: 'Lost / Declined', REJECTED: 'Rejected', TRASH: 'Trash',
   };
   const pageTitle = STAGE_TITLES[selectedStage];
-  const isClosed = selectedStage === 'ENROLLED' || selectedStage === 'LOST';
   const isTrash = selectedStage === 'TRASH';
 
   const currentStageCfg = selectedStage !== 'all_active' && selectedStage !== 'TRASH'
@@ -1699,7 +1773,7 @@ export default function LeadsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: isTablet ? 'column' : 'row', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', height: '100%', overflow: 'hidden' }}>
-      <style>{`.kc-no-scrollbar::-webkit-scrollbar{display:none}.kc-no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}@keyframes kcFadeHL{0%{background:#fefce8}100%{background:transparent}}.kc-hl{animation:kcFadeHL 2s forwards}textarea:focus::placeholder{color:transparent}.kc-mi{display:flex;align-items:center;width:100%;padding:7px 12px;text-align:left;background:none;border:none;border-radius:6px;cursor:pointer;font-size:13px;color:#374151;font-weight:400;text-decoration:none;box-sizing:border-box;transition:background .1s}.kc-mi:hover{background:#eef1f5}.kc-mi-danger{color:#dc2626!important}.kc-mi-danger:hover{background:#fef2f2!important}.kc-row{transition:background .15s ease}.kc-row:hover{background:#f1f5f9!important}.kc-phone .kc-copy{opacity:0;transition:opacity .12s}.kc-phone:hover .kc-copy{opacity:1}`}</style>
+      <style>{`.kc-no-scrollbar::-webkit-scrollbar{display:none}.kc-no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}@keyframes kcFadeHL{0%{background:#fefce8}100%{background:transparent}}.kc-hl{animation:kcFadeHL 2s forwards}textarea:focus::placeholder{color:transparent}.kc-mi{display:flex;align-items:center;width:100%;padding:8px 12px;text-align:left;background:none;border:none;border-radius:8px;cursor:pointer;font-size:13px;color:#374151;font-weight:500;text-decoration:none;box-sizing:border-box;transition:all .12s ease;letter-spacing:-0.01em;line-height:1.3}.kc-mi:hover{background:#f1f5f9}.kc-mi:active{background:#e8ecf1}.kc-mi-danger{color:#dc2626!important;font-weight:500}.kc-mi-danger:hover{background:#fef2f2!important}.kc-row{transition:background .15s ease}.kc-row:hover{background:#f1f5f9!important}.kc-phone .kc-copy{opacity:0;transition:opacity .12s}.kc-phone:hover .kc-copy{opacity:1}`}</style>
 
       {/* Toast */}
       {toast && (
@@ -1829,6 +1903,10 @@ export default function LeadsPage() {
         <DeclineModal lead={decliningLead} lostReasons={lostReasons} onClose={() => setDecliningLead(null)}
           onDeclined={() => { const { childName, id } = decliningLead; invalidateAll(); showToast(`${childName} marked as not enrolling — moved to`, 'success', undefined, { label: 'Lost', onClick: () => { handleStageSelect('LOST'); setHighlightId(id); } }); }} />
       )}
+      {rejectingLead && (
+        <RejectModal lead={rejectingLead} lostReasons={lostReasons} onClose={() => setRejectingLead(null)}
+          onRejected={() => { const { childName, id } = rejectingLead; invalidateAll(); showToast(`${childName} rejected — moved to`, 'success', undefined, { label: 'Rejected', onClick: () => { handleStageSelect('REJECTED'); setHighlightId(id); } }); }} />
+      )}
 
       {deleteLeadTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -1932,6 +2010,22 @@ export default function LeadsPage() {
                 <option value="intent:desc">Intent Hot→Cool</option>
                 <option value="intent:asc">Intent Cool→Hot</option>
               </select>
+              {/* Year filter — closed stages only */}
+              {isClosed && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: '#f8fafc', border: '1px solid #e8ecf1', borderRadius: 7, flexShrink: 0 }}>
+                  <FontAwesomeIcon icon={faFilter} style={{ fontSize: 10, color: '#94a3b8' }} />
+                  <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Year</span>
+                  <select
+                    value={closedYear}
+                    onChange={e => { setClosedYear(Number(e.target.value)); setPage(1); }}
+                    style={{ padding: '2px 4px', border: 'none', fontSize: 13, color: '#374151', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {/* Export */}
               <button
                 onClick={handleExport} disabled={isExporting || !data || data.total === 0}
@@ -2104,6 +2198,14 @@ export default function LeadsPage() {
                           </span>
                         </div>
                       </div>
+                      {!isClosed && (
+                        <button onClick={e => { e.stopPropagation(); openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); }}
+                          title="Send WhatsApp"
+                          style={{ background: 'none', border: '1px solid #dcfce7', borderRadius: 6, cursor: 'pointer', padding: '4px 8px', fontSize: 14, color: '#25D366', lineHeight: 1, flexShrink: 0, transition: 'all .12s' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = '#86efac'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = '#dcfce7'; }}
+                        ><FontAwesomeIcon icon={faWhatsapp} /></button>
+                      )}
                       <button onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === lead.id ? null : lead.id); }}
                         style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '4px 10px', fontSize: 16, color: '#718096', lineHeight: 1, flexShrink: 0 }}>⋮</button>
                     </div>
@@ -2139,30 +2241,47 @@ export default function LeadsPage() {
                     {/* Context menu */}
                     {menuOpenId === lead.id && (() => {
                       const hasScheduleActions = lead.status === 'CONTACTED' || lead.status === 'APPOINTMENT_BOOKED';
-                      const hasEnroll = lead.status !== 'ENROLLED' && lead.status !== 'LOST';
-                      const sep = <div style={{ height: 1, background: '#f1f5f9', margin: '4px 8px' }} />;
+                      const hasEnroll = lead.status !== 'ENROLLED' && lead.status !== 'LOST' && lead.status !== 'REJECTED';
+                      const sep = <div style={{ height: 1, background: '#f0f2f5', margin: '3px 10px' }} />;
+                      const secLabel = (label: string, icon?: any) => <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: 6 }}>{icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}{label}</div>;
                       return (
-                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', right: 10, top: 44, zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 4px 24px rgba(0,0,0,0.12)', minWidth: 200, padding: '4px 0' }}>
-                          <div style={{ padding: '2px 4px' }}>
-                            <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> View Lead</button>
-                            <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Edit Notes</button>
+                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', right: 10, top: 44, zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}>
+                          {secLabel('Actions', faBolt)}
+                          <div style={{ padding: '0 2px' }}>
                             {hasScheduleActions && (
-                              <button onClick={() => { setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Reschedule Appt</button>
+                              <button onClick={() => { setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
                             )}
-                          </div>
-                          {sep}
-                          <div style={{ padding: '2px 4px' }}>
+                            <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
+                            <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
                             {isMobile && (
-                              <button onClick={() => { window.location.href = `tel:${lead.parentPhone}`; setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPhone} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Call</button>
+                              <button onClick={() => { window.location.href = `tel:${lead.parentPhone}`; setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPhone} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Call</button>
                             )}
-                            <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Send WhatsApp</button>
                           </div>
-                          {hasEnroll && (<>{sep}<div style={{ padding: '2px 4px' }}>
-                            <button onClick={() => { setEnrollingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faGraduationCap} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Enroll Student</button>
-                          </div></>)}
+                          {hasEnroll && (<>
+                            {sep}
+                            {secLabel('Decision', faScaleBalanced)}
+                            <div style={{ padding: '0 2px' }}>
+                              <button onClick={() => { setEnrollingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#15803d', fontWeight: 600 }}>
+                                <span style={{ width: 20, height: 20, borderRadius: 6, background: '#dcfce7', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0 }}>
+                                  <FontAwesomeIcon icon={faGraduationCap} style={{ fontSize: 10, color: '#16a34a' }} />
+                                </span>
+                                Enroll Student
+                              </button>
+                              <button onClick={() => { setRejectingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#b45309', fontSize: 12 }}>
+                                <span style={{ width: 20, height: 20, borderRadius: 6, background: '#fef3c7', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0 }}>
+                                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 10, color: '#d97706' }} />
+                                </span>
+                                Reject Lead
+                              </button>
+                            </div>
+                          </>)}
                           {sep}
-                          <div style={{ padding: '2px 4px' }}>
-                            <button onClick={() => { setDeleteLeadTarget(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8 }} /> Delete</button>
+                          <div style={{ padding: '0 2px' }}>
+                            <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#64748b' }}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#b0b8c9', fontSize: 11 }} /> View Lead Details</button>
+                          </div>
+                          {sep}
+                          <div style={{ padding: '0 2px' }}>
+                            <button onClick={() => { setDeleteLeadTarget(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`} style={{ fontSize: 12 }}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8, fontSize: 11 }} /> Delete</button>
                           </div>
                         </div>
                       );
@@ -2352,6 +2471,9 @@ export default function LeadsPage() {
                                 <button onClick={() => setDecliningLead(lead)} style={btnStyles.notEnrolling}>
                                   <FontAwesomeIcon icon={faXmark} style={{ marginRight: 6 }} /> Not Enrolling
                                 </button>
+                                <button onClick={() => setRejectingLead(lead)} style={btnStyles.reject}>
+                                  <FontAwesomeIcon icon={faXmark} style={{ marginRight: 6 }} /> Reject
+                                </button>
                               </div>
                             ) : (
                               <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
@@ -2381,41 +2503,52 @@ export default function LeadsPage() {
                           >⋮</button>
                           {isMenuOpen && (() => {
                             const hasScheduleActions = lead.status === 'CONTACTED' || lead.status === 'APPOINTMENT_BOOKED';
-                            const hasEnroll = lead.status !== 'ENROLLED' && lead.status !== 'LOST';
+                            const hasEnroll = lead.status !== 'ENROLLED' && lead.status !== 'LOST' && lead.status !== 'REJECTED';
                             const sep = <div style={{ height: 1, background: '#f1f5f9', margin: '4px 8px' }} />;
                             return (
                               <div
                                 onClick={e => e.stopPropagation()}
-                                style={{ position: 'absolute' as const, right: 6, top: '100%', zIndex: 200, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 4px 24px rgba(0,0,0,0.12)', minWidth: 200, padding: '4px 0' }}
+                                style={{ position: 'absolute' as const, right: 6, top: '100%', zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}
                               >
-                                {/* Edit & Schedule */}
-                                <div style={{ padding: '2px 4px' }}>
-                                  <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> View Lead</button>
-                                  <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Edit Notes</button>
-                                  {hasScheduleActions && (
-                                    <button onClick={() => { setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Reschedule Appt</button>
-                                  )}
-                                </div>
-
-                                {/* Communication */}
-                                {sep}
-                                <div style={{ padding: '2px 4px' }}>
-                                  <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Send WhatsApp</button>
-                                </div>
-
-                                {/* Conversion */}
-                                {hasEnroll && (<>
-                                  {sep}
-                                  <div style={{ padding: '2px 4px' }}>
-                                    <button onClick={() => { setEnrollingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faGraduationCap} fixedWidth style={{ marginRight: 8, color: '#64748b' }} /> Enroll Student</button>
-                                  </div>
-                                </>)}
-
-                                {/* Danger */}
-                                {sep}
-                                <div style={{ padding: '2px 4px' }}>
-                                  <button onClick={() => { setDeleteLeadTarget(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8 }} /> Delete</button>
-                                </div>
+                                {(() => {
+                                  const secLabel = (label: string, icon?: any) => <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: 6 }}>{icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}{label}</div>;
+                                  return <>
+                                    {secLabel('Actions', faBolt)}
+                                    <div style={{ padding: '0 2px' }}>
+                                      {hasScheduleActions && (
+                                        <button onClick={() => { setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
+                                      )}
+                                      <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
+                                      <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
+                                    </div>
+                                    {hasEnroll && (<>
+                                      {sep}
+                                      {secLabel('Decision', faScaleBalanced)}
+                                      <div style={{ padding: '0 2px' }}>
+                                        <button onClick={() => { setEnrollingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#15803d', fontWeight: 600 }}>
+                                          <span style={{ width: 20, height: 20, borderRadius: 6, background: '#dcfce7', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0 }}>
+                                            <FontAwesomeIcon icon={faGraduationCap} style={{ fontSize: 10, color: '#16a34a' }} />
+                                          </span>
+                                          Enroll Student
+                                        </button>
+                                        <button onClick={() => { setRejectingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#b45309', fontSize: 12 }}>
+                                          <span style={{ width: 20, height: 20, borderRadius: 6, background: '#fef3c7', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0 }}>
+                                            <FontAwesomeIcon icon={faXmark} style={{ fontSize: 10, color: '#d97706' }} />
+                                          </span>
+                                          Reject Lead
+                                        </button>
+                                      </div>
+                                    </>)}
+                                    {sep}
+                                    <div style={{ padding: '0 2px' }}>
+                                      <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#64748b' }}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#b0b8c9', fontSize: 11 }} /> View Lead Details</button>
+                                    </div>
+                                    {sep}
+                                    <div style={{ padding: '0 2px' }}>
+                                      <button onClick={() => { setDeleteLeadTarget(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`} style={{ fontSize: 12 }}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8, fontSize: 11 }} /> Delete</button>
+                                    </div>
+                                  </>;
+                                })()}
                               </div>
                             );
                           })()}
