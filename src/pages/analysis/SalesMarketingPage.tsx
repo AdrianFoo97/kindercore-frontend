@@ -298,7 +298,7 @@ export default function SalesMarketingPage() {
                       if (!height) return null;
                       // Check if this is the topmost visible bar
                       const monthData = filteredMonthlyByAge[index];
-                      const isTop = !ageKeys.slice(i + 1).some(k => (monthData?.[k] ?? 0) > 0);
+                      const isTop = !ageKeys.slice(i + 1).some(k => (Number(monthData?.[k]) || 0) > 0);
                       const r = isTop ? 4 : 0;
                       return <path d={`M${x + r},${y} Q${x},${y} ${x},${y + r} L${x},${y + height} L${x + width},${y + height} L${x + width},${y + r} Q${x + width},${y} ${x + width - r},${y} Z`} fill={props.fill} />;
                     }}
