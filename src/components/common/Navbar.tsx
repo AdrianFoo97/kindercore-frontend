@@ -34,7 +34,7 @@ export default function Navbar() {
   const onAdminRoute = !!useMatch('/settings/users');
   const onDevRoute = !!useMatch('/settings/test/*');
   const onAnalysisRoute = !!useMatch('/analysis/*');
-  const onSettingsRoute = !!useMatch('/settings/*');
+  const onSettingsRoute = !!useMatch('/settings/*') && !onAdminRoute && !onDevRoute;
   const studentsMatch = useMatch('/students');
   const onboardingMatch = useMatch('/onboarding');
   const onStudentsRoute = !!(studentsMatch || onboardingMatch);
