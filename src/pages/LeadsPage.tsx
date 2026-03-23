@@ -641,7 +641,7 @@ function AppointmentModal({
               {lead.appointmentStart ? 'Reschedule Appointment' : 'Book Appointment'}
               <span
                 title={googleStatus?.connected ? `Connected to Google Calendar · ${googleStatus.email || ''}` : 'Google Calendar not connected — appointment will not sync'}
-                style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: googleStatus?.connected ? '#22c55e' : '#f59e0b', marginLeft: 8, verticalAlign: 'middle', cursor: 'help' }}
+                style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: googleStatus?.connected ? '#22c55e' : '#ef4444', marginLeft: 8, verticalAlign: 'middle', cursor: 'help' }}
               />
             </h2>
             <p style={am.subtitle}>{lead.childName} · {lead.parentPhone}</p>
