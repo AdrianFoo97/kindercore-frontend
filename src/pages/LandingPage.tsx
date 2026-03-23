@@ -1,4 +1,15 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+  useEffect(() => {
+    const handler = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isDesktop;
+}
 
 const testimonials = [
   { src: '/Testimonial/testi1.png', before: '孩子学会了', highlight: '自律和自信' },
@@ -11,6 +22,7 @@ const testimonials = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const isDesktop = useIsDesktop();
 
   return (
     <div style={{
@@ -18,22 +30,22 @@ export default function LandingPage() {
       fontFamily: "'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif",
       background: '#f0f4f8',
     }}>
-      <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100vh', overflow: 'hidden' }}>
+      <div style={{ maxWidth: isDesktop ? undefined : 480, margin: '0 auto', minHeight: '100vh', overflow: isDesktop ? undefined : 'hidden' }}>
 
         {/* ── Hero ── */}
         <section style={{
           background: 'linear-gradient(170deg, #2d2a6e 0%, #4a5faa 45%, #5a8abf 100%)',
-          padding: '40px 24px 0',
+          padding: isDesktop ? '60px 48px 0' : '40px 24px 0',
           borderRadius: 0,
           textAlign: 'center' as const,
         }}>
           {/* Logo */}
-          <img src="/logo.png" alt="Ten Toes" style={{ height: 48, marginBottom: 20 }} />
+          <img src="/logo.png" alt="Ten Toes" style={{ height: isDesktop ? 64 : 48, marginBottom: isDesktop ? 28 : 20 }} />
 
           {/* Eyebrow */}
           <p style={{
             margin: '0 0 16px',
-            fontSize: 12,
+            fontSize: isDesktop ? 14 : 12,
             fontWeight: 500,
             color: 'rgba(255,255,255,0.5)',
             letterSpacing: '2px',
@@ -44,7 +56,7 @@ export default function LandingPage() {
           {/* Headline */}
           <h1 style={{
             margin: '0 0 8px',
-            fontSize: 20,
+            fontSize: isDesktop ? 28 : 20,
             fontWeight: 600,
             color: 'rgba(255,255,255,0.85)',
             lineHeight: 1.7,
@@ -55,7 +67,7 @@ export default function LandingPage() {
           </h1>
           <p style={{
             margin: '0 0 28px',
-            fontSize: 26,
+            fontSize: isDesktop ? 36 : 26,
             fontWeight: 800,
             color: '#fff',
             lineHeight: 1.6,
@@ -65,9 +77,9 @@ export default function LandingPage() {
 
           {/* Image */}
           <div style={{
-            width: 'calc(100% + 48px)',
-            marginLeft: -24,
-            aspectRatio: '16 / 10',
+            width: isDesktop ? 'calc(100% + 96px)' : 'calc(100% + 48px)',
+            marginLeft: isDesktop ? -48 : -24,
+            aspectRatio: isDesktop ? '16 / 7' : '16 / 10',
             background: 'linear-gradient(135deg, #d6dff0 0%, #c4d3e4 100%)',
             borderRadius: 0,
             overflow: 'hidden',
@@ -79,17 +91,20 @@ export default function LandingPage() {
           </div>
         </section>
 
+      {/* Content container for everything after hero */}
+      <div style={{ maxWidth: isDesktop ? undefined : 480, margin: '0 auto' }}>
+
         {/* CTA */}
-        <div style={{ textAlign: 'center' as const, padding: '20px 24px 0', position: 'relative', zIndex: 1 }}>
+        <div style={{ textAlign: 'center' as const, padding: '20px 24px 0', position: 'relative', zIndex: 1, maxWidth: isDesktop ? 1120 : undefined, margin: isDesktop ? '0 auto' : undefined }}>
           <button
             onClick={() => navigate('/enquiry/form?from=hero')}
             style={{
-              padding: '13px 36px',
+              padding: isDesktop ? '16px 48px' : '13px 36px',
               background: '#1a1a8e',
               color: '#fff',
               border: 'none',
               borderRadius: 50,
-              fontSize: 14,
+              fontSize: isDesktop ? 16 : 14,
               fontWeight: 700,
               cursor: 'pointer',
               fontFamily: 'inherit',
@@ -103,13 +118,14 @@ export default function LandingPage() {
 
         {/* ── Story ── */}
         <section style={{
-          margin: '20px 16px 0',
-          padding: '32px 24px 36px',
+          margin: isDesktop ? '32px auto 0' : '20px 16px 0',
+          padding: isDesktop ? '48px 56px 52px' : '32px 24px 36px',
           background: '#fff',
           borderRadius: 16,
           boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
           lineHeight: 1.9,
-          fontSize: 19,
+          fontSize: isDesktop ? 20 : 19,
+          maxWidth: isDesktop ? 680 : undefined,
           color: '#475569',
           textAlign: 'center' as const,
         }}>
@@ -228,7 +244,7 @@ export default function LandingPage() {
 
         {/* ── How We Do It ── */}
         <section style={{
-          padding: '48px 24px',
+          padding: isDesktop ? '64px 24px' : '48px 24px',
           textAlign: 'center' as const,
           background: 'linear-gradient(180deg, #2d2a6e 0%, #1e1b54 100%)',
         }}>
@@ -282,7 +298,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── Detail Sections (Cards) ── */}
-        <div style={{ padding: '20px 16px 0', display: 'flex', flexDirection: 'column' as const, gap: 16 }}>
+        <div style={{ padding: '20px 16px 0', display: 'flex', flexDirection: 'column' as const, gap: 16, maxWidth: isDesktop ? 1120 : undefined, margin: isDesktop ? '0 auto' : undefined }}>
 
           {/* 1. 探索式学习 */}
           <section style={{
@@ -622,7 +638,7 @@ export default function LandingPage() {
 
         {/* ── Transition Section ── */}
         <section style={{
-          padding: '48px 24px',
+          padding: isDesktop ? '64px 24px' : '48px 24px',
           textAlign: 'center' as const,
           background: 'linear-gradient(180deg, #2d2a6e 0%, #1e1b54 100%)',
           color: 'rgba(255,255,255,0.7)',
@@ -672,12 +688,14 @@ export default function LandingPage() {
         <section style={{
           padding: '40px 0',
           textAlign: 'center' as const,
+          maxWidth: isDesktop ? 1120 : undefined,
+          margin: isDesktop ? '0 auto' : undefined,
         }}>
-          <h2 style={{ margin: '0 0 28px', fontSize: 22, fontWeight: 700, color: '#1e293b' }}>
+          <h2 style={{ margin: '0 0 28px', fontSize: isDesktop ? 28 : 22, fontWeight: 700, color: '#1e293b' }}>
             家长的分享
           </h2>
 
-          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 20, padding: '0 24px' }}>
+          <div style={{ display: isDesktop ? 'grid' : 'flex', gridTemplateColumns: isDesktop ? '1fr 1fr' : undefined, flexDirection: isDesktop ? undefined : 'column' as const, gap: isDesktop ? 24 : 20, padding: isDesktop ? '0 32px' : '0 24px' }}>
             {testimonials.map((item, i) => (
               <div key={i}>
                 <p style={{
@@ -707,7 +725,7 @@ export default function LandingPage() {
         {/* Dark CTA section after testimonials */}
         <section style={{
           background: 'linear-gradient(160deg, #1a1a5e 0%, #2d2d8a 100%)',
-          padding: '56px 24px',
+          padding: isDesktop ? '72px 24px' : '56px 24px',
           textAlign: 'center' as const,
           color: '#fff',
         }}>
@@ -755,6 +773,7 @@ export default function LandingPage() {
 
         {/* Bottom spacer */}
         <div style={{ height: 32 }} />
+      </div>
       </div>
     </div>
   );
