@@ -174,7 +174,7 @@ export default function Navbar() {
         </div>
 
         {/* Settings dropdown — admin only */}
-        {user?.role === 'ADMIN' && (
+        {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
           <div ref={mobile ? undefined : settingsRef} style={mobile ? {} : { position: 'relative' }}>
             <button onClick={() => setSettingsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
               style={{ ...mDropBtn, ...(onSettingsRoute && !mobile ? styles.activeLink : {}), ...(onSettingsRoute && mobile ? mLinkActive : {}) }}>
