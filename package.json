@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && rm -rf public_html && cp -r dist public_html",
+    "build": "tsc && vite build",
     "build:test": "tsc && vite build --mode test && rm -rf public_html && cp -r dist public_html",
     "preview": "vite preview",
     "test": "tsc && vite build",
