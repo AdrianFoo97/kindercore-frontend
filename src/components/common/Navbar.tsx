@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function Navbar() {
@@ -18,6 +18,7 @@ export default function Navbar() {
   const [studentsOpen, setStudentsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [whatsappModal, setWhatsappModal] = useState(false);
   const [waPhone, setWaPhone] = useState('');
   const [waMessage, setWaMessage] = useState('');
@@ -28,7 +29,9 @@ export default function Navbar() {
   const studentsRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const devRef = useRef<HTMLDivElement>(null);
+  const adminRef = useRef<HTMLDivElement>(null);
   const onToolsRoute = !!useMatch('/tools/*');
+  const onAdminRoute = !!useMatch('/settings/users');
   const onDevRoute = !!useMatch('/settings/test/*');
   const onAnalysisRoute = !!useMatch('/analysis/*');
   const onSettingsRoute = !!useMatch('/settings/*');
@@ -57,6 +60,7 @@ export default function Navbar() {
       if (studentsRef.current && !studentsRef.current.contains(e.target as Node)) setStudentsOpen(false);
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
       if (devRef.current && !devRef.current.contains(e.target as Node)) setDevOpen(false);
+      if (adminRef.current && !adminRef.current.contains(e.target as Node)) setAdminOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -71,7 +75,7 @@ export default function Navbar() {
   // Close mobile menu on navigate
   useEffect(() => { setMobileMenuOpen(false); }, [isMobile]);
 
-  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setToolsOpen(false); setDevOpen(false); };
+  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
 
   // Shared nav items renderer (used for both desktop and mobile drawer)
   const renderNavItems = (mobile = false) => {
@@ -233,8 +237,31 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* Dev tools — development only */}
-        {import.meta.env.DEV && (
+        {/* Admin dropdown — ADMIN+ only */}
+        {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
+          <div ref={mobile ? undefined : adminRef} style={mobile ? {} : { position: 'relative' }}>
+            <button onClick={() => setAdminOpen(o => !o)} className={mobile ? '' : 'nav-link'}
+              style={{ ...mDropBtn, ...(onAdminRoute && !mobile ? styles.activeLink : {}), ...(onAdminRoute && mobile ? mLinkActive : {}) }}>
+              Admin {mobile ? (adminOpen ? '−' : '+') : '▾'}
+            </button>
+            {adminOpen && (
+              <div style={mobile ? { ...mPanel } : { position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#fff', borderRadius: 10, boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)', minWidth: 200, zIndex: 100, padding: '6px', border: '1px solid #e8eaed' }}>
+                <NavLink to="/settings/users" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
+                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
+                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
+                  })}>
+                  <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8' }} /> Manage Users
+                </NavLink>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Dev tools — SUPERADMIN only */}
+        {user?.role === 'SUPERADMIN' && (
           <div ref={mobile ? undefined : devRef} style={mobile ? {} : { position: 'relative' }}>
             <button onClick={() => setDevOpen(o => !o)} className={mobile ? '' : 'nav-link'}
               style={{ ...mDropBtn, ...(onDevRoute && !mobile ? { ...styles.activeLink } : {}), ...(mobile ? {} : { color: '#fde68a' }) }}>
