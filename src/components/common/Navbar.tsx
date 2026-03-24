@@ -23,7 +23,7 @@ export default function Navbar() {
   const [waPhone, setWaPhone] = useState('');
   const [waMessage, setWaMessage] = useState('');
   const [waTemplate, setWaTemplate] = useState('none');
-  const [waLang, setWaLang] = useState<'en' | 'zh'>('en');
+  const [waLang, setWaLang] = useState<'en' | 'zh'>('zh');
   const analysisRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const studentsRef = useRef<HTMLDivElement>(null);
@@ -152,7 +152,7 @@ export default function Navbar() {
               <button
                 className={mobile ? '' : 'nav-drop-item'}
                 style={{ ...mPanelItem, width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' as const, background: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10 }}
-                onClick={() => { closeAll(); setWaPhone(''); setWaMessage(''); setWaTemplate('none'); setWaLang('en'); setWhatsappModal(true); }}>
+                onClick={() => { closeAll(); setWaPhone(''); setWaMessage(''); setWaTemplate('none'); setWaLang('zh'); setWhatsappModal(true); }}>
                 <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 14, color: '#25D366', width: 16 }} />
                 WhatsApp
               </button>
@@ -403,21 +403,6 @@ export default function Navbar() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
                   <label style={{ fontSize: 11, fontWeight: 600, color: '#8893a7', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Message</label>
                   <div style={{ flex: 1 }} />
-                  <select
-                    value={waTemplate}
-                    onChange={e => {
-                      const id = e.target.value;
-                      setWaTemplate(id);
-                      if (id !== 'none') {
-                        const tpl = waTemplates.find(t => t.id === id);
-                        if (tpl) setWaMessage(waLang === 'zh' ? tpl.zh : tpl.en);
-                      }
-                    }}
-                    style={{ padding: '3px 8px', border: '1px solid #e2e8f0', borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: '#fff', color: '#475569' }}
-                  >
-                    <option value="none">No template</option>
-                    {waTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
                   {waTemplate !== 'none' && (() => {
                     const tpl = waTemplates.find(t => t.id === waTemplate);
                     return tpl?.zh ? (
@@ -433,6 +418,21 @@ export default function Navbar() {
                       </div>
                     ) : null;
                   })()}
+                  <select
+                    value={waTemplate}
+                    onChange={e => {
+                      const id = e.target.value;
+                      setWaTemplate(id);
+                      if (id !== 'none') {
+                        const tpl = waTemplates.find(t => t.id === id);
+                        if (tpl) setWaMessage(waLang === 'zh' ? tpl.zh : tpl.en);
+                      }
+                    }}
+                    style={{ padding: '3px 8px', border: '1px solid #e2e8f0', borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: '#fff', color: '#475569' }}
+                  >
+                    <option value="none">No template</option>
+                    {waTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
                 </div>
                 <textarea
                   placeholder="Type your message..."

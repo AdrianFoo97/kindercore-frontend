@@ -51,7 +51,7 @@ function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, onSave,
   const [draftName, setDraftName] = useState(name);
   const [draftEn, setDraftEn] = useState(contentEn);
   const [draftZh, setDraftZh] = useState(contentZh);
-  const [lang, setLang] = useState<'en' | 'zh'>('en');
+  const [lang, setLang] = useState<'en' | 'zh'>('zh');
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   const insertPlaceholder = (placeholder: string) => {

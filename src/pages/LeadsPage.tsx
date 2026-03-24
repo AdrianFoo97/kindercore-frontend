@@ -668,7 +668,7 @@ function AppointmentModal({
   const [messageEdited, setMessageEdited] = useState(false);
   const [messageZh, setMessageZh] = useState(() => waTemplateZh ? applyWaTemplate(waTemplateZh, lead.childName, initialDateTime, address, durationMinutes) : '');
   const [messageZhEdited, setMessageZhEdited] = useState(false);
-  const [lang, setLang] = useState<'en' | 'zh'>('en');
+  const [lang, setLang] = useState<'en' | 'zh'>('zh');
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
   const { data: googleStatus } = useQuery({ queryKey: ['google-status'], queryFn: () => import('../api/google.js').then(m => m.getGoogleStatus()), staleTime: 60_000 });
@@ -822,7 +822,7 @@ function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, 
   contact: WhatsAppContact; defaultTemplate?: string; templates: WaTemplateOption[]; address: string; durationMinutes: number; onClose: () => void;
 }) {
   const [templateId, setTemplateId] = useState(defaultTemplate);
-  const [lang, setLang] = useState<'en' | 'zh'>('en');
+  const [lang, setLang] = useState<'en' | 'zh'>('zh');
   const [edited, setEdited] = useState<Record<string, boolean>>({});
 
   const resolve = (id: string, l: 'en' | 'zh') => {
@@ -2736,7 +2736,7 @@ const mo: Record<string, React.CSSProperties> = {
 
 const am: Record<string, React.CSSProperties> = {
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  card: { background: '#fff', borderRadius: 12, padding: 28, maxWidth: 500, boxShadow: '0 8px 40px rgba(0,0,0,0.25)', boxSizing: 'border-box' },
+  card: { background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 560, boxShadow: '0 8px 40px rgba(0,0,0,0.25)', boxSizing: 'border-box' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   title: { margin: 0, fontSize: 18, fontWeight: 700, color: '#1a202c' },
   subtitle: { margin: '4px 0 0', fontSize: 13, color: '#718096' },
