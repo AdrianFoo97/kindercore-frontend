@@ -129,6 +129,7 @@ function ActionMenu({
   onComplete,
   onCompleteAll,
   allDone,
+  hasTasks,
 }: {
   onViewTasks: () => void;
   onEdit: () => void;
@@ -136,6 +137,7 @@ function ActionMenu({
   onComplete: () => void;
   onCompleteAll: () => void;
   allDone: boolean;
+  hasTasks: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -196,18 +198,16 @@ function ActionMenu({
           <div style={{ padding: '2px 4px' }}>
             {menuItem(faWhatsapp, 'WhatsApp Parent', onWhatsApp)}
           </div>
-          {!allDone && (<>
+          {hasTasks && !allDone && (<>
             {sep}
             <div style={{ padding: '2px 4px' }}>
               {menuItem(faCheck, 'Complete All Tasks', onCompleteAll)}
             </div>
           </>)}
-          {allDone && (<>
-            {sep}
-            <div style={{ padding: '2px 4px' }}>
-              {menuItem(faCircleCheck, 'Complete Onboarding', onComplete)}
-            </div>
-          </>)}
+          {sep}
+          <div style={{ padding: '2px 4px' }}>
+            {menuItem(faCircleCheck, 'Complete Onboarding', onComplete)}
+          </div>
         </div>
       )}
     </div>
@@ -306,6 +306,7 @@ function StudentOnboardingCard({
             onComplete={onConfirmComplete}
             onCompleteAll={onCompleteAll}
             allDone={allDone}
+            hasTasks={total > 0}
           />
         )}
 
