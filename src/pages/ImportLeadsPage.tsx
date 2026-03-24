@@ -467,8 +467,9 @@ async function tryCreateStudent(leadId: string, row: ParsedRow, packages: Packag
       if (student.onboardingProgress && student.onboardingProgress.length > 0) {
         const allDone = student.onboardingProgress.map((t: { task: string; done: boolean }) => ({ ...t, done: true }));
         await patchOnboardingProgress(student.id, allDone);
-        await completeOnboarding(student.id);
       }
+      // Always complete onboarding for past enrolments
+      await completeOnboarding(student.id);
     }
   } catch {
     // Ignore — student may already exist for this lead
