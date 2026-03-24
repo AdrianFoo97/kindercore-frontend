@@ -464,8 +464,11 @@ async function tryCreateStudent(leadId: string, row: ParsedRow, packages: Packag
       await updateStudent(student.id, { startDate: startDate.toISOString().slice(0, 10) });
 
       // Mark all onboarding tasks as completed
-      if (student.onboardingProgress && student.onboardingProgress.length > 0) {
-        const allDone = student.onboardingProgress.map((t: { task: string; done: boolean }) => ({ ...t, done: true }));
+      const progress: Array<{ task: string; done: boolean }> = typeof student.onboardingProgress === 'string'
+        ? JSON.parse(student.onboardingProgress)
+        : (Array.isArray(student.onboardingProgress) ? student.onboardingProgress : []);
+      if (progress.length > 0) {
+        const allDone = progress.map(t => ({ ...t, done: true }));
         await patchOnboardingProgress(student.id, allDone);
       }
       // Always complete onboarding for past enrolments
