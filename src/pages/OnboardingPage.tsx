@@ -198,16 +198,18 @@ function ActionMenu({
           <div style={{ padding: '2px 4px' }}>
             {menuItem(faWhatsapp, 'WhatsApp Parent', onWhatsApp)}
           </div>
-          {hasTasks && !allDone && (<>
+          {!allDone && (<>
             {sep}
             <div style={{ padding: '2px 4px' }}>
               {menuItem(faCheck, 'Complete All Tasks', onCompleteAll)}
             </div>
           </>)}
-          {sep}
-          <div style={{ padding: '2px 4px' }}>
-            {menuItem(faCircleCheck, 'Complete Onboarding', onComplete)}
-          </div>
+          {allDone && (<>
+            {sep}
+            <div style={{ padding: '2px 4px' }}>
+              {menuItem(faCircleCheck, 'Complete Onboarding', onComplete)}
+            </div>
+          </>)}
         </div>
       )}
     </div>
@@ -754,8 +756,8 @@ export default function OnboardingPage() {
       invalidateStudents();
       setSuccessMsg(`${s.lead.childName} has been marked as fully onboarded.`);
       setTimeout(() => setSuccessMsg(null), 5000);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Complete onboarding failed:', err);
     } finally {
       setCompleting(null);
     }
@@ -900,6 +902,9 @@ export default function OnboardingPage() {
                   if (tasks.length > 0) {
                     const allDone = tasks.map(t => ({ ...t, done: true }));
                     await patchOnboardingProgress(s.id, allDone);
+                  } else {
+                    // No tasks configured — directly complete onboarding
+                    await completeOnboarding(s.id);
                   }
                   invalidateStudents();
                 }}
