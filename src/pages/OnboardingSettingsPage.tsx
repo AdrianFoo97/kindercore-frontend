@@ -14,7 +14,7 @@ export default function OnboardingSettingsPage() {
 
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
   const tasks: string[] = Array.isArray(data?.onboarding_tasks) ? (data.onboarding_tasks as string[]) : [];
 

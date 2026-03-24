@@ -756,8 +756,8 @@ export default function OnboardingPage() {
       invalidateStudents();
       setSuccessMsg(`${s.lead.childName} has been marked as fully onboarded.`);
       setTimeout(() => setSuccessMsg(null), 5000);
-    } catch (err) {
-      console.error('Complete onboarding failed:', err);
+    } catch {
+      // ignore
     } finally {
       setCompleting(null);
     }
