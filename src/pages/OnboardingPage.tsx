@@ -349,6 +349,7 @@ function StudentOnboardingCard({
               onComplete={onConfirmComplete}
               onCompleteAll={onCompleteAll}
               allDone={allDone}
+              hasTasks={total > 0}
             />
           </div>
         )}
