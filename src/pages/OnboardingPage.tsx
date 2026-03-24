@@ -898,12 +898,12 @@ export default function OnboardingPage() {
                 onWhatsApp={() => setWaStudent(s)}
                 onConfirmComplete={() => setConfirmStudent(s)}
                 onCompleteAll={async () => {
-                  const tasks: Array<{ task: string; done: boolean }> = Array.isArray(s.onboardingProgress) ? s.onboardingProgress : [];
+                  const raw = s.onboardingProgress;
+                  const tasks: Array<{ task: string; done: boolean }> = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
                   if (tasks.length > 0) {
                     const allDone = tasks.map(t => ({ ...t, done: true }));
                     await patchOnboardingProgress(s.id, allDone);
                   } else {
-                    // No tasks configured — directly complete onboarding
                     await completeOnboarding(s.id);
                   }
                   invalidateStudents();
