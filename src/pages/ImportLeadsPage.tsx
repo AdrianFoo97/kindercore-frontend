@@ -469,10 +469,17 @@ async function tryCreateStudent(leadId: string, row: ParsedRow, packages: Packag
         await patchOnboardingProgress(student.id, allDone);
       }
       // Always complete onboarding for past enrolments
-      await completeOnboarding(student.id);
+      try {
+        await completeOnboarding(student.id);
+        console.log(`[Import] Completed onboarding for ${row.childName}`);
+      } catch (e) {
+        console.error(`[Import] Failed to complete onboarding for ${row.childName}:`, e);
+      }
+    } else {
+      console.log(`[Import] Current year enrolment, skipping onboarding completion for ${row.childName}`);
     }
-  } catch {
-    // Ignore — student may already exist for this lead
+  } catch (err) {
+    console.error(`[Import] Failed to create student for ${row.childName}:`, err);
   }
 }
 
