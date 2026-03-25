@@ -1534,16 +1534,17 @@ function EnrollmentModal({ lead, onClose, onEnrolled }: { lead: Lead; onClose: (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <label style={mo.label}>Payment Date<input type="date" style={mo.input} value={paymentDate} onChange={e => setPaymentDate(e.target.value)} required /></label>
           <label style={mo.label}>
+            First Day of School
+            <input type="date" style={mo.input} value={startDate} onChange={e => setStartDate(e.target.value)} required />
+          </label>
+          <label style={mo.label}>
             Package
             {loadingPkgs ? <span style={{ fontSize: 13, color: '#a0aec0', marginTop: 4 }}>Loading…</span>
-              : packages.length === 0 ? <span style={{ fontSize: 13, color: '#e53e3e', marginTop: 4 }}>No packages for {enrolmentYear}.</span>
+              : packages.length === 0
+                ? <select style={{ ...mo.input, opacity: 0.5, cursor: 'not-allowed' }} disabled><option>No packages for {enrolmentYear}</option></select>
               : <select style={mo.input} value={selectedPackageId} onChange={e => setSelectedPackageId(e.target.value)}>
                   {packages.map((p: Package) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>}
-          </label>
-          <label style={mo.label}>
-            First Day of School
-            <input type="date" style={mo.input} value={startDate} onChange={e => setStartDate(e.target.value)} required />
           </label>
           <label style={mo.label}>Notes<textarea style={{ ...mo.input, height: 72, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" /></label>
         </div>

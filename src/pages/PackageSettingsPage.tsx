@@ -124,7 +124,7 @@ function AssignmentsEditor({
         )}
       </div>
       {editingId === pkg.id ? (
-        <input type="number" min="0" step="0.01" style={{ ...st.editInput, width: 90, textAlign: 'right' as const }} value={editingPrice}
+        <input type="number" min="0" step="0.01" placeholder="RM Fee" style={{ ...st.editInput, width: 100, textAlign: 'right' as const }} value={editingPrice}
           onChange={e => setEditingPrice(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') commitEdit(pkg.id); if (e.key === 'Escape') setEditingId(null); }}
         />
@@ -305,7 +305,7 @@ export default function PackageSettingsPage() {
   const { isMobile } = useIsMobile();
   const queryClient = useQueryClient();
   const raw = localStorage.getItem('user');
-  const isAdmin = raw ? (JSON.parse(raw) as { role: string }).role === 'ADMIN' : false;
+  const isAdmin = raw ? (JSON.parse(raw) as { role: string }).role === 'ADMIN' || (JSON.parse(raw) as { role: string }).role === 'SUPERADMIN' : false;
 
   const { data: config, isLoading: configLoading, isError } = useQuery({
     queryKey: ['packages-config'],

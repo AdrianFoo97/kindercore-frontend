@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function Navbar() {
@@ -16,6 +16,7 @@ export default function Navbar() {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [studentsOpen, setStudentsOpen] = useState(false);
+  const [opsOpen, setOpsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -27,9 +28,11 @@ export default function Navbar() {
   const analysisRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const studentsRef = useRef<HTMLDivElement>(null);
+  const opsRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const devRef = useRef<HTMLDivElement>(null);
   const adminRef = useRef<HTMLDivElement>(null);
+  const onOpsRoute = !!useMatch('/tools/operations-planner');
   const onToolsRoute = !!useMatch('/tools/*');
   const onAdminRoute = !!useMatch('/settings/users');
   const onDevRoute = !!useMatch('/settings/test/*');
@@ -58,6 +61,7 @@ export default function Navbar() {
       if (analysisRef.current && !analysisRef.current.contains(e.target as Node)) setAnalysisOpen(false);
       if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) setSettingsOpen(false);
       if (studentsRef.current && !studentsRef.current.contains(e.target as Node)) setStudentsOpen(false);
+      if (opsRef.current && !opsRef.current.contains(e.target as Node)) setOpsOpen(false);
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
       if (devRef.current && !devRef.current.contains(e.target as Node)) setDevOpen(false);
       if (adminRef.current && !adminRef.current.contains(e.target as Node)) setAdminOpen(false);
@@ -75,7 +79,7 @@ export default function Navbar() {
   // Close mobile menu on navigate
   useEffect(() => { setMobileMenuOpen(false); }, [isMobile]);
 
-  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
+  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setOpsOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
 
   // Shared nav items renderer (used for both desktop and mobile drawer)
   const renderNavItems = (mobile = false) => {
@@ -115,10 +119,16 @@ export default function Navbar() {
             <div style={mPanel}>
               <NavLink to="/students" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
-                style={({ isActive }) => ({ ...mPanelItem, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>Student List</NavLink>
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faUsers} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                All Students
+              </NavLink>
               <NavLink to="/onboarding" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
-                style={({ isActive }) => ({ ...mPanelItem, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>Onboarding</NavLink>
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Onboarding
+              </NavLink>
             </div>
           )}
         </div>
@@ -133,10 +143,34 @@ export default function Navbar() {
             <div style={mPanel}>
               <NavLink to="/analysis/sales-marketing" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
-                style={({ isActive }) => ({ ...mPanelItem, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>Marketing Analysis</NavLink>
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Marketing
+              </NavLink>
               <NavLink to="/analysis/sales" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
-                style={({ isActive }) => ({ ...mPanelItem, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>Sales Analysis</NavLink>
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faChartLine} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Sales
+              </NavLink>
+            </div>
+          )}
+        </div>
+
+        {/* Operations dropdown */}
+        <div ref={mobile ? undefined : opsRef} style={mobile ? {} : { position: 'relative' }}>
+          <button onClick={() => setOpsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
+            style={{ ...mDropBtn, ...(onOpsRoute && !mobile ? styles.activeLink : {}) }}>
+            Operations {mobile ? (opsOpen ? '−' : '+') : '▾'}
+          </button>
+          {opsOpen && (
+            <div style={mPanel}>
+              <NavLink to="/tools/operations-planner" className={mobile ? '' : 'nav-drop-item'}
+                style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                onClick={closeAll}>
+                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Planner
+              </NavLink>
             </div>
           )}
         </div>
@@ -144,7 +178,7 @@ export default function Navbar() {
         {/* Tools dropdown */}
         <div ref={mobile ? undefined : toolsRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setToolsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
-            style={{ ...mDropBtn, ...(onToolsRoute && !mobile ? styles.activeLink : {}) }}>
+            style={{ ...mDropBtn, ...(!onOpsRoute && onToolsRoute && !mobile ? styles.activeLink : {}) }}>
             Tools {mobile ? (toolsOpen ? '−' : '+') : '▾'}
           </button>
           {toolsOpen && (
@@ -163,12 +197,6 @@ export default function Navbar() {
                 <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 11, color: '#94a3b8', width: 16 }} />
                 Landing Page
               </button>
-              <NavLink to="/tools/operations-planner" className={mobile ? '' : 'nav-drop-item'}
-                style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
-                onClick={closeAll}>
-                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                Operations Planner
-              </NavLink>
             </div>
           )}
         </div>

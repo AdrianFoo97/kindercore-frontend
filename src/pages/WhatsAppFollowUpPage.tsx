@@ -51,7 +51,7 @@ export default function WhatsAppFollowUpPage() {
 
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
   const getValue = (field: FieldConfig): string => {
     if (drafts[field.key] !== undefined) return drafts[field.key]!;

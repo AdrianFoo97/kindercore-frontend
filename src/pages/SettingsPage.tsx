@@ -156,7 +156,7 @@ export default function SettingsPage() {
 
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
   if (isLoading) return <p style={styles.state}>Loading settings…</p>;
   if (isError) return <p style={{ ...styles.state, color: '#e53e3e' }}>Failed to load settings.</p>;

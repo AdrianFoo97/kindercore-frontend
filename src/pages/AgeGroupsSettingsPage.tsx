@@ -7,7 +7,7 @@ import { faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
 export default function AgeGroupsSettingsPage() {
   const queryClient = useQueryClient();
   const raw = localStorage.getItem('user');
-  const isAdmin = raw ? (JSON.parse(raw) as { role: string }).role === 'ADMIN' : false;
+  const isAdmin = raw ? (JSON.parse(raw) as { role: string }).role === 'ADMIN' || (JSON.parse(raw) as { role: string }).role === 'SUPERADMIN' : false;
 
   const { data: config, isLoading, isError } = useQuery({ queryKey: ['packages-config'], queryFn: fetchPackagesConfig });
   const ages: number[] = Array.isArray(config?.ages) ? config!.ages : [];

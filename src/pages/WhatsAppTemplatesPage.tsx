@@ -153,7 +153,7 @@ export default function WhatsAppTemplatesPage() {
 
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
   // Editing state: null = list view, { type, id } = editing
   const [editing, setEditing] = useState<{ type: 'system' | 'custom'; id: string } | null>(null);

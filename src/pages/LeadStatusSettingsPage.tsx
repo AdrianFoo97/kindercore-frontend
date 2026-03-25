@@ -311,7 +311,7 @@ export default function LeadStatusSettingsPage() {
 
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
   if (isLoading) return <p style={{ padding: 32, fontSize: 16, color: '#4a5568' }}>Loading settings…</p>;
   if (isError) return <p style={{ padding: 32, fontSize: 16, color: '#c47272' }}>Failed to load settings.</p>;

@@ -130,7 +130,7 @@ function PriceCell({ pkg, isAdmin, onSave, editingKey, onEditStart }: {
 export default function PackagesPage() {
   const queryClient = useQueryClient();
   const raw = localStorage.getItem('user');
-  const isAdmin = raw ? (JSON.parse(raw) as { role: string }).role === 'ADMIN' : false;
+  const isAdmin = raw ? (JSON.parse(raw) as { role: string }).role === 'ADMIN' || (JSON.parse(raw) as { role: string }).role === 'SUPERADMIN' : false;
 
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
   const [toast, setToast] = useState<string | null>(null);
