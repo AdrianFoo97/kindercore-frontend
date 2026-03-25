@@ -34,54 +34,97 @@ export default function LandingPage() {
 
         {/* ── Hero ── */}
         <section style={{
-          background: 'linear-gradient(170deg, #2d2a6e 0%, #4a5faa 45%, #5a8abf 100%)',
-          padding: isDesktop ? '60px 48px 0' : '40px 24px 0',
+          background: '#fff',
+          padding: isDesktop ? '48px 48px 0' : '36px 20px 0',
           borderRadius: 0,
           textAlign: 'center' as const,
+          position: 'relative',
+          overflow: 'hidden',
         }}>
           {/* Logo */}
-          <img src="/logo.png" alt="Ten Toes" style={{ height: isDesktop ? 64 : 48, marginBottom: isDesktop ? 28 : 20 }} />
+          <img src="/logo.png" alt="Ten Toes" style={{
+            height: isDesktop ? 48 : 36, marginBottom: isDesktop ? 32 : 24,
+          }} />
 
-          {/* Eyebrow */}
+          {/* Top context — whisper-quiet setup */}
           <p style={{
-            margin: '0 0 16px',
+            margin: '0 auto',
+            fontSize: isDesktop ? 15 : 13,
+            fontWeight: 400,
+            color: '#7a8494',
+            lineHeight: 2,
+          }}>
+            在这个AI时代，孩子缺的不再是知识。
+          </p>
+          <p style={{
+            margin: '4px auto 0',
             fontSize: isDesktop ? 14 : 12,
-            fontWeight: 500,
-            color: 'rgba(255,255,255,0.5)',
+            fontWeight: 400,
+            color: '#99a1ad',
+          }}>
+            而真正重要的是——
+          </p>
+
+          {/* Main headline — the anchor */}
+          <h1 style={{
+            margin: isDesktop ? '32px auto 0' : '22px auto 0',
+            fontSize: isDesktop ? 48 : 30,
+            fontWeight: 700,
+            color: '#1e2a78',
+            lineHeight: 1.5,
             letterSpacing: '2px',
           }}>
-            在孩子的成长过程中
-          </p>
-
-          {/* Headline */}
-          <h1 style={{
-            margin: '0 0 8px',
-            fontSize: isDesktop ? 28 : 20,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.85)',
-            lineHeight: 1.7,
-          }}>
-            孩子最需要的，不是答案
+            孩子会主动学习
             <br />
-            而是自己会
+            遇到问题也会自己解决
           </h1>
+
+          {/* Supporting — warm, human */}
           <p style={{
-            margin: '0 0 28px',
-            fontSize: isDesktop ? 36 : 26,
-            fontWeight: 800,
-            color: '#fff',
-            lineHeight: 1.6,
+            margin: isDesktop ? '20px auto 0' : '14px auto 0',
+            fontSize: isDesktop ? 17 : 14,
+            fontWeight: 400,
+            color: '#8b95a3',
+            lineHeight: 1.8,
           }}>
-            主动去问、去试、去找到答案
+            一步一步变得更独立
+            <br />
+            也更有信心面对挑战
           </p>
 
-          {/* Image */}
+          {/* CTA block */}
+          <div style={{ margin: isDesktop ? '32px 0 0' : '22px 0 0' }}>
+            <button
+              onClick={() => navigate('/enquiry/form?from=hero')}
+              style={{
+                padding: isDesktop ? '17px 52px' : '15px 40px',
+                background: 'linear-gradient(135deg, #1e2a78, #2d3f9e)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 50,
+                fontSize: isDesktop ? 17 : 15,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                letterSpacing: '1px',
+                boxShadow: '0 6px 28px rgba(30,42,120,0.22)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 36px rgba(30,42,120,0.32)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(30,42,120,0.22)'; }}
+            >
+              预约参观（园长1对1介绍）
+            </button>
+          </div>
+
+          {/* Spacer before image */}
+          <div style={{ height: isDesktop ? 40 : 28 }} />
+
+          {/* Hero image */}
           <div style={{
             width: isDesktop ? 'calc(100% + 96px)' : 'calc(100% + 48px)',
             marginLeft: isDesktop ? -48 : -24,
             aspectRatio: isDesktop ? '16 / 7' : '16 / 10',
-            background: 'linear-gradient(135deg, #d6dff0 0%, #c4d3e4 100%)',
-            borderRadius: 0,
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
@@ -93,28 +136,6 @@ export default function LandingPage() {
 
       {/* Content container for everything after hero */}
       <div style={{ maxWidth: isDesktop ? undefined : 480, margin: '0 auto' }}>
-
-        {/* CTA */}
-        <div style={{ textAlign: 'center' as const, padding: '20px 24px 0', position: 'relative', zIndex: 1, maxWidth: isDesktop ? 1120 : undefined, margin: isDesktop ? '0 auto' : undefined }}>
-          <button
-            onClick={() => navigate('/enquiry/form?from=hero')}
-            style={{
-              padding: isDesktop ? '16px 48px' : '13px 36px',
-              background: '#1a1a8e',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 50,
-              fontSize: isDesktop ? 16 : 14,
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              letterSpacing: '1px',
-              boxShadow: '0 4px 16px rgba(60, 51, 154, 0.25)',
-            }}
-          >
-            预约参观学校
-          </button>
-        </div>
 
         {/* ── Story ── */}
         <section style={{
