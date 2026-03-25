@@ -43,24 +43,24 @@ export default function LandingPage() {
         }}>
           {/* Logo */}
           <img src="/logo.png" alt="Ten Toes" style={{
-            height: isDesktop ? 48 : 36, marginBottom: isDesktop ? 32 : 24,
+            height: isDesktop ? 72 : 52, marginBottom: isDesktop ? 36 : 28,
           }} />
 
           {/* Top context — whisper-quiet setup */}
           <p style={{
             margin: '0 auto',
-            fontSize: isDesktop ? 15 : 13,
+            fontSize: isDesktop ? 20 : 16,
             fontWeight: 400,
-            color: '#7a8494',
+            color: '#5c6678',
             lineHeight: 2,
           }}>
             在这个AI时代，孩子缺的不再是知识。
           </p>
           <p style={{
             margin: '4px auto 0',
-            fontSize: isDesktop ? 14 : 12,
+            fontSize: isDesktop ? 18 : 15,
             fontWeight: 400,
-            color: '#99a1ad',
+            color: '#7a8494',
           }}>
             而真正重要的是——
           </p>
@@ -82,9 +82,9 @@ export default function LandingPage() {
           {/* Supporting — warm, human */}
           <p style={{
             margin: isDesktop ? '20px auto 0' : '14px auto 0',
-            fontSize: isDesktop ? 17 : 14,
+            fontSize: isDesktop ? 22 : 17,
             fontWeight: 400,
-            color: '#8b95a3',
+            color: '#5c6678',
             lineHeight: 1.8,
           }}>
             一步一步变得更独立
