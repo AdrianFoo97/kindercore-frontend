@@ -46,28 +46,28 @@ export default function LandingPage() {
             height: isDesktop ? 72 : 52, marginBottom: isDesktop ? 36 : 28,
           }} />
 
-          {/* Top context — whisper-quiet setup */}
+          {/* Top context */}
           <p style={{
             margin: '0 auto',
-            fontSize: isDesktop ? 20 : 16,
+            fontSize: isDesktop ? 16 : 14,
             fontWeight: 400,
-            color: '#5c6678',
-            lineHeight: 2,
+            color: '#8b95a3',
+            lineHeight: 2.2,
           }}>
             在这个AI时代，孩子缺的不再是知识。
           </p>
           <p style={{
-            margin: '4px auto 0',
-            fontSize: isDesktop ? 18 : 15,
+            margin: isDesktop ? '4px auto 0' : '2px auto 0',
+            fontSize: isDesktop ? 15 : 13,
             fontWeight: 400,
-            color: '#7a8494',
+            color: '#a3acb8',
           }}>
             而真正重要的是——
           </p>
 
-          {/* Main headline — the anchor */}
+          {/* Main headline */}
           <h1 style={{
-            margin: isDesktop ? '32px auto 0' : '22px auto 0',
+            margin: isDesktop ? '32px auto 0' : '24px auto 0',
             fontSize: isDesktop ? 48 : 30,
             fontWeight: 700,
             color: '#1e2a78',
@@ -76,49 +76,58 @@ export default function LandingPage() {
           }}>
             孩子会主动学习
             <br />
-            遇到问题也会自己解决
+            遇到问题也能自己解决
           </h1>
 
-          {/* Supporting — warm, human */}
+          {/* Supporting */}
           <p style={{
-            margin: isDesktop ? '20px auto 0' : '14px auto 0',
-            fontSize: isDesktop ? 22 : 17,
+            margin: isDesktop ? '24px auto 0' : '16px auto 0',
+            fontSize: isDesktop ? 18 : 15,
             fontWeight: 400,
-            color: '#5c6678',
-            lineHeight: 1.8,
+            color: '#6b7280',
+            lineHeight: 2,
           }}>
-            一步一步变得更独立
+            会主动去问、去尝试，
             <br />
-            也更有信心面对挑战
+            一步一步找到答案。
           </p>
 
-          {/* CTA block */}
-          <div style={{ margin: isDesktop ? '32px 0 0' : '22px 0 0' }}>
+          {/* Conclusion */}
+          <p style={{
+            margin: isDesktop ? '16px auto 0' : '10px auto 0',
+            fontSize: isDesktop ? 26 : 19,
+            fontWeight: 700,
+            color: '#9b2c2c',
+            lineHeight: 1.6,
+            letterSpacing: '1px',
+          }}>
+            最终能独立解决问题。
+          </p>
+
+          {/* CTA */}
+          <div style={{ margin: isDesktop ? '36px 0 44px' : '28px 0 32px' }}>
             <button
               onClick={() => navigate('/enquiry/form?from=hero')}
               style={{
-                padding: isDesktop ? '17px 52px' : '15px 40px',
-                background: 'linear-gradient(135deg, #1e2a78, #2d3f9e)',
+                padding: isDesktop ? '16px 48px' : '15px 40px',
+                background: '#1e2a78',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 50,
-                fontSize: isDesktop ? 17 : 15,
+                fontSize: isDesktop ? 16 : 15,
                 fontWeight: 700,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 letterSpacing: '1px',
-                boxShadow: '0 6px 28px rgba(30,42,120,0.22)',
+                boxShadow: '0 4px 24px rgba(30,42,120,0.2)',
                 transition: 'transform 0.2s, box-shadow 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 36px rgba(30,42,120,0.32)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(30,42,120,0.22)'; }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(30,42,120,0.3)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(30,42,120,0.2)'; }}
             >
-              预约参观（园长1对1介绍）
+              预约参观
             </button>
           </div>
-
-          {/* Spacer before image */}
-          <div style={{ height: isDesktop ? 40 : 28 }} />
 
           {/* Hero image */}
           <div style={{
