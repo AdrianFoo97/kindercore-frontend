@@ -2188,11 +2188,11 @@ export default function LeadsPage() {
                           </button>
                           <div style={{ position: 'relative' as const }}>
                             <button
-                              onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === `trash-${lead.id}` ? null : `trash-${lead.id}`); }}
+                              onClick={e => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right }); setMenuOpenId(menuOpenId === `trash-${lead.id}` ? null : `trash-${lead.id}`); }}
                               style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '3px 9px', fontSize: 15, color: '#718096', lineHeight: 1 }}
                             >⋮</button>
                             {menuOpenId === `trash-${lead.id}` && (
-                              <div onClick={e => e.stopPropagation()} style={{ position: 'absolute' as const, right: 0, top: '100%', zIndex: 200, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', minWidth: 160, padding: 4 }}>
+                              <div onClick={e => e.stopPropagation()} style={{ position: 'fixed' as const, top: menuPos.top, right: menuPos.right, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', minWidth: 160, padding: 4 }}>
                                 <button
                                   onClick={() => {
                                     setMenuOpenId(null);
