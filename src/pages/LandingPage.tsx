@@ -49,7 +49,7 @@ export default function LandingPage() {
           {/* Top — hook */}
           <p style={{
             margin: '0 auto',
-            fontSize: isDesktop ? 20 : 17,
+            fontSize: isDesktop ? 22 : 17,
             fontWeight: 400,
             color: '#4b5563',
             lineHeight: 1.9,
@@ -59,7 +59,7 @@ export default function LandingPage() {
           </p>
           <p style={{
             margin: isDesktop ? '12px auto 0' : '8px auto 0',
-            fontSize: isDesktop ? 26 : 20,
+            fontSize: isDesktop ? 30 : 23,
             fontWeight: 700,
             color: '#1e2a78',
             lineHeight: 1.7,
@@ -71,34 +71,37 @@ export default function LandingPage() {
           </p>
 
           {/* Middle — contrast */}
-          <p style={{
-            margin: isDesktop ? '48px auto 0' : '36px auto 0',
-            fontSize: isDesktop ? 18 : 16,
-            fontWeight: 400,
-            color: '#4b5563',
-            lineHeight: 1.8,
-          }}>
-            有些孩子习惯等待答案，
-          </p>
-          <p style={{
-            margin: '0 auto',
-            fontSize: isDesktop ? 18 : 16,
-            fontWeight: 400,
-            color: '#4b5563',
-            lineHeight: 1.8,
-          }}>
-            也有些孩子，<span style={{ fontWeight: 700 }}>会主动去探索、尝试，</span>
-            <br />
-            <span style={{ fontWeight: 700 }}>去推开未知的大门。</span>
-          </p>
-
-          {/* Hero image */}
           <div style={{
-            margin: isDesktop ? '36px auto 0' : '28px auto 0',
-            maxWidth: isDesktop ? 520 : undefined,
-            borderRadius: 0,
+            margin: isDesktop ? '44px auto 0' : '32px auto 0',
+            maxWidth: isDesktop ? 480 : undefined,
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: isDesktop ? 19 : 17,
+              fontWeight: 400,
+              color: '#6b7280',
+              lineHeight: 2,
+            }}>
+              有些孩子习惯等待答案，
+            </p>
+            <p style={{
+              margin: isDesktop ? '6px auto 0' : '4px auto 0',
+              fontSize: isDesktop ? 19 : 17,
+              fontWeight: 500,
+              color: '#4b5563',
+              lineHeight: 1.9,
+            }}>
+              也有些孩子，<span style={{ fontWeight: 700 }}>会主动去探索、尝试，</span>
+              <br />
+              <span style={{ fontWeight: 700 }}>去推开未知的大门。</span>
+            </p>
+          </div>
+
+          {/* Hero image — full bleed */}
+          <div style={{
+            margin: isDesktop ? '36px auto 0' : '28px -20px 0',
+            maxWidth: isDesktop ? 560 : undefined,
             overflow: 'hidden',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.1)',
           }}>
             <img src="/hero.jpg" alt="孩子在探索学习" style={{
               width: '100%',
@@ -108,44 +111,36 @@ export default function LandingPage() {
 
           {/* Focus */}
           <div style={{
-            margin: isDesktop ? '28px auto 0' : '20px auto 0',
-            maxWidth: isDesktop ? 520 : undefined,
+            margin: isDesktop ? '36px auto 0' : '28px auto 0',
+            maxWidth: isDesktop ? 480 : undefined,
           }}>
             <p style={{
               margin: 0,
               fontSize: isDesktop ? 17 : 15,
               fontWeight: 500,
-              color: '#4b5563',
+              color: '#6b7280',
               lineHeight: 1.8,
-              letterSpacing: '1px',
+              letterSpacing: '2px',
             }}>
               这，就是我们正栽培的孩子：
             </p>
             <div style={{
-              margin: isDesktop ? '20px auto 0' : '16px auto 0',
-              padding: isDesktop ? '24px 32px' : '20px 24px',
-              background: 'linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%)',
-              borderRadius: 16,
-              borderLeft: '4px solid #1e2a78',
+              margin: isDesktop ? '16px auto 0' : '12px auto 0',
+              padding: isDesktop ? '28px 32px' : '24px 20px',
+              background: '#f8f9ff',
+              borderRadius: 12,
+              borderLeft: '3px solid #1e2a78',
             }}>
               <p style={{
                 margin: 0,
-                fontSize: isDesktop ? 24 : 20,
+                fontSize: isDesktop ? 26 : 22,
                 fontWeight: 700,
                 color: '#1e2a78',
-                lineHeight: 1.8,
+                lineHeight: 1.9,
                 letterSpacing: '1px',
               }}>
                 好奇地问，不断地试，
-              </p>
-              <p style={{
-                margin: 0,
-                fontSize: isDesktop ? 24 : 20,
-                fontWeight: 700,
-                color: '#1e2a78',
-                lineHeight: 1.8,
-                letterSpacing: '1.5px',
-              }}>
+                <br />
                 在思考中，
                 <br />
                 一步步找到自己的答案。
@@ -153,29 +148,29 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Secondary text */}
+          {/* Conclusion */}
           <p style={{
-            margin: isDesktop ? '40px auto 0' : '32px auto 0',
-            fontSize: isDesktop ? 22 : 18,
+            margin: isDesktop ? '48px auto 0' : '40px auto 0',
+            fontSize: isDesktop ? 22 : 19,
             fontWeight: 700,
-            color: '#b91c1c',
+            color: '#4b5563',
             lineHeight: 1.8,
-            letterSpacing: '1px',
+            letterSpacing: '1.5px',
           }}>
-            最终学会如何学习
+            最终学会<span style={{ color: '#b91c1c' }}>"如何学习"</span>
           </p>
 
           {/* Bottom CTA */}
-          <div style={{ margin: isDesktop ? '40px 0 52px' : '32px 0 40px', textAlign: 'center' as const }}>
+          <div style={{ margin: isDesktop ? '48px 0 52px' : '40px 0 40px', textAlign: 'center' as const }}>
             <button
               onClick={() => navigate('/enquiry/form?from=hero')}
               style={{
-                padding: isDesktop ? '18px 56px' : '16px 44px',
+                padding: isDesktop ? '18px 52px' : '16px 40px',
                 background: '#1e2a78',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 50,
-                fontSize: isDesktop ? 18 : 16,
+                fontSize: isDesktop ? 17 : 15,
                 fontWeight: 700,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -188,7 +183,7 @@ export default function LandingPage() {
             >
               预约参观学校
               <br />
-              <span style={{ fontSize: isDesktop ? 13 : 12, fontWeight: 400, opacity: 0.85 }}>
+              <span style={{ fontSize: isDesktop ? 12 : 11, fontWeight: 400, opacity: 0.8 }}>
                 与园长 1 对 1 深入交流孩子的学习发展
               </span>
             </button>
