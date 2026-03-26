@@ -46,101 +46,148 @@ export default function LandingPage() {
             height: isDesktop ? 72 : 52, marginBottom: isDesktop ? 36 : 28,
           }} />
 
-          {/* Top context */}
+          {/* Top — hook */}
           <p style={{
             margin: '0 auto',
-            fontSize: isDesktop ? 16 : 14,
-            fontWeight: 400,
-            color: '#8b95a3',
-            lineHeight: 2.2,
-          }}>
-            在这个AI时代，孩子缺的不再是知识。
-          </p>
-          <p style={{
-            margin: isDesktop ? '4px auto 0' : '2px auto 0',
-            fontSize: isDesktop ? 15 : 13,
-            fontWeight: 400,
-            color: '#a3acb8',
-          }}>
-            而真正重要的是——
-          </p>
-
-          {/* Main headline */}
-          <h1 style={{
-            margin: isDesktop ? '32px auto 0' : '24px auto 0',
-            fontSize: isDesktop ? 48 : 30,
-            fontWeight: 700,
-            color: '#1e2a78',
-            lineHeight: 1.5,
-            letterSpacing: '2px',
-          }}>
-            孩子会主动学习
-            <br />
-            遇到问题也能自己解决
-          </h1>
-
-          {/* Supporting */}
-          <p style={{
-            margin: isDesktop ? '24px auto 0' : '16px auto 0',
             fontSize: isDesktop ? 18 : 15,
             fontWeight: 400,
             color: '#6b7280',
-            lineHeight: 2,
+            lineHeight: 1.9,
+            letterSpacing: '0.5px',
           }}>
-            会主动去问、去尝试，
-            <br />
-            一步一步找到答案。
+            在这个 AI 时代，孩子最不缺的就是"答案"。
           </p>
-
-          {/* Conclusion */}
           <p style={{
-            margin: isDesktop ? '16px auto 0' : '10px auto 0',
-            fontSize: isDesktop ? 26 : 19,
+            margin: isDesktop ? '12px auto 0' : '8px auto 0',
+            fontSize: isDesktop ? 22 : 17,
             fontWeight: 700,
-            color: '#9b2c2c',
-            lineHeight: 1.6,
+            color: '#1e2a78',
+            lineHeight: 1.7,
             letterSpacing: '1px',
           }}>
-            最终能独立解决问题。
+            真正影响孩子一生的，
+            <br />
+            是孩子<span style={{ fontWeight: 900, borderBottom: '3px solid rgba(30,42,120,0.15)', paddingBottom: 2 }}>"想办法"</span>的能力。
           </p>
 
-          {/* CTA */}
-          <div style={{ margin: isDesktop ? '36px 0 44px' : '28px 0 32px' }}>
+          {/* Middle — contrast */}
+          <p style={{
+            margin: isDesktop ? '48px auto 0' : '36px auto 0',
+            fontSize: isDesktop ? 16 : 14,
+            fontWeight: 400,
+            color: '#9ca3af',
+            lineHeight: 2.2,
+          }}>
+            有些孩子习惯等待答案，
+          </p>
+          <p style={{
+            margin: isDesktop ? '4px auto 0' : '2px auto 0',
+            fontSize: isDesktop ? 16 : 14,
+            fontWeight: 500,
+            color: '#6b7280',
+            lineHeight: 2.2,
+          }}>
+            也有些孩子，会主动去探索、尝试，
+            <br />
+            去推开未知的大门。
+          </p>
+
+          {/* Hero image */}
+          <div style={{
+            margin: isDesktop ? '36px auto 0' : '28px auto 0',
+            maxWidth: isDesktop ? 520 : undefined,
+            borderRadius: 0,
+            overflow: 'hidden',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.1)',
+          }}>
+            <img src="/hero.jpg" alt="孩子在探索学习" style={{
+              width: '100%',
+              display: 'block',
+            }} />
+          </div>
+
+          {/* Focus */}
+          <div style={{
+            margin: isDesktop ? '40px auto 0' : '32px auto 0',
+            maxWidth: isDesktop ? 520 : undefined,
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: isDesktop ? 15 : 13,
+              fontWeight: 500,
+              color: '#9ca3af',
+              lineHeight: 1.8,
+              letterSpacing: '1px',
+              textTransform: 'uppercase' as const,
+            }}>
+              这，就是我们希望孩子成为的样子：
+            </p>
+            <div style={{
+              margin: isDesktop ? '20px auto 0' : '16px auto 0',
+              padding: isDesktop ? '24px 32px' : '20px 24px',
+              background: 'linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%)',
+              borderRadius: 16,
+              borderLeft: '4px solid #1e2a78',
+            }}>
+              <p style={{
+                margin: 0,
+                fontSize: isDesktop ? 22 : 18,
+                fontWeight: 700,
+                color: '#1e2a78',
+                lineHeight: 1.8,
+                letterSpacing: '1px',
+              }}>
+                好奇地问，不断地试，
+              </p>
+              <p style={{
+                margin: isDesktop ? '8px 0 0' : '4px 0 0',
+                fontSize: isDesktop ? 26 : 21,
+                fontWeight: 800,
+                color: '#1e2a78',
+                lineHeight: 1.6,
+                letterSpacing: '1.5px',
+              }}>
+                在思考中，
+                <br />
+                一步步找到自己的答案。
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom CTA */}
+          <div style={{ margin: isDesktop ? '44px 0 52px' : '36px 0 40px', textAlign: 'center' as const }}>
             <button
               onClick={() => navigate('/enquiry/form?from=hero')}
               style={{
-                padding: isDesktop ? '16px 48px' : '15px 40px',
+                padding: isDesktop ? '18px 56px' : '16px 44px',
                 background: '#1e2a78',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 50,
-                fontSize: isDesktop ? 16 : 15,
+                fontSize: isDesktop ? 17 : 15,
                 fontWeight: 700,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
-                letterSpacing: '1px',
-                boxShadow: '0 4px 24px rgba(30,42,120,0.2)',
+                letterSpacing: '1.5px',
+                boxShadow: '0 6px 28px rgba(30,42,120,0.25)',
                 transition: 'transform 0.2s, box-shadow 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(30,42,120,0.3)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(30,42,120,0.2)'; }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 36px rgba(30,42,120,0.35)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(30,42,120,0.25)'; }}
             >
-              预约参观
+              欢迎预约参观
             </button>
+            <p style={{
+              margin: isDesktop ? '12px 0 0' : '10px 0 0',
+              fontSize: isDesktop ? 13 : 12,
+              fontWeight: 400,
+              color: '#9ca3af',
+              letterSpacing: '0.5px',
+            }}>
+              与园长 1 对 1 深入交流孩子的学习发展
+            </p>
           </div>
 
-          {/* Hero image */}
-          <div style={{
-            width: isDesktop ? 'calc(100% + 96px)' : 'calc(100% + 48px)',
-            marginLeft: isDesktop ? -48 : -24,
-            aspectRatio: isDesktop ? '16 / 7' : '16 / 10',
-            overflow: 'hidden',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <img src="/hero.jpg" alt="孩子在学习中成长" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
         </section>
 
       {/* Content container for everything after hero */}
