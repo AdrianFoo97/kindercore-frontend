@@ -115,7 +115,7 @@ export default function LandingPage() {
               margin: 0,
               fontSize: isDesktop ? 17 : 15,
               fontWeight: 500,
-              color: '#9ca3af',
+              color: '#4b5563',
               lineHeight: 1.8,
               letterSpacing: '1px',
             }}>
@@ -153,8 +153,20 @@ export default function LandingPage() {
             </div>
           </div>
 
+          {/* Secondary text */}
+          <p style={{
+            margin: isDesktop ? '32px auto 0' : '24px auto 0',
+            fontSize: isDesktop ? 20 : 17,
+            fontWeight: 600,
+            color: '#4b5563',
+            lineHeight: 1.8,
+            letterSpacing: '1px',
+          }}>
+            掌握<span style={{ color: '#b91c1c' }}>"学习的能力"</span>
+          </p>
+
           {/* Bottom CTA */}
-          <div style={{ margin: isDesktop ? '44px 0 52px' : '36px 0 40px', textAlign: 'center' as const }}>
+          <div style={{ margin: isDesktop ? '32px 0 52px' : '24px 0 40px', textAlign: 'center' as const }}>
             <button
               onClick={() => navigate('/enquiry/form?from=hero')}
               style={{
