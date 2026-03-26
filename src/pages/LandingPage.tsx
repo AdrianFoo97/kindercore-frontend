@@ -55,10 +55,10 @@ export default function LandingPage() {
             lineHeight: 1.9,
             letterSpacing: '0.5px',
           }}>
-            在这个 AI 时代，孩子最不缺的就是"答案"。
+            在这个 AI 时代，<br />孩子最不缺的就是"答案"。
           </p>
           <p style={{
-            margin: isDesktop ? '12px auto 0' : '8px auto 0',
+            margin: isDesktop ? '24px auto 0' : '20px auto 0',
             fontSize: isDesktop ? 30 : 23,
             fontWeight: 700,
             color: '#1e2a78',
@@ -72,7 +72,7 @@ export default function LandingPage() {
 
           {/* Middle — contrast */}
           <div style={{
-            margin: isDesktop ? '44px auto 0' : '32px auto 0',
+            margin: isDesktop ? '40px auto 0' : '32px auto 0',
             maxWidth: isDesktop ? 480 : undefined,
           }}>
             <p style={{
@@ -80,16 +80,16 @@ export default function LandingPage() {
               fontSize: isDesktop ? 19 : 17,
               fontWeight: 400,
               color: '#6b7280',
-              lineHeight: 2,
+              lineHeight: 1.8,
             }}>
               有些孩子习惯等待答案，
             </p>
             <p style={{
-              margin: isDesktop ? '6px auto 0' : '4px auto 0',
+              margin: '0 auto',
               fontSize: isDesktop ? 19 : 17,
               fontWeight: 500,
               color: '#4b5563',
-              lineHeight: 1.9,
+              lineHeight: 1.8,
             }}>
               也有些孩子，<span style={{ fontWeight: 700 }}>会主动去探索、尝试，</span>
               <br />
