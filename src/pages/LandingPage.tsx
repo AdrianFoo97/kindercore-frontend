@@ -67,7 +67,7 @@ export default function LandingPage() {
           }}>
             真正影响孩子一生的，
             <br />
-            是孩子<span style={{ fontWeight: 900, color: '#b91c1c', borderBottom: '3px solid #b91c1c', paddingBottom: 2 }}>"想办法"</span>的能力。
+            是孩子<span style={{ fontWeight: 900, color: '#b91c1c' }}>"想办法"</span>的能力。
           </p>
 
           {/* Middle — contrast */}
@@ -75,21 +75,21 @@ export default function LandingPage() {
             margin: isDesktop ? '48px auto 0' : '36px auto 0',
             fontSize: isDesktop ? 18 : 16,
             fontWeight: 400,
-            color: '#9ca3af',
-            lineHeight: 2.2,
+            color: '#4b5563',
+            lineHeight: 1.8,
           }}>
             有些孩子习惯等待答案，
           </p>
           <p style={{
-            margin: isDesktop ? '4px auto 0' : '2px auto 0',
+            margin: '0 auto',
             fontSize: isDesktop ? 18 : 16,
-            fontWeight: 500,
-            color: '#6b7280',
-            lineHeight: 2.2,
+            fontWeight: 400,
+            color: '#4b5563',
+            lineHeight: 1.8,
           }}>
-            也有些孩子，会主动去探索、尝试，
+            也有些孩子，<span style={{ fontWeight: 700 }}>会主动去探索、尝试，</span>
             <br />
-            去推开未知的大门。
+            <span style={{ fontWeight: 700 }}>去推开未知的大门。</span>
           </p>
 
           {/* Hero image */}
@@ -108,7 +108,7 @@ export default function LandingPage() {
 
           {/* Focus */}
           <div style={{
-            margin: isDesktop ? '40px auto 0' : '32px auto 0',
+            margin: isDesktop ? '28px auto 0' : '20px auto 0',
             maxWidth: isDesktop ? 520 : undefined,
           }}>
             <p style={{
@@ -118,7 +118,6 @@ export default function LandingPage() {
               color: '#9ca3af',
               lineHeight: 1.8,
               letterSpacing: '1px',
-              textTransform: 'uppercase' as const,
             }}>
               这，就是我们希望孩子成为的样子：
             </p>
@@ -140,11 +139,11 @@ export default function LandingPage() {
                 好奇地问，不断地试，
               </p>
               <p style={{
-                margin: isDesktop ? '8px 0 0' : '4px 0 0',
-                fontSize: isDesktop ? 30 : 24,
-                fontWeight: 800,
+                margin: 0,
+                fontSize: isDesktop ? 24 : 20,
+                fontWeight: 700,
                 color: '#1e2a78',
-                lineHeight: 1.6,
+                lineHeight: 1.8,
                 letterSpacing: '1.5px',
               }}>
                 在思考中，
@@ -175,17 +174,12 @@ export default function LandingPage() {
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 36px rgba(30,42,120,0.35)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(30,42,120,0.25)'; }}
             >
-              欢迎预约参观
+              预约参观学校
+              <br />
+              <span style={{ fontSize: isDesktop ? 13 : 12, fontWeight: 400, opacity: 0.85 }}>
+                与园长 1 对 1 深入交流孩子的学习发展
+              </span>
             </button>
-            <p style={{
-              margin: isDesktop ? '12px 0 0' : '10px 0 0',
-              fontSize: isDesktop ? 13 : 12,
-              fontWeight: 400,
-              color: '#9ca3af',
-              letterSpacing: '0.5px',
-            }}>
-              与园长 1 对 1 深入交流孩子的学习发展
-            </p>
           </div>
 
         </section>
