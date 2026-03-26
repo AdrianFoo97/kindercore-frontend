@@ -119,7 +119,7 @@ export default function LandingPage() {
               lineHeight: 1.8,
               letterSpacing: '1px',
             }}>
-              这，就是我们希望孩子成为的样子：
+              这，就是我们正栽培的孩子：
             </p>
             <div style={{
               margin: isDesktop ? '20px auto 0' : '16px auto 0',
@@ -155,18 +155,18 @@ export default function LandingPage() {
 
           {/* Secondary text */}
           <p style={{
-            margin: isDesktop ? '32px auto 0' : '24px auto 0',
-            fontSize: isDesktop ? 20 : 17,
-            fontWeight: 600,
-            color: '#4b5563',
+            margin: isDesktop ? '40px auto 0' : '32px auto 0',
+            fontSize: isDesktop ? 22 : 18,
+            fontWeight: 700,
+            color: '#b91c1c',
             lineHeight: 1.8,
             letterSpacing: '1px',
           }}>
-            掌握<span style={{ color: '#b91c1c' }}>"学习的能力"</span>
+            最终学会如何学习
           </p>
 
           {/* Bottom CTA */}
-          <div style={{ margin: isDesktop ? '32px 0 52px' : '24px 0 40px', textAlign: 'center' as const }}>
+          <div style={{ margin: isDesktop ? '40px 0 52px' : '32px 0 40px', textAlign: 'center' as const }}>
             <button
               onClick={() => navigate('/enquiry/form?from=hero')}
               style={{
