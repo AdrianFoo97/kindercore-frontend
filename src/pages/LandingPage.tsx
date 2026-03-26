@@ -49,9 +49,9 @@ export default function LandingPage() {
           {/* Top — hook */}
           <p style={{
             margin: '0 auto',
-            fontSize: isDesktop ? 18 : 15,
+            fontSize: isDesktop ? 20 : 17,
             fontWeight: 400,
-            color: '#6b7280',
+            color: '#4b5563',
             lineHeight: 1.9,
             letterSpacing: '0.5px',
           }}>
@@ -59,7 +59,7 @@ export default function LandingPage() {
           </p>
           <p style={{
             margin: isDesktop ? '12px auto 0' : '8px auto 0',
-            fontSize: isDesktop ? 22 : 17,
+            fontSize: isDesktop ? 26 : 20,
             fontWeight: 700,
             color: '#1e2a78',
             lineHeight: 1.7,
@@ -67,13 +67,13 @@ export default function LandingPage() {
           }}>
             真正影响孩子一生的，
             <br />
-            是孩子<span style={{ fontWeight: 900, borderBottom: '3px solid rgba(30,42,120,0.15)', paddingBottom: 2 }}>"想办法"</span>的能力。
+            是孩子<span style={{ fontWeight: 900, color: '#b91c1c', borderBottom: '3px solid #b91c1c', paddingBottom: 2 }}>"想办法"</span>的能力。
           </p>
 
           {/* Middle — contrast */}
           <p style={{
             margin: isDesktop ? '48px auto 0' : '36px auto 0',
-            fontSize: isDesktop ? 16 : 14,
+            fontSize: isDesktop ? 18 : 16,
             fontWeight: 400,
             color: '#9ca3af',
             lineHeight: 2.2,
@@ -82,7 +82,7 @@ export default function LandingPage() {
           </p>
           <p style={{
             margin: isDesktop ? '4px auto 0' : '2px auto 0',
-            fontSize: isDesktop ? 16 : 14,
+            fontSize: isDesktop ? 18 : 16,
             fontWeight: 500,
             color: '#6b7280',
             lineHeight: 2.2,
@@ -113,7 +113,7 @@ export default function LandingPage() {
           }}>
             <p style={{
               margin: 0,
-              fontSize: isDesktop ? 15 : 13,
+              fontSize: isDesktop ? 17 : 15,
               fontWeight: 500,
               color: '#9ca3af',
               lineHeight: 1.8,
@@ -131,7 +131,7 @@ export default function LandingPage() {
             }}>
               <p style={{
                 margin: 0,
-                fontSize: isDesktop ? 22 : 18,
+                fontSize: isDesktop ? 24 : 20,
                 fontWeight: 700,
                 color: '#1e2a78',
                 lineHeight: 1.8,
@@ -141,7 +141,7 @@ export default function LandingPage() {
               </p>
               <p style={{
                 margin: isDesktop ? '8px 0 0' : '4px 0 0',
-                fontSize: isDesktop ? 26 : 21,
+                fontSize: isDesktop ? 30 : 24,
                 fontWeight: 800,
                 color: '#1e2a78',
                 lineHeight: 1.6,
@@ -164,7 +164,7 @@ export default function LandingPage() {
                 color: '#fff',
                 border: 'none',
                 borderRadius: 50,
-                fontSize: isDesktop ? 17 : 15,
+                fontSize: isDesktop ? 18 : 16,
                 fontWeight: 700,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
