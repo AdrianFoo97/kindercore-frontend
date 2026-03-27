@@ -247,6 +247,7 @@ export default function LandingPage() {
 
             <video
               src="/national day.mp4"
+              poster="/national day - thumbnail.jpeg"
               controls
               playsInline
               preload="metadata"
