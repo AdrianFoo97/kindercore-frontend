@@ -245,7 +245,7 @@ export default function LandingPage() {
             }}>1</span>
             <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>找到问题</span>
           </div>
-          <p style={{ margin: '0 0 28px', color: '#6b7280' }}>
+          <p style={{ margin: '0 0 36px', color: '#6b7280' }}>
             在国庆日主题活动中，
             <br />
             老师给孩子们一个 task：
@@ -267,18 +267,18 @@ export default function LandingPage() {
             }}
           />
 
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 36px' }}>
             孩子们花了差不多半个小时，
             <br />
             每一组都搭好了
           </p>
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 36px' }}>
             可是——
           </p>
           <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 24 : 21, fontWeight: 700, color: '#1e2a78' }}>
             一放上去，就倒下来
           </p>
-          <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
+          <p style={{ margin: '0 0 36px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
             再试一次，还是倒
           </p>
 
@@ -312,7 +312,7 @@ export default function LandingPage() {
             <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>思考原因</span>
           </div>
 
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 36px' }}>
             老师<span style={{ fontWeight: 700, color: '#b91c1c' }}>没有直接给答案</span>
           </p>
           <p style={{ margin: '0 0 16px', color: '#6b7280' }}>
@@ -340,7 +340,7 @@ export default function LandingPage() {
             <p style={{ margin: 0 }}>右边：底部小 → <span style={{ color: '#b91c1c' }}>摇一下就倒了</span></p>
           </div>
 
-          <p style={{ margin: '0 0 28px' }}>
+          <p style={{ margin: '0 0 36px' }}>
             老师看着他们，问：
             <br />
             <span style={{ color: '#6b7280' }}>"刚才那个为什么会倒？"</span>
@@ -375,7 +375,7 @@ export default function LandingPage() {
               <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>尝试解决</span>
             </div>
 
-            <p style={{ margin: '0 0 28px' }}>
+            <p style={{ margin: '0 0 36px' }}>
               他们马上重新再做
               <br />
               先把底部做大一点，
@@ -386,7 +386,7 @@ export default function LandingPage() {
             <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#b91c1c' }}>
               还是倒
             </p>
-            <p style={{ margin: '0 0 32px', color: '#6b7280' }}>
+            <p style={{ margin: '0 0 36px', color: '#6b7280' }}>
               他们没有放弃，
               <br />
               继续把底部加宽、加稳
@@ -490,7 +490,7 @@ export default function LandingPage() {
             padding: isDesktop ? '40px 56px 60px' : '32px 24px 48px',
             textAlign: 'center' as const,
             lineHeight: 2,
-            fontSize: isDesktop ? 18 : 16,
+            fontSize: isDesktop ? 20 : 18,
             color: '#4b5563',
             background: '#fff',
             borderRadius: 16,
@@ -498,26 +498,26 @@ export default function LandingPage() {
             borderTop: '3px solid #1e2a78',
           }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>01</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 22 : 20, fontWeight: 700, color: '#1e293b' }}>从好奇开始</h2>
+            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 24 : 22, fontWeight: 700, color: '#1e293b' }}>从好奇开始</h2>
             <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>探索式学习</p>
             <img src="/explore.jpeg" alt="探索式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 28px', display: 'block' }} />
 
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               在课堂中，
               <br />
               孩子不会只是听答案
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               他们会自己动手，
               <br />
               一边试，一边观察
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               看看不同的做法，
               <br />
               会带来什么不一样的结果
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               慢慢地，
               <br />
               他们开始表达自己的想法，
@@ -531,7 +531,7 @@ export default function LandingPage() {
             padding: isDesktop ? '40px 56px 60px' : '32px 24px 48px',
             textAlign: 'center' as const,
             lineHeight: 2,
-            fontSize: isDesktop ? 18 : 16,
+            fontSize: isDesktop ? 20 : 18,
             color: '#4b5563',
             background: '#fff',
             borderRadius: 16,
@@ -539,34 +539,34 @@ export default function LandingPage() {
             borderTop: '3px solid #1e2a78',
           }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>02</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 22 : 20, fontWeight: 700, color: '#1e293b' }}>在尝试中学习</h2>
+            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 24 : 22, fontWeight: 700, color: '#1e293b' }}>在尝试中学习</h2>
             <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>活动式学习</p>
             <img src="/try.jpg" alt="活动式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 28px', display: 'block' }} />
 
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               学习不只是听，
               <br />
               而是在一次次尝试中发生
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               孩子会动手参与，
               <br />
               不断去试，看看会发生什么
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               有时候成功，
               <br />
               有时候失败
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               当遇到困难时，
               <br />
               老师不会马上给答案，
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               而是引导他们再试一次：
             </p>
-            <p style={{ margin: '0 0 20px', fontWeight: 600, color: '#1e2a78' }}>
+            <p style={{ margin: '0 0 32px', fontWeight: 600, color: '#1e2a78' }}>
               "我们可以换个方法试试看吗？"
             </p>
             <p style={{ margin: 0 }}>
@@ -581,7 +581,7 @@ export default function LandingPage() {
             padding: isDesktop ? '40px 56px 60px' : '32px 24px 48px',
             textAlign: 'center' as const,
             lineHeight: 2,
-            fontSize: isDesktop ? 18 : 16,
+            fontSize: isDesktop ? 20 : 18,
             color: '#4b5563',
             background: '#fff',
             borderRadius: 16,
@@ -589,35 +589,35 @@ export default function LandingPage() {
             borderTop: '3px solid #1e2a78',
           }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>03</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 22 : 20, fontWeight: 700, color: '#1e293b' }}>在真实情境中成长</h2>
+            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 24 : 22, fontWeight: 700, color: '#1e293b' }}>在真实情境中成长</h2>
             <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>真实体验活动</p>
             <img src="/event.jpeg" alt="真实体验活动" style={{ width: '100%', borderRadius: 12, margin: '0 0 28px', display: 'block' }} />
 
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               在课堂与活动中，
               <br />
               孩子会面对真实的情境
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               他们需要自己动手，
               <br />
               也需要做选择、做决定
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               例如在模拟 bazaar 的活动中，
               <br />
               孩子要用"钱"来进行买卖，
               <br />
               决定要买什么、用多少钱
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               当结果不如预期时，
               <br />
               他们会停下来想一想，
               <br />
               再调整自己的做法
             </p>
-            <p style={{ margin: '0 0 20px' }}>
+            <p style={{ margin: '0 0 32px' }}>
               在这样的过程中，
               <br />
               孩子不只是完成一个活动，
