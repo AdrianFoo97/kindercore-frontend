@@ -205,8 +205,8 @@ export default function LandingPage() {
 
         {/* ── Story: Section Header ── */}
         <div style={{
-          margin: isDesktop ? '80px -9999px 0' : '60px -20px 0',
-          padding: isDesktop ? '52px 9999px' : '40px 20px',
+          margin: isDesktop ? '0 -9999px 0' : '0 -20px 0',
+          padding: isDesktop ? '100px 9999px' : '80px 20px',
           background: 'linear-gradient(135deg, #1e2a78 0%, #2d3a8e 100%)',
           textAlign: 'center' as const,
         }}>
@@ -383,7 +383,7 @@ export default function LandingPage() {
               再把塔慢慢往上叠
             </p>
 
-            <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
+            <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#b91c1c' }}>
               还是倒
             </p>
             <p style={{ margin: '0 0 32px', color: '#6b7280' }}>
@@ -417,27 +417,25 @@ export default function LandingPage() {
           maxWidth: isDesktop ? 680 : undefined,
           textAlign: 'center' as const,
         }}>
-          <p style={{ margin: '0 0 20px', fontSize: isDesktop ? 19 : 17, color: '#6b7280', lineHeight: 1.9 }}>
+          <p style={{ margin: '0 0 48px', fontSize: isDesktop ? 18 : 16, color: '#6b7280', lineHeight: 1.9 }}>
             在这个学习过程中，
             <br />
             他们学到的，不只是把双峰塔搭起来
           </p>
-          <p style={{ margin: '0 0 16px', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
+          <p style={{ margin: '0 0 44px', fontSize: isDesktop ? 18 : 16, color: '#4b5563', lineHeight: 2 }}>
             更重要的是，
             <br />
             当双峰塔一次次倒下来的时候，
             <br />
-            他们不会马上放弃，
+            <span style={{ fontWeight: 700, color: '#b91c1c' }}>他们不会马上放弃</span>，
           </p>
-          <p style={{ margin: '0 0 16px', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
+          <p style={{ margin: '0 0 48px', fontSize: isDesktop ? 18 : 16, color: '#4b5563', lineHeight: 2 }}>
             而是会停下来想一想，
             <br />
-            再试不同的方法，
+            <span style={{ fontWeight: 700, color: '#b91c1c' }}>再试不同的方法</span>，
           </p>
           <p style={{ margin: 0, fontSize: isDesktop ? 26 : 22, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
-            一步一步，
-            <br />
-            找到答案
+            一步一步，找到答案
           </p>
         </div>
 
