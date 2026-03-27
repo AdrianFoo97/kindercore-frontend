@@ -28,7 +28,7 @@ export default function LandingPage() {
     <div style={{
       minHeight: '100vh',
       fontFamily: "'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif",
-      background: '#ffffff',
+      background: '#f5f6fa',
     }}>
       <div style={{ maxWidth: isDesktop ? undefined : 480, margin: '0 auto', minHeight: '100vh', overflow: isDesktop ? undefined : 'hidden' }}>
 
@@ -223,109 +223,172 @@ export default function LandingPage() {
             孩子是这样学会<span style={{ color: '#f87171' }}>"想办法"</span>的
           </h2>
         </div>
-        <section style={{
+        {/* Phase 1: 提问 — own card */}
+        <div style={{
           margin: isDesktop ? '32px auto 0' : '24px 16px 0',
-          padding: isDesktop ? '40px 56px 48px' : '28px 24px 32px',
+          padding: isDesktop ? '40px 56px 100px' : '28px 24px 80px',
           background: '#fff',
           borderRadius: 16,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-          border: '1px solid #e5e7eb',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+          borderTop: '3px solid #1e2a78',
+          maxWidth: isDesktop ? 680 : undefined,
+          textAlign: 'center' as const,
+          fontSize: isDesktop ? 20 : 18,
+          color: '#4b5563',
+          lineHeight: 2,
+        }}>
+          <div style={{ margin: '0 0 20px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, borderRadius: '50%',
+              background: '#1e2a78', color: '#fff', fontSize: 14, fontWeight: 700,
+            }}>1</span>
+            <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>提问</span>
+          </div>
+          <p style={{ margin: '0 0 28px', color: '#6b7280' }}>
+            在国庆日主题活动中，
+            <br />
+            老师给孩子们一个 task：
+            <br />
+            用 Edu Toys 搭一座双峰塔 🇲🇾
+          </p>
+
+          <video
+            src="/national day.mp4"
+            poster="/national day - thumbnail.jpeg"
+            controls
+            playsInline
+            preload="metadata"
+            style={{
+              width: '100%',
+              borderRadius: 12,
+              margin: '0 0 28px',
+              display: 'block',
+            }}
+          />
+
+          <p style={{ margin: '0 0 28px' }}>
+            孩子们花了差不多半个小时，
+            <br />
+            每一组都搭好了
+          </p>
+          <p style={{ margin: '0 0 28px' }}>
+            可是——
+          </p>
+          <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 24 : 21, fontWeight: 700, color: '#1e2a78' }}>
+            一放上去，就倒下来
+          </p>
+          <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
+            再试一次，还是倒
+          </p>
+
+          <p style={{ margin: 0 }}>
+            孩子们就问：
+            <br />
+            <span style={{ fontWeight: 600, color: '#1e2a78' }}>"Teacher，做么一直倒下来的？"</span>
+          </p>
+        </div>
+
+        {/* Phase 2: 思考 */}
+        <div style={{
+          margin: isDesktop ? '24px auto 0' : '16px 16px 0',
+          padding: isDesktop ? '40px 56px 100px' : '28px 24px 80px',
+          background: '#fff',
+          borderRadius: 16,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+          borderTop: '3px solid #1e2a78',
+          maxWidth: isDesktop ? 680 : undefined,
+          textAlign: 'center' as const,
+          fontSize: isDesktop ? 20 : 18,
+          color: '#4b5563',
+          lineHeight: 2,
+        }}>
+          <div style={{ margin: '0 0 20px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, borderRadius: '50%',
+              background: '#1e2a78', color: '#fff', fontSize: 14, fontWeight: 700,
+            }}>2</span>
+            <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>思考</span>
+          </div>
+
+          <p style={{ margin: '0 0 28px' }}>
+            老师走过来，<span style={{ fontWeight: 600, color: '#1e2a78' }}>没有直接告诉他们答案</span>
+          </p>
+          <p style={{ margin: '0 0 16px', color: '#6b7280' }}>
+            她拿起几块积木，在旁边轻轻做了两个 example：
+          </p>
+          <img src="/base.jpeg" alt="积木底部对比" style={{
+            width: '100%',
+            borderRadius: 12,
+            margin: '0 0 16px',
+            display: 'block',
+          }} />
+          <div style={{
+            margin: '0 0 32px',
+            padding: isDesktop ? '20px 24px' : '16px 20px',
+            background: '#f8f9ff',
+            borderRadius: 12,
+            borderLeft: '3px solid #1e2a78',
+            fontSize: isDesktop ? 18 : 16,
+            color: '#6b7280',
+            lineHeight: 2,
+            textAlign: 'left' as const,
+          }}>
+            <p style={{ margin: '0 0 8px' }}>右边：底部小 → <span style={{ color: '#b91c1c' }}>摇一下就倒了</span></p>
+            <p style={{ margin: 0 }}>左边：底部大 → <span style={{ color: '#1e2a78', fontWeight: 600 }}>怎么摇都不倒</span></p>
+          </div>
+
+          <p style={{ margin: '0 0 28px' }}>
+            老师看着他们，问：
+            <br />
+            <span style={{ color: '#6b7280' }}>"为什么右边那个会倒？"</span>
+          </p>
+
+          <p style={{ margin: '0 0 8px' }}>
+            其中一个小朋友就说：
+          </p>
+          <p style={{ margin: 0, fontSize: isDesktop ? 26 : 22, fontWeight: 700, color: '#1e2a78' }}>
+            "下面太小了"
+          </p>
+        </div>
+
+        {/* Phase 3: 解决 */}
+        <section style={{
+          margin: isDesktop ? '24px auto 0' : '16px 16px 0',
+          padding: isDesktop ? '40px 56px 100px' : '28px 24px 80px',
+          background: '#fff',
+          borderRadius: 16,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+          borderTop: '3px solid #1e2a78',
           maxWidth: isDesktop ? 680 : undefined,
           textAlign: 'center' as const,
         }}>
-
-          {/* Narrative — centered cinematic */}
           <div style={{ fontSize: isDesktop ? 20 : 18, color: '#4b5563', lineHeight: 2 }}>
-            {/* Setup */}
-            <p style={{ margin: '0 0 28px', color: '#6b7280' }}>
-              在国庆日主题活动中，
-              <br />
-              老师给孩子们一个 task：
-              <br />
-              用 Edu Toys 搭一座双峰塔 🇲🇾
-            </p>
-
-            <video
-              src="/national day.mp4"
-              poster="/national day - thumbnail.jpeg"
-              controls
-              playsInline
-              preload="metadata"
-              style={{
-                width: '100%',
-                borderRadius: 12,
-                margin: '0 0 28px',
-                display: 'block',
-              }}
-            />
-
-            <p style={{ margin: '0 0 28px' }}>
-              孩子们花了差不多半个小时，
-              <br />
-              每一组都搭好了
-            </p>
-            <p style={{ margin: '0 0 28px' }}>
-              可是——
-            </p>
-            <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 24 : 21, fontWeight: 700, color: '#1e2a78' }}>
-              一放上去，就倒下来
-            </p>
-            <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
-              再试一次，还是倒
-            </p>
-
-            <p style={{ margin: '0 0 32px' }}>
-              孩子们就问：
-              <br />
-              <span style={{ fontWeight: 600, color: '#1e2a78' }}>"Teacher，做么一直倒下来的？"</span>
-            </p>
-
-            {/* Teacher's approach */}
-            <p style={{ margin: '0 0 28px' }}>
-              老师走过来，<span style={{ fontWeight: 600, color: '#1e2a78' }}>没有直接告诉他们答案</span>
-            </p>
-            <p style={{ margin: '0 0 16px', color: '#6b7280' }}>
-              她拿起几块积木，在旁边轻轻做了两个 example：
-            </p>
-            <div style={{
-              margin: '0 0 32px',
-              padding: isDesktop ? '20px 24px' : '16px 20px',
-              background: '#f8f9ff',
-              borderRadius: 12,
-              borderLeft: '3px solid #1e2a78',
-              fontSize: isDesktop ? 18 : 16,
-              color: '#6b7280',
-              lineHeight: 2,
-              textAlign: 'left' as const,
-            }}>
-              <p style={{ margin: '0 0 4px' }}>1. 一个底部很小 → 一放上去，就倒了</p>
-              <p style={{ margin: 0 }}>2. 一个底部比较大 → 放在桌子上，怎么摇都不会倒</p>
+            <div style={{ margin: '0 0 20px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 32, height: 32, borderRadius: '50%',
+                background: '#1e2a78', color: '#fff', fontSize: 14, fontWeight: 700,
+              }}>3</span>
+              <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>解决</span>
             </div>
-
-            <p style={{ margin: '0 0 28px' }}>
-              老师看着他们，问：
-              <br />
-              <span style={{ color: '#6b7280' }}>"刚才那个为什么会倒？"</span>
-            </p>
-
-            <p style={{ margin: '0 0 8px' }}>
-              其中一个小朋友就说：
-            </p>
-            <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 26 : 22, fontWeight: 700, color: '#1e2a78' }}>
-              "下面太小了"
-            </p>
 
             <p style={{ margin: '0 0 28px' }}>
               他们马上重新再做
               <br />
-              先把底部做大一点，再把塔慢慢往上叠
+              先把底部做大一点，
+              <br />
+              再把塔慢慢往上叠
             </p>
 
             <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
               还是倒
             </p>
             <p style={{ margin: '0 0 32px', color: '#6b7280' }}>
-              他们没有放弃，继续把底部加宽、加稳
+              他们没有放弃，
+              <br />
+              继续把底部加宽、加稳
             </p>
 
             {/* Climax */}
@@ -336,7 +399,9 @@ export default function LandingPage() {
               塔没有倒
             </p>
             <p style={{ margin: '0 0 40px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
-              孩子们马上很开心地说："Teacher，我做好了！"
+              孩子们马上很开心地说：
+              <br />
+              "Teacher，我做好了！"
             </p>
 
             {/* Takeaway */}
@@ -347,7 +412,9 @@ export default function LandingPage() {
               borderRadius: 12,
             }}>
               <p style={{ margin: '0 0 12px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
-                在这个过程中，他们学到的，不只是把塔搭起来
+                在这个过程中，他们学到的，
+                <br />
+                不只是把塔搭起来
               </p>
               <p style={{ margin: '16px 0 0', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', textAlign: 'center' as const, lineHeight: 1.8 }}>
                 而是遇到问题时，
