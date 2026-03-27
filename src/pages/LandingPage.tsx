@@ -235,7 +235,7 @@ export default function LandingPage() {
         }}>
 
           {/* Narrative — centered cinematic */}
-          <div style={{ fontSize: isDesktop ? 18 : 16, color: '#4b5563', lineHeight: 2 }}>
+          <div style={{ fontSize: isDesktop ? 20 : 18, color: '#4b5563', lineHeight: 2 }}>
             {/* Setup */}
             <p style={{ margin: '0 0 28px', color: '#6b7280' }}>
               在国庆日主题活动中，
@@ -266,10 +266,10 @@ export default function LandingPage() {
             <p style={{ margin: '0 0 28px' }}>
               可是——
             </p>
-            <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78' }}>
+            <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 24 : 21, fontWeight: 700, color: '#1e2a78' }}>
               一放上去，就倒下来
             </p>
-            <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 15 : 14, color: '#9ca3af' }}>
+            <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
               再试一次，还是倒
             </p>
 
@@ -292,7 +292,7 @@ export default function LandingPage() {
               background: '#f8f9ff',
               borderRadius: 12,
               borderLeft: '3px solid #1e2a78',
-              fontSize: isDesktop ? 16 : 15,
+              fontSize: isDesktop ? 18 : 16,
               color: '#6b7280',
               lineHeight: 2,
               textAlign: 'left' as const,
@@ -310,7 +310,7 @@ export default function LandingPage() {
             <p style={{ margin: '0 0 8px' }}>
               其中一个小朋友就说：
             </p>
-            <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 24 : 20, fontWeight: 700, color: '#1e2a78' }}>
+            <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 26 : 22, fontWeight: 700, color: '#1e2a78' }}>
               "下面太小了"
             </p>
 
@@ -320,7 +320,7 @@ export default function LandingPage() {
               先把底部做大一点，再把塔慢慢往上叠
             </p>
 
-            <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 15 : 14, color: '#9ca3af' }}>
+            <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
               还是倒
             </p>
             <p style={{ margin: '0 0 32px', color: '#6b7280' }}>
@@ -328,13 +328,13 @@ export default function LandingPage() {
             </p>
 
             {/* Climax */}
-            <p style={{ margin: '0 0 4px', fontSize: isDesktop ? 14 : 13, color: '#9ca3af', letterSpacing: 2 }}>
+            <p style={{ margin: '0 0 4px', fontSize: isDesktop ? 16 : 15, color: '#9ca3af', letterSpacing: 2 }}>
               这一次——
             </p>
-            <p style={{ margin: '0 0 8px', fontSize: isDesktop ? 28 : 24, fontWeight: 700, color: '#1e2a78' }}>
+            <p style={{ margin: '0 0 8px', fontSize: isDesktop ? 30 : 26, fontWeight: 700, color: '#1e2a78' }}>
               塔没有倒
             </p>
-            <p style={{ margin: '0 0 40px', fontSize: isDesktop ? 15 : 14, color: '#9ca3af' }}>
+            <p style={{ margin: '0 0 40px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
               孩子们马上很开心地说："Teacher，我做好了！"
             </p>
 
@@ -345,10 +345,10 @@ export default function LandingPage() {
               background: '#fafafa',
               borderRadius: 12,
             }}>
-              <p style={{ margin: '0 0 12px', fontSize: isDesktop ? 15 : 14, color: '#9ca3af' }}>
+              <p style={{ margin: '0 0 12px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
                 在这个过程中，他们学到的，不只是把塔搭起来
               </p>
-              <p style={{ margin: '16px 0 0', fontSize: isDesktop ? 20 : 17, fontWeight: 700, color: '#1e2a78', textAlign: 'center' as const, lineHeight: 1.8 }}>
+              <p style={{ margin: '16px 0 0', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', textAlign: 'center' as const, lineHeight: 1.8 }}>
                 而是遇到问题时，
                 <br />
                 会自己想办法，
