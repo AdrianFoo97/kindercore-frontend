@@ -313,10 +313,12 @@ export default function LandingPage() {
           </div>
 
           <p style={{ margin: '0 0 28px' }}>
-            老师走过来，<span style={{ fontWeight: 600, color: '#1e2a78' }}>没有直接告诉他们答案</span>
+            老师<span style={{ fontWeight: 600, color: '#1e2a78' }}>没有直接给答案</span>
           </p>
           <p style={{ margin: '0 0 16px', color: '#6b7280' }}>
-            她拿起几块积木，在旁边轻轻做了两个 example：
+            只是拿起几块 Edu Toys，
+            <br />
+            在旁边做了两个 example：
           </p>
           <img src="/base.jpeg" alt="积木底部对比" style={{
             width: '100%',
@@ -329,20 +331,19 @@ export default function LandingPage() {
             padding: isDesktop ? '20px 24px' : '16px 20px',
             background: '#f8f9ff',
             borderRadius: 12,
-            borderLeft: '3px solid #1e2a78',
             fontSize: isDesktop ? 18 : 16,
             color: '#6b7280',
             lineHeight: 2,
             textAlign: 'left' as const,
           }}>
             <p style={{ margin: '0 0 8px' }}>右边：底部小 → <span style={{ color: '#b91c1c' }}>摇一下就倒了</span></p>
-            <p style={{ margin: 0 }}>左边：底部大 → <span style={{ color: '#1e2a78', fontWeight: 600 }}>怎么摇都不倒</span></p>
+            <p style={{ margin: 0 }}>左边：底部大 → <span style={{ color: '#1e2a78', fontWeight: 600 }}>怎么摇都不会倒下来</span></p>
           </div>
 
           <p style={{ margin: '0 0 28px' }}>
             老师看着他们，问：
             <br />
-            <span style={{ color: '#6b7280' }}>"为什么右边那个会倒？"</span>
+            <span style={{ color: '#6b7280' }}>"刚才那个为什么会倒？"</span>
           </p>
 
           <p style={{ margin: '0 0 8px' }}>
@@ -404,28 +405,42 @@ export default function LandingPage() {
               "Teacher，我做好了！"
             </p>
 
-            {/* Takeaway */}
-            <div style={{
-              margin: 0,
-              padding: isDesktop ? '28px 32px' : '24px 20px',
-              background: '#fafafa',
-              borderRadius: 12,
-            }}>
-              <p style={{ margin: '0 0 12px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
-                在这个过程中，他们学到的，
-                <br />
-                不只是把塔搭起来
-              </p>
-              <p style={{ margin: '16px 0 0', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', textAlign: 'center' as const, lineHeight: 1.8 }}>
-                而是遇到问题时，
-                <br />
-                会自己想办法，
-                <br />
-                一步一步找到答案
-              </p>
-            </div>
           </div>
         </section>
+
+        {/* Takeaway — conclusion box */}
+        <div style={{
+          margin: isDesktop ? '24px auto 0' : '16px 16px 0',
+          padding: isDesktop ? '48px 56px' : '36px 24px',
+          background: '#f0f2ff',
+          borderRadius: 16,
+          maxWidth: isDesktop ? 680 : undefined,
+          textAlign: 'center' as const,
+        }}>
+          <p style={{ margin: '0 0 16px', fontSize: isDesktop ? 19 : 17, color: '#6b7280', lineHeight: 1.9 }}>
+            在这个学习过程中，
+            <br />
+            他们学到的，不只是"搭双峰塔"
+          </p>
+          <p style={{ margin: '0 0 20px', fontSize: isDesktop ? 19 : 17, color: '#6b7280', lineHeight: 1.9 }}>
+            而是——
+          </p>
+          <p style={{ margin: 0, fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
+            遇到问题的时候，
+            <br />
+            不会马上放弃，
+          </p>
+          <p style={{ margin: '12px 0 0', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
+            而是会停下来想一想，
+            <br />
+            再试不同的方法，
+          </p>
+          <p style={{ margin: '12px 0 0', fontSize: isDesktop ? 26 : 22, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
+            一步一步，
+            <br />
+            找到答案
+          </p>
+        </div>
 
         {/* CTA after story */}
         <div style={{ padding: '24px 24px', textAlign: 'center' as const }}>
