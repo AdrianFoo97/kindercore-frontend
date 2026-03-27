@@ -226,7 +226,7 @@ export default function LandingPage() {
         {/* Phase 1: 提问 — own card */}
         <div style={{
           margin: isDesktop ? '32px auto 0' : '24px 16px 0',
-          padding: isDesktop ? '40px 56px 100px' : '28px 24px 80px',
+          padding: isDesktop ? '40px 56px 160px' : '28px 24px 120px',
           background: '#fff',
           borderRadius: 16,
           boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
@@ -292,7 +292,7 @@ export default function LandingPage() {
         {/* Phase 2: 思考 */}
         <div style={{
           margin: isDesktop ? '24px auto 0' : '16px 16px 0',
-          padding: isDesktop ? '40px 56px 100px' : '28px 24px 80px',
+          padding: isDesktop ? '40px 56px 160px' : '28px 24px 120px',
           background: '#fff',
           borderRadius: 16,
           boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
@@ -356,7 +356,7 @@ export default function LandingPage() {
         {/* Phase 3: 解决 */}
         <section style={{
           margin: isDesktop ? '24px auto 0' : '16px 16px 0',
-          padding: isDesktop ? '40px 56px 100px' : '28px 24px 80px',
+          padding: isDesktop ? '40px 56px 160px' : '28px 24px 120px',
           background: '#fff',
           borderRadius: 16,
           boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
