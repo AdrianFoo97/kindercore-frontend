@@ -28,7 +28,7 @@ export default function LandingPage() {
     <div style={{
       minHeight: '100vh',
       fontFamily: "'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif",
-      background: '#f0f4f8',
+      background: '#ffffff',
     }}>
       <div style={{ maxWidth: isDesktop ? undefined : 480, margin: '0 auto', minHeight: '100vh', overflow: isDesktop ? undefined : 'hidden' }}>
 
@@ -55,7 +55,7 @@ export default function LandingPage() {
             lineHeight: 1.9,
             letterSpacing: '0.5px',
           }}>
-            在这个 AI 时代，<br />孩子最不缺的就是"答案"。
+            在这个 AI 时代，<br />孩子最不缺的就是"答案"
           </p>
           <p style={{
             margin: isDesktop ? '24px auto 0' : '20px auto 0',
@@ -67,7 +67,7 @@ export default function LandingPage() {
           }}>
             真正影响孩子一生的，
             <br />
-            是孩子<span style={{ fontWeight: 900, color: '#b91c1c' }}>"想办法"</span>的能力。
+            是孩子<span style={{ fontWeight: 900, color: '#b91c1c' }}>"想办法"</span>的能力
           </p>
 
           {/* Middle — contrast */}
@@ -93,7 +93,7 @@ export default function LandingPage() {
             }}>
               也有些孩子，<span style={{ fontWeight: 700 }}>会主动去探索、尝试，</span>
               <br />
-              <span style={{ fontWeight: 700 }}>去推开未知的大门。</span>
+              <span style={{ fontWeight: 700 }}>去推开未知的大门</span>
             </p>
           </div>
 
@@ -124,6 +124,15 @@ export default function LandingPage() {
             }}>
               这，就是我们正栽培的孩子：
             </p>
+            <p style={{
+              margin: isDesktop ? '16px auto 4px' : '12px auto 4px',
+              fontSize: isDesktop ? 16 : 14,
+              fontWeight: 400,
+              color: '#9ca3af',
+              lineHeight: 1.6,
+            }}>
+              当遇到问题时会
+            </p>
             <div style={{
               margin: isDesktop ? '16px auto 0' : '12px auto 0',
               padding: isDesktop ? '28px 32px' : '24px 20px',
@@ -143,7 +152,7 @@ export default function LandingPage() {
                 <br />
                 在思考中，
                 <br />
-                一步步找到自己的答案。
+                一步步找到自己的答案
               </p>
             </div>
           </div>
@@ -194,108 +203,160 @@ export default function LandingPage() {
       {/* Content container for everything after hero */}
       <div style={{ maxWidth: isDesktop ? undefined : 480, margin: '0 auto' }}>
 
-        {/* ── Story ── */}
-        <section style={{
-          margin: isDesktop ? '32px auto 0' : '20px 16px 0',
-          padding: isDesktop ? '48px 56px 52px' : '32px 24px 36px',
-          background: '#fff',
-          borderRadius: 16,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          lineHeight: 1.9,
-          fontSize: isDesktop ? 20 : 19,
-          maxWidth: isDesktop ? 680 : undefined,
-          color: '#475569',
+        {/* ── Story: Section Header ── */}
+        <div style={{
+          margin: isDesktop ? '80px -9999px 0' : '60px -20px 0',
+          padding: isDesktop ? '52px 9999px' : '40px 20px',
+          background: 'linear-gradient(135deg, #1e2a78 0%, #2d3a8e 100%)',
           textAlign: 'center' as const,
         }}>
-          <p style={{ margin: '0 0 40px' }}>
-            在陪伴孩子成长的过程中，
-            <br />
-            我们慢慢有一个很深的感受。
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            以前我们会觉得，
-            <br />
-            孩子只要把 academic 学好，就够了。
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            在那个时候，
-            <br />
-            这样的方式，确实是有用的。
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            因为在以前，
-            <br />
-            答案并不容易找到，
-            <br />
-            会的越多，反而越有优势。
-          </p>
-          <p style={{ margin: '0 0 40px', color: '#1a1a8e', fontWeight: 700, fontSize: 26 }}>
-            但现在不一样了
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            手机、Internet，甚至 AI，
-            <br />
-            让答案变得<span style={{ color: '#1a1a8e', fontWeight: 600 }}>随时都可以找到。</span>
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            也正因为这样，
-            <br />
-            如果孩子只是习惯记住答案，
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            当他遇到没有"现成答案"的问题时，
-            <br />
-            反而更容易卡住，不知道怎么办。
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            所以现在真正重要的，
-            <br />
-            已经不再是孩子知道多少，
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            而是当他不知道的时候，
-            <br />
-            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会去问、</span>
-            <br />
-            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会去尝试、</span>
-            <br />
-            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>并且一步一步找到答案。</span>
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            所以在 Ten Toes，
-            <br />
-            我们更注重的是，
-            <br />
-            孩子在学习的过程中
-          </p>
-          <p style={{ margin: '0 0 32px' }}>
-            当面对新事物时，
-            <br />
-            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>愿不愿意主动去尝试</span>
-          </p>
-          <p style={{ margin: '0 0 32px' }}>
-            当遇到困难时，
-            <br />
-            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会轻易放弃</span>
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            当遇到问题时，
-            <br />
-            <span style={{ fontSize: 23, fontWeight: 700, color: '#1a1a8e' }}>会不会自己去寻找答案。</span>
-          </p>
-          <p style={{ margin: '0 0 40px' }}>
-            也因此，
-            <br />
-            我们更在意的，
-          </p>
-          <p style={{ margin: '0 0 8px' }}>
-            是用怎样的学习方式，
-            <br />
-            让孩子慢慢学会
-          </p>
-          <p style={{ margin: 0, fontSize: 28, fontWeight: 700, color: '#1a1a8e' }}>
-            去问、去试、去找到答案。
-          </p>
+          <h2 style={{
+            margin: 0,
+            fontSize: isDesktop ? 26 : 22,
+            fontWeight: 700,
+            color: '#fff',
+            lineHeight: 1.6,
+            maxWidth: isDesktop ? 680 : undefined,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+          }}>
+            孩子是这样学会<span style={{ color: '#f87171' }}>"想办法"</span>的
+          </h2>
+        </div>
+        <section style={{
+          margin: isDesktop ? '32px auto 0' : '24px 16px 0',
+          padding: isDesktop ? '40px 56px 48px' : '28px 24px 32px',
+          background: '#fff',
+          borderRadius: 16,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+          border: '1px solid #e5e7eb',
+          maxWidth: isDesktop ? 680 : undefined,
+          textAlign: 'center' as const,
+        }}>
+
+          {/* Narrative — centered cinematic */}
+          <div style={{ fontSize: isDesktop ? 18 : 16, color: '#4b5563', lineHeight: 2 }}>
+            {/* Setup */}
+            <p style={{ margin: '0 0 28px', color: '#6b7280' }}>
+              在国庆日主题活动中，
+              <br />
+              老师给孩子们一个 task：
+              <br />
+              用 Edu Toys 搭一座双峰塔 🇲🇾
+            </p>
+
+            <video
+              src="/national day.mp4"
+              controls
+              playsInline
+              preload="metadata"
+              style={{
+                width: '100%',
+                borderRadius: 12,
+                margin: '0 0 28px',
+                display: 'block',
+              }}
+            />
+
+            <p style={{ margin: '0 0 28px' }}>
+              孩子们花了差不多半个小时，
+              <br />
+              每一组都搭好了
+            </p>
+            <p style={{ margin: '0 0 28px' }}>
+              可是——
+            </p>
+            <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78' }}>
+              一放上去，就倒下来
+            </p>
+            <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 15 : 14, color: '#9ca3af' }}>
+              再试一次，还是倒
+            </p>
+
+            <p style={{ margin: '0 0 32px' }}>
+              孩子们就问：
+              <br />
+              <span style={{ fontWeight: 600, color: '#1e2a78' }}>"Teacher，做么一直倒下来的？"</span>
+            </p>
+
+            {/* Teacher's approach */}
+            <p style={{ margin: '0 0 28px' }}>
+              老师走过来，<span style={{ fontWeight: 600, color: '#1e2a78' }}>没有直接告诉他们答案</span>
+            </p>
+            <p style={{ margin: '0 0 16px', color: '#6b7280' }}>
+              她拿起几块积木，在旁边轻轻做了两个 example：
+            </p>
+            <div style={{
+              margin: '0 0 32px',
+              padding: isDesktop ? '20px 24px' : '16px 20px',
+              background: '#f8f9ff',
+              borderRadius: 12,
+              borderLeft: '3px solid #1e2a78',
+              fontSize: isDesktop ? 16 : 15,
+              color: '#6b7280',
+              lineHeight: 2,
+              textAlign: 'left' as const,
+            }}>
+              <p style={{ margin: '0 0 4px' }}>1. 一个底部很小 → 一放上去，就倒了</p>
+              <p style={{ margin: 0 }}>2. 一个底部比较大 → 放在桌子上，怎么摇都不会倒</p>
+            </div>
+
+            <p style={{ margin: '0 0 28px' }}>
+              老师看着他们，问：
+              <br />
+              <span style={{ color: '#6b7280' }}>"刚才那个为什么会倒？"</span>
+            </p>
+
+            <p style={{ margin: '0 0 8px' }}>
+              其中一个小朋友就说：
+            </p>
+            <p style={{ margin: '0 0 32px', fontSize: isDesktop ? 24 : 20, fontWeight: 700, color: '#1e2a78' }}>
+              "下面太小了"
+            </p>
+
+            <p style={{ margin: '0 0 28px' }}>
+              他们马上重新再做
+              <br />
+              先把底部做大一点，再把塔慢慢往上叠
+            </p>
+
+            <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 15 : 14, color: '#9ca3af' }}>
+              还是倒
+            </p>
+            <p style={{ margin: '0 0 32px', color: '#6b7280' }}>
+              他们没有放弃，继续把底部加宽、加稳
+            </p>
+
+            {/* Climax */}
+            <p style={{ margin: '0 0 4px', fontSize: isDesktop ? 14 : 13, color: '#9ca3af', letterSpacing: 2 }}>
+              这一次——
+            </p>
+            <p style={{ margin: '0 0 8px', fontSize: isDesktop ? 28 : 24, fontWeight: 700, color: '#1e2a78' }}>
+              塔没有倒
+            </p>
+            <p style={{ margin: '0 0 40px', fontSize: isDesktop ? 15 : 14, color: '#9ca3af' }}>
+              孩子们马上很开心地说："Teacher，我做好了！"
+            </p>
+
+            {/* Takeaway */}
+            <div style={{
+              margin: 0,
+              padding: isDesktop ? '28px 32px' : '24px 20px',
+              background: '#fafafa',
+              borderRadius: 12,
+            }}>
+              <p style={{ margin: '0 0 12px', fontSize: isDesktop ? 15 : 14, color: '#9ca3af' }}>
+                在这个过程中，他们学到的，不只是把塔搭起来
+              </p>
+              <p style={{ margin: '16px 0 0', fontSize: isDesktop ? 20 : 17, fontWeight: 700, color: '#1e2a78', textAlign: 'center' as const, lineHeight: 1.8 }}>
+                而是遇到问题时，
+                <br />
+                会自己想办法，
+                <br />
+                一步一步找到答案
+              </p>
+            </div>
+          </div>
         </section>
 
         {/* CTA after story */}
