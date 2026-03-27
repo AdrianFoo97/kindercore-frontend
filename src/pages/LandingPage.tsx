@@ -483,7 +483,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── Detail Sections (Cards) ── */}
-        <div style={{ padding: '20px 16px 0', display: 'flex', flexDirection: 'column' as const, gap: 16, maxWidth: isDesktop ? 1120 : undefined, margin: isDesktop ? '0 auto' : undefined }}>
+        <div style={{ padding: '20px 16px 0', display: 'flex', flexDirection: 'column' as const, gap: 24, maxWidth: isDesktop ? 1120 : undefined, margin: isDesktop ? '0 auto' : undefined }}>
 
           {/* 1. 从好奇开始 */}
           <section style={{
@@ -497,10 +497,16 @@ export default function LandingPage() {
             boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
             borderTop: '3px solid #1e2a78',
           }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>01</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 24 : 22, fontWeight: 700, color: '#1e293b' }}>从好奇开始</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>探索式学习</p>
-            <img src="/explore.jpeg" alt="探索式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 28px', display: 'block' }} />
+            <div style={{ margin: '0 0 12px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 36, height: 36, borderRadius: '50%',
+                background: '#1e2a78', color: '#fff', fontSize: 15, fontWeight: 700,
+              }}>01</span>
+            </div>
+            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 28 : 24, fontWeight: 700, color: '#1e2a78' }}>从好奇开始</h2>
+            <p style={{ margin: '0 0 24px', fontSize: isDesktop ? 15 : 14, color: '#94a3b8', letterSpacing: 1 }}>探索式学习</p>
+            <img src="/explore.jpeg" alt="探索式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 32px', display: 'block' }} />
 
             <p style={{ margin: '0 0 32px' }}>
               在课堂中，
@@ -538,10 +544,16 @@ export default function LandingPage() {
             boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
             borderTop: '3px solid #1e2a78',
           }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>02</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 24 : 22, fontWeight: 700, color: '#1e293b' }}>在尝试中学习</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>活动式学习</p>
-            <img src="/try.jpg" alt="活动式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 28px', display: 'block' }} />
+            <div style={{ margin: '0 0 12px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 36, height: 36, borderRadius: '50%',
+                background: '#1e2a78', color: '#fff', fontSize: 15, fontWeight: 700,
+              }}>02</span>
+            </div>
+            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 28 : 24, fontWeight: 700, color: '#1e2a78' }}>在尝试中学习</h2>
+            <p style={{ margin: '0 0 24px', fontSize: isDesktop ? 15 : 14, color: '#94a3b8', letterSpacing: 1 }}>活动式学习</p>
+            <img src="/try.jpg" alt="活动式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 32px', display: 'block' }} />
 
             <p style={{ margin: '0 0 32px' }}>
               学习不只是听，
@@ -588,10 +600,16 @@ export default function LandingPage() {
             boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
             borderTop: '3px solid #1e2a78',
           }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>03</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 24 : 22, fontWeight: 700, color: '#1e293b' }}>在真实情境中成长</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>真实体验活动</p>
-            <img src="/event.jpeg" alt="真实体验活动" style={{ width: '100%', borderRadius: 12, margin: '0 0 28px', display: 'block' }} />
+            <div style={{ margin: '0 0 12px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 36, height: 36, borderRadius: '50%',
+                background: '#1e2a78', color: '#fff', fontSize: 15, fontWeight: 700,
+              }}>03</span>
+            </div>
+            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 28 : 24, fontWeight: 700, color: '#1e2a78' }}>在真实情境中成长</h2>
+            <p style={{ margin: '0 0 24px', fontSize: isDesktop ? 15 : 14, color: '#94a3b8', letterSpacing: 1 }}>真实体验活动</p>
+            <img src="/event.jpeg" alt="真实体验活动" style={{ width: '100%', borderRadius: 12, margin: '0 0 32px', display: 'block' }} />
 
             <p style={{ margin: '0 0 32px' }}>
               在课堂与活动中，
