@@ -336,8 +336,8 @@ export default function LandingPage() {
             lineHeight: 2,
             textAlign: 'left' as const,
           }}>
-            <p style={{ margin: '0 0 8px' }}>右边：底部小 → <span style={{ color: '#b91c1c' }}>摇一下就倒了</span></p>
-            <p style={{ margin: 0 }}>左边：底部大 → <span style={{ color: '#1e2a78', fontWeight: 600 }}>怎么摇都不会倒下来</span></p>
+            <p style={{ margin: '0 0 8px' }}>左边：底部大 → <span style={{ color: '#1e2a78', fontWeight: 600 }}>怎么摇都不会倒下来</span></p>
+            <p style={{ margin: 0 }}>右边：底部小 → <span style={{ color: '#b91c1c' }}>摇一下就倒了</span></p>
           </div>
 
           <p style={{ margin: '0 0 28px' }}>
@@ -357,7 +357,7 @@ export default function LandingPage() {
         {/* Phase 3: 解决 */}
         <section style={{
           margin: isDesktop ? '24px auto 0' : '16px 16px 0',
-          padding: isDesktop ? '40px 56px 160px' : '28px 24px 120px',
+          padding: isDesktop ? '40px 56px 60px' : '28px 24px 48px',
           background: '#fff',
           borderRadius: 16,
           boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
@@ -410,31 +410,33 @@ export default function LandingPage() {
 
         {/* Takeaway — conclusion box */}
         <div style={{
-          margin: isDesktop ? '24px auto 0' : '16px 16px 0',
-          padding: isDesktop ? '48px 56px' : '36px 24px',
+          margin: isDesktop ? '56px auto 0' : '44px 16px 0',
+          padding: isDesktop ? '64px 56px 72px' : '48px 24px 56px',
           background: '#f0f2ff',
           borderRadius: 16,
           maxWidth: isDesktop ? 680 : undefined,
           textAlign: 'center' as const,
         }}>
-          <p style={{ margin: '0 0 48px', fontSize: isDesktop ? 18 : 16, color: '#6b7280', lineHeight: 1.9 }}>
+          <p style={{ margin: '0 0 48px', fontSize: isDesktop ? 21 : 19, color: '#6b7280', lineHeight: 1.9 }}>
             在这个学习过程中，
             <br />
-            他们学到的，不只是把双峰塔搭起来
+            他们学到的，
+            <br />
+            不只是把双峰塔搭起来
           </p>
-          <p style={{ margin: '0 0 44px', fontSize: isDesktop ? 18 : 16, color: '#4b5563', lineHeight: 2 }}>
+          <p style={{ margin: '0 0 44px', fontSize: isDesktop ? 21 : 19, color: '#4b5563', lineHeight: 2 }}>
             更重要的是，
             <br />
             当双峰塔一次次倒下来的时候，
             <br />
             <span style={{ fontWeight: 700, color: '#b91c1c' }}>他们不会马上放弃</span>，
           </p>
-          <p style={{ margin: '0 0 48px', fontSize: isDesktop ? 18 : 16, color: '#4b5563', lineHeight: 2 }}>
+          <p style={{ margin: '0 0 48px', fontSize: isDesktop ? 21 : 19, color: '#4b5563', lineHeight: 2 }}>
             而是会停下来想一想，
             <br />
             <span style={{ fontWeight: 700, color: '#b91c1c' }}>再试不同的方法</span>，
           </p>
-          <p style={{ margin: 0, fontSize: isDesktop ? 26 : 22, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
+          <p style={{ margin: 0, fontSize: isDesktop ? 30 : 26, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
             一步一步，找到答案
           </p>
         </div>
@@ -444,8 +446,8 @@ export default function LandingPage() {
           <button
             onClick={() => navigate('/enquiry/form?from=story')}
             style={{
-              padding: '14px 40px',
-              background: '#1a1a8e',
+              padding: '14px 36px 16px',
+              background: '#1e2a78',
               color: '#fff',
               border: 'none',
               borderRadius: 50,
@@ -454,10 +456,13 @@ export default function LandingPage() {
               cursor: 'pointer',
               fontFamily: 'inherit',
               letterSpacing: '1.5px',
-              boxShadow: '0 4px 16px rgba(26, 26, 142, 0.25)',
+              boxShadow: '0 4px 16px rgba(30, 42, 120, 0.25)',
+              lineHeight: 1.6,
             }}
           >
             预约参观学校
+            <br />
+            <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.7, letterSpacing: '1px' }}>看看孩子在这里怎么学习</span>
           </button>
         </div>
 
