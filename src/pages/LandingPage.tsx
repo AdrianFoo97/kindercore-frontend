@@ -67,7 +67,7 @@ export default function LandingPage() {
           }}>
             真正影响孩子一生的，
             <br />
-            是孩子<span style={{ fontWeight: 900, color: '#b91c1c' }}>"想办法"</span>的能力
+            是<span style={{ fontWeight: 900, color: '#b91c1c' }}>"想办法"</span>的能力
           </p>
 
           {/* Middle — contrast */}
@@ -122,7 +122,7 @@ export default function LandingPage() {
               lineHeight: 1.8,
               letterSpacing: '2px',
             }}>
-              这，就是我们正栽培的孩子：
+              这，就是我们正在栽培的孩子：
             </p>
             <p style={{
               margin: isDesktop ? '16px auto 4px' : '12px auto 4px',
@@ -223,7 +223,7 @@ export default function LandingPage() {
             孩子是这样学会<span style={{ color: '#f87171' }}>"想办法"</span>的
           </h2>
         </div>
-        {/* Phase 1: 提问 — own card */}
+        {/* Phase 1: 找到问题 — own card */}
         <div style={{
           margin: isDesktop ? '32px auto 0' : '24px 16px 0',
           padding: isDesktop ? '40px 56px 160px' : '28px 24px 120px',
@@ -243,7 +243,7 @@ export default function LandingPage() {
               width: 32, height: 32, borderRadius: '50%',
               background: '#1e2a78', color: '#fff', fontSize: 14, fontWeight: 700,
             }}>1</span>
-            <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>提问</span>
+            <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>找到问题</span>
           </div>
           <p style={{ margin: '0 0 28px', color: '#6b7280' }}>
             在国庆日主题活动中，
@@ -309,11 +309,11 @@ export default function LandingPage() {
               width: 32, height: 32, borderRadius: '50%',
               background: '#1e2a78', color: '#fff', fontSize: 14, fontWeight: 700,
             }}>2</span>
-            <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>思考</span>
+            <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>思考原因</span>
           </div>
 
           <p style={{ margin: '0 0 28px' }}>
-            老师<span style={{ fontWeight: 600, color: '#1e2a78' }}>没有直接给答案</span>
+            老师<span style={{ fontWeight: 700, color: '#b91c1c' }}>没有直接给答案</span>
           </p>
           <p style={{ margin: '0 0 16px', color: '#6b7280' }}>
             只是拿起几块 Edu Toys，
@@ -372,7 +372,7 @@ export default function LandingPage() {
                 width: 32, height: 32, borderRadius: '50%',
                 background: '#1e2a78', color: '#fff', fontSize: 14, fontWeight: 700,
               }}>3</span>
-              <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>解决</span>
+              <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>尝试解决</span>
             </div>
 
             <p style={{ margin: '0 0 28px' }}>
@@ -476,180 +476,158 @@ export default function LandingPage() {
             在 Ten Toes
           </p>
           <h2 style={{ margin: '0 0 40px', fontSize: 24, fontWeight: 700, color: '#fff', lineHeight: 1.6 }}>
-            我们是这样陪伴孩子学习的
+            我们如何引导孩子学会"想办法"
           </h2>
 
-          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 0 }}>
-            {[
-              { num: '1', title: '探索式学习', desc: '让孩子从好奇开始，\n主动去问、去发现。' },
-              { num: '2', title: '活动式学习', desc: '让孩子在参与、尝试与讨论中，\n学会自己找到答案。' },
-              { num: '3', title: '真实体验活动', desc: '让孩子在真实情境中，\n学会尝试、解决问题，并逐渐独立。' },
-            ].map((item, i) => (
-              <div key={i} style={{
-                padding: '32px 20px',
-                borderTop: i === 0 ? '1px solid rgba(255,255,255,0.12)' : 'none',
-                borderBottom: '1px solid rgba(255,255,255,0.12)',
-              }}>
-                <div style={{
-                  fontSize: 36,
-                  fontWeight: 700,
-                  color: 'rgba(255,255,255,0.12)',
-                  marginBottom: 6,
-                }}>
-                  {item.num}
-                </div>
-                <div style={{
-                  fontSize: 22,
-                  fontWeight: 700,
-                  color: '#fff',
-                  marginBottom: 14,
-                }}>
-                  {item.title}
-                </div>
-                <div style={{
-                  fontSize: 16,
-                  color: 'rgba(255,255,255,0.6)',
-                  lineHeight: 1.9,
-                }}>
-                  {item.desc.split('\n').map((line, j) => (
-                    <span key={j}>{line}{j < item.desc.split('\n').length - 1 && <br />}</span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
 
         </section>
 
         {/* ── Detail Sections (Cards) ── */}
         <div style={{ padding: '20px 16px 0', display: 'flex', flexDirection: 'column' as const, gap: 16, maxWidth: isDesktop ? 1120 : undefined, margin: isDesktop ? '0 auto' : undefined }}>
 
-          {/* 1. 探索式学习 */}
+          {/* 1. 从好奇开始 */}
           <section style={{
-            padding: '32px 24px',
+            padding: isDesktop ? '40px 56px 60px' : '32px 24px 48px',
             textAlign: 'center' as const,
-            lineHeight: 1.9,
-            fontSize: 15,
-            color: '#475569',
+            lineHeight: 2,
+            fontSize: isDesktop ? 18 : 16,
+            color: '#4b5563',
             background: '#fff',
             borderRadius: 16,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+            borderTop: '3px solid #1e2a78',
           }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>01</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>探索式学习</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#94a3b8' }}>培养孩子的好奇心</p>
+            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 22 : 20, fontWeight: 700, color: '#1e293b' }}>从好奇开始</h2>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>探索式学习</p>
+            <img src="/explore.jpeg" alt="探索式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 28px', display: 'block' }} />
 
-            <p style={{ margin: '0 0 16px' }}>
+            <p style={{ margin: '0 0 20px' }}>
               在课堂中，
               <br />
-              我们不会一直讲给孩子听。
+              孩子不会只是听答案
             </p>
-            <p style={{ margin: '0 0 16px' }}>
-              因为我们发现，
+            <p style={{ margin: '0 0 20px' }}>
+              他们会自己动手，
               <br />
-              孩子不是听得越多，就学得越好。
+              一边试，一边观察
             </p>
-            <p style={{ margin: '0 0 16px' }}>
-              反而，当老师开始提问，
+            <p style={{ margin: '0 0 20px' }}>
+              看看不同的做法，
               <br />
-              孩子会开始去想、去回答。
+              会带来什么不一样的结果
             </p>
-            <p style={{ margin: '0 0 16px' }}>
-              有时候，他们会说出自己的想法，
-              <br />
-              也会和同学一起讨论不同的答案。
-            </p>
-            <p style={{ margin: '0 0 16px' }}>
-              在这样的过程中，
-              <br />
-              孩子不是在记答案，
-              <br />
-              而是慢慢学会自己去想、去问。
-            </p>
-            <p style={{ margin: 0 }}>
-              久而久之，
-              <br />
-              好奇心就会成为他们学习的动力。
-            </p>
-          </section>
-
-          {/* 2. 互动式课堂 */}
-          <section style={{
-            padding: '32px 24px',
-            textAlign: 'center' as const,
-            lineHeight: 1.9,
-            fontSize: 15,
-            color: '#475569',
-            background: '#fff',
-            borderRadius: 16,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>02</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>在活动中学习</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#94a3b8' }}>在参与中学会尝试</p>
-
-            <p style={{ margin: '0 0 16px' }}>
-              在课堂中，
-              <br />
-              孩子不只是听课。
-            </p>
-            <p style={{ margin: '0 0 16px' }}>
-              他们会参与活动、一起尝试，
-              <br />
-              在过程中动手、思考。
-            </p>
-            <p style={{ margin: '0 0 16px' }}>
-              有时会讨论、分享想法，
-              <br />
-              也会在尝试中发现问题、调整方法。
-            </p>
-            <p style={{ margin: '0 0 16px' }}>
-              老师会在过程中引导孩子，
-              <br />
-              让他们慢慢理解，而不是直接给答案。
-            </p>
-            <p style={{ margin: 0 }}>
+            <p style={{ margin: '0 0 20px' }}>
               慢慢地，
               <br />
-              孩子会更敢尝试，
+              他们开始表达自己的想法，
               <br />
-              也更懂得自己去找到答案。
+              也会主动提出问题
             </p>
           </section>
 
-          {/* 3. 真实体验活动 */}
+          {/* 2. 在尝试中学习 */}
           <section style={{
-            padding: '32px 24px',
+            padding: isDesktop ? '40px 56px 60px' : '32px 24px 48px',
             textAlign: 'center' as const,
-            lineHeight: 1.9,
-            fontSize: 15,
-            color: '#475569',
+            lineHeight: 2,
+            fontSize: isDesktop ? 18 : 16,
+            color: '#4b5563',
             background: '#fff',
             borderRadius: 16,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+            borderTop: '3px solid #1e2a78',
           }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>03</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>真实体验活动</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#94a3b8' }}>让孩子学会独立</p>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>02</div>
+            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 22 : 20, fontWeight: 700, color: '#1e293b' }}>在尝试中学习</h2>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>活动式学习</p>
+            <img src="/try.jpg" alt="活动式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 28px', display: 'block' }} />
 
-            <p style={{ margin: '0 0 16px' }}>
-              我们相信很多能力
+            <p style={{ margin: '0 0 20px' }}>
+              学习不只是听，
               <br />
-              不是通过讲解学会的，
-              <br />
-              而是在体验中成长。
+              而是在一次次尝试中发生
             </p>
-            <p style={{ margin: '0 0 16px' }}>
-              通过各种活动和真实情境，
+            <p style={{ margin: '0 0 20px' }}>
+              孩子会动手参与，
               <br />
-              孩子会尝试自己解决问题、
+              不断去试，看看会发生什么
+            </p>
+            <p style={{ margin: '0 0 20px' }}>
+              有时候成功，
               <br />
-              做决定和承担责任。
+              有时候失败
+            </p>
+            <p style={{ margin: '0 0 20px' }}>
+              当遇到困难时，
+              <br />
+              老师不会马上给答案，
+            </p>
+            <p style={{ margin: '0 0 20px' }}>
+              而是引导他们再试一次：
+            </p>
+            <p style={{ margin: '0 0 20px', fontWeight: 600, color: '#1e2a78' }}>
+              "我们可以换个方法试试看吗？"
             </p>
             <p style={{ margin: 0 }}>
-              在一次次体验中，
+              在一次次尝试中，
               <br />
-              孩子会慢慢变得更独立。
+              孩子慢慢找到自己的方法
+            </p>
+          </section>
+
+          {/* 3. 在真实情境中成长 */}
+          <section style={{
+            padding: isDesktop ? '40px 56px 60px' : '32px 24px 48px',
+            textAlign: 'center' as const,
+            lineHeight: 2,
+            fontSize: isDesktop ? 18 : 16,
+            color: '#4b5563',
+            background: '#fff',
+            borderRadius: 16,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+            borderTop: '3px solid #1e2a78',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>03</div>
+            <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 22 : 20, fontWeight: 700, color: '#1e293b' }}>在真实情境中成长</h2>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>真实体验活动</p>
+            <img src="/event.jpeg" alt="真实体验活动" style={{ width: '100%', borderRadius: 12, margin: '0 0 28px', display: 'block' }} />
+
+            <p style={{ margin: '0 0 20px' }}>
+              在课堂与活动中，
+              <br />
+              孩子会面对真实的情境
+            </p>
+            <p style={{ margin: '0 0 20px' }}>
+              他们需要自己动手，
+              <br />
+              也需要做选择、做决定
+            </p>
+            <p style={{ margin: '0 0 20px' }}>
+              例如在模拟 bazaar 的活动中，
+              <br />
+              孩子要用"钱"来进行买卖，
+              <br />
+              决定要买什么、用多少钱
+            </p>
+            <p style={{ margin: '0 0 20px' }}>
+              当结果不如预期时，
+              <br />
+              他们会停下来想一想，
+              <br />
+              再调整自己的做法
+            </p>
+            <p style={{ margin: '0 0 20px' }}>
+              在这样的过程中，
+              <br />
+              孩子不只是完成一个活动，
+            </p>
+            <p style={{ margin: 0, fontWeight: 600, color: '#1e2a78' }}>
+              而是慢慢学会
+              <br />
+              自己做决定，
+              <br />
+              也能一步一步把问题解决
             </p>
           </section>
 
