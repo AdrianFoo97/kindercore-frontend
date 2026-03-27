@@ -417,25 +417,24 @@ export default function LandingPage() {
           maxWidth: isDesktop ? 680 : undefined,
           textAlign: 'center' as const,
         }}>
-          <p style={{ margin: '0 0 16px', fontSize: isDesktop ? 19 : 17, color: '#6b7280', lineHeight: 1.9 }}>
+          <p style={{ margin: '0 0 20px', fontSize: isDesktop ? 19 : 17, color: '#6b7280', lineHeight: 1.9 }}>
             在这个学习过程中，
             <br />
-            他们学到的，不只是"搭双峰塔"
+            他们学到的，不只是把双峰塔搭起来
           </p>
-          <p style={{ margin: '0 0 20px', fontSize: isDesktop ? 19 : 17, color: '#6b7280', lineHeight: 1.9 }}>
-            而是——
-          </p>
-          <p style={{ margin: 0, fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
-            遇到问题的时候，
+          <p style={{ margin: '0 0 16px', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
+            更重要的是，
             <br />
-            不会马上放弃，
+            当双峰塔一次次倒下来的时候，
+            <br />
+            他们不会马上放弃，
           </p>
-          <p style={{ margin: '12px 0 0', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
+          <p style={{ margin: '0 0 16px', fontSize: isDesktop ? 22 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
             而是会停下来想一想，
             <br />
             再试不同的方法，
           </p>
-          <p style={{ margin: '12px 0 0', fontSize: isDesktop ? 26 : 22, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
+          <p style={{ margin: 0, fontSize: isDesktop ? 26 : 22, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
             一步一步，
             <br />
             找到答案
