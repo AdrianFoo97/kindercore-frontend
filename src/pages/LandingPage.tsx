@@ -35,7 +35,7 @@ export default function LandingPage() {
         {/* ── Hero ── */}
         <section style={{
           background: '#fff',
-          padding: isDesktop ? '48px 48px 0' : '36px 20px 0',
+          padding: isDesktop ? '64px 48px 0' : '36px 20px 0',
           borderRadius: 0,
           textAlign: 'center' as const,
           position: 'relative',
@@ -46,73 +46,73 @@ export default function LandingPage() {
             height: isDesktop ? 72 : 52, marginBottom: isDesktop ? 36 : 28,
           }} />
 
-          {/* Top — hook */}
-          <p style={{
-            margin: '0 auto',
-            fontSize: isDesktop ? 22 : 17,
-            fontWeight: 400,
-            color: '#4b5563',
-            lineHeight: 1.9,
-            letterSpacing: '0.5px',
-          }}>
-            在这个 AI 时代，<br />孩子最不缺的就是"答案"
-          </p>
-          <p style={{
-            margin: isDesktop ? '24px auto 0' : '20px auto 0',
-            fontSize: isDesktop ? 30 : 23,
-            fontWeight: 700,
-            color: '#1e2a78',
-            lineHeight: 1.7,
-            letterSpacing: '1px',
-          }}>
-            真正影响孩子一生的，
-            <br />
-            是<span style={{ fontWeight: 900, color: '#b91c1c' }}>"想办法"</span>的能力
-          </p>
-
-          {/* Middle — contrast */}
-          <div style={{
-            margin: isDesktop ? '40px auto 0' : '32px auto 0',
-            maxWidth: isDesktop ? 480 : undefined,
-          }}>
-            <p style={{
-              margin: 0,
-              fontSize: isDesktop ? 19 : 17,
-              fontWeight: 400,
-              color: '#6b7280',
-              lineHeight: 1.8,
-            }}>
-              有些孩子习惯等待答案，
-            </p>
+          <div style={{ maxWidth: isDesktop ? 680 : undefined, margin: '0 auto' }}>
+            {/* Top — hook */}
             <p style={{
               margin: '0 auto',
-              fontSize: isDesktop ? 19 : 17,
-              fontWeight: 500,
+              fontSize: isDesktop ? 22 : 17,
+              fontWeight: 400,
               color: '#4b5563',
-              lineHeight: 1.8,
+              lineHeight: 1.9,
+              letterSpacing: '0.5px',
             }}>
-              也有些孩子，<span style={{ fontWeight: 700 }}>会主动去探索、尝试，</span>
-              <br />
-              <span style={{ fontWeight: 700 }}>去推开未知的大门</span>
+              在这个 AI 时代，<br />孩子最不缺的就是"答案"
             </p>
+            <p style={{
+              margin: isDesktop ? '24px auto 0' : '20px auto 0',
+              fontSize: isDesktop ? 32 : 23,
+              fontWeight: 700,
+              color: '#1e2a78',
+              lineHeight: 1.7,
+              letterSpacing: '1px',
+            }}>
+              真正影响孩子一生的，
+              <br />
+              是<span style={{ fontWeight: 900, color: '#b91c1c' }}>"想办法"</span>的能力
+            </p>
+
+            {/* Middle — contrast */}
+            <div style={{ margin: isDesktop ? '40px auto 0' : '32px auto 0' }}>
+              <p style={{
+                margin: 0,
+                fontSize: isDesktop ? 19 : 17,
+                fontWeight: 400,
+                color: '#6b7280',
+                lineHeight: 1.8,
+              }}>
+                有些孩子习惯等待答案，
+              </p>
+              <p style={{
+                margin: '0 auto',
+                fontSize: isDesktop ? 19 : 17,
+                fontWeight: 500,
+                color: '#4b5563',
+                lineHeight: 1.8,
+              }}>
+                也有些孩子，<span style={{ fontWeight: 700 }}>会主动去探索、尝试，</span>
+                <br />
+                <span style={{ fontWeight: 700 }}>去推开未知的大门</span>
+              </p>
+            </div>
           </div>
 
-          {/* Hero image — full bleed */}
+          {/* Hero image */}
           <div style={{
             margin: isDesktop ? '36px auto 0' : '28px -20px 0',
-            maxWidth: isDesktop ? 560 : undefined,
+            maxWidth: isDesktop ? 720 : undefined,
             overflow: 'hidden',
           }}>
             <img src="/hero.jpg" alt="孩子在探索学习" style={{
               width: '100%',
               display: 'block',
+              borderRadius: isDesktop ? 16 : 0,
             }} />
           </div>
 
           {/* Focus */}
           <div style={{
             margin: isDesktop ? '36px auto 0' : '28px auto 0',
-            maxWidth: isDesktop ? 480 : undefined,
+            maxWidth: isDesktop ? 580 : undefined,
           }}>
             <p style={{
               margin: 0,
@@ -481,7 +481,14 @@ export default function LandingPage() {
         </section>
 
         {/* ── Detail Sections (Cards) ── */}
-        <div style={{ padding: '20px 16px 0', display: 'flex', flexDirection: 'column' as const, gap: 24, maxWidth: isDesktop ? 1120 : undefined, margin: isDesktop ? '0 auto' : undefined }}>
+        <div style={{
+          padding: isDesktop ? '40px 48px 0' : '20px 16px 0',
+          display: 'flex',
+          flexDirection: 'column' as const,
+          gap: 24,
+          maxWidth: isDesktop ? 720 : undefined,
+          margin: isDesktop ? '0 auto' : undefined,
+        }}>
 
           {/* 1. 从好奇开始 */}
           <section style={{
@@ -674,28 +681,35 @@ export default function LandingPage() {
 
         {/* ── 融入课程 ── */}
         <section style={{
-          padding: '52px 24px 56px',
+          padding: isDesktop ? '64px 48px 72px' : '52px 24px 56px',
           textAlign: 'center' as const,
           background: '#2d2a6e',
         }}>
+          <div style={{ maxWidth: isDesktop ? 1100 : undefined, margin: '0 auto' }}>
           {/* Heading area */}
           <p style={{
             margin: 0,
-            fontSize: 12,
+            fontSize: isDesktop ? 14 : 12,
             fontWeight: 400,
             color: 'rgba(255,255,255,0.5)',
             letterSpacing: 3,
           }}>这些学习方式</p>
           <h2 style={{
             margin: '10px 0 40px',
-            fontSize: 23,
+            fontSize: isDesktop ? 28 : 23,
             fontWeight: 700,
             color: '#fff',
             lineHeight: 1.4,
           }}>都融入在我们的课程里</h2>
 
           {/* Programme cards */}
-          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 12, maxWidth: 320, margin: '0 auto' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column' as const,
+            gap: 12,
+            maxWidth: isDesktop ? 480 : 320,
+            margin: '0 auto',
+          }}>
             {[
               { num: '01', title: '日常课程', desc: '在课堂中学会提问、思考与表达', time: '8:30am – 12:30pm' },
               { num: '02', title: '日常 + SMILE 音乐课', desc: '在音乐与互动中表达想法、建立自信', time: '8:30am – 2:30pm' },
@@ -709,40 +723,11 @@ export default function LandingPage() {
                 border: '1px solid rgba(255,255,255,0.06)',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <span style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: 'rgba(255,255,255,0.18)',
-                    letterSpacing: 1,
-                    minWidth: 20,
-                  }}>
-                    {item.num}
-                  </span>
-                  <span style={{
-                    fontSize: 17,
-                    fontWeight: 700,
-                    color: '#fff',
-                  }}>
-                    {item.title}
-                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.18)', letterSpacing: 1, minWidth: 20 }}>{item.num}</span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>{item.title}</span>
                 </div>
-                <div style={{
-                  fontSize: 13,
-                  color: 'rgba(255,255,255,0.4)',
-                  lineHeight: 1.6,
-                  paddingLeft: 30,
-                  marginBottom: 6,
-                }}>
-                  {item.desc}
-                </div>
-                <div style={{
-                  fontSize: 11,
-                  color: 'rgba(255,255,255,0.2)',
-                  letterSpacing: 0.5,
-                  paddingLeft: 30,
-                }}>
-                  {item.time}
-                </div>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, paddingLeft: 30, marginBottom: 6 }}>{item.desc}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', letterSpacing: 0.5, paddingLeft: 30 }}>{item.time}</div>
               </div>
             ))}
           </div>
@@ -770,44 +755,64 @@ export default function LandingPage() {
               <span style={{ fontSize: isDesktop ? 12 : 11, fontWeight: 400, opacity: 0.8 }}>了解课程详情</span>
             </button>
           </div>
+          </div>
         </section>
 
         {/* ── Scrolling Gallery ── */}
-        <div style={{
-          padding: '36px 0',
-          background: '#fff',
-          overflow: 'hidden',
-        }}>
-          <div style={{
-            display: 'flex',
-            gap: 14,
-            paddingLeft: 24,
-            paddingRight: 24,
-            overflowX: 'auto' as const,
-            scrollSnapType: 'x mandatory' as const,
-            WebkitOverflowScrolling: 'touch' as any,
-            msOverflowStyle: 'none' as any,
-            scrollbarWidth: 'none' as any,
-          }}>
-            {['/scroll0.jpg', '/scroll1.jpg', '/scroll 2.JPG', '/scroll4.jpg', '/scroll 5.jpg', '/scroll 6.jpeg'].map((src, i) => (
-              <img
-                key={i}
-                src={src}
-                alt={`学习活动 ${i + 1}`}
-                style={{
-                  width: '85%',
-                  minWidth: '85%',
-                  height: 220,
-                  objectFit: 'cover' as const,
-                  borderRadius: 14,
-                  scrollSnapAlign: 'center' as const,
-                }}
-              />
-            ))}
-            {/* Scroll hint spacer */}
-            <div style={{ minWidth: 1 }} />
-          </div>
-        </div>
+        {(() => {
+          const scrollImages = ['/scroll0.jpg', '/scroll1.jpg', '/scroll 2.JPG', '/scroll4.jpg', '/scroll 5.jpg', '/scroll 6.jpeg'];
+          const ScrollGallery = () => {
+            const [current, setCurrent] = useState(0);
+            useEffect(() => {
+              const timer = setInterval(() => setCurrent(c => (c + 1) % scrollImages.length), 4000);
+              return () => clearInterval(timer);
+            }, []);
+            return (
+              <div style={{ padding: isDesktop ? '48px 0' : '36px 0', background: '#fff', overflow: 'hidden' }}>
+                {isDesktop ? (
+                  <div style={{ maxWidth: 800, margin: '0 auto', position: 'relative' }}>
+                    <div style={{ overflow: 'hidden', borderRadius: 16 }}>
+                      <img
+                        src={scrollImages[current]}
+                        alt={`学习活动 ${current + 1}`}
+                        style={{ width: '100%', height: 420, objectFit: 'cover' as const, display: 'block', transition: 'opacity 0.5s' }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => setCurrent(c => (c - 1 + scrollImages.length) % scrollImages.length)}
+                      style={{ position: 'absolute', left: -48, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.3)', color: '#fff', border: 'none', borderRadius: '50%', width: 40, height: 40, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >‹</button>
+                    <button
+                      onClick={() => setCurrent(c => (c + 1) % scrollImages.length)}
+                      style={{ position: 'absolute', right: -48, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.3)', color: '#fff', border: 'none', borderRadius: '50%', width: 40, height: 40, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >›</button>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+                      {scrollImages.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setCurrent(i)}
+                          style={{ width: 8, height: 8, borderRadius: '50%', border: 'none', background: i === current ? '#1e2a78' : '#d1d5db', cursor: 'pointer', padding: 0 }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'flex', gap: 14, paddingLeft: 24, paddingRight: 24,
+                    overflowX: 'auto' as const, scrollSnapType: 'x mandatory' as const,
+                    WebkitOverflowScrolling: 'touch' as any, msOverflowStyle: 'none' as any, scrollbarWidth: 'none' as any,
+                  }}>
+                    {scrollImages.map((src, i) => (
+                      <img key={i} src={src} alt={`学习活动 ${i + 1}`} style={{ width: '85%', minWidth: '85%', height: 220, objectFit: 'cover' as const, borderRadius: 14, scrollSnapAlign: 'center' as const }} />
+                    ))}
+                    <div style={{ minWidth: 1 }} />
+                  </div>
+                )}
+              </div>
+            );
+          };
+          return <ScrollGallery />;
+        })()}
 
         {/* ── Transition Section (white) ── */}
         <section style={{
@@ -818,6 +823,7 @@ export default function LandingPage() {
           fontSize: isDesktop ? 22 : 18,
           lineHeight: 2,
         }}>
+        <div style={{ maxWidth: isDesktop ? 680 : undefined, margin: '0 auto' }}>
           <p style={{ margin: '0 0 28px' }}>
             这些课程
             <br />
@@ -863,21 +869,28 @@ export default function LandingPage() {
             也开始看到一样的变化
           </p>
 
+        </div>
         </section>
 
         {/* ── Testimonials ── */}
         <section style={{
-          padding: isDesktop ? '48px 0 56px' : '40px 0 48px',
+          padding: isDesktop ? '56px 48px 64px' : '40px 0 48px',
           textAlign: 'center' as const,
           background: '#2d2a6e',
-          maxWidth: isDesktop ? 1120 : undefined,
-          margin: isDesktop ? '0 auto' : undefined,
         }}>
+          <div style={{ maxWidth: isDesktop ? 1100 : undefined, margin: '0 auto' }}>
           <h2 style={{ margin: '0 0 40px', fontSize: isDesktop ? 28 : 22, fontWeight: 700, color: '#fff' }}>
             他们是这样说的：
           </h2>
 
-          <div style={{ display: isDesktop ? 'grid' : 'flex', gridTemplateColumns: isDesktop ? '1fr 1fr' : undefined, flexDirection: isDesktop ? undefined : 'column' as const, gap: isDesktop ? 24 : 24, padding: isDesktop ? '0 32px' : '0 12px' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column' as const,
+            gap: 24,
+            padding: isDesktop ? 0 : '0 12px',
+            maxWidth: isDesktop ? 600 : undefined,
+            margin: '0 auto',
+          }}>
             {testimonials.map((item, i) => (
               <div key={i}>
                 <p style={{
@@ -902,6 +915,7 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+          </div>
         </section>
 
         {/* CTA section after testimonials */}
@@ -911,6 +925,7 @@ export default function LandingPage() {
           textAlign: 'center' as const,
           color: '#475569',
         }}>
+        <div style={{ maxWidth: isDesktop ? 680 : undefined, margin: '0 auto' }}>
           <p style={{
             margin: '0 0 32px',
             fontSize: isDesktop ? 22 : 18,
@@ -965,6 +980,7 @@ export default function LandingPage() {
           >
             填写表格，预约参观
           </button>
+        </div>
         </section>
 
       </div>
