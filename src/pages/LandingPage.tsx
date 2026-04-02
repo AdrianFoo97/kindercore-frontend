@@ -374,8 +374,6 @@ export default function LandingPage() {
               }}>3</span>
               <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>尝试解决</span>
             </div>
-            <img src="/twin tower.JPG" alt="双峰塔" style={{ width: '100%', borderRadius: 12, margin: '0 0 32px', display: 'block' }} />
-
             <p style={{ margin: '0 0 36px' }}>
               他们马上重新再做
               <br />
@@ -405,6 +403,7 @@ export default function LandingPage() {
               <br />
               "Teacher，我做好了！"
             </p>
+            <img src="/twin tower.JPG" alt="双峰塔" style={{ width: '100%', borderRadius: 12, display: 'block' }} />
 
           </div>
         </section>
@@ -790,7 +789,7 @@ export default function LandingPage() {
             msOverflowStyle: 'none' as any,
             scrollbarWidth: 'none' as any,
           }}>
-            {['/scroll0.jpg', '/scroll1.jpg', '/scroll 2.JPG', '/scroll4.jpg', '/scroll 5.jpg'].map((src, i) => (
+            {['/scroll0.jpg', '/scroll1.jpg', '/scroll 2.JPG', '/scroll4.jpg', '/scroll 5.jpg', '/scroll 6.jpeg'].map((src, i) => (
               <img
                 key={i}
                 src={src}
