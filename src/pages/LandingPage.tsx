@@ -374,6 +374,7 @@ export default function LandingPage() {
               }}>3</span>
               <span style={{ fontSize: isDesktop ? 20 : 18, fontWeight: 700, color: '#1e2a78', letterSpacing: 2 }}>尝试解决</span>
             </div>
+            <img src="/twin tower.JPG" alt="双峰塔" style={{ width: '100%', borderRadius: 12, margin: '0 0 32px', display: 'block' }} />
 
             <p style={{ margin: '0 0 36px' }}>
               他们马上重新再做
@@ -417,24 +418,25 @@ export default function LandingPage() {
           maxWidth: isDesktop ? 680 : undefined,
           textAlign: 'center' as const,
         }}>
+          <img src="/toys.jpeg" alt="学习活动" style={{ width: '100%', borderRadius: 12, margin: '0 0 36px', display: 'block' }} />
           <p style={{ margin: '0 0 48px', fontSize: isDesktop ? 21 : 19, color: '#6b7280', lineHeight: 1.9 }}>
-            在这个学习过程中，
+            在这个学习过程中
             <br />
-            他们学到的，
+            他们学到的
             <br />
             <span style={{ color: 'red', fontWeight: 700 }}>不只是</span>把双峰塔搭起来
           </p>
           <p style={{ margin: '0 0 44px', fontSize: isDesktop ? 21 : 19, color: '#4b5563', lineHeight: 2 }}>
-            更重要的是，
+            更重要的是
             <br />
-            当双峰塔一次次倒下来的时候，
+            当双峰塔一次次倒下来的时候
             <br />
-            <span style={{ fontWeight: 700, color: '#b91c1c' }}>他们不会马上放弃</span>，
+            <span style={{ fontWeight: 700, color: '#b91c1c' }}>他们不会马上放弃</span>
           </p>
           <p style={{ margin: '0 0 48px', fontSize: isDesktop ? 21 : 19, color: '#4b5563', lineHeight: 2 }}>
-            而是会停下来想一想，
+            而是会停下来想一想
             <br />
-            <span style={{ fontWeight: 700, color: '#b91c1c' }}>再试不同的方法</span>，
+            <span style={{ fontWeight: 700, color: '#b91c1c' }}>再试不同的方法</span>
           </p>
           <p style={{ margin: 0, fontSize: isDesktop ? 30 : 26, fontWeight: 700, color: '#1e2a78', lineHeight: 2 }}>
             一步一步，找到答案
@@ -446,23 +448,22 @@ export default function LandingPage() {
           <button
             onClick={() => navigate('/enquiry/form?from=story')}
             style={{
-              padding: '14px 36px 16px',
+              padding: isDesktop ? '18px 52px' : '16px 40px',
               background: '#1e2a78',
               color: '#fff',
               border: 'none',
               borderRadius: 50,
-              fontSize: 15,
+              fontSize: isDesktop ? 17 : 15,
               fontWeight: 700,
               cursor: 'pointer',
               fontFamily: 'inherit',
               letterSpacing: '1.5px',
-              boxShadow: '0 4px 16px rgba(30, 42, 120, 0.25)',
-              lineHeight: 1.6,
+              boxShadow: '0 6px 28px rgba(30,42,120,0.25)',
             }}
           >
             预约参观学校
             <br />
-            <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.7, letterSpacing: '1px' }}>看看孩子在这里怎么学习</span>
+            <span style={{ fontSize: isDesktop ? 12 : 11, fontWeight: 400, opacity: 0.8 }}>看看孩子在这里怎么学习</span>
           </button>
         </div>
 
@@ -475,11 +476,9 @@ export default function LandingPage() {
           <p style={{ margin: '0 0 6px', fontSize: 14, color: 'rgba(255,255,255,0.45)', letterSpacing: 2 }}>
             在 Ten Toes
           </p>
-          <h2 style={{ margin: '0 0 40px', fontSize: 24, fontWeight: 700, color: '#fff', lineHeight: 1.6 }}>
+          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#fff', lineHeight: 1.6 }}>
             我们如何引导孩子学会"想办法"
           </h2>
-
-
         </section>
 
         {/* ── Detail Sections (Cards) ── */}
@@ -655,23 +654,22 @@ export default function LandingPage() {
           <button
             onClick={() => navigate('/enquiry/form?from=methods')}
             style={{
-              padding: '14px 36px 16px',
+              padding: isDesktop ? '18px 52px' : '16px 40px',
               background: '#1e2a78',
               color: '#fff',
               border: 'none',
               borderRadius: 50,
-              fontSize: 15,
+              fontSize: isDesktop ? 17 : 15,
               fontWeight: 700,
               cursor: 'pointer',
               fontFamily: 'inherit',
               letterSpacing: '1.5px',
-              boxShadow: '0 4px 16px rgba(30, 42, 120, 0.25)',
-              lineHeight: 1.6,
+              boxShadow: '0 6px 28px rgba(30,42,120,0.25)',
             }}
           >
             预约参观学校
             <br />
-            <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.8 }}>看看孩子在这里怎么学习</span>
+            <span style={{ fontSize: isDesktop ? 12 : 11, fontWeight: 400, opacity: 0.8 }}>看看孩子在这里怎么学习</span>
           </button>
         </div>
 
@@ -686,7 +684,7 @@ export default function LandingPage() {
             margin: 0,
             fontSize: 12,
             fontWeight: 400,
-            color: 'rgba(255,255,255,0.3)',
+            color: 'rgba(255,255,255,0.5)',
             letterSpacing: 3,
           }}>这些学习方式</p>
           <h2 style={{
@@ -755,12 +753,12 @@ export default function LandingPage() {
             <button
               onClick={() => navigate('/enquiry/form?from=methods')}
               style={{
-                padding: '16px 40px',
+                padding: isDesktop ? '18px 52px' : '16px 40px',
                 background: '#fff',
                 color: '#1e2a78',
                 border: 'none',
                 borderRadius: 50,
-                fontSize: 15,
+                fontSize: isDesktop ? 17 : 15,
                 fontWeight: 700,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -770,63 +768,100 @@ export default function LandingPage() {
             >
               预约参观学校
               <br />
-              <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>了解课程详情</span>
+              <span style={{ fontSize: isDesktop ? 12 : 11, fontWeight: 400, opacity: 0.8 }}>了解课程详情</span>
             </button>
           </div>
         </section>
 
+        {/* ── Scrolling Gallery ── */}
+        <div style={{
+          padding: '36px 0',
+          background: '#fff',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            display: 'flex',
+            gap: 14,
+            paddingLeft: 24,
+            paddingRight: 24,
+            overflowX: 'auto' as const,
+            scrollSnapType: 'x mandatory' as const,
+            WebkitOverflowScrolling: 'touch' as any,
+            msOverflowStyle: 'none' as any,
+            scrollbarWidth: 'none' as any,
+          }}>
+            {['/scroll0.jpg', '/scroll1.jpg', '/scroll 2.JPG', '/scroll4.jpg', '/scroll 5.jpg'].map((src, i) => (
+              <img
+                key={i}
+                src={src}
+                alt={`学习活动 ${i + 1}`}
+                style={{
+                  width: '85%',
+                  minWidth: '85%',
+                  height: 220,
+                  objectFit: 'cover' as const,
+                  borderRadius: 14,
+                  scrollSnapAlign: 'center' as const,
+                }}
+              />
+            ))}
+            {/* Scroll hint spacer */}
+            <div style={{ minWidth: 1 }} />
+          </div>
+        </div>
+
         {/* ── Transition Section (white) ── */}
         <section style={{
-          padding: isDesktop ? '64px 24px' : '48px 24px',
+          padding: isDesktop ? '64px 24px' : '0 24px 48px',
           textAlign: 'center' as const,
           background: '#fff',
           color: '#4b5563',
-          fontSize: isDesktop ? 20 : 15,
+          fontSize: isDesktop ? 22 : 18,
           lineHeight: 2,
         }}>
           <p style={{ margin: '0 0 28px' }}>
-            这些课程，
+            这些课程
             <br />
-            看起来不一样，
+            看起来不一样
           </p>
           <p style={{ margin: '0 0 28px', fontSize: isDesktop ? 20 : 15, color: '#4b5563' }}>
             但其实都在做同一件事——
           </p>
-          <p style={{ margin: '0 0 0', fontSize: isDesktop ? 24 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 1.7 }}>
-            让孩子在遇到问题时，
+          <p style={{ margin: '0 0 0', fontSize: isDesktop ? 28 : 22, fontWeight: 700, color: '#1e2a78', lineHeight: 1.7 }}>
+            让孩子在遇到问题时
             <br />
-            <span style={{ color: '#1e2a78' }}>不会马上放弃</span>，
+            <span style={{ color: '#1e2a78' }}>不会马上放弃</span>
             <br />
-            而是愿意自己<span style={{ color: '#1e2a78' }}>想一想、试一试</span>。
+            而是愿意自己<span style={{ color: '#1e2a78' }}>想一想、试一试</span>
           </p>
 
           {/* Divider */}
           <div style={{ width: 40, height: 2, background: '#e2e8f0', margin: '36px auto' }} />
 
           <p style={{ margin: '0 0 28px' }}>
-            慢慢地，
+            慢慢地
             <br />
-            他们变得<span style={{ fontWeight: 700, color: 'red' }}>更独立</span>，
+            他们变得<span style={{ fontWeight: 700, color: 'red' }}>更独立</span>
           </p>
           <p style={{ margin: '0 0 28px' }}>
             也更愿意
             <br />
-            <span style={{ fontWeight: 700, color: 'red' }}>自己去面对问题</span>。
+            <span style={{ fontWeight: 700, color: 'red' }}>自己去面对问题</span>
           </p>
 
           <div style={{ height: 12 }} />
 
           <p style={{ margin: '0 0 28px' }}>
-            这些改变，
+            这些改变
             <br />
-            <span style={{ fontWeight: 700, color: 'red' }}>不只是发生在学校</span>。
+            <span style={{ fontWeight: 700, color: 'red' }}>不只是发生在学校</span>
           </p>
           <p style={{ margin: '0 0 0' }}>
-            很多家长，
+            很多家长
             <br />
-            在日常生活中，
+            在日常生活中
             <br />
-            也开始看到一样的变化。
+            也开始看到一样的变化
           </p>
 
         </section>
@@ -839,16 +874,16 @@ export default function LandingPage() {
           maxWidth: isDesktop ? 1120 : undefined,
           margin: isDesktop ? '0 auto' : undefined,
         }}>
-          <h2 style={{ margin: '0 0 28px', fontSize: isDesktop ? 28 : 22, fontWeight: 700, color: '#fff' }}>
+          <h2 style={{ margin: '0 0 40px', fontSize: isDesktop ? 28 : 22, fontWeight: 700, color: '#fff' }}>
             他们是这样说的：
           </h2>
 
-          <div style={{ display: isDesktop ? 'grid' : 'flex', gridTemplateColumns: isDesktop ? '1fr 1fr' : undefined, flexDirection: isDesktop ? undefined : 'column' as const, gap: isDesktop ? 24 : 20, padding: isDesktop ? '0 32px' : '0 24px' }}>
+          <div style={{ display: isDesktop ? 'grid' : 'flex', gridTemplateColumns: isDesktop ? '1fr 1fr' : undefined, flexDirection: isDesktop ? undefined : 'column' as const, gap: isDesktop ? 24 : 24, padding: isDesktop ? '0 32px' : '0 24px' }}>
             {testimonials.map((item, i) => (
               <div key={i}>
                 <p style={{
-                  margin: '0 0 8px',
-                  fontSize: 14,
+                  margin: '0 0 12px',
+                  fontSize: 16,
                   color: 'rgba(255,255,255,0.7)',
                   textAlign: 'center' as const,
                 }}>
@@ -878,49 +913,53 @@ export default function LandingPage() {
           color: '#475569',
         }}>
           <p style={{
-            margin: '0 0 28px',
-            fontSize: 16,
+            margin: '0 0 32px',
+            fontSize: isDesktop ? 22 : 18,
             lineHeight: 2,
           }}>
             如果你也希望孩子
-            <br />变得更独立
-            <br />更有自信
-            <br />也更愿意自己尝试解决问题
+            <br />慢慢变得<span style={{ fontWeight: 700, color: 'red' }}>更独立</span>
+            <br /><span style={{ fontWeight: 700, color: 'red' }}>更有自信</span>
+          </p>
+          <p style={{
+            margin: '0 0 36px',
+            fontSize: isDesktop ? 22 : 18,
+            lineHeight: 2,
+          }}>
+            在遇到问题时
+            <br />也愿意自己<span style={{ fontWeight: 700, color: 'red' }}>想一想、试一试</span>
           </p>
           <p style={{
             margin: '0 0 32px',
-            fontSize: 18,
-            fontWeight: 700,
-            lineHeight: 1.8,
-            color: '#1e293b',
+            fontSize: isDesktop ? 22 : 18,
+            lineHeight: 2,
           }}>
-            欢迎亲自来看看
-            <br />Ten Toes 的孩子
-            <br />是如何在每天的学习中
-            <br />慢慢变成这样的
+            <span style={{ fontWeight: 700, color: '#1e2a78' }}>欢迎亲自来看看</span>
+            <br />孩子在这里的学习
+            <br />是如何一点一点发生的
           </p>
           <button
             onClick={() => navigate('/enquiry/form?from=final')}
             style={{
-              padding: '14px 40px',
+              padding: isDesktop ? '18px 52px' : '16px 40px',
               background: '#1e2a78',
               color: '#fff',
               border: 'none',
               borderRadius: 50,
-              fontSize: 15,
+              fontSize: isDesktop ? 17 : 15,
               fontWeight: 700,
               cursor: 'pointer',
               fontFamily: 'inherit',
               letterSpacing: '1.5px',
-              boxShadow: '0 4px 16px rgba(30, 42, 120, 0.25)',
+              boxShadow: '0 6px 28px rgba(30,42,120,0.25)',
             }}
           >
             预约参观学校
+            <br />
+            <span style={{ fontSize: isDesktop ? 12 : 11, fontWeight: 400, opacity: 0.8 }}>与园长 1 对 1 深入交流孩子的学习发展</span>
           </button>
         </section>
 
-        {/* Bottom spacer */}
-        <div style={{ height: 32 }} />
       </div>
       </div>
     </div>
