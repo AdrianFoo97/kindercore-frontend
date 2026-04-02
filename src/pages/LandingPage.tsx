@@ -933,9 +933,19 @@ export default function LandingPage() {
             fontSize: isDesktop ? 22 : 18,
             lineHeight: 2,
           }}>
-            <span style={{ fontWeight: 700, color: '#1e2a78' }}>欢迎亲自来看看</span>
+            <span style={{ fontWeight: 700, color: '#1e2a78' }}>欢迎来学校看看</span>
             <br />孩子在这里的学习
             <br />是如何一点一点发生的
+          </p>
+          <p style={{
+            margin: '0 0 32px',
+            fontSize: isDesktop ? 22 : 18,
+            lineHeight: 2,
+            color: '#4b5563',
+          }}>
+            填写表格后
+            <br />我们会通过 WhatsApp 联系您
+            <br />安排参观时间
           </p>
           <button
             onClick={() => navigate('/enquiry/form?from=final')}
@@ -953,9 +963,7 @@ export default function LandingPage() {
               boxShadow: '0 6px 28px rgba(30,42,120,0.25)',
             }}
           >
-            预约参观学校
-            <br />
-            <span style={{ fontSize: isDesktop ? 12 : 11, fontWeight: 400, opacity: 0.8 }}>与园长 1 对 1 深入交流孩子的学习发展</span>
+            填写表格，预约参观
           </button>
         </section>
 
