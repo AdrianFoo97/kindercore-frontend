@@ -793,7 +793,7 @@ function AppointmentModal({
 // ── WhatsApp Modal ─────────────────────────────────────────────────────────────
 
 interface WhatsAppContact {
-  childName: string; parentPhone: string;
+  childName: string; parentPhone: string; relationship?: string | null;
   status?: LeadStatus; appointmentStart?: string | null; notes?: string | null;
   submittedAt?: string; childDob?: string;
 }
@@ -802,6 +802,7 @@ interface WaTemplateOption { id: string; name: string; content_en: string; conte
 
 function applyTemplatePlaceholders(template: string, contact: WhatsAppContact, address: string, durationMinutes: number): string {
   const childName = contact.childName;
+  const relationship = contact.relationship || '';
   const dt = contact.appointmentStart;
   if (dt) {
     const d = new Date(dt);
@@ -810,11 +811,13 @@ function applyTemplatePlaceholders(template: string, contact: WhatsAppContact, a
     const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
     const endTimeStr = end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
     return template
-      .replace(/\{\{childName\}\}/g, childName).replace(/\{\{appointmentDate\}\}/g, dateStr)
+      .replace(/\{\{childName\}\}/g, childName).replace(/\{\{relationship\}\}/g, relationship)
+      .replace(/\{\{appointmentDate\}\}/g, dateStr)
       .replace(/\{\{appointmentTime\}\}/g, timeStr).replace(/\{\{appointmentEndTime\}\}/g, endTimeStr)
       .replace(/\{\{address\}\}/g, address);
   }
-  return template.replace(/\{\{childName\}\}/g, childName).replace(/\{\{appointmentDate\}\}/g, '')
+  return template.replace(/\{\{childName\}\}/g, childName).replace(/\{\{relationship\}\}/g, relationship)
+    .replace(/\{\{appointmentDate\}\}/g, '')
     .replace(/\{\{appointmentTime\}\}/g, '').replace(/\{\{appointmentEndTime\}\}/g, '').replace(/\{\{address\}\}/g, address);
 }
 

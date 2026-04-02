@@ -44,6 +44,7 @@ export default function EnquiryFormPage() {
   const [dobDay, setDobDay] = useState('');
   const [dobMonth, setDobMonth] = useState('');
   const [dobYear, setDobYear] = useState('');
+  const [relationOther, setRelationOther] = useState(false);
   const [addressOther, setAddressOther] = useState(false);
   const [sourceOther, setSourceOther] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -575,14 +576,33 @@ export default function EnquiryFormPage() {
                         <input
                           type="radio"
                           name="relationship"
-                          checked={form.relationship === opt.value}
-                          onChange={() => { setForm(f => ({ ...f, relationship: opt.value })); setRelationError(''); }}
+                          checked={relationOther ? opt.value === 'Other' : form.relationship === opt.value}
+                          onChange={() => {
+                            if (opt.value === 'Other') {
+                              setRelationOther(true);
+                              setForm(f => ({ ...f, relationship: '' }));
+                            } else {
+                              setRelationOther(false);
+                              setForm(f => ({ ...f, relationship: opt.value }));
+                            }
+                            setRelationError('');
+                          }}
                           style={{ display: 'none' }}
                         />
                         {opt.label}
                       </label>
                     ))}
                   </div>
+                  {relationOther && (
+                    <input
+                      type="text"
+                      value={form.relationship}
+                      onChange={e => { setForm(f => ({ ...f, relationship: e.target.value })); setRelationError(''); }}
+                      placeholder="请输入您与孩子的关系"
+                      style={{ ...inputStyle, marginTop: 8 }}
+                      autoFocus
+                    />
+                  )}
                   {relationError && (
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444' }}>&#9888; {relationError}</p>
                   )}
