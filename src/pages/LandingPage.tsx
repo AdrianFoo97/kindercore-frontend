@@ -877,7 +877,7 @@ export default function LandingPage() {
             他们是这样说的：
           </h2>
 
-          <div style={{ display: isDesktop ? 'grid' : 'flex', gridTemplateColumns: isDesktop ? '1fr 1fr' : undefined, flexDirection: isDesktop ? undefined : 'column' as const, gap: isDesktop ? 24 : 24, padding: isDesktop ? '0 32px' : '0 24px' }}>
+          <div style={{ display: isDesktop ? 'grid' : 'flex', gridTemplateColumns: isDesktop ? '1fr 1fr' : undefined, flexDirection: isDesktop ? undefined : 'column' as const, gap: isDesktop ? 24 : 24, padding: isDesktop ? '0 32px' : '0 12px' }}>
             {testimonials.map((item, i) => (
               <div key={i}>
                 <p style={{
