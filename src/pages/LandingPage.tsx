@@ -422,7 +422,7 @@ export default function LandingPage() {
             <br />
             他们学到的，
             <br />
-            不只是把双峰塔搭起来
+            <span style={{ color: 'red', fontWeight: 700 }}>不只是</span>把双峰塔搭起来
           </p>
           <p style={{ margin: '0 0 44px', fontSize: isDesktop ? 21 : 19, color: '#4b5563', lineHeight: 2 }}>
             更重要的是，
@@ -619,21 +619,21 @@ export default function LandingPage() {
             <p style={{ margin: '0 0 32px' }}>
               他们需要自己动手，
               <br />
-              也需要做选择、做决定
+              也需要自己做决定。
             </p>
             <p style={{ margin: '0 0 32px' }}>
               例如在模拟 bazaar 的活动中，
               <br />
               孩子要用"钱"来进行买卖，
               <br />
-              决定要买什么、用多少钱
+              要买什么、用多少钱。
             </p>
             <p style={{ margin: '0 0 32px' }}>
               当结果不如预期时，
               <br />
               他们会停下来想一想，
               <br />
-              再调整自己的做法
+              再调整自己的做法。
             </p>
             <p style={{ margin: '0 0 32px' }}>
               在这样的过程中，
@@ -645,19 +645,18 @@ export default function LandingPage() {
               <br />
               自己做决定，
               <br />
-              也能一步一步把问题解决
+              也能一步一步把问题解决。
             </p>
           </section>
 
         </div>
 
-        {/* CTA after cards */}
         <div style={{ padding: '28px 24px', textAlign: 'center' as const }}>
           <button
             onClick={() => navigate('/enquiry/form?from=methods')}
             style={{
-              padding: '14px 40px',
-              background: '#1a1a8e',
+              padding: '14px 36px 16px',
+              background: '#1e2a78',
               color: '#fff',
               border: 'none',
               borderRadius: 50,
@@ -666,253 +665,182 @@ export default function LandingPage() {
               cursor: 'pointer',
               fontFamily: 'inherit',
               letterSpacing: '1.5px',
-              boxShadow: '0 4px 16px rgba(26, 26, 142, 0.25)',
+              boxShadow: '0 4px 16px rgba(30, 42, 120, 0.25)',
+              lineHeight: 1.6,
             }}
           >
             预约参观学校
+            <br />
+            <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.8 }}>看看孩子在这里怎么学习</span>
           </button>
         </div>
 
         {/* ── 融入课程 ── */}
         <section style={{
-          padding: '48px 24px',
+          padding: '52px 24px 56px',
           textAlign: 'center' as const,
           background: '#2d2a6e',
         }}>
-          <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 400, color: 'rgba(255,255,255,0.45)', letterSpacing: 2 }}>这些学习方式</p>
-          <h2 style={{ margin: '0 0 36px', fontSize: 22, fontWeight: 700, color: '#fff' }}>都融入在我们的课程里</h2>
+          {/* Heading area */}
+          <p style={{
+            margin: 0,
+            fontSize: 12,
+            fontWeight: 400,
+            color: 'rgba(255,255,255,0.3)',
+            letterSpacing: 3,
+          }}>这些学习方式</p>
+          <h2 style={{
+            margin: '10px 0 40px',
+            fontSize: 23,
+            fontWeight: 700,
+            color: '#fff',
+            lineHeight: 1.4,
+          }}>都融入在我们的课程里</h2>
 
-          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 16, maxWidth: 320, margin: '0 auto' }}>
+          {/* Programme cards */}
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 12, maxWidth: 320, margin: '0 auto' }}>
             {[
-              { num: '01', title: '日常课程', desc: '建立基础学习能力' },
-              { num: '02', title: 'SMILE 音乐课', desc: '在音乐中表达自己' },
-              { num: '03', title: 'Full Day 学习生活', desc: '在真实情境中成长' },
+              { num: '01', title: '日常课程', desc: '在课堂中学会提问、思考与表达', time: '8:30am – 12:30pm' },
+              { num: '02', title: '日常 + SMILE 音乐课', desc: '在音乐与互动中表达想法、建立自信', time: '8:30am – 2:30pm' },
+              { num: '03', title: 'Full Day 学习生活', desc: '在日常生活中学会自己安排、自己处理问题', time: '8:30am – 5:30pm' },
             ].map((item, i) => (
               <div key={i} style={{
-                background: 'rgba(255,255,255,0.08)',
-                borderRadius: 12,
-                padding: '20px',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: 14,
+                padding: '20px 22px 18px',
                 textAlign: 'left' as const,
+                border: '1px solid rgba(255,255,255,0.06)',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                   <span style={{
-                    fontSize: 24,
-                    fontWeight: 700,
-                    color: 'rgba(255,255,255,0.15)',
-                    lineHeight: 1,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.18)',
+                    letterSpacing: 1,
+                    minWidth: 20,
                   }}>
                     {item.num}
                   </span>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 2 }}>
-                      {item.title}
-                    </div>
-                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-                      {item.desc}
-                    </div>
-                  </div>
+                  <span style={{
+                    fontSize: 17,
+                    fontWeight: 700,
+                    color: '#fff',
+                  }}>
+                    {item.title}
+                  </span>
+                </div>
+                <div style={{
+                  fontSize: 13,
+                  color: 'rgba(255,255,255,0.4)',
+                  lineHeight: 1.6,
+                  paddingLeft: 30,
+                  marginBottom: 6,
+                }}>
+                  {item.desc}
+                </div>
+                <div style={{
+                  fontSize: 11,
+                  color: 'rgba(255,255,255,0.2)',
+                  letterSpacing: 0.5,
+                  paddingLeft: 30,
+                }}>
+                  {item.time}
                 </div>
               </div>
             ))}
           </div>
+
+          {/* CTA area */}
+          <div style={{ marginTop: 40 }}>
+            <button
+              onClick={() => navigate('/enquiry/form?from=methods')}
+              style={{
+                padding: '16px 40px',
+                background: '#fff',
+                color: '#1e2a78',
+                border: 'none',
+                borderRadius: 50,
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                letterSpacing: '1.5px',
+                boxShadow: '0 6px 28px rgba(0,0,0,0.2)',
+              }}
+            >
+              预约参观学校
+              <br />
+              <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.6 }}>了解课程详情</span>
+            </button>
+          </div>
         </section>
 
-        {/* ── Course Details (Cards) ── */}
-        <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column' as const, gap: 16 }}>
-
-          {/* 01 日常课程 */}
-          <section style={{
-            padding: '32px 24px',
-            textAlign: 'center' as const,
-            lineHeight: 1.9,
-            fontSize: 15,
-            color: '#475569',
-            background: '#fff',
-            borderRadius: 16,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>01</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>日常课程</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#94a3b8' }}>建立基础学习能力</p>
-
-            <p style={{ margin: '0 0 16px' }}>
-              在日常课程中，
-              <br />
-              孩子会通过不同主题的学习活动，
-              <br />
-              慢慢建立基础的学习能力。
-            </p>
-            <p style={{ margin: '0 0 16px' }}>
-              课堂不只是听老师讲解，
-              <br />
-              孩子会通过观察、讨论和动手体验
-              <br />
-              参与学习的过程。
-            </p>
-            <p style={{ margin: 0 }}>
-              在这样的学习环境中，
-              <br />
-              孩子不仅理解知识，
-              <br />
-              也培养专注力和主动学习的习惯。
-            </p>
-          </section>
-
-          {/* 02 SMILE 音乐课 */}
-          <section style={{
-            padding: '32px 24px',
-            textAlign: 'center' as const,
-            lineHeight: 1.9,
-            fontSize: 15,
-            color: '#475569',
-            background: '#fff',
-            borderRadius: 16,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>02</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>SMILE 音乐课</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#94a3b8' }}>在音乐中表达自己</p>
-
-            <p style={{ margin: '0 0 16px' }}>
-              在 SMILE 音乐课程中，
-              <br />
-              孩子会通过音乐、节奏和律动活动
-              <br />
-              探索声音与身体表达。
-            </p>
-            <p style={{ margin: '0 0 16px' }}>
-              课程结合游戏和互动，
-              <br />
-              让孩子在轻松的氛围中
-              <br />
-              感受音乐的乐趣。
-            </p>
-            <p style={{ margin: 0 }}>
-              在一次次音乐活动中，
-              <br />
-              孩子会更愿意表达自己，
-              <br />
-              也慢慢建立自信。
-            </p>
-          </section>
-
-          {/* 03 Full Day 学习生活 */}
-          <section style={{
-            padding: '32px 24px',
-            textAlign: 'center' as const,
-            lineHeight: 1.9,
-            fontSize: 15,
-            color: '#475569',
-            background: '#fff',
-            borderRadius: 16,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#5a79c8', letterSpacing: '1px', marginBottom: 6 }}>03</div>
-            <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>Full Day 学习生活</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#94a3b8' }}>在真实情境中成长</p>
-
-            <p style={{ margin: '0 0 16px' }}>
-              在 Full Day 的学习生活中，
-              <br />
-              孩子不仅参与课堂活动，
-              <br />
-              也会经历许多真实的生活情境。
-            </p>
-            <p style={{ margin: '0 0 16px' }}>
-              例如与同伴合作、
-              <br />
-              解决问题、
-              <br />
-              照顾自己的物品和空间。
-            </p>
-            <p style={{ margin: 0 }}>
-              在这些日常体验中，
-              <br />
-              孩子会慢慢建立独立能力和责任感。
-            </p>
-          </section>
-
-        </div>
-
-        {/* CTA after course detail cards */}
-        <div style={{ padding: '28px 24px', textAlign: 'center' as const }}>
-          <button
-            onClick={() => navigate('/enquiry/form?from=courses')}
-            style={{
-              padding: '14px 40px',
-              background: '#1a1a8e',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 50,
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              letterSpacing: '1.5px',
-              boxShadow: '0 4px 16px rgba(26, 26, 142, 0.25)',
-            }}
-          >
-            预约参观学校
-          </button>
-        </div>
-
-        {/* ── Transition Section ── */}
+        {/* ── Transition Section (white) ── */}
         <section style={{
           padding: isDesktop ? '64px 24px' : '48px 24px',
           textAlign: 'center' as const,
-          background: 'linear-gradient(180deg, #2d2a6e 0%, #1e1b54 100%)',
-          color: 'rgba(255,255,255,0.7)',
-          fontSize: 15,
-          lineHeight: 1.9,
+          background: '#fff',
+          color: '#4b5563',
+          fontSize: isDesktop ? 20 : 15,
+          lineHeight: 2,
         }}>
-          <p style={{ margin: '0 0 40px' }}>
+          <p style={{ margin: '0 0 28px' }}>
             这些课程，
             <br />
-            虽然内容不同，
+            看起来不一样，
           </p>
-          <p style={{ margin: '0 0 8px' }}>
-            但都在做同一件事：
+          <p style={{ margin: '0 0 28px', fontSize: isDesktop ? 20 : 15, color: '#4b5563' }}>
+            但其实都在做同一件事——
           </p>
-          <p style={{ margin: '0 0 0', fontSize: 22, fontWeight: 700, color: '#fff', lineHeight: 1.6 }}>
-            培养孩子自主学习
+          <p style={{ margin: '0 0 0', fontSize: isDesktop ? 24 : 19, fontWeight: 700, color: '#1e2a78', lineHeight: 1.7 }}>
+            让孩子在遇到问题时，
             <br />
-            与解决问题的能力。
+            <span style={{ color: '#1e2a78' }}>不会马上放弃</span>，
+            <br />
+            而是愿意自己<span style={{ color: '#1e2a78' }}>想一想、试一试</span>。
           </p>
 
           {/* Divider */}
-          <div style={{ width: 40, height: 2, background: 'rgba(255,255,255,0.2)', margin: '32px auto' }} />
+          <div style={{ width: 40, height: 2, background: '#e2e8f0', margin: '36px auto' }} />
 
-          <p style={{ margin: '0 0 40px' }}>
-            也正因为这样的学习方式，
+          <p style={{ margin: '0 0 28px' }}>
+            慢慢地，
             <br />
-            孩子会慢慢变得更独立，
-            <br />
-            也更愿意自己尝试解决问题。
+            他们变得<span style={{ fontWeight: 700, color: 'red' }}>更独立</span>，
           </p>
-          <p style={{ margin: '0 0 40px' }}>
+          <p style={{ margin: '0 0 28px' }}>
+            也更愿意
+            <br />
+            <span style={{ fontWeight: 700, color: 'red' }}>自己去面对问题</span>。
+          </p>
+
+          <div style={{ height: 12 }} />
+
+          <p style={{ margin: '0 0 28px' }}>
             这些改变，
             <br />
-            不只发生在学校。
+            <span style={{ fontWeight: 700, color: 'red' }}>不只是发生在学校</span>。
           </p>
-          <p style={{ margin: '0 0 40px' }}>
+          <p style={{ margin: '0 0 0' }}>
             很多家长，
             <br />
-            也在生活中看到了同样的变化。
+            在日常生活中，
+            <br />
+            也开始看到一样的变化。
           </p>
-          <p style={{ margin: 0, color: '#fff', fontWeight: 600, fontSize: 16 }}>
-            他们是这样说的：
-          </p>
+
         </section>
 
         {/* ── Testimonials ── */}
         <section style={{
-          padding: '40px 0',
+          padding: isDesktop ? '48px 0 56px' : '40px 0 48px',
           textAlign: 'center' as const,
+          background: '#2d2a6e',
           maxWidth: isDesktop ? 1120 : undefined,
           margin: isDesktop ? '0 auto' : undefined,
         }}>
-          <h2 style={{ margin: '0 0 28px', fontSize: isDesktop ? 28 : 22, fontWeight: 700, color: '#1e293b' }}>
-            家长的分享
+          <h2 style={{ margin: '0 0 28px', fontSize: isDesktop ? 28 : 22, fontWeight: 700, color: '#fff' }}>
+            他们是这样说的：
           </h2>
 
           <div style={{ display: isDesktop ? 'grid' : 'flex', gridTemplateColumns: isDesktop ? '1fr 1fr' : undefined, flexDirection: isDesktop ? undefined : 'column' as const, gap: isDesktop ? 24 : 20, padding: isDesktop ? '0 32px' : '0 24px' }}>
@@ -921,15 +849,15 @@ export default function LandingPage() {
                 <p style={{
                   margin: '0 0 8px',
                   fontSize: 14,
-                  color: '#475569',
+                  color: 'rgba(255,255,255,0.7)',
                   textAlign: 'center' as const,
                 }}>
-                  "{item.before}{item.highlight && <span style={{ fontWeight: 700, color: '#1a1a8e' }}>{item.highlight}</span>}{item.after || ''}"
+                  "{item.before}{item.highlight && <span style={{ fontWeight: 700, color: '#fff' }}>{item.highlight}</span>}{item.after || ''}"
                 </p>
                 <div style={{
                   borderRadius: 12,
                   overflow: 'hidden',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                  boxShadow: '0 2px 16px rgba(0,0,0,0.2)',
                 }}>
                   <img
                     src={item.src}
@@ -942,18 +870,17 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Dark CTA section after testimonials */}
+        {/* CTA section after testimonials */}
         <section style={{
-          background: 'linear-gradient(160deg, #1a1a5e 0%, #2d2d8a 100%)',
+          background: '#fff',
           padding: isDesktop ? '72px 24px' : '56px 24px',
           textAlign: 'center' as const,
-          color: '#fff',
+          color: '#475569',
         }}>
           <p style={{
             margin: '0 0 28px',
             fontSize: 16,
             lineHeight: 2,
-            color: 'rgba(255,255,255,0.85)',
           }}>
             如果你也希望孩子
             <br />变得更独立
@@ -965,6 +892,7 @@ export default function LandingPage() {
             fontSize: 18,
             fontWeight: 700,
             lineHeight: 1.8,
+            color: '#1e293b',
           }}>
             欢迎亲自来看看
             <br />Ten Toes 的孩子
@@ -975,8 +903,8 @@ export default function LandingPage() {
             onClick={() => navigate('/enquiry/form?from=final')}
             style={{
               padding: '14px 40px',
-              background: '#fff',
-              color: '#1a1a5e',
+              background: '#1e2a78',
+              color: '#fff',
               border: 'none',
               borderRadius: 50,
               fontSize: 15,
@@ -984,7 +912,7 @@ export default function LandingPage() {
               cursor: 'pointer',
               fontFamily: 'inherit',
               letterSpacing: '1.5px',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+              boxShadow: '0 4px 16px rgba(30, 42, 120, 0.25)',
             }}
           >
             预约参观学校
