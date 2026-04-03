@@ -156,6 +156,7 @@ export default function EnquiryFormPage() {
   };
 
   const handleSubmit = async () => {
+    if (submitting || submitted) return;
     setError('');
     setTimeError('');
     setTransportError('');
