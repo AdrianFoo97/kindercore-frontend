@@ -192,7 +192,6 @@ export default function EnquiryFormPage() {
       setSubmitted(true);
     } catch (err: unknown) {
       setError('提交失败，请稍后再试或直接 WhatsApp 联系我们');
-    } finally {
       setSubmitting(false);
     }
   };
