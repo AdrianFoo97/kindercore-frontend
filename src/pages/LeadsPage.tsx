@@ -1626,6 +1626,20 @@ export default function LeadsPage() {
 
   const handleStageSelect = (stage: PipelineStage) => { setSelectedStage(stage); setPage(1); };
 
+  // SSE: real-time lead updates
+  useEffect(() => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const es = new EventSource(`${baseUrl}/api/events`);
+    es.addEventListener('new-lead', () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      queryClient.invalidateQueries({ queryKey: ['leads-follow-up'] });
+      queryClient.invalidateQueries({ queryKey: ['leads-appt-booked'] });
+      queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['upcomingAppointments'] });
+    });
+    return () => es.close();
+  }, [queryClient]);
+
   const apiSort = sortBy === 'intent' ? 'submittedAt' : sortBy;
   const apiOrder = sortBy === 'intent' ? 'desc' : sortOrder;
   const { data: rawData, isLoading, isError, error } = useQuery({
