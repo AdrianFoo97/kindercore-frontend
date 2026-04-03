@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck } from '@fortawesome/free-solid-svg-icons';
+
+declare global { interface Window { fbq?: (...args: unknown[]) => void; } }
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -36,6 +38,13 @@ const helperStyle: React.CSSProperties = {
 export default function EnquiryFormPage() {
   const [searchParams] = useSearchParams();
   const ctaSource = searchParams.get('from') || '';
+
+  // Track form page view
+  useEffect(() => {
+    if (typeof window.fbq === 'function') {
+      window.fbq('track', 'ViewContent', { content_name: 'Enquiry Form', content_category: ctaSource || 'direct' });
+    }
+  }, []);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     childName: '', parentPhone: '', childDob: '', enrolmentYear: new Date().getFullYear(),
@@ -177,6 +186,9 @@ export default function EnquiryFormPage() {
         }).filter(([k, v]) => k === 'needsTransport' ? true : v !== ''))),
       });
       if (!res.ok) throw new Error('提交失败，请稍后重试');
+      if (typeof window.fbq === 'function') {
+        window.fbq('track', 'Lead', { content_name: 'Enquiry Form', content_category: ctaSource || 'direct' });
+      }
       setSubmitted(true);
     } catch (err: unknown) {
       setError('提交失败，请稍后再试或直接 WhatsApp 联系我们');
