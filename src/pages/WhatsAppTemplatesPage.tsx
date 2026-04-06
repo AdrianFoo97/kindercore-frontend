@@ -15,7 +15,7 @@ interface CustomTemplate {
 }
 
 interface SystemTemplate {
-  id: 'enquiry' | 'follow_up';
+  id: 'enquiry' | 'follow_up' | 'confirm_appointment';
   name: string;
   settingKey_en: string;
   settingKey_zh: string;

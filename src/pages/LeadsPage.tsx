@@ -2292,7 +2292,7 @@ export default function LeadsPage() {
                       </div>
                       <div style={{ marginTop: 6, fontSize: 11, color: '#a16207', lineHeight: 1.5 }}>
                         Or{' '}
-                        <button onClick={() => handleSaveWithoutCalendar(cbPendingWa)} disabled={cbStatus === 'confirming'} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#92400e', fontWeight: 600, fontSize: 11, textDecoration: 'underline' }}>
+                        <button onClick={() => handleSaveWithoutCalendar(cbPendingWa)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#92400e', fontWeight: 600, fontSize: 11, textDecoration: 'underline' }}>
                           {cbPendingWa ? 'save & send WhatsApp without calendar' : 'save without calendar'}
                         </button>
                         {' · '}<a href="/settings/calendar" style={{ color: '#92400e', fontSize: 11 }}>Reconnect in Settings</a>
