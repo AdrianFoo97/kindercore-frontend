@@ -2836,7 +2836,7 @@ export default function LeadsPage() {
                           </td>
                         ) : (
                           <td style={{ ...tD, fontSize: 13 }}>
-                            {lead.appointmentStart ? (() => {
+                            {lead.appointmentStart && ['CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP'].includes(lead.status) ? (() => {
                               const isFollowUp = lead.status === 'FOLLOW_UP';
                               const displayDate = isFollowUp && lead.statusChangedAt ? new Date(lead.statusChangedAt) : new Date(lead.appointmentStart);
                               const apptDate = new Date(lead.appointmentStart);
