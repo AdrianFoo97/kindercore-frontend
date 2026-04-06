@@ -51,6 +51,7 @@ const GENERAL_FIELDS: FieldConfig[] = [
 const PLACEHOLDER_INSERTS = [
   { label: 'Child Name', value: '{{childName}}' },
   { label: 'Relationship', value: '{{relationship}}' },
+  { label: 'Appt. Day', value: '{{appointmentDay}}' },
   { label: 'Appt. Date', value: '{{appointmentDate}}' },
   { label: 'Appt. Start Time', value: '{{appointmentTime}}' },
   { label: 'Appt. End Time', value: '{{appointmentEndTime}}' },

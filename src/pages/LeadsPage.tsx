@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchLeads, updateLead, deleteLead, fetchTrashedLeads, restoreLead, permanentDeleteLead, createAppointment, confirmAppointment, fetchUpcomingAppointments, fetchLeadStats, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
+import { fetchLeads, updateLead, deleteLead, fetchTrashedLeads, restoreLead, permanentDeleteLead, createAppointment, confirmAppointment, confirmAppointmentNoCalendar, fetchUpcomingAppointments, fetchLeadStats, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
 import { fetchSettings } from '../api/settings.js';
 import { getConnectToken } from '../api/google.js';
 import { fetchPackages, fetchPackageYears } from '../api/packages.js';
@@ -10,10 +10,18 @@ import { createStudent } from '../api/students.js';
 import { Lead, LeadStatus, LeadsResponse, Package } from '../types/index.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
+
+function RelationshipIcon({ relationship }: { relationship?: string | null }) {
+  if (!relationship) return null;
+  const r = relationship.toLowerCase();
+  const icon = r === 'mother' ? faPersonDress : r === 'father' ? faPerson : faUser;
+  const color = r === 'mother' ? '#ec4899' : r === 'father' ? '#3b82f6' : '#94a3b8';
+  return <span title={relationship} style={{ cursor: 'default', color, fontSize: 10 }}><FontAwesomeIcon icon={icon} /></span>;
+}
 const currentYear = new Date().getFullYear();
 const ENROLMENT_YEARS = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
 type SortField = 'submittedAt' | 'childName' | 'childDob' | 'enrolmentYear' | 'status' | 'intent';
@@ -539,48 +547,47 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
 
       {/* Active tab content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-        {activeTab === 'appointments' && (
-          <>
-            {/* Today's appointments */}
-            <div style={{ padding: '6px 14px 4px', fontSize: 10, fontWeight: 700, color: '#b0b8c9', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              Today · {today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
-            </div>
-            {todayAppts.length === 0 ? (
-              <div style={{ padding: '8px 14px 12px', fontSize: 12, color: '#cbd5e1' }}>No appointments today</div>
-            ) : todayAppts.map(a => (
-              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.childName}</div>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>
-                    {new Date(a.appointmentStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                  </div>
-                </div>
-                <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
+        {activeTab === 'appointments' && (() => {
+          // Sort all appointments by date/time, then group by date
+          const sorted = [...upcomingAppts].sort((a, b) => new Date(a.appointmentStart).getTime() - new Date(b.appointmentStart).getTime());
+          const groups: { label: string; isToday: boolean; items: typeof sorted }[] = [];
+          for (const a of sorted) {
+            const d = new Date(a.appointmentStart);
+            const isToday = isSameDay(d, today);
+            const label = isToday
+              ? `Today · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
+              : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+            const existing = groups.find(g => g.label === label);
+            if (existing) existing.items.push(a);
+            else groups.push({ label, isToday, items: [a] });
+          }
+          return groups.length === 0 ? (
+            <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No upcoming appointments</div>
+          ) : groups.map(group => (
+            <div key={group.label}>
+              <div style={{ padding: '8px 14px 4px', fontSize: 10, fontWeight: 700, color: group.isToday ? '#1d4ed8' : '#b0b8c9', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                {group.label}
               </div>
-            ))}
-            {/* Upcoming visits */}
-            {comingAppts.length > 0 && (
-              <>
-                <div style={{ padding: '10px 14px 4px', fontSize: 10, fontWeight: 700, color: '#b0b8c9', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                  Upcoming
-                </div>
-                {comingAppts.map(a => (
+              {group.items.map(a => {
+                const s = new Date(a.appointmentStart);
+                const e = a.appointmentEnd ? new Date(a.appointmentEnd) : null;
+                const dur = e ? Math.round((e.getTime() - s.getTime()) / 60000) : null;
+                const fmtT = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+                return (
                   <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.childName}</div>
-                      <div style={{ fontSize: 11, color: '#718096' }}>
-                        {new Date(a.appointmentStart).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}
-                        {' · '}
-                        {new Date(a.appointmentStart).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                      <div style={{ fontSize: 11, color: '#64748b' }}>
+                        {fmtT(s)}{e ? ` – ${fmtT(e)}` : ''}{dur ? <span style={{ color: '#b0b8c9', marginLeft: 4 }}>{dur}min</span> : ''}
                       </div>
                     </div>
                     <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
                   </div>
-                ))}
-              </>
-            )}
-          </>
-        )}
+                );
+              })}
+            </div>
+          ));
+        })()}
 
         {activeTab === 'overdue' && (
           <>
@@ -633,14 +640,21 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
 
 // ── Appointment Modal ─────────────────────────────────────────────────────────
 
-function applyWaTemplate(template: string, childName: string, dt: string, address: string, durationMinutes: number): string {
+const RELATIONSHIP_ZH: Record<string, string> = { Mother: '妈咪', Father: '爸爸' };
+function relationshipZh(rel: string): string { return RELATIONSHIP_ZH[rel] || rel; }
+const DAY_ZH = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+
+function applyWaTemplate(template: string, childName: string, relationship: string, dt: string, address: string, durationMinutes: number, isZh = false): string {
   const d = new Date(dt);
   const end = new Date(d.getTime() + durationMinutes * 60_000);
+  const dayStr = isZh ? DAY_ZH[d.getDay()] : d.toLocaleDateString('en-GB', { weekday: 'long' });
   const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
   const endTimeStr = end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
   return template
     .replace(/\{\{childName\}\}/g, childName)
+    .replace(/\{\{relationship\}\}/g, isZh ? relationshipZh(relationship) : relationship)
+    .replace(/\{\{appointmentDay\}\}/g, dayStr)
     .replace(/\{\{appointmentDate\}\}/g, dateStr)
     .replace(/\{\{appointmentTime\}\}/g, timeStr)
     .replace(/\{\{appointmentEndTime\}\}/g, endTimeStr)
@@ -648,12 +662,13 @@ function applyWaTemplate(template: string, childName: string, dt: string, addres
 }
 
 function AppointmentModal({
-  lead, waTemplate, waTemplateZh, address, durationMinutes, upcomingAppts, onClose, onConfirm,
+  lead, intent = 'book', waTemplate, waTemplateZh, address, durationMinutes, upcomingAppts, onClose, onConfirm, onConfirmNoCalendar,
 }: {
-  lead: Lead; waTemplate: string; waTemplateZh: string; address: string; durationMinutes: number;
+  lead: Lead; intent?: 'book' | 'reschedule'; waTemplate: string; waTemplateZh: string; address: string; durationMinutes: number;
   upcomingAppts: UpcomingAppointment[];
   onClose: () => void;
   onConfirm: (appointmentStart: string, waMessage: string, isPlaceholder: boolean) => Promise<void>;
+  onConfirmNoCalendar: (appointmentStart: string, waMessage: string, isPlaceholder: boolean) => Promise<void>;
 }) {
   const initialDateTime = lead.appointmentStart
     ? (() => {
@@ -664,22 +679,29 @@ function AppointmentModal({
     : defaultAppointmentTime();
   const [dateTime, setDateTime] = useState(initialDateTime);
   const isPlaceholder = lead.status === 'NEW' || lead.status === 'CONTACTED';
-  const [message, setMessage] = useState(() => applyWaTemplate(waTemplate, lead.childName, initialDateTime, address, durationMinutes));
+  const isReschedule = intent === 'reschedule';
+  const relationship = lead.relationship || '';
+  const [message, setMessage] = useState(() => applyWaTemplate(waTemplate, lead.childName, relationship, initialDateTime, address, durationMinutes));
   const [messageEdited, setMessageEdited] = useState(false);
-  const [messageZh, setMessageZh] = useState(() => waTemplateZh ? applyWaTemplate(waTemplateZh, lead.childName, initialDateTime, address, durationMinutes) : '');
+  const [messageZh, setMessageZh] = useState(() => waTemplateZh ? applyWaTemplate(waTemplateZh, lead.childName, relationship, initialDateTime, address, durationMinutes, true) : '');
   const [messageZhEdited, setMessageZhEdited] = useState(false);
   const [lang, setLang] = useState<'en' | 'zh'>('zh');
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
+  const [lastAttemptWantedWa, setLastAttemptWantedWa] = useState(false);
   const { data: googleStatus } = useQuery({ queryKey: ['google-status'], queryFn: () => import('../api/google.js').then(m => m.getGoogleStatus()), staleTime: 60_000 });
 
-  useEffect(() => { if (!messageEdited) setMessage(applyWaTemplate(waTemplate, lead.childName, dateTime, address, durationMinutes)); }, [dateTime]);
-  useEffect(() => { if (!messageZhEdited && waTemplateZh) setMessageZh(applyWaTemplate(waTemplateZh, lead.childName, dateTime, address, durationMinutes)); }, [dateTime]);
+  useEffect(() => { if (!messageEdited) setMessage(applyWaTemplate(waTemplate, lead.childName, relationship, dateTime, address, durationMinutes)); }, [dateTime]);
+  useEffect(() => { if (!messageZhEdited && waTemplateZh) setMessageZh(applyWaTemplate(waTemplateZh, lead.childName, relationship, dateTime, address, durationMinutes, true)); }, [dateTime]);
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (openWhatsApp = false) => {
     if (!dateTime) { setError('Please select a date and time.'); return; }
-    setConfirming(true); setError('');
-    try { await onConfirm(new Date(dateTime).toISOString(), message, isPlaceholder); onClose(); }
+    setConfirming(true); setError(''); setLastAttemptWantedWa(openWhatsApp);
+    try {
+      await onConfirm(new Date(dateTime).toISOString(), message, isPlaceholder);
+      if (openWhatsApp) window.open(whatsappUrl(lead.parentPhone, lang === 'en' ? message : messageZh), '_blank', 'noopener,noreferrer');
+      onClose();
+    }
     catch (err: unknown) { setError(err instanceof Error ? err.message : 'Failed to book appointment'); }
     finally { setConfirming(false); }
   };
@@ -703,89 +725,269 @@ function AppointmentModal({
     });
   })() : [];
 
+  const [msgExpanded, setMsgExpanded] = useState(false);
+  const currentMsg = lang === 'en' ? message : messageZh;
+
+  // Pre-compute selected date parts for the summary card
+  const selectedDate = dateTime ? new Date(dateTime) : null;
+  const selectedEnd = selectedDate ? new Date(selectedDate.getTime() + durationMinutes * 60_000) : null;
+  const fmtTime = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const hasClash = clashes.length > 0;
+
   return (
-    <div style={am.backdrop} onClick={onClose}>
-      <div style={am.card} onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div style={am.header}>
-          <div>
-            <h2 style={am.title}>
-              {lead.appointmentStart ? 'Reschedule Appointment' : 'Book Appointment'}
-              <span
-                title={googleStatus?.connected ? `Syncing to: ${googleStatus.calendarName || googleStatus.calendarId || 'Primary calendar'}` : 'Google Calendar not connected — appointment will not sync'}
-                style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: googleStatus?.connected ? '#22c55e' : '#ef4444', marginLeft: 8, verticalAlign: 'middle', cursor: 'default' }}
-              />
-            </h2>
-            <p style={am.subtitle}>{lead.childName} · {lead.parentPhone}</p>
-          </div>
-          <button onClick={onClose} style={am.closeBtn}><FontAwesomeIcon icon={faXmark} /></button>
-        </div>
+    <div style={am.backdrop}>
+      <div style={{ ...am.card, padding: 0, maxHeight: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column', borderRadius: 14, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
 
-        {/* Date & Time */}
-        <div style={{ marginBottom: 4 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
-            <span style={am.sectionLabel}>Date &amp; Time</span>
-            {apptEndTime && <span style={{ fontSize: 12, color: '#4a5568' }}>{apptEndTime}</span>}
-          </div>
-          <input type="datetime-local" style={am.input} value={dateTime} onChange={e => setDateTime(e.target.value)} required />
-        </div>
-
-        {clashes.length > 0 && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', marginBottom: 4 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 5 }}>
-              <FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 4 }} /> Clashes with {clashes.length} existing appointment{clashes.length > 1 ? 's' : ''}
+        {/* ── Header bar ── */}
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <FontAwesomeIcon icon={faCalendarDays} style={{ color: '#3b82f6', fontSize: 15 }} />
             </div>
-            {clashes.map(c => {
-              const cStart = new Date(c.appointmentStart);
-              const cEnd = c.appointmentEnd ? new Date(c.appointmentEnd) : new Date(cStart.getTime() + durationMinutes * 60_000);
-              const fmt = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+            <div>
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a', lineHeight: 1.3 }}>
+                {isReschedule ? 'Reschedule Appointment' : 'Book Appointment'}
+              </h2>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {lead.childName} · {lead.parentPhone}
+                <span
+                  title={googleStatus?.connected ? `Syncing to: ${googleStatus.calendarName || googleStatus.calendarId || 'Primary calendar'}` : 'Google Calendar not connected'}
+                  style={{ width: 7, height: 7, borderRadius: '50%', background: googleStatus?.connected ? '#22c55e' : '#ef4444', display: 'inline-block' }}
+                />
+              </div>
+              {lead.preferredAppointmentTime && (
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                  Preferred: <span style={{ color: '#64748b', fontWeight: 500 }}>{lead.preferredAppointmentTime}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#cbd5e1', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
+        </div>
+
+        {/* ── Scrollable body ── */}
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+
+        {/* ── Confirmation anchor — selected slot summary ── */}
+        <div style={{ padding: '0 24px' }}>
+          <div style={{
+            margin: '16px 0 0', padding: '12px 16px', borderRadius: 10, minHeight: 64,
+            background: selectedDate ? (hasClash ? '#fffbeb' : '#f0f9ff') : '#f8fafc',
+            border: selectedDate ? (hasClash ? '1px solid #fde68a' : '1px solid #bae6fd') : '1px dashed #d1d5db',
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            {selectedDate ? (<>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#fff', borderRadius: 8, padding: '6px 12px', border: '1px solid #e0f2fe', lineHeight: 1, minWidth: 48 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' }}>{selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                <span style={{ fontSize: 20, fontWeight: 800, color: '#0c4a6e', lineHeight: 1.2 }}>{selectedDate.getDate()}</span>
+                <span style={{ fontSize: 9, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' }}>{selectedDate.toLocaleDateString('en-US', { month: 'short' })}</span>
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0c4a6e' }}>{fmtTime(selectedDate)} – {fmtTime(selectedEnd!)}</div>
+                <div style={{ fontSize: 11, color: '#0369a1', marginTop: 2 }}>{selectedDate.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · {durationMinutes} min</div>
+              </div>
+              <div style={{ marginLeft: 'auto', width: 220, textAlign: 'right', flexShrink: 0, visibility: hasClash ? 'visible' : 'hidden' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#b45309', marginBottom: 3, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                  <FontAwesomeIcon icon={faTriangleExclamation} style={{ color: '#f59e0b', fontSize: 11 }} />
+                  Conflicts with another booking
+                </div>
+                {clashes.map(c => {
+                  const cStart = new Date(c.appointmentStart);
+                  const cEnd = c.appointmentEnd ? new Date(c.appointmentEnd) : new Date(cStart.getTime() + durationMinutes * 60_000);
+                  return (
+                    <div key={c.id} style={{ fontSize: 11, color: '#92400e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.childName} · {fmtTime(cStart)}–{fmtTime(cEnd)}
+                    </div>
+                  );
+                })}
+              </div>
+            </>) : (
+              <span style={{ fontSize: 13, color: '#9ca3af' }}>Select a date and time below</span>
+            )}
+          </div>
+        </div>
+
+        {/* ── Two-column body ── */}
+        <div style={{ display: 'flex', padding: '16px 24px 20px', gap: 0 }}>
+
+          {/* ── LEFT: Date & Time selection (primary) ── */}
+          <div style={{ flex: '0 0 330px', paddingRight: 22 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', letterSpacing: '0.03em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', background: '#3b82f6', color: '#fff', fontSize: 10, fontWeight: 700 }}>1</span>
+              Select Date &amp; Time
+            </div>
+            <input type="date" style={{ display: 'block', width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fff', color: '#1e293b' }} value={dateTime.split('T')[0]} onChange={e => { const time = dateTime.split('T')[1] || '10:00'; setDateTime(`${e.target.value}T${time}`); }} required />
+
+            {(() => {
+              const selectedTime = dateTime.split('T')[1] || '';
+              const morning: string[] = [];
+              const afternoon: string[] = [];
+              for (let h = 8; h <= 17; h++) { for (const m of ['00', '30']) { if (h === 17 && m === '30') continue; const slot = `${String(h).padStart(2, '0')}:${m}`; if (h < 12) morning.push(slot); else afternoon.push(slot); } }
+              const fmtSlotLabel = (slot: string) => new Date(`2000-01-01T${slot}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+              const dateStr = dateTime.split('T')[0];
+              const clashingSlots = new Set<string>();
+              for (const a of upcomingAppts) {
+                if (a.id === lead.id) continue;
+                const aStart = new Date(a.appointmentStart);
+                const aEnd = a.appointmentEnd ? new Date(a.appointmentEnd) : new Date(aStart.getTime() + durationMinutes * 60_000);
+                for (const slot of [...morning, ...afternoon]) {
+                  const sStart = new Date(`${dateStr}T${slot}`);
+                  const sEnd = new Date(sStart.getTime() + durationMinutes * 60_000);
+                  if (sStart < aEnd && sEnd > aStart) clashingSlots.add(slot);
+                }
+              }
+
+              const slotBtn = (slot: string) => {
+                const isSelected = selectedTime === slot;
+                const isClash = clashingSlots.has(slot);
+                const isSelectedClash = isSelected && isClash;
+                return (
+                  <button key={slot} onClick={() => setDateTime(`${dateStr}T${slot}`)}
+                    style={{
+                      padding: '7px 0', fontSize: 11, fontWeight: 600,
+                      borderRadius: 7, cursor: 'pointer',
+                      border: 'none',
+                      background: isSelected ? (isClash ? '#fef3c7' : '#3b82f6') : isClash ? '#fffbeb' : '#f1f5f9',
+                      color: isSelected ? (isClash ? '#92400e' : '#fff') : isClash ? '#92400e' : '#334155',
+                      boxShadow: isSelectedClash ? 'inset 0 0 0 2px #f59e0b' : 'none',
+                      outline: 'none',
+                      position: 'relative' as const,
+                      transition: 'all 0.12s ease',
+                    }}>
+                    {fmtSlotLabel(slot)}
+                    {isClash && !isSelected && <span style={{ position: 'absolute', top: 3, right: 5, width: 5, height: 5, borderRadius: '50%', background: '#f59e0b' }} />}
+                  </button>
+                );
+              };
+
+              const groupLabel = (label: string) => (
+                <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
+              );
+
               return (
-                <div key={c.id} style={{ fontSize: 12, color: '#b91c1c', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{c.childName}</span>
-                  <span style={{ color: '#ef4444' }}>{fmt(cStart)} – {fmt(cEnd)}</span>
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    {groupLabel('Morning')}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 }}>{morning.map(slotBtn)}</div>
+                  </div>
+                  <div>
+                    {groupLabel('Afternoon')}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 }}>{afternoon.map(slotBtn)}</div>
+                  </div>
                 </div>
               );
-            })}
+            })()}
           </div>
-        )}
 
-        <div style={am.divider} />
+          {/* Divider */}
+          <div style={{ width: 1, background: '#f1f5f9', flexShrink: 0, alignSelf: 'stretch' }} />
 
-        {/* WhatsApp Message */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
-            <span style={am.sectionLabel}>WhatsApp Message</span>
-            {waTemplateZh && (
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button onClick={() => setLang('en')} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #cbd5e0', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: lang === 'en' ? '#3182ce' : '#f7fafc', color: lang === 'en' ? '#fff' : '#4a5568' }}>EN</button>
-                <button onClick={() => setLang('zh')} style={{ padding: '2px 10px', borderRadius: 6, border: '1px solid #cbd5e0', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: lang === 'zh' ? '#3182ce' : '#f7fafc', color: lang === 'zh' ? '#fff' : '#4a5568' }}>中文</button>
+          {/* ── RIGHT: Message preview (secondary) ── */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', paddingLeft: 22 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', letterSpacing: '0.03em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', background: '#e2e8f0', color: '#64748b', fontSize: 10, fontWeight: 700 }}>2</span>
+              Message Preview
+            </div>
+
+            {/* Controls row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              {waTemplateZh ? (
+                <div style={{ display: 'inline-flex', borderRadius: 6, background: '#f1f5f9', padding: 2 }}>
+                  {(['en', 'zh'] as const).map(t => (
+                    <button key={t} onClick={() => setLang(t)} style={{
+                      padding: '2px 11px', borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer', lineHeight: '18px',
+                      border: 'none', background: lang === t ? '#fff' : 'transparent',
+                      color: lang === t ? '#1e293b' : '#94a3b8',
+                      boxShadow: lang === t ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                    }}>{t === 'en' ? 'EN' : '中文'}</button>
+                  ))}
+                </div>
+              ) : <div />}
+              <button onClick={() => setMsgExpanded(!msgExpanded)} style={{
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: msgExpanded ? '#3b82f6' : '#94a3b8', fontWeight: 500,
+                display: 'flex', alignItems: 'center', gap: 4, padding: 0,
+              }}>
+                <FontAwesomeIcon icon={faPen} style={{ fontSize: 9 }} /> {msgExpanded ? 'Done' : 'Edit'}
+              </button>
+            </div>
+
+            {/* Message content */}
+            {msgExpanded ? (
+              lang === 'en' ? (
+                <textarea style={{ display: 'block', width: '100%', flex: 1, minHeight: 140, resize: 'none', padding: '11px 13px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.55, background: '#fff', color: '#1e293b' }} value={message} onChange={e => { setMessage(e.target.value); setMessageEdited(true); }} />
+              ) : (
+                <textarea style={{ display: 'block', width: '100%', flex: 1, minHeight: 140, resize: 'none', padding: '11px 13px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.55, background: '#fff', color: '#1e293b' }} value={messageZh} onChange={e => { setMessageZh(e.target.value); setMessageZhEdited(true); }} />
+              )
+            ) : (
+              <div style={{
+                flex: 1, background: '#f8faf9', borderRadius: 10, padding: '12px 14px',
+                fontSize: 13, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap',
+                overflowY: 'auto', maxHeight: 240, border: '1px solid #e5e7eb',
+              }}>
+                {currentMsg || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No message template set</span>}
               </div>
             )}
           </div>
-          {lang === 'en' ? (
-            <textarea style={{ ...am.input, height: 110, resize: 'vertical' }} value={message} onChange={e => { setMessage(e.target.value); setMessageEdited(true); }} />
-          ) : (
-            <textarea style={{ ...am.input, height: 110, resize: 'vertical' }} value={messageZh} onChange={e => { setMessageZh(e.target.value); setMessageZhEdited(true); }} />
-          )}
         </div>
 
-        {error && <p style={am.error}>{error}</p>}
+        {error && (
+          <div style={{ padding: '8px 24px', marginTop: 4 }}>
+            <div style={{ background: error.includes('Google Calendar') ? '#fffbeb' : '#fef2f2', border: error.includes('Google Calendar') ? '1px solid #fde68a' : '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: error.includes('Google Calendar') ? '#92400e' : '#dc2626' }}>
+              {error.includes('Google Calendar') ? (<>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Google Calendar sync failed</div>
+                <div style={{ lineHeight: 1.5 }}>
+                  The appointment was not saved. <a href="/settings/calendar" style={{ color: '#92400e', fontWeight: 600 }}>Reconnect in Settings</a>, or{' '}
+                  <button onClick={async () => {
+                    setError(''); setConfirming(true);
+                    try {
+                      await onConfirmNoCalendar(new Date(dateTime).toISOString(), message, isPlaceholder);
+                      if (lastAttemptWantedWa) window.open(whatsappUrl(lead.parentPhone, lang === 'en' ? message : messageZh), '_blank', 'noopener,noreferrer');
+                      onClose();
+                    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Failed to save'); }
+                    finally { setConfirming(false); }
+                  }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#92400e', fontWeight: 600, fontSize: 12, textDecoration: 'underline' }}>
+                    {lastAttemptWantedWa ? 'save & send WhatsApp without calendar' : 'save without calendar'}
+                  </button>.
+                </div>
+              </>) : error}
+            </div>
+          </div>
+        )}
 
-        {/* Footer */}
-        <div style={am.footer}>
-          <button onClick={onClose} style={am.cancelBtn}>Cancel</button>
+        </div>{/* end scrollable body */}
+
+        {/* ── Inline conflict helper (always rendered to prevent layout shift) ── */}
+        <div style={{ padding: hasClash ? '8px 24px' : '0 24px', fontSize: 12, color: '#92400e', display: 'flex', alignItems: 'center', gap: 6, background: hasClash ? '#fffbeb' : 'transparent', borderTop: hasClash ? '1px solid #fde68a' : '1px solid transparent', overflow: 'hidden', maxHeight: hasClash ? 40 : 0, transition: 'max-height 0.15s ease, padding 0.15s ease', flexShrink: 0 }}>
+          <FontAwesomeIcon icon={faTriangleExclamation} style={{ color: '#f59e0b', fontSize: 11, flexShrink: 0 }} />
+          This slot overlaps with another booking. You may choose another time or proceed anyway.
+        </div>
+
+        {/* ── Footer — decisive action hierarchy ── */}
+        <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10, background: '#fafbfc', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#64748b', fontWeight: 500, padding: '9px 16px' }}>Cancel</button>
           <div style={{ flex: 1 }} />
-          <button
-            onClick={() => window.open(whatsappUrl(lead.parentPhone, lang === 'en' ? message : messageZh), '_blank', 'noopener,noreferrer')}
-            style={am.waBtn}
-          >
-            <FontAwesomeIcon icon={faWhatsapp} style={{ marginRight: 6 }} />{lang === 'zh' ? 'WhatsApp (中文)' : 'WhatsApp'}
+          <button onClick={() => handleConfirm(false)} disabled={confirming} style={{
+            padding: '9px 16px', background: '#fff', border: '1px solid #d1d5db', borderRadius: 8, cursor: 'pointer',
+            fontSize: 13, color: '#374151', fontWeight: 600,
+          }}>
+            {confirming ? 'Saving…' : isReschedule ? 'Reschedule' : 'Book Only'}
           </button>
-          <button onClick={handleConfirm} disabled={confirming} style={am.confirmBtn}>
-            {confirming ? 'Booking…' : 'Confirm'}
+          <button
+            onClick={() => handleConfirm(true)}
+            disabled={confirming}
+            style={{
+              padding: '9px 20px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8,
+              cursor: 'pointer', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 7,
+              boxShadow: '0 1px 3px rgba(34,197,94,0.3)',
+            }}
+          >
+            <FontAwesomeIcon icon={faWhatsapp} /> {confirming ? 'Saving…' : isReschedule ? 'Reschedule & Send' : 'Book & Send WhatsApp'}
           </button>
         </div>
+
       </div>
+
     </div>
   );
 }
@@ -800,24 +1002,26 @@ interface WhatsAppContact {
 
 interface WaTemplateOption { id: string; name: string; content_en: string; content_zh: string; }
 
-function applyTemplatePlaceholders(template: string, contact: WhatsAppContact, address: string, durationMinutes: number): string {
+function applyTemplatePlaceholders(template: string, contact: WhatsAppContact, address: string, durationMinutes: number, isZh = false): string {
   const childName = contact.childName;
   const relationship = contact.relationship || '';
+  const rel = isZh ? relationshipZh(relationship) : relationship;
   const dt = contact.appointmentStart;
   if (dt) {
     const d = new Date(dt);
     const end = new Date(d.getTime() + durationMinutes * 60_000);
+    const dayStr = isZh ? DAY_ZH[d.getDay()] : d.toLocaleDateString('en-GB', { weekday: 'long' });
     const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
     const endTimeStr = end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
     return template
-      .replace(/\{\{childName\}\}/g, childName).replace(/\{\{relationship\}\}/g, relationship)
-      .replace(/\{\{appointmentDate\}\}/g, dateStr)
+      .replace(/\{\{childName\}\}/g, childName).replace(/\{\{relationship\}\}/g, rel)
+      .replace(/\{\{appointmentDay\}\}/g, dayStr).replace(/\{\{appointmentDate\}\}/g, dateStr)
       .replace(/\{\{appointmentTime\}\}/g, timeStr).replace(/\{\{appointmentEndTime\}\}/g, endTimeStr)
       .replace(/\{\{address\}\}/g, address);
   }
-  return template.replace(/\{\{childName\}\}/g, childName).replace(/\{\{relationship\}\}/g, relationship)
-    .replace(/\{\{appointmentDate\}\}/g, '')
+  return template.replace(/\{\{childName\}\}/g, childName).replace(/\{\{relationship\}\}/g, rel)
+    .replace(/\{\{appointmentDay\}\}/g, '').replace(/\{\{appointmentDate\}\}/g, '')
     .replace(/\{\{appointmentTime\}\}/g, '').replace(/\{\{appointmentEndTime\}\}/g, '').replace(/\{\{address\}\}/g, address);
 }
 
@@ -834,7 +1038,7 @@ function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, 
     if (!tpl) return '';
     const content = l === 'zh' ? tpl.content_zh : tpl.content_en;
     if (!content) return '';
-    return applyTemplatePlaceholders(content, contact, address, durationMinutes);
+    return applyTemplatePlaceholders(content, contact, address, durationMinutes, l === 'zh');
   };
 
   const [messages, setMessages] = useState<Record<string, string>>(() => {
@@ -904,7 +1108,7 @@ function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, 
   ) : null;
 
   return (
-    <div style={am.backdrop} onClick={onClose}>
+    <div style={am.backdrop}>
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', overflow: 'hidden' as const }} onClick={e => e.stopPropagation()}>
 
         {/* ── Header ── */}
@@ -1046,7 +1250,7 @@ function DeclineModal({ lead, lostReasons, onClose, onDeclined }: {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
         <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Not Enrolling</h3>
         <p style={{ margin: '0 0 10px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
@@ -1117,7 +1321,7 @@ function RejectModal({ lead, lostReasons, onClose, onRejected }: {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
         <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Reject Lead</h3>
         <p style={{ margin: '0 0 10px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
@@ -1184,7 +1388,7 @@ function NotesModal({ lead, onClose, onSaved }: {
   };
 
   return (
-    <div style={mo.backdrop} onClick={onClose}>
+    <div style={mo.backdrop}>
       <div style={{ ...mo.card, maxWidth: 440 }} onClick={e => e.stopPropagation()}>
         <div style={mo.header}>
           <h2 style={mo.title}><FontAwesomeIcon icon={faNoteSticky} style={{ marginRight: 8, color: '#94a3b8' }} />Notes — {lead.childName}</h2>
@@ -1212,6 +1416,7 @@ interface EditForm {
   enrolmentYear: string; status: LeadStatus; notes: string; lostReason: string;
   relationship: string; programme: string; howDidYouKnow: string;
   addressLocation: string; needsTransport: string; preferredAppointmentTime: string;
+  attendedDate: string;
 }
 
 const RELATIONSHIP_OPTIONS = ['Mother', 'Father', 'Guardian', 'Grandparent', 'Other'];
@@ -1255,6 +1460,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
     howDidYouKnow: lead.howDidYouKnow ?? '', addressLocation: lead.addressLocation ?? '',
     needsTransport: lead.needsTransport === null ? '' : lead.needsTransport ? 'yes' : 'no',
     preferredAppointmentTime: lead.preferredAppointmentTime ?? '',
+    attendedDate: lead.status === 'FOLLOW_UP' && lead.statusChangedAt ? new Date(lead.statusChangedAt).toISOString().split('T')[0] : '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -1281,6 +1487,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
         howDidYouKnow: form.howDidYouKnow || null, addressLocation: form.addressLocation || null,
         needsTransport: form.needsTransport === '' ? null : form.needsTransport === 'yes',
         preferredAppointmentTime: form.preferredAppointmentTime || null,
+        ...(form.status === 'FOLLOW_UP' && form.attendedDate ? { statusChangedAt: new Date(form.attendedDate).toISOString() } : {}),
       };
       const updated = await updateLead(lead.id, payload);
       onSaved(updated);
@@ -1298,6 +1505,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
       howDidYouKnow: lead.howDidYouKnow ?? '', addressLocation: lead.addressLocation ?? '',
       needsTransport: lead.needsTransport === null ? '' : lead.needsTransport ? 'yes' : 'no',
       preferredAppointmentTime: lead.preferredAppointmentTime ?? '',
+      attendedDate: lead.status === 'FOLLOW_UP' && lead.statusChangedAt ? new Date(lead.statusChangedAt).toISOString().split('T')[0] : '',
     });
     setEditing(false);
     setError('');
@@ -1311,7 +1519,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
   );
 
   return (
-    <div style={mo.backdrop} onClick={onClose}>
+    <div style={mo.backdrop}>
       <div style={{ ...mo.card, maxWidth: 480 }} onClick={e => e.stopPropagation()}>
 
         {/* ── Profile Header ── */}
@@ -1424,6 +1632,9 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                 <ViewRow label="Source" value={lead.howDidYouKnow || '—'} />
                 <ViewRow label="Visit Preference" value={lead.preferredAppointmentTime || '—'} />
                 <ViewRow label="Status" value={statusDisplayLabel(lead.status)} />
+                {lead.status === 'FOLLOW_UP' && lead.statusChangedAt && (
+                  <ViewRow label="Attended Date" value={new Date(lead.statusChangedAt).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })} />
+                )}
                 {(lead.status === 'LOST' || lead.status === 'REJECTED') && <ViewRow label={lead.status === 'REJECTED' ? 'Reject Reason' : 'Lost Reason'} value={lead.lostReason || '—'} />}
                 {lead.notes && (
                   <div style={{ marginTop: 12, background: '#f8fafc', borderRadius: 8, padding: '10px 14px' }}>
@@ -1448,6 +1659,11 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                       {STATUSES.filter(s => (s !== 'ENROLLED' || lead.status === 'ENROLLED') && (s !== 'REJECTED' || lead.status === 'REJECTED')).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </label>
+                  {form.status === 'FOLLOW_UP' && (
+                    <label style={mo.label}>Attended Date
+                      <input type="date" style={mo.input} value={form.attendedDate} onChange={set('attendedDate')} />
+                    </label>
+                  )}
                   {(form.status === 'LOST' || form.status === 'REJECTED') && (
                     <label style={mo.label}>
                       <span>{form.status === 'REJECTED' ? 'Reject' : 'Lost'} Reason <span style={{ color: '#e53e3e' }}>*</span></span>
@@ -1527,7 +1743,7 @@ function EnrollmentModal({ lead, onClose, onEnrolled }: { lead: Lead; onClose: (
   };
 
   return (
-    <div style={mo.backdrop} onClick={onClose}>
+    <div style={mo.backdrop}>
       <div style={mo.card} onClick={e => e.stopPropagation()}>
         <div style={mo.header}>
           <h2 style={mo.title}>Enroll Student</h2>
@@ -1588,6 +1804,7 @@ export default function LeadsPage() {
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [notesLead, setNotesLead] = useState<Lead | null>(null);
   const [bookingLead, setBookingLead] = useState<Lead | null>(null);
+  const [bookingIntent, setBookingIntent] = useState<'book' | 'reschedule'>('book');
   const [whatsappContact, setWhatsappContact] = useState<WhatsAppContact | null>(null);
   const [whatsappDefaultTemplate, setWhatsappDefaultTemplate] = useState('none');
   const openWhatsApp = (contact: WhatsAppContact, template = 'none') => { setWhatsappContact(contact); setWhatsappDefaultTemplate(template); };
@@ -1602,14 +1819,21 @@ export default function LeadsPage() {
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [deleteLeadTarget, setDeleteLeadTarget] = useState<Lead | null>(null);
   const [confirmBookingLead, setConfirmBookingLead] = useState<Lead | null>(null);
+  const [confirmBookingLang, setConfirmBookingLang] = useState<'en' | 'zh'>('zh');
+  const [confirmBookingTplId, setConfirmBookingTplId] = useState('confirm_appointment');
+  const [cbMsgEdited, setCbMsgEdited] = useState(''); // user-edited message, empty = use template
+  const [cbStatus, setCbStatus] = useState<'idle' | 'confirming' | 'calendarFailed' | 'done'>('idle');
+  const [cbCalendarError, setCbCalendarError] = useState('');
+  const [cbPendingWa, setCbPendingWa] = useState(false); // was the user trying to send WA?
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+  const [menuPos, setMenuPos] = useState({ top: 0, bottom: 0, right: 0 });
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [rowResults, setRowResults] = useState<Record<string, { link?: string | null; error?: string }>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; link?: string; action?: { label: string; onClick: () => void } } | null>(null);
   const [attendedLead, setAttendedLead] = useState<Lead | null>(null);
   const [attendedNotes, setAttendedNotes] = useState('');
+  const [attendedDate, setAttendedDate] = useState('');
   const [decliningLead, setDecliningLead] = useState<Lead | null>(null);
   const [rejectingLead, setRejectingLead] = useState<Lead | null>(null);
 
@@ -1711,6 +1935,8 @@ export default function LeadsPage() {
   const waTemplateZh = settings?.whatsapp_template_zh ?? '';
   const followUpTemplate = settings?.whatsapp_followup_template ?? "Hi, just following up on {{childName}}'s enquiry. Do you have any questions?";
   const followUpTemplateZh = settings?.whatsapp_followup_template_zh ?? '';
+  const confirmApptTemplate = settings?.whatsapp_confirm_appt_template ?? 'Hi {{relationship}}, this is Ten Toes Preschool. We are pleased to confirm your school visit for {{childName}}.\n\nDate: {{appointmentDay}}, {{appointmentDate}}\nTime: {{appointmentTime}} - {{appointmentEndTime}}\nAddress: {{address}}\n\nPlease let us know if you need to reschedule. See you there!';
+  const confirmApptTemplateZh = settings?.whatsapp_confirm_appt_template_zh ?? '您好{{relationship}}，这是Ten Toes Preschool。我们很高兴确认{{childName}}的参观预约。\n\n日期：{{appointmentDay}} {{appointmentDate}}\n时间：{{appointmentTime}} - {{appointmentEndTime}}\n地址：{{address}}\n\n如需改期，请提前通知我们。期待您的到来！';
   const kinderAddress = typeof settings?.kinder_address === 'string' ? settings.kinder_address : '';
   const apptDuration = typeof settings?.appointment_duration_minutes === 'number' ? settings.appointment_duration_minutes : 30;
 
@@ -1718,6 +1944,7 @@ export default function LeadsPage() {
   const waTemplates: WaTemplateOption[] = [
     { id: 'enquiry', name: 'Enquiry', content_en: String(waTemplate), content_zh: String(waTemplateZh) },
     { id: 'follow_up', name: 'Follow Up', content_en: String(followUpTemplate), content_zh: String(followUpTemplateZh) },
+    { id: 'confirm_appointment', name: 'Confirm Appointment', content_en: String(confirmApptTemplate), content_zh: String(confirmApptTemplateZh) },
     ...(Array.isArray(settings?.whatsapp_custom_templates)
       ? (settings.whatsapp_custom_templates as { id: string; name: string; content_en: string; content_zh: string }[]).map(t => ({
           id: t.id, name: t.name, content_en: t.content_en, content_zh: t.content_zh,
@@ -1744,7 +1971,6 @@ export default function LeadsPage() {
       const result = await createAppointment(lead.id, appointmentStart, waMessage, isPlaceholder);
       setRowResults(prev => ({ ...prev, [lead.id]: { link: result.googleEventLink } }));
       invalidateAll();
-      queryClient.invalidateQueries({ queryKey: ['upcomingAppointments'] });
       showToast('Appointment booked — calendar event created.', 'success', result.googleEventLink ?? undefined);
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('Google calendar not connected')) {
@@ -1755,6 +1981,12 @@ export default function LeadsPage() {
       }
       throw err;
     }
+  };
+
+  const handleConfirmAppointmentNoCalendar = async (lead: Lead, appointmentStart: string, waMessage: string, isPlaceholder: boolean) => {
+    await createAppointment(lead.id, appointmentStart, waMessage, isPlaceholder, true);
+    invalidateAll();
+    showToast('Appointment booked (calendar not synced).', 'success');
   };
 
   async function handleExport() {
@@ -1793,10 +2025,10 @@ export default function LeadsPage() {
     setTimeout(() => setToast(null), 6000);
   }
 
-  async function markAttendance(lead: Lead, attended: boolean, notes?: string) {
+  async function markAttendance(lead: Lead, attended: boolean, notes?: string, attendedDateStr?: string) {
     try {
       await updateLead(lead.id, attended
-        ? { status: 'FOLLOW_UP', ...(notes ? { notes } : {}) }
+        ? { status: 'FOLLOW_UP', ...(notes ? { notes } : {}), ...(attendedDateStr ? { statusChangedAt: new Date(attendedDateStr).toISOString() } : {}) }
         : { status: 'LOST', lostReason: 'No show' },
       );
       invalidateAll();
@@ -1829,7 +2061,7 @@ export default function LeadsPage() {
   const btnBase: React.CSSProperties = { padding: '5px 12px', border: '1px solid', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' as const, lineHeight: '18px', transition: 'all .12s ease' };
   const btnStyles = {
     bookVisit:       { ...btnBase, background: '#eef2fa', color: '#5a79c8', borderColor: '#c7d2e8' },
-    confirmBooking:  { ...btnBase, background: '#eef2fa', color: '#5a79c8', borderColor: '#c7d2e8' },
+    confirmBooking:  { ...btnBase, background: '#f0fdfa', color: '#0d9488', borderColor: '#99f6e4' },
     attended:        { ...btnBase, background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' },
     enroll:          { ...btnBase, background: '#f0fdf4', color: '#15803d', borderColor: '#bbf7d0' },
     noShow:          { ...btnBase, background: '#fef2f2', color: '#dc2626', borderColor: '#fecaca' },
@@ -1841,14 +2073,11 @@ export default function LeadsPage() {
   function getPrimaryAction(lead: Lead): { label: React.ReactNode; style: React.CSSProperties; action: () => void } | null {
     switch (lead.status) {
       case 'NEW':
-        return { label: <><FontAwesomeIcon icon={faCalendarDays} style={{ marginRight: 6 }} /> Book Visit</>, style: btnStyles.bookVisit, action: () => setBookingLead(lead) };
+        return { label: <><FontAwesomeIcon icon={faCalendarDays} style={{ marginRight: 6 }} /> Book Visit</>, style: btnStyles.bookVisit, action: () => { setBookingIntent('book'); setBookingLead(lead); } };
       case 'CONTACTED':
-        if (lead.appointmentIsPlaceholder && lead.appointmentStart) {
-          return { label: <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Booking</>, style: btnStyles.confirmBooking, action: () => setConfirmBookingLead(lead) };
-        }
-        return { label: <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Booking</>, style: btnStyles.confirmBooking, action: () => setBookingLead(lead) };
+        return { label: <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Booking</>, style: btnStyles.confirmBooking, action: () => setConfirmBookingLead(lead) };
       case 'APPOINTMENT_BOOKED':
-        return { label: <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Attended</>, style: btnStyles.attended, action: () => { setAttendedLead(lead); setAttendedNotes(''); } };
+        return { label: <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Attended</>, style: btnStyles.attended, action: () => { setAttendedLead(lead); setAttendedNotes(''); setAttendedDate(lead.appointmentStart ? new Date(lead.appointmentStart).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]); } };
       case 'FOLLOW_UP':
         return { label: <><FontAwesomeIcon icon={faEnvelope} style={{ marginRight: 6 }} /> Follow Up</>, style: btnStyles.followUp, action: () => openWhatsApp(lead, 'follow_up') };
       default:
@@ -1898,6 +2127,15 @@ export default function LeadsPage() {
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
             <h3 style={{ fontSize: 17, fontWeight: 700, color: '#1a202c', marginBottom: 4 }}>Mark as Attended</h3>
             <p style={{ fontSize: 13, color: '#718096', marginBottom: 18 }}>{attendedLead.childName} · {attendedLead.parentPhone}</p>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#4a5568', display: 'block', marginBottom: 14 }}>
+              Attended Date
+              <input
+                type="date"
+                value={attendedDate}
+                onChange={e => setAttendedDate(e.target.value)}
+                style={{ display: 'block', width: '100%', marginTop: 6, padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit' }}
+              />
+            </label>
             <label style={{ fontSize: 13, fontWeight: 600, color: '#4a5568' }}>
               Notes (optional)
               <textarea
@@ -1909,7 +2147,7 @@ export default function LeadsPage() {
             </label>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               <button onClick={() => setAttendedLead(null)} style={{ padding: '8px 18px', background: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={async () => { const l = attendedLead; setAttendedLead(null); await markAttendance(l, true, attendedNotes || undefined); }} style={{ padding: '8px 18px', background: '#38a169', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Attended</button>
+              <button onClick={async () => { const l = attendedLead; setAttendedLead(null); await markAttendance(l, true, attendedNotes || undefined, attendedDate || undefined); }} style={{ padding: '8px 18px', background: '#38a169', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Attended</button>
             </div>
           </div>
         </div>
@@ -1931,46 +2169,157 @@ export default function LeadsPage() {
         const lead = confirmBookingLead;
         const start = lead.appointmentStart ? new Date(lead.appointmentStart) : null;
         const end = lead.appointmentEnd ? new Date(lead.appointmentEnd) : (start ? new Date(start.getTime() + apptDuration * 60000) : null);
-        const fmt = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        const fmtTime = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
-        const clashes = start && end ? upcomingAppts.filter(a => {
-          if (a.id === lead.id) return false;
-          const aStart = new Date(a.appointmentStart);
-          const aEnd = a.appointmentEnd ? new Date(a.appointmentEnd) : new Date(aStart.getTime() + apptDuration * 60000);
-          return aStart < end && aEnd > start;
-        }) : [];
+        const fmtT = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const contact: WhatsAppContact = { childName: lead.childName, parentPhone: lead.parentPhone, relationship: lead.relationship, appointmentStart: lead.appointmentStart };
+        const selectedTpl = waTemplates.find(t => t.id === 'confirm_appointment');
+        const tplContent = selectedTpl ? (confirmBookingLang === 'zh' ? selectedTpl.content_zh : selectedTpl.content_en) : '';
+        const resolvedMsg = tplContent ? applyTemplatePlaceholders(tplContent, contact, kinderAddress, apptDuration, confirmBookingLang === 'zh') : '';
+        const cbMsg = cbMsgEdited || resolvedMsg;
+
+        const closeModal = () => { setConfirmBookingLead(null); setCbStatus('idle'); setCbCalendarError(''); setCbPendingWa(false); setCbMsgEdited(''); };
+
+        const invalidateLeads = () => {
+          queryClient.invalidateQueries({ queryKey: ['leads'] });
+          queryClient.invalidateQueries({ queryKey: ['leads-appt-booked'] });
+          queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
+          queryClient.invalidateQueries({ queryKey: ['upcomingAppointments'] });
+        };
+
+        const handleConfirmBooking = async (sendWa: boolean) => {
+          setCbStatus('confirming');
+          setCbPendingWa(sendWa);
+          setCbCalendarError('');
+          try {
+            const result = await confirmAppointment(lead.id);
+            invalidateLeads();
+            if (sendWa && cbMsg) window.open(whatsappUrl(lead.parentPhone, cbMsg), '_blank', 'noopener,noreferrer');
+            showToast('Booking confirmed — calendar event created.', 'success', result.googleEventLink ?? undefined);
+            closeModal();
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Failed to confirm booking';
+            if (msg.includes('Google Calendar') || msg.includes('Google calendar')) {
+              setCbCalendarError(msg);
+              setCbStatus('calendarFailed');
+            } else {
+              setCbCalendarError(msg);
+              setCbStatus('idle');
+            }
+          }
+        };
+
+        // Save without calendar + optionally send WA
+        const handleSaveWithoutCalendar = async (sendWa: boolean) => {
+          setCbStatus('confirming'); setCbCalendarError('');
+          try {
+            await confirmAppointmentNoCalendar(lead.id);
+            invalidateLeads();
+            if (sendWa && cbMsg) window.open(whatsappUrl(lead.parentPhone, cbMsg), '_blank', 'noopener,noreferrer');
+            showToast('Booking confirmed (calendar not synced).', 'success');
+            closeModal();
+          } catch (e) {
+            setCbCalendarError(e instanceof Error ? e.message : 'Failed to save');
+            setCbStatus('calendarFailed');
+          }
+        };
+
+        // Retry: try calendar again
+        const handleRetryCalendar = () => handleConfirmBooking(cbPendingWa);
+
         return (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmBookingLead(null)}>
-            <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px', minWidth: 340, maxWidth: 440, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
-              <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Confirm Booking</h3>
-              <p style={{ margin: '0 0 16px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 520, boxShadow: '0 16px 48px rgba(0,0,0,0.14)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 48px)' }} onClick={e => e.stopPropagation()}>
 
-              {start ? (
-                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '12px 14px', marginBottom: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>{fmt(start)}</div>
-                  <div style={{ fontSize: 13, color: '#16a34a' }}>{fmtTime(start)}{end ? ` – ${fmtTime(end)}` : ''}</div>
+              {/* Header — compact, context only */}
+              <div style={{ padding: '14px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Confirm Booking</h3>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{lead.childName} · {lead.parentPhone}</div>
                 </div>
-              ) : (
-                <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#854d0e' }}>No appointment time set</div>
-              )}
+                <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: '#cbd5e1', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
+              </div>
 
-              {clashes.length > 0 && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginBottom: 6 }}><FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 4 }} /> {clashes.length} clashing appointment{clashes.length > 1 ? 's' : ''}</div>
-                  {clashes.map(c => (
-                    <div key={c.id} style={{ fontSize: 12, color: '#b91c1c', marginBottom: 2 }}>
-                      {c.childName} · {fmtTime(new Date(c.appointmentStart))}
+              {/* Body */}
+              <div style={{ padding: '12px 24px 16px', flex: 1, overflowY: 'auto', minHeight: 0 }}>
+
+                {/* Appointment summary — the hero */}
+                {start ? (
+                  <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#0c4a6e', letterSpacing: '-0.01em' }}>
+                      {fmtT(start)}{end ? ` – ${fmtT(end)}` : ''}
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div style={{ fontSize: 12, color: '#0369a1', marginTop: 4 }}>
+                      {start.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                      <span style={{ color: '#7dd3fc', margin: '0 6px' }}>·</span>
+                      {apptDuration} min
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#854d0e' }}>No appointment time set</div>
+                )}
 
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button onClick={() => setConfirmBookingLead(null)} style={{ padding: '8px 18px', background: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-                <button onClick={() => { setConfirmBookingLead(null); confirmBookingDirect(lead); }} style={{ padding: '8px 18px', background: clashes.length > 0 ? '#dc2626' : '#38a169', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                  {clashes.length > 0 ? 'Confirm Anyway' : <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Confirm Booking</>}
+                {/* WhatsApp message section — secondary */}
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Message</span>
+                    <div style={{ display: 'inline-flex', borderRadius: 5, background: '#f1f5f9', padding: 2 }}>
+                      {(['en', 'zh'] as const).map(t => (
+                        <button key={t} onClick={() => { setConfirmBookingLang(t); setCbMsgEdited(''); }} style={{
+                          padding: '1px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer', lineHeight: '17px',
+                          border: 'none', background: confirmBookingLang === t ? '#fff' : 'transparent',
+                          color: confirmBookingLang === t ? '#1e293b' : '#94a3b8',
+                          boxShadow: confirmBookingLang === t ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                        }}>{t === 'en' ? 'EN' : '中文'}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <textarea
+                    value={cbMsg}
+                    onChange={e => setCbMsgEdited(e.target.value)}
+                    style={{ display: 'block', width: '100%', height: 200, background: '#fafafa', borderRadius: 8, padding: '12px 14px', fontSize: 12.5, color: '#475569', lineHeight: 1.6, border: '1px solid #eef0f2', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box', overflowY: 'auto' }}
+                  />
+                </div>
+
+              </div>
+
+              {/* Error block — calendar failed state */}
+              <div style={{ overflow: 'hidden', maxHeight: cbStatus === 'calendarFailed' ? 140 : cbCalendarError && cbStatus === 'idle' ? 60 : 0, transition: 'max-height 0.15s ease', flexShrink: 0 }}>
+                <div style={{ padding: '6px 24px 8px' }}>
+                  {cbStatus === 'calendarFailed' ? (
+                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#92400e' }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>Google Calendar sync failed</div>
+                      <div style={{ lineHeight: 1.5, color: '#a16207' }}>
+                        The booking has not been saved yet. You can retry using the button below.
+                      </div>
+                      <div style={{ marginTop: 6, fontSize: 11, color: '#a16207', lineHeight: 1.5 }}>
+                        Or{' '}
+                        <button onClick={() => handleSaveWithoutCalendar(cbPendingWa)} disabled={cbStatus === 'confirming'} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#92400e', fontWeight: 600, fontSize: 11, textDecoration: 'underline' }}>
+                          {cbPendingWa ? 'save & send WhatsApp without calendar' : 'save without calendar'}
+                        </button>
+                        {' · '}<a href="/settings/calendar" style={{ color: '#92400e', fontSize: 11 }}>Reconnect in Settings</a>
+                      </div>
+                    </div>
+                  ) : cbCalendarError ? (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#dc2626' }}>
+                      {cbCalendarError}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Footer — always the same 3 buttons */}
+              <div style={{ padding: '12px 24px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                <button onClick={closeModal} disabled={cbStatus === 'confirming'} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#94a3b8', fontWeight: 500, padding: '8px 4px' }}>Cancel</button>
+                <div style={{ flex: 1 }} />
+                <button onClick={() => handleConfirmBooking(false)} disabled={cbStatus === 'confirming'}
+                  style={{ padding: '8px 14px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 7, cursor: 'pointer', fontSize: 12, color: '#475569', fontWeight: 600, opacity: cbStatus === 'confirming' ? 0.5 : 1 }}>
+                  {cbStatus === 'confirming' && !cbPendingWa ? 'Confirming…' : 'Confirm Only'}
+                </button>
+                <button onClick={() => handleConfirmBooking(true)} disabled={cbStatus === 'confirming'}
+                  style={{ padding: '8px 18px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 1px 3px rgba(34,197,94,0.25)', opacity: cbStatus === 'confirming' ? 0.5 : 1 }}>
+                  <FontAwesomeIcon icon={faWhatsapp} /> {cbStatus === 'confirming' && cbPendingWa ? 'Confirming…' : 'Confirm & Send'}
                 </button>
               </div>
+
             </div>
           </div>
         );
@@ -1985,10 +2334,11 @@ export default function LeadsPage() {
           onSaved={() => { invalidateAll(); setNotesLead(null); }} />
       )}
       {bookingLead && (
-        <AppointmentModal lead={bookingLead} waTemplate={waTemplate} waTemplateZh={waTemplateZh}
+        <AppointmentModal lead={bookingLead} intent={bookingIntent} waTemplate={waTemplate} waTemplateZh={waTemplateZh}
           address={kinderAddress} durationMinutes={apptDuration} upcomingAppts={upcomingAppts}
           onClose={() => setBookingLead(null)}
-          onConfirm={(start, msg, isPlaceholder) => handleConfirmAppointment(bookingLead, start, msg, isPlaceholder)} />
+          onConfirm={(start, msg, isPlaceholder) => handleConfirmAppointment(bookingLead, start, msg, isPlaceholder)}
+          onConfirmNoCalendar={(start, msg, isPlaceholder) => handleConfirmAppointmentNoCalendar(bookingLead, start, msg, isPlaceholder)} />
       )}
       {whatsappContact && (
         <WhatsAppModal contact={whatsappContact} defaultTemplate={whatsappDefaultTemplate}
@@ -2205,11 +2555,11 @@ export default function LeadsPage() {
                           </button>
                           <div style={{ position: 'relative' as const }}>
                             <button
-                              onClick={e => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right }); setMenuOpenId(menuOpenId === `trash-${lead.id}` ? null : `trash-${lead.id}`); }}
+                              onClick={e => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setMenuPos({ top: rect.bottom + 4, bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }); setMenuOpenId(menuOpenId === `trash-${lead.id}` ? null : `trash-${lead.id}`); }}
                               style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '3px 9px', fontSize: 15, color: '#718096', lineHeight: 1 }}
                             >⋮</button>
                             {menuOpenId === `trash-${lead.id}` && (
-                              <div onClick={e => e.stopPropagation()} style={{ position: 'fixed' as const, top: menuPos.top, right: menuPos.right, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', minWidth: 160, padding: 4 }}>
+                              <div onClick={e => e.stopPropagation()} style={{ position: 'fixed' as const, ...(menuPos.top > window.innerHeight * 0.6 ? { bottom: menuPos.bottom } : { top: menuPos.top }), right: menuPos.right, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', minWidth: 160, padding: 4 }}>
                                 <button
                                   onClick={() => {
                                     setMenuOpenId(null);
@@ -2257,34 +2607,30 @@ export default function LeadsPage() {
                 const urgencyTip = urgency !== 'transparent' ? urgencyTooltip(lead, urgencyOrangeDays, urgencyRedDays) : null;
                 const primaryAction = getPrimaryAction(lead);
                 const cfg = STATUS_CFG[lead.status];
-                const rt = lead.status === 'FOLLOW_UP' && lead.appointmentStart
-                  ? relDays(lead.appointmentStart)
+                const rt = lead.status === 'FOLLOW_UP' && lead.statusChangedAt
+                  ? relDays(lead.statusChangedAt)
                   : relTime(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt);
                 return (
                   <div key={lead.id} id={`lead-row-${lead.id}`} className={highlightId === lead.id ? 'kc-hl' : ''}
+                    title={urgencyTip ? `${urgencyTip.label} — ${urgencyTip.rule}` : undefined}
                     style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', padding: '12px 14px', borderLeft: `4px solid ${urgency === 'transparent' ? '#e5e7eb' : urgency}`, position: 'relative' }}>
                     {/* Top: Name + Status + Menu */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                          <RelationshipIcon relationship={lead.relationship} />
                           <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{lead.childName}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, color: cfg.color, fontWeight: 600 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot }} />{cfg.label}
-                          </span>
+                          {lead.notes && (
+                            <span title={`${lead.howDidYouKnow ? `Channel: ${lead.howDidYouKnow}` : ''}${lead.howDidYouKnow && lead.notes ? '\n\n' : ''}${lead.notes || ''}`} style={{ color: '#cbd5e1', fontSize: 10, cursor: 'default' }}>
+                              <FontAwesomeIcon icon={faNoteSticky} />
+                            </span>
+                          )}
                           {getLeadHeat(lead.ctaSource).label && (() => {
                             const heat = getLeadHeat(lead.ctaSource);
                             return (
                               <span title={heat.tooltip} style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 3,
-                                background: heat.bg,
-                                color: heat.color,
-                                fontSize: 9,
-                                fontWeight: 600,
-                                padding: '2px 6px',
-                                borderRadius: 8,
-                                cursor: 'default',
+                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                color: heat.color, fontSize: 9, fontWeight: 600, cursor: 'default',
                               }}>
                                 {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 8 }} />}
                                 {heat.label}
@@ -2293,7 +2639,6 @@ export default function LeadsPage() {
                           })()}
                         </div>
                         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                          {lead.relationship && <span style={{ color: '#8893a7' }}>{lead.relationship} · </span>}
                           <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
                             {STATUS_VERB[lead.status]} {rt.text}
                           </span>
@@ -2307,23 +2652,16 @@ export default function LeadsPage() {
                           onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = '#dcfce7'; }}
                         ><FontAwesomeIcon icon={faWhatsapp} /></button>
                       )}
-                      <button onClick={e => { e.stopPropagation(); setMenuOpenId(menuOpenId === lead.id ? null : lead.id); }}
+                      <button onClick={e => { e.stopPropagation(); if (menuOpenId !== lead.id) { const rect = e.currentTarget.getBoundingClientRect(); setMenuPos({ top: rect.bottom + 4, bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }); } setMenuOpenId(menuOpenId === lead.id ? null : lead.id); }}
                         style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '4px 10px', fontSize: 16, color: '#718096', lineHeight: 1, flexShrink: 0 }}>⋮</button>
                     </div>
                     {/* Details row */}
                     <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
-                      <span>{lead.enrolmentYear} · Age {calcClassAge(lead.childDob, lead.enrolmentYear)}</span>
+                      <span title={`DOB: ${new Date(lead.childDob).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`} style={{ cursor: 'default' }}>{lead.enrolmentYear} · Age {calcClassAge(lead.childDob, lead.enrolmentYear)}</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <FontAwesomeIcon icon={faPhone} style={{ fontSize: 9, color: '#94a3b8' }} />{lead.parentPhone}
                       </span>
                     </div>
-                    {urgencyTip && (
-                      <div style={{ marginTop: 6 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: urgency, cursor: 'default' }}>
-                          <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 9 }} />{urgencyTip.label}
-                        </span>
-                      </div>
-                    )}
                     {/* Primary action */}
                     {primaryAction && !isClosed && (
                       <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -2346,11 +2684,11 @@ export default function LeadsPage() {
                       const sep = <div style={{ height: 1, background: '#f0f2f5', margin: '3px 10px' }} />;
                       const secLabel = (label: string, icon?: any) => <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: 6 }}>{icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}{label}</div>;
                       return (
-                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', right: 10, top: 44, zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}>
+                        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', ...(menuPos.top > window.innerHeight * 0.6 ? { bottom: menuPos.bottom } : { top: menuPos.top }), right: menuPos.right, zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}>
                           {secLabel('Actions', faBolt)}
                           <div style={{ padding: '0 2px' }}>
                             {hasScheduleActions && (
-                              <button onClick={() => { setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
+                              <button onClick={() => { setBookingIntent('reschedule'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
                             )}
                             <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
                             <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
@@ -2410,15 +2748,15 @@ export default function LeadsPage() {
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <th style={{ width: 4, padding: 0, borderTopLeftRadius: 10 }} />
                     <th style={{ ...tH, width: '25%' }}>Lead</th>
-                    <th style={{ ...tH, width: '10%' }}>Enrolment</th>
+                    <th style={{ ...tH, width: '11%' }}>Enrolment</th>
                     <th style={{ ...tH, width: '15%' }}>Phone</th>
                     {isClosed
-                      ? <th style={{ ...tH, width: '15%' }}>Closed</th>
-                      : <th style={{ ...tH, width: '18%' }}>Visit</th>
+                      ? <th style={{ ...tH, width: '12%' }}>Closed</th>
+                      : <th style={{ ...tH, width: '20%' }}>Visit</th>
                     }
                     {isClosed
-                      ? <th style={{ ...tH, width: 'auto' }}>Reason</th>
-                      : <th style={{ ...tH, textAlign: 'right' as const, width: 'auto' }}>Next Action</th>
+                      ? <th style={{ ...tH }}>Reason</th>
+                      : <th style={{ ...tH, textAlign: 'right' as const, width: '35%' }}>Next Action</th>
                     }
                     <th style={{ ...tH, width: 44, textAlign: 'center' as const }} />
                   </tr>
@@ -2430,33 +2768,31 @@ export default function LeadsPage() {
                     const primaryAction = getPrimaryAction(lead);
                     const cfg = STATUS_CFG[lead.status];
                     const isMenuOpen = menuOpenId === lead.id;
-                    const rt = lead.status === 'FOLLOW_UP' && lead.appointmentStart
-                      ? relDays(lead.appointmentStart)
+                    const rt = lead.status === 'FOLLOW_UP' && lead.statusChangedAt
+                      ? relDays(lead.statusChangedAt)
                       : relTime(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt);
                     return (
                       <tr key={lead.id} id={`lead-row-${lead.id}`} className={`kc-row${highlightId === lead.id ? ' kc-hl' : ''}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         {/* Urgency stripe */}
-                        <td style={{ width: 4, padding: 0, background: urgency, minWidth: 4 }} title={urgencyTip?.rule} />
+                        <td style={{ width: 4, padding: 0, background: urgency, minWidth: 4, cursor: urgencyTip ? 'default' : undefined }} title={urgencyTip ? `${urgencyTip.label} — ${urgencyTip.rule}` : undefined} />
 
                         {/* Lead info */}
                         <td style={tD}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <RelationshipIcon relationship={lead.relationship} />
                             <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{lead.childName}</span>
+                            {lead.notes && (
+                              <span title={lead.notes} style={{ color: '#cbd5e1', fontSize: 10, cursor: 'default' }}>
+                                <FontAwesomeIcon icon={faNoteSticky} />
+                              </span>
+                            )}
                             {getLeadHeat(lead.ctaSource).label && (() => {
                               const heat = getLeadHeat(lead.ctaSource);
                               return (
                                 <span title={heat.tooltip} style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  background: heat.bg,
-                                  color: heat.color,
-                                  fontSize: 10,
-                                  fontWeight: 600,
-                                  padding: '3px 8px',
-                                  borderRadius: 10,
-                                  cursor: 'default',
-                                  whiteSpace: 'nowrap' as const,
+                                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                                  color: heat.color, fontSize: 10, fontWeight: 600,
+                                  cursor: 'default', whiteSpace: 'nowrap' as const,
                                 }}>
                                   {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 9 }} />}
                                   {heat.label}
@@ -2465,30 +2801,22 @@ export default function LeadsPage() {
                             })()}
                           </div>
                           <div style={{ fontSize: 11, color: '#b0b8c9', marginTop: 2 }}>
-                            {lead.relationship && <span style={{ color: '#8893a7' }}>{lead.relationship} · </span>}
                             <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
                               {STATUS_VERB[lead.status]} {rt.text}
                             </span>
                           </div>
-                          {urgencyTip && (
-                            <div style={{ marginTop: 3 }}>
-                              <span title={urgencyTip.rule} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: urgency, padding: '0 0', lineHeight: '16px', cursor: 'default' }}>
-                                <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 9 }} />
-                                {urgencyTip.label}
-                              </span>
-                            </div>
-                          )}
                         </td>
 
                         {/* Enrolment */}
-                        <td style={{ ...tD, fontSize: 13 }}>
-                          <div style={{ fontWeight: 500, color: '#1e293b', fontVariantNumeric: 'tabular-nums' }}>{lead.enrolmentYear}</div>
-                          <div style={{ fontSize: 11, color: '#94a3b8' }}>Age {calcClassAge(lead.childDob, lead.enrolmentYear)}</div>
+                        <td style={{ ...tD, cursor: 'default' }} title={`DOB: ${new Date(lead.childDob).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`}>
+                          <span style={{ display: 'inline-block', background: '#f1f5f9', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 500, color: '#475569', whiteSpace: 'nowrap' as const }}>
+                            {lead.enrolmentYear} · Age {calcClassAge(lead.childDob, lead.enrolmentYear)}
+                          </span>
                         </td>
 
                         {/* Phone */}
                         <td style={{ ...tD, fontSize: 13, color: '#475569' }}>
-                          <span className="kc-phone" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'default', fontVariantNumeric: 'tabular-nums' }}>
+                          <span className="kc-phone" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>
                             <FontAwesomeIcon icon={faPhone} style={{ color: '#94a3b8', fontSize: 10 }} />
                             {lead.parentPhone}
                             <FontAwesomeIcon icon={faCopy} className="kc-copy"
@@ -2507,38 +2835,36 @@ export default function LeadsPage() {
                         ) : (
                           <td style={{ ...tD, fontSize: 13 }}>
                             {lead.appointmentStart ? (() => {
+                              const isFollowUp = lead.status === 'FOLLOW_UP';
+                              const displayDate = isFollowUp && lead.statusChangedAt ? new Date(lead.statusChangedAt) : new Date(lead.appointmentStart);
                               const apptDate = new Date(lead.appointmentStart);
                               const isPast = lead.status === 'APPOINTMENT_BOOKED' && apptDate < new Date();
-                              const visitStatus = lead.status === 'FOLLOW_UP'
+                              const calendarNotSynced = !lead.googleEventId && !!lead.appointmentStart;
+                              const visitStatus = isFollowUp
                                 ? { label: 'Attended', color: '#16a34a', dot: '#22c55e' }
                                 : isPast
                                 ? { label: 'Update Status', color: '#92400e', dot: '#f59e0b' }
-                                : lead.appointmentIsPlaceholder
-                                ? { label: 'Pending', color: '#d97706', dot: '#f59e0b' }
-                                : { label: 'Confirmed', color: '#2563eb', dot: '#3b82f6' };
+                                : lead.status === 'APPOINTMENT_BOOKED'
+                                ? { label: 'Appt Confirmed', color: '#2563eb', dot: '#3b82f6' }
+                                : { label: 'Contacted', color: '#d97706', dot: '#f59e0b' };
+                              const icon = isFollowUp ? faCircleCheck : isPast ? faCircleCheck : lead.status === 'APPOINTMENT_BOOKED' ? faCalendarDays : faClock;
+                              const iconColor = isFollowUp ? '#16a34a' : isPast ? '#d97706' : lead.status === 'APPOINTMENT_BOOKED' ? '#3b82f6' : '#94a3b8';
                               return (
-                                <div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500, color: isPast ? '#b45309' : '#374151', fontSize: 13, whiteSpace: 'nowrap' as const }}>
-                                    <FontAwesomeIcon icon={faCalendarDays} style={{ color: isPast ? '#d97706' : '#94a3b8', fontSize: 11 }} />
-                                    {apptDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                                    <span style={{ color: isPast ? '#d97706' : '#b0b8c9', fontWeight: 400, fontSize: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500, color: '#374151', fontSize: 13, whiteSpace: 'nowrap' as const }}>
+                                  <span title={visitStatus.label} style={{ cursor: 'default' }}>
+                                    <FontAwesomeIcon icon={icon} style={{ color: iconColor, fontSize: 11 }} />
+                                  </span>
+                                  <span>{displayDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}</span>
+                                  {!isFollowUp && (
+                                    <span style={{ color: '#b0b8c9', fontWeight: 400, fontSize: 12 }}>
                                       {apptDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
                                     </span>
-                                  </div>
-                                  <div style={{ marginTop: 4 }}>
-                                    <span style={{
-                                      fontSize: 10,
-                                      fontWeight: 600,
-                                      color: cfg.color,
-                                      background: cfg.bg,
-                                      padding: '2px 7px',
-                                      borderRadius: 8,
-                                      border: `1px solid ${cfg.dot}20`,
-                                      whiteSpace: 'nowrap' as const,
-                                    }}>
-                                      {cfg.label}
+                                  )}
+                                  {calendarNotSynced && (
+                                    <span title="Google Calendar not synced" style={{ fontSize: 9, color: '#f59e0b', cursor: 'default' }}>
+                                      <FontAwesomeIcon icon={faTriangleExclamation} />
                                     </span>
-                                  </div>
+                                  )}
                                 </div>
                               );
                             })() : (
@@ -2565,7 +2891,7 @@ export default function LeadsPage() {
                         ) : (
                           <td style={{ ...tD, textAlign: 'right' as const }} onClick={e => e.stopPropagation()}>
                             {lead.status === 'FOLLOW_UP' ? (
-                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
                                 <button onClick={() => setEnrollingLead(lead)} style={btnStyles.enroll}>
                                   <FontAwesomeIcon icon={faGraduationCap} style={{ marginRight: 6 }} /> Enroll
                                 </button>
@@ -2574,7 +2900,7 @@ export default function LeadsPage() {
                                 </button>
                               </div>
                             ) : (
-                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
                                 {primaryAction ? (
                                   <button onClick={primaryAction.action} style={primaryAction.style}>
                                     {primaryAction.label}
@@ -2600,7 +2926,7 @@ export default function LeadsPage() {
                               e.stopPropagation();
                               if (!isMenuOpen) {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                                setMenuPos({ top: rect.bottom + 4, bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right });
                               }
                               setMenuOpenId(isMenuOpen ? null : lead.id);
                             }}
@@ -2613,7 +2939,7 @@ export default function LeadsPage() {
                             return (
                               <div
                                 onClick={e => e.stopPropagation()}
-                                style={{ position: 'fixed' as const, top: menuPos.top, right: menuPos.right, zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}
+                                style={{ position: 'fixed' as const, ...(menuPos.top > window.innerHeight * 0.6 ? { bottom: menuPos.bottom } : { top: menuPos.top }), right: menuPos.right, zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}
                               >
                                 {(() => {
                                   const secLabel = (label: string, icon?: any) => <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: 6 }}>{icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}{label}</div>;
@@ -2621,7 +2947,7 @@ export default function LeadsPage() {
                                     {secLabel('Actions', faBolt)}
                                     <div style={{ padding: '0 2px' }}>
                                       {hasScheduleActions && (
-                                        <button onClick={() => { setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
+                                        <button onClick={() => { setBookingIntent('reschedule'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
                                       )}
                                       <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
                                       <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
@@ -2754,7 +3080,7 @@ const mo: Record<string, React.CSSProperties> = {
 
 const am: Record<string, React.CSSProperties> = {
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  card: { background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 560, boxShadow: '0 8px 40px rgba(0,0,0,0.25)', boxSizing: 'border-box' },
+  card: { background: '#fff', borderRadius: 14, padding: '24px 28px', width: '100%', maxWidth: 780, boxShadow: '0 16px 56px rgba(0,0,0,0.16), 0 2px 6px rgba(0,0,0,0.04)', boxSizing: 'border-box' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   title: { margin: 0, fontSize: 18, fontWeight: 700, color: '#1a202c' },
   subtitle: { margin: '4px 0 0', fontSize: 13, color: '#718096' },

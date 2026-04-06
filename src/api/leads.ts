@@ -43,6 +43,7 @@ export interface UpdateLeadPayload {
   howDidYouKnow?: string | null;
   appointmentStart?: string | null;
   appointmentEnd?: string | null;
+  statusChangedAt?: string | null;
   attended?: boolean;
 }
 
@@ -180,16 +181,23 @@ export function fetchSalesAnalytics(year?: number) {
   return apiFetch<SalesAnalyticsData>(`/api/leads/sales-analytics${params}`);
 }
 
-export function createAppointment(leadId: string, appointmentStart: string, whatsappMessage: string, isPlaceholder = false) {
-  return apiFetch<{ googleEventId: string; googleEventLink: string }>(
+export function createAppointment(leadId: string, appointmentStart: string, whatsappMessage: string, isPlaceholder = false, skipCalendar = false) {
+  return apiFetch<{ googleEventId: string | null; googleEventLink: string | null; calendarSynced?: boolean }>(
     `/api/leads/${leadId}/appointment`,
-    { method: 'POST', body: JSON.stringify({ appointmentStart, whatsappMessage, isPlaceholder }) },
+    { method: 'POST', body: JSON.stringify({ appointmentStart, whatsappMessage, isPlaceholder, skipCalendar }) },
   );
 }
 
 export function confirmAppointment(leadId: string) {
   return apiFetch<{ googleEventId: string; googleEventLink: string }>(
     `/api/leads/${leadId}/confirm-appointment`,
+    { method: 'POST' },
+  );
+}
+
+export function confirmAppointmentNoCalendar(leadId: string) {
+  return apiFetch<{ confirmed: boolean; calendarSynced: boolean }>(
+    `/api/leads/${leadId}/confirm-appointment-no-calendar`,
     { method: 'POST' },
   );
 }

@@ -24,15 +24,23 @@ interface SystemTemplate {
 const SYSTEM_TEMPLATES: SystemTemplate[] = [
   { id: 'enquiry', name: 'Enquiry', settingKey_en: 'whatsapp_template', settingKey_zh: 'whatsapp_template_zh' },
   { id: 'follow_up', name: 'Follow Up', settingKey_en: 'whatsapp_followup_template', settingKey_zh: 'whatsapp_followup_template_zh' },
+  { id: 'confirm_appointment', name: 'Confirm Appointment', settingKey_en: 'whatsapp_confirm_appt_template', settingKey_zh: 'whatsapp_confirm_appt_template_zh' },
 ];
 
-const PLACEHOLDER_INSERTS = [
-  { label: 'Child Name', value: '{{childName}}' },
-  { label: 'Relationship', value: '{{relationship}}' },
-  { label: 'Appt. Date', value: '{{appointmentDate}}' },
-  { label: 'Appt. Start Time', value: '{{appointmentTime}}' },
-  { label: 'Appt. End Time', value: '{{appointmentEndTime}}' },
-  { label: 'Address', value: '{{address}}' },
+const VARIABLE_GROUPS = [
+  { label: 'Contact', items: [
+    { label: 'Child Name', value: '{{childName}}' },
+    { label: 'Relationship', value: '{{relationship}}' },
+  ]},
+  { label: 'Appointment', items: [
+    { label: 'Day', value: '{{appointmentDay}}' },
+    { label: 'Date', value: '{{appointmentDate}}' },
+    { label: 'Start Time', value: '{{appointmentTime}}' },
+    { label: 'End Time', value: '{{appointmentEndTime}}' },
+  ]},
+  { label: 'Location', items: [
+    { label: 'Address', value: '{{address}}' },
+  ]},
 ];
 
 const CUSTOM_TEMPLATES_KEY = 'whatsapp_custom_templates';
@@ -70,37 +78,69 @@ function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, onSave,
     }
   };
 
+  const chipStyle: React.CSSProperties = {
+    padding: '3px 10px', background: '#fff', border: '1px solid #e2e8f0',
+    borderRadius: 20, cursor: 'pointer', fontSize: 11, fontWeight: 500, color: '#475569',
+    whiteSpace: 'nowrap',
+  };
+
   return (
     <div style={s.editorCard}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <button onClick={onCancel} style={s.backBtn}>
           <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6 }} /> Back to templates
         </button>
       </div>
 
-      {/* Template name */}
-      <div style={{ marginBottom: 16 }}>
-        <label style={s.fieldLabel}>Template Name</label>
+      {/* ── Template info ── */}
+      <div style={{ marginBottom: 24 }}>
         {isSystem ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input style={{ ...s.input, background: '#f8fafc', color: '#64748b' }} value={draftName} disabled />
-            <span style={{ fontSize: 11, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              <FontAwesomeIcon icon={faLock} /> System
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>{draftName}</h2>
+            <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '3px 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <FontAwesomeIcon icon={faLock} style={{ fontSize: 8 }} /> System
             </span>
           </div>
         ) : (
-          <input style={s.input} value={draftName} onChange={e => setDraftName(e.target.value)} placeholder="e.g. Visit Reminder" disabled={!isAdmin} />
+          <div>
+            <label style={s.fieldLabel}>Template Name</label>
+            <input style={s.input} value={draftName} onChange={e => setDraftName(e.target.value)} placeholder="e.g. Visit Reminder" disabled={!isAdmin} />
+          </div>
         )}
       </div>
 
-      {/* Language toggle + content */}
-      <div style={{ marginBottom: 16 }}>
+      {/* ── Variables section ── */}
+      {isAdmin && (
+        <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: 10, padding: '14px 16px', marginBottom: 20 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em', textTransform: 'uppercase' as const, marginBottom: 10 }}>
+            Click to insert variable
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
+            {VARIABLE_GROUPS.map(group => (
+              <div key={group.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', minWidth: 72, flexShrink: 0 }}>{group.label}</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 5 }}>
+                  {group.items.map(p => (
+                    <button key={p.value} onClick={() => insertPlaceholder(p.value)} style={chipStyle}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Editor section ── */}
+      <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <label style={s.fieldLabel}>Message Content</label>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#475569', letterSpacing: '0.03em', textTransform: 'uppercase' as const }}>Message Template</span>
           <div style={{ display: 'inline-flex', borderRadius: 6, background: '#f1f5f9', padding: 2 }}>
             {(['en', 'zh'] as const).map(t => (
               <button key={t} onClick={() => setLang(t)} style={{
-                padding: '3px 12px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer', lineHeight: '16px',
+                padding: '3px 14px', borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: 'pointer', lineHeight: '18px',
                 border: 'none', background: lang === t ? '#fff' : 'transparent',
                 color: lang === t ? '#1e293b' : '#94a3b8',
                 boxShadow: lang === t ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
@@ -108,19 +148,9 @@ function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, onSave,
             ))}
           </div>
         </div>
-        {isAdmin && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-            <span style={{ fontSize: 11, color: '#8893a7', alignSelf: 'center', marginRight: 2 }}>Insert:</span>
-            {PLACEHOLDER_INSERTS.map(p => (
-              <button key={p.value} onClick={() => insertPlaceholder(p.value)} style={s.insertBtn}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        )}
         <textarea
           ref={taRef}
-          style={{ ...s.input, height: 120, resize: 'vertical' }}
+          style={{ ...s.input, height: 260, resize: 'vertical', lineHeight: 1.75, fontSize: 14, padding: '14px 16px' }}
           value={lang === 'en' ? draftEn : draftZh}
           onChange={e => lang === 'en' ? setDraftEn(e.target.value) : setDraftZh(e.target.value)}
           placeholder={lang === 'en' ? 'Enter English message template...' : 'Enter Chinese message template...'}
@@ -128,15 +158,16 @@ function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, onSave,
         />
       </div>
 
-      {/* Actions */}
+      {/* ── Footer ── */}
       {isAdmin && (
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
           <button onClick={onCancel} style={s.cancelBtn}>Cancel</button>
           <button
             onClick={() => onSave(draftName.trim(), draftEn, draftZh)}
             disabled={saving || (!isSystem && !draftName.trim())}
             style={saving ? { ...s.primaryBtn, opacity: 0.6 } : s.primaryBtn}
           >
+            <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
             {saving ? 'Saving...' : 'Save Template'}
           </button>
         </div>
@@ -162,6 +193,7 @@ export default function WhatsAppTemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
 
@@ -210,13 +242,13 @@ export default function WhatsAppTemplatesPage() {
   };
 
   const deleteCustomTemplate = async (id: string, name: string) => {
-    if (!confirm(`Delete "${name}" template?`)) return;
     try {
       const updated = customTemplates.filter(t => t.id !== id);
       await patchSetting(CUSTOM_TEMPLATES_KEY, updated as unknown as string[]);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       showToast(`${name} deleted`);
     } catch { showToast('Failed to delete'); }
+    finally { setDeleteTarget(null); }
   };
 
   // ── Loading / Error ──
@@ -360,7 +392,7 @@ export default function WhatsAppTemplatesPage() {
                     <FontAwesomeIcon icon={faPen} style={{ marginRight: 5 }} /> Edit
                   </button>
                   {!isSystem && isAdmin && (
-                    <button onClick={() => deleteCustomTemplate(t.id, t.name)} style={s.deleteBtn} title="Delete">
+                    <button onClick={() => setDeleteTarget({ id: t.id, name: t.name })} style={s.deleteBtn} title="Delete">
                       <FontAwesomeIcon icon={faTrash} />
                     </button>
                   )}
@@ -378,6 +410,22 @@ export default function WhatsAppTemplatesPage() {
         </div>
 
       </div>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div style={s.backdrop} onClick={() => setDeleteTarget(null)}>
+          <div style={s.modal} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#1e293b' }}>Delete Template</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#64748b' }}>
+              Are you sure you want to delete <strong>"{deleteTarget.name}"</strong>? This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeleteTarget(null)} style={s.cancelBtn}>Cancel</button>
+              <button onClick={() => deleteCustomTemplate(deleteTarget.id, deleteTarget.name)} style={s.deletePrimaryBtn}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
@@ -442,6 +490,18 @@ const s: Record<string, React.CSSProperties> = {
   },
   primaryBtn: {
     padding: '8px 20px', background: '#5a79c8', color: '#fff', border: 'none',
+    borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+  },
+  backdrop: {
+    position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.35)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  modal: {
+    background: '#fff', borderRadius: 12, padding: '24px 28px', width: '100%', maxWidth: 400,
+    boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+  },
+  deletePrimaryBtn: {
+    padding: '8px 20px', background: '#dc2626', color: '#fff', border: 'none',
     borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
   },
   toast: {
