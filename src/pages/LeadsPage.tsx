@@ -2856,7 +2856,7 @@ export default function LeadsPage() {
                                   <span title={visitStatus.label} style={{ cursor: 'default' }}>
                                     <FontAwesomeIcon icon={icon} style={{ color: iconColor, fontSize: 11 }} />
                                   </span>
-                                  <span>{displayDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}</span>
+                                  <span>{displayDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} ({displayDate.toLocaleDateString('en-GB', { weekday: 'short' })})</span>
                                   {!isFollowUp && (
                                     <span style={{ color: '#b0b8c9', fontWeight: 400, fontSize: 12 }}>
                                       {apptDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
