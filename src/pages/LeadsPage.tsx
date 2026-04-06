@@ -18,8 +18,10 @@ const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLO
 function RelationshipIcon({ relationship }: { relationship?: string | null }) {
   if (!relationship) return null;
   const r = relationship.toLowerCase();
-  const icon = r === 'mother' ? faPersonDress : r === 'father' ? faPerson : faUser;
-  const color = r === 'mother' ? '#ec4899' : r === 'father' ? '#3b82f6' : '#94a3b8';
+  const isMother = r.includes('mother') || r.includes('妈') || r.includes('母');
+  const isFather = r.includes('father') || r.includes('爸') || r.includes('父');
+  const icon = isMother ? faPersonDress : isFather ? faPerson : faUser;
+  const color = isMother ? '#ec4899' : isFather ? '#3b82f6' : '#94a3b8';
   return <span title={relationship} style={{ cursor: 'default', color, fontSize: 10 }}><FontAwesomeIcon icon={icon} /></span>;
 }
 const currentYear = new Date().getFullYear();
