@@ -567,23 +567,28 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
             <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No upcoming appointments</div>
           ) : groups.map((group, gi) => (
             <div key={group.label}>
-              <div style={{ padding: '6px 14px', fontSize: 10, fontWeight: 700, color: group.isToday ? '#1d4ed8' : '#64748b', letterSpacing: '0.05em', textTransform: 'uppercase', background: group.isToday ? '#eff6ff' : '#f8fafc', borderTop: gi > 0 ? '1px solid #e2e8f0' : 'none', borderBottom: '1px solid #e2e8f0' }}>
-                {group.label}
+              <div style={{ padding: '6px 14px', fontSize: 10, fontWeight: 700, color: group.isToday ? '#1d4ed8' : '#64748b', letterSpacing: '0.05em', textTransform: 'uppercase', background: group.isToday ? '#eff6ff' : '#f8fafc', borderTop: gi > 0 ? '1px solid #e2e8f0' : 'none', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{group.label}</span>
+                <span style={{ fontSize: 9, fontWeight: 600, color: group.isToday ? '#3b82f6' : '#94a3b8', background: group.isToday ? '#dbeafe' : '#e2e8f0', borderRadius: 8, padding: '1px 6px' }}>{group.items.length}</span>
               </div>
               {group.items.map(a => {
                 const s = new Date(a.appointmentStart);
                 const e = a.appointmentEnd ? new Date(a.appointmentEnd) : null;
-                const dur = e ? Math.round((e.getTime() - s.getTime()) / 60000) : null;
                 const fmtT = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
                 return (
-                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.childName}</div>
-                      <div style={{ fontSize: 11, color: '#64748b' }}>
-                        {fmtT(s)}{e ? ` – ${fmtT(e)}` : ''}{dur ? <span style={{ color: '#b0b8c9', marginLeft: 4 }}>{dur}min</span> : ''}
+                  <div key={a.id} onClick={() => onSelectLead(a as any)} style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', gap: 10 }}>
+                    <div style={{ width: 3, height: 28, borderRadius: 2, background: group.isToday ? '#3b82f6' : '#e2e8f0', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{a.childName}</div>
+                      <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                        {fmtT(s)}{e ? ` – ${fmtT(e)}` : ''}
                       </div>
                     </div>
-                    <button onClick={() => onWhatsApp(a.id)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
+                    <button onClick={ev => { ev.stopPropagation(); onWhatsApp(a.id); }} style={{ ...sp.waBtn, opacity: 0.5 }}
+                      onMouseEnter={ev => { (ev.target as HTMLElement).style.opacity = '1'; }}
+                      onMouseLeave={ev => { (ev.target as HTMLElement).style.opacity = '0.5'; }}>
+                      <FontAwesomeIcon icon={faWhatsapp} />
+                    </button>
                   </div>
                 );
               })}
