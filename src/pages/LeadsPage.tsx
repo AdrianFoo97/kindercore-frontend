@@ -556,9 +556,11 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
           for (const a of sorted) {
             const d = new Date(a.appointmentStart);
             const isToday = isSameDay(d, today);
+            const datePart = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            const dayPart = d.toLocaleDateString('en-GB', { weekday: 'short' });
             const label = isToday
-              ? `Today · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
-              : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+              ? `Today · (${dayPart}) ${datePart}`
+              : `(${dayPart}) ${datePart}`;
             const existing = groups.find(g => g.label === label);
             if (existing) existing.items.push(a);
             else groups.push({ label, isToday, items: [a] });
