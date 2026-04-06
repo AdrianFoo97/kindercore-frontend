@@ -565,9 +565,9 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
           }
           return groups.length === 0 ? (
             <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No upcoming appointments</div>
-          ) : groups.map(group => (
+          ) : groups.map((group, gi) => (
             <div key={group.label}>
-              <div style={{ padding: '8px 14px 4px', fontSize: 10, fontWeight: 700, color: group.isToday ? '#1d4ed8' : '#b0b8c9', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              <div style={{ padding: '6px 14px', fontSize: 10, fontWeight: 700, color: group.isToday ? '#1d4ed8' : '#64748b', letterSpacing: '0.05em', textTransform: 'uppercase', background: group.isToday ? '#eff6ff' : '#f8fafc', borderTop: gi > 0 ? '1px solid #e2e8f0' : 'none', borderBottom: '1px solid #e2e8f0' }}>
                 {group.label}
               </div>
               {group.items.map(a => {
@@ -576,7 +576,7 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
                 const dur = e ? Math.round((e.getTime() - s.getTime()) / 60000) : null;
                 const fmtT = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
                 return (
-                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
+                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f1f5f9' }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.childName}</div>
                       <div style={{ fontSize: 11, color: '#64748b' }}>
