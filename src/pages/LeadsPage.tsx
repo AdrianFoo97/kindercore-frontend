@@ -1826,7 +1826,7 @@ export default function LeadsPage() {
     return undefined;
   };
   const [enrollingLead, setEnrollingLead] = useState<Lead | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void; destructive?: boolean; details?: string[] } | null>(null);
   const [deleteLeadTarget, setDeleteLeadTarget] = useState<Lead | null>(null);
   const [confirmBookingLead, setConfirmBookingLead] = useState<Lead | null>(null);
   const [confirmBookingLang, setConfirmBookingLang] = useState<'en' | 'zh'>('zh');
@@ -1840,6 +1840,7 @@ export default function LeadsPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [rowResults, setRowResults] = useState<Record<string, { link?: string | null; error?: string }>>({});
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedTrashIds, setSelectedTrashIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; link?: string; action?: { label: string; onClick: () => void } } | null>(null);
   const [attendedLead, setAttendedLead] = useState<Lead | null>(null);
   const [attendedNotes, setAttendedNotes] = useState('');
@@ -1974,6 +1975,8 @@ export default function LeadsPage() {
     queryClient.invalidateQueries({ queryKey: ['leads-appt-booked'] });
     queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
     queryClient.invalidateQueries({ queryKey: ['upcomingAppointments'] });
+    queryClient.invalidateQueries({ queryKey: ['analytics'] });
+    queryClient.invalidateQueries({ queryKey: ['sales-analytics'] });
   };
 
   const handleConfirmAppointment = async (lead: Lead, appointmentStart: string, waMessage: string, isPlaceholder: boolean) => {
@@ -2164,12 +2167,23 @@ export default function LeadsPage() {
       )}
 
       {confirmDialog && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmDialog(null)}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: '28px 32px', minWidth: 320, maxWidth: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
-            <p style={{ margin: '0 0 24px', fontSize: 15, fontWeight: 600, color: '#1a202c', lineHeight: 1.5 }}>{confirmDialog.message}</p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px', minWidth: 320, maxWidth: 440, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: '#1a202c', lineHeight: 1.5 }}>{confirmDialog.message}</p>
+            {confirmDialog.details && confirmDialog.details.length > 0 && (
+              <div style={{ background: confirmDialog.destructive ? '#fef2f2' : '#f8fafc', border: `1px solid ${confirmDialog.destructive ? '#fecaca' : '#e2e8f0'}`, borderRadius: 8, padding: '8px 12px', marginBottom: 16, maxHeight: 180, overflowY: 'auto' }}>
+                {confirmDialog.details.map((d, i) => (
+                  <div key={i} style={{ fontSize: 12, color: confirmDialog.destructive ? '#991b1b' : '#475569', padding: '3px 0', borderBottom: i < confirmDialog.details!.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                    {d}
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setConfirmDialog(null)} style={{ padding: '8px 18px', background: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} style={{ padding: '8px 18px', background: '#3182ce', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Confirm</button>
+              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} style={{ padding: '8px 18px', background: confirmDialog.destructive ? '#dc2626' : '#3182ce', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                {confirmDialog.destructive ? 'Delete' : 'Confirm'}
+              </button>
             </div>
           </div>
         </div>
@@ -2509,95 +2523,161 @@ export default function LeadsPage() {
           )}
 
           {isTrash && trashedLeads.length > 0 && (
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10 }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                    <th style={tH}>Lead</th>
-                    <th style={tH}>Phone</th>
-                    <th style={tH}>Status</th>
-                    <th style={tH}>Deleted</th>
-                    <th style={{ ...tH, textAlign: 'right' as const }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {trashedLeads.map((lead: Lead) => (
-                    <tr key={lead.id} className="kc-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={tD}>
-                        <div style={{ fontWeight: 600, fontSize: 14, color: '#1a202c' }}>{lead.childName}</div>
-                        <div style={{ fontSize: 11, color: '#a0aec0', marginTop: 2 }}>
-                          Submitted {new Date(lead.submittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </div>
-                      </td>
-                      <td style={{ ...tD, fontSize: 13, color: '#4a5568' }}>{lead.parentPhone}</td>
-                      <td style={tD}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, color: STATUS_CFG[lead.status].color }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_CFG[lead.status].dot }} />
-                          {STATUS_CFG[lead.status].label}
-                        </span>
-                      </td>
-                      <td style={{ ...tD, fontSize: 13, color: '#718096' }}>
-                        {lead.deletedAt ? new Date(lead.deletedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                      </td>
-                      <td style={{ ...tD, position: 'relative' as const, textAlign: 'right' as const }}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-                          <button
-                            onClick={() => {
-                              setConfirmDialog({
-                                message: `Restore ${lead.childName}? They will return to ${STATUS_CFG[lead.status].label}.`,
-                                onConfirm: async () => {
-                                  try {
-                                    await restoreLead(lead.id);
-                                    invalidateAll();
-                                    queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
-                                    const stage = lead.status as PipelineStage;
-                                    showToast(`${lead.childName} restored to`, 'success', undefined, {
-                                      label: STATUS_CFG[lead.status].label,
-                                      onClick: () => { handleStageSelect(stage); setHighlightId(lead.id); },
-                                    });
-                                  } catch { showToast('Failed to restore lead', 'error'); }
-                                },
-                              });
-                            }}
-                            style={{ padding: '6px 14px', background: '#dbeafe', color: '#1d4ed8', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                          >
-                            ↩ Restore
-                          </button>
-                          <div style={{ position: 'relative' as const }}>
-                            <button
-                              onClick={e => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setMenuPos({ top: rect.bottom + 4, bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }); setMenuOpenId(menuOpenId === `trash-${lead.id}` ? null : `trash-${lead.id}`); }}
-                              style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '3px 9px', fontSize: 15, color: '#718096', lineHeight: 1 }}
-                            >⋮</button>
-                            {menuOpenId === `trash-${lead.id}` && (
-                              <div onClick={e => e.stopPropagation()} style={{ position: 'fixed' as const, ...(menuPos.top > window.innerHeight * 0.6 ? { bottom: menuPos.bottom } : { top: menuPos.top }), right: menuPos.right, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', minWidth: 160, padding: 4 }}>
-                                <button
-                                  onClick={() => {
-                                    setMenuOpenId(null);
-                                    setConfirmDialog({
-                                      message: `Permanently delete ${lead.childName}? This cannot be undone.`,
-                                      onConfirm: async () => {
-                                        try {
-                                          await permanentDeleteLead(lead.id);
-                                          queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
-                                          queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
-                                          showToast(`${lead.childName} permanently deleted`, 'success');
-                                        } catch { showToast('Failed to delete', 'error'); }
-                                      },
-                                    });
-                                  }}
-                                  className={`${mI} kc-mi-danger`}
-                                >
-                                  <FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8 }} /> Delete Forever
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
+            <div>
+              {/* Bulk action bar */}
+              {selectedTrashIds.size > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>{selectedTrashIds.size} selected</span>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={() => {
+                    setConfirmDialog({
+                      message: `Restore ${selectedTrashIds.size} lead${selectedTrashIds.size > 1 ? 's' : ''}?`,
+                      onConfirm: async () => {
+                        try {
+                          await Promise.all([...selectedTrashIds].map(id => restoreLead(id)));
+                          invalidateAll();
+                          queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
+                          showToast(`${selectedTrashIds.size} lead${selectedTrashIds.size > 1 ? 's' : ''} restored`, 'success');
+                          setSelectedTrashIds(new Set());
+                        } catch { showToast('Failed to restore', 'error'); }
+                      },
+                    });
+                  }} style={{ padding: '6px 14px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                    Restore Selected
+                  </button>
+                  <button onClick={() => {
+                    const names = trashedLeads.filter(l => selectedTrashIds.has(l.id)).map(l => l.childName);
+                    setConfirmDialog({
+                      message: `Permanently delete ${selectedTrashIds.size} lead${selectedTrashIds.size > 1 ? 's' : ''}? This cannot be undone.`,
+                      destructive: true,
+                      details: names,
+                      onConfirm: async () => {
+                        try {
+                          await Promise.all([...selectedTrashIds].map(id => permanentDeleteLead(id)));
+                          queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
+                          queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
+                          showToast(`${selectedTrashIds.size} lead${selectedTrashIds.size > 1 ? 's' : ''} permanently deleted`, 'success');
+                          setSelectedTrashIds(new Set());
+                        } catch { showToast('Failed to delete', 'error'); }
+                      },
+                    });
+                  }} style={{ padding: '6px 14px', background: '#fff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                    Delete Forever
+                  </button>
+                  <button onClick={() => setSelectedTrashIds(new Set())} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#94a3b8', fontWeight: 500, padding: '6px 4px' }}>
+                    Clear
+                  </button>
+                </div>
+              )}
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <th style={{ ...tH, width: 40, textAlign: 'center' as const }}>
+                        <input type="checkbox"
+                          checked={selectedTrashIds.size === trashedLeads.length && trashedLeads.length > 0}
+                          onChange={e => setSelectedTrashIds(e.target.checked ? new Set(trashedLeads.map(l => l.id)) : new Set())}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      </th>
+                      <th style={tH}>Lead</th>
+                      <th style={tH}>Phone</th>
+                      <th style={tH}>Status</th>
+                      <th style={tH}>Deleted</th>
+                      <th style={{ ...tH, textAlign: 'right' as const }}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {trashedLeads.map((lead: Lead) => {
+                      const isSelected = selectedTrashIds.has(lead.id);
+                      return (
+                        <tr key={lead.id} className="kc-row" style={{ borderBottom: '1px solid #f1f5f9', background: isSelected ? '#f0f9ff' : undefined }}>
+                          <td style={{ ...tD, width: 40, textAlign: 'center' as const }}>
+                            <input type="checkbox" checked={isSelected}
+                              onChange={() => {
+                                const next = new Set(selectedTrashIds);
+                                if (isSelected) next.delete(lead.id); else next.add(lead.id);
+                                setSelectedTrashIds(next);
+                              }}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </td>
+                          <td style={tD}>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: '#1a202c' }}>{lead.childName}</div>
+                            <div style={{ fontSize: 11, color: '#a0aec0', marginTop: 2 }}>
+                              Submitted {new Date(lead.submittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </div>
+                          </td>
+                          <td style={{ ...tD, fontSize: 13, color: '#4a5568' }}>{lead.parentPhone}</td>
+                          <td style={tD}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, color: STATUS_CFG[lead.status].color }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_CFG[lead.status].dot }} />
+                              {STATUS_CFG[lead.status].label}
+                            </span>
+                          </td>
+                          <td style={{ ...tD, fontSize: 13, color: '#718096' }}>
+                            {lead.deletedAt ? new Date(lead.deletedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                          </td>
+                          <td style={{ ...tD, position: 'relative' as const, textAlign: 'right' as const }}>
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <button
+                                onClick={() => {
+                                  setConfirmDialog({
+                                    message: `Restore ${lead.childName}?`,
+                                    onConfirm: async () => {
+                                      try {
+                                        await restoreLead(lead.id);
+                                        invalidateAll();
+                                        queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
+                                        setSelectedTrashIds(prev => { const n = new Set(prev); n.delete(lead.id); return n; });
+                                        showToast(`${lead.childName} restored`, 'success');
+                                      } catch { showToast('Failed to restore lead', 'error'); }
+                                    },
+                                  });
+                                }}
+                                style={{ padding: '6px 14px', background: '#dbeafe', color: '#1d4ed8', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                              >
+                                ↩ Restore
+                              </button>
+                              <div style={{ position: 'relative' as const }}>
+                                <button
+                                  onClick={e => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setMenuPos({ top: rect.bottom + 4, bottom: window.innerHeight - rect.top + 4, right: window.innerWidth - rect.right }); setMenuOpenId(menuOpenId === `trash-${lead.id}` ? null : `trash-${lead.id}`); }}
+                                  style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', padding: '3px 9px', fontSize: 15, color: '#718096', lineHeight: 1 }}
+                                >⋮</button>
+                                {menuOpenId === `trash-${lead.id}` && (
+                                  <div onClick={e => e.stopPropagation()} style={{ position: 'fixed' as const, ...(menuPos.top > window.innerHeight * 0.6 ? { bottom: menuPos.bottom } : { top: menuPos.top }), right: menuPos.right, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', minWidth: 160, padding: 4 }}>
+                                    <button
+                                      onClick={() => {
+                                        setMenuOpenId(null);
+                                        setConfirmDialog({
+                                          message: `Permanently delete ${lead.childName}? This cannot be undone.`,
+                                          destructive: true,
+                                          onConfirm: async () => {
+                                            try {
+                                              await permanentDeleteLead(lead.id);
+                                              queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
+                                              queryClient.invalidateQueries({ queryKey: ['lead-stats'] });
+                                              setSelectedTrashIds(prev => { const n = new Set(prev); n.delete(lead.id); return n; });
+                                              showToast(`${lead.childName} permanently deleted`, 'success');
+                                            } catch { showToast('Failed to delete', 'error'); }
+                                          },
+                                        });
+                                      }}
+                                      className={`${mI} kc-mi-danger`}
+                                    >
+                                      <FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8 }} /> Delete Forever
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
