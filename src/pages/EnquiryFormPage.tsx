@@ -38,6 +38,7 @@ const helperStyle: React.CSSProperties = {
 export default function EnquiryFormPage() {
   const [searchParams] = useSearchParams();
   const ctaSource = searchParams.get('from') || '';
+  const utmSource = searchParams.get('utm_source') || '';
 
   // Track form page view
   useEffect(() => {
@@ -184,6 +185,7 @@ export default function EnquiryFormPage() {
           ...form,
           preferredAppointmentTime: form.preferredAppointmentTime,
           ...(ctaSource ? { ctaSource } : {}),
+          ...(utmSource ? { utmSource } : {}),
         }).filter(([k, v]) => k === 'needsTransport' ? true : v !== ''))),
       });
       if (!res.ok) throw new Error('提交失败，请稍后重试');

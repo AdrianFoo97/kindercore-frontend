@@ -1639,6 +1639,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
             {tab === 'other' && !editing && (
               <div>
                 <ViewRow label="Source" value={lead.howDidYouKnow || '—'} />
+                {lead.utmSource && <ViewRow label="UTM Source" value={lead.utmSource} />}
                 <ViewRow label="Visit Preference" value={lead.preferredAppointmentTime || '—'} />
                 <ViewRow label="Status" value={statusDisplayLabel(lead.status)} />
                 {lead.status === 'FOLLOW_UP' && lead.statusChangedAt && (
@@ -2010,7 +2011,7 @@ export default function LeadsPage() {
         'Programme': l.programme ?? '', 'Preferred Appointment Time': l.preferredAppointmentTime ?? '',
         'Address / Location': l.addressLocation ?? '',
         'Needs Transport': l.needsTransport == null ? '' : l.needsTransport ? 'Yes' : 'No',
-        'How Did You Know': l.howDidYouKnow ?? '', 'Status': l.status,
+        'How Did You Know': l.howDidYouKnow ?? '', 'UTM Source': l.utmSource ?? '', 'Status': l.status,
         'Notes': l.notes ?? '', 'Lost / Declined Reason': l.lostReason ?? '',
         'Appointment': l.appointmentStart ?? '',
       }));

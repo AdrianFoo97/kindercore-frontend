@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
@@ -22,6 +22,9 @@ const testimonials = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const utmSource = searchParams.get('utm_source') || '';
+  const toForm = (from: string) => `/enquiry/form?from=${from}${utmSource ? `&utm_source=${encodeURIComponent(utmSource)}` : ''}`;
   const isDesktop = useIsDesktop();
 
   return (
@@ -172,7 +175,7 @@ export default function LandingPage() {
           {/* Bottom CTA */}
           <div style={{ margin: isDesktop ? '48px 0 52px' : '40px 0 40px', textAlign: 'center' as const }}>
             <button
-              onClick={() => navigate('/enquiry/form?from=hero')}
+              onClick={() => navigate(toForm('hero'))}
               style={{
                 padding: isDesktop ? '18px 52px' : '16px 40px',
                 background: '#1e2a78',
@@ -445,7 +448,7 @@ export default function LandingPage() {
         {/* CTA after story */}
         <div style={{ padding: '24px 24px', textAlign: 'center' as const }}>
           <button
-            onClick={() => navigate('/enquiry/form?from=story')}
+            onClick={() => navigate(toForm('story'))}
             style={{
               padding: isDesktop ? '18px 52px' : '16px 40px',
               background: '#1e2a78',
@@ -658,7 +661,7 @@ export default function LandingPage() {
 
         <div style={{ padding: '28px 24px', textAlign: 'center' as const }}>
           <button
-            onClick={() => navigate('/enquiry/form?from=methods')}
+            onClick={() => navigate(toForm('methods'))}
             style={{
               padding: isDesktop ? '18px 52px' : '16px 40px',
               background: '#1e2a78',
@@ -735,7 +738,7 @@ export default function LandingPage() {
           {/* CTA area */}
           <div style={{ marginTop: 40 }}>
             <button
-              onClick={() => navigate('/enquiry/form?from=methods')}
+              onClick={() => navigate(toForm('methods'))}
               style={{
                 padding: isDesktop ? '18px 52px' : '16px 40px',
                 background: '#fff',
@@ -963,7 +966,7 @@ export default function LandingPage() {
             <br />安排参观时间
           </p>
           <button
-            onClick={() => navigate('/enquiry/form?from=final')}
+            onClick={() => navigate(toForm('final'))}
             style={{
               padding: isDesktop ? '18px 52px' : '16px 40px',
               background: '#1e2a78',

@@ -38,6 +38,7 @@ export interface Lead {
   needsTransport: boolean | null;
   howDidYouKnow: string | null;
   ctaSource: string | null;
+  utmSource: string | null;
   deletedAt: string | null;
 }
 
