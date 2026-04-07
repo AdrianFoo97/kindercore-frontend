@@ -75,6 +75,7 @@ describe('LeadsPage', () => {
           howDidYouKnow: null,
           statusChangedAt: null,
           ctaSource: null,
+          utmSource: null,
           deletedAt: null,
         },
       ],
