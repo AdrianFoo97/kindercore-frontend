@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faLink, faCopy, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function Navbar() {
@@ -21,6 +21,8 @@ export default function Navbar() {
   const [devOpen, setDevOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [whatsappModal, setWhatsappModal] = useState(false);
+  const [shareLinksModal, setShareLinksModal] = useState(false);
+  const [copiedLink, setCopiedLink] = useState('');
   const [waPhone, setWaPhone] = useState('');
   const [waMessage, setWaMessage] = useState('');
   const [waTemplate, setWaTemplate] = useState('none');
@@ -196,6 +198,13 @@ export default function Navbar() {
                 onClick={() => { closeAll(); window.open('/enquiry', '_blank'); }}>
                 <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 11, color: '#94a3b8', width: 16 }} />
                 Landing Page
+              </button>
+              <button
+                className={mobile ? '' : 'nav-drop-item'}
+                style={{ ...mPanelItem, width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' as const, background: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10 }}
+                onClick={() => { closeAll(); setShareLinksModal(true); }}>
+                <FontAwesomeIcon icon={faLink} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Share Links
               </button>
             </div>
           )}
@@ -501,6 +510,60 @@ export default function Navbar() {
         </div>
       );
     })()}
+
+    {/* Share Links Modal */}
+    {shareLinksModal && (
+      <div style={modal.overlay}>
+        <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 16px 48px rgba(0,0,0,0.16)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Enquiry Form Links</h3>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Click to copy. Use for QR codes, ads, or social posts.</div>
+            </div>
+            <button onClick={() => setShareLinksModal(false)} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#cbd5e1', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
+          </div>
+          {/* Links */}
+          <div style={{ padding: '8px 10px', maxHeight: 400, overflowY: 'auto' }}>
+            {[
+              { label: 'QR School Door', desc: 'Parents walking past', utm: 'door-qr', emoji: '🏫' },
+              { label: 'QR Flyer / Banner', desc: 'Printed materials', utm: 'flyer-qr', emoji: '📄' },
+              { label: 'Facebook', desc: 'Facebook posts & ads', utm: 'facebook', emoji: '📘' },
+              { label: 'Instagram', desc: 'Instagram bio & stories', utm: 'instagram', emoji: '📷' },
+              { label: 'Google', desc: 'Google Ads', utm: 'google', emoji: '🔍' },
+              { label: '小红书 Xiaohongshu', desc: 'REDnote posts', utm: 'xiaohongshu', emoji: '📕' },
+              { label: 'WhatsApp', desc: 'Shared via WhatsApp', utm: 'whatsapp', emoji: '💬' },
+              { label: 'Direct Link', desc: 'No tracking', utm: '', emoji: '🔗' },
+            ].map(item => {
+              const baseUrl = window.location.origin;
+              const url = item.utm ? `${baseUrl}/enquiry?utm_source=${item.utm}` : `${baseUrl}/enquiry`;
+              const isCopied = copiedLink === (item.utm || '_direct');
+              return (
+                <div key={item.utm || '_direct'}
+                  onClick={() => { navigator.clipboard.writeText(url); setCopiedLink(item.utm || '_direct'); setTimeout(() => setCopiedLink(''), 2000); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 10, cursor: 'pointer',
+                    background: isCopied ? '#f0fdf4' : 'transparent', border: isCopied ? '1px solid #bbf7d0' : '1px solid transparent',
+                    transition: 'all 0.12s',
+                  }}
+                  onMouseEnter={e => { if (!isCopied) (e.currentTarget as HTMLElement).style.background = '#f8fafc'; }}
+                  onMouseLeave={e => { if (!isCopied) (e.currentTarget as HTMLElement).style.background = isCopied ? '#f0fdf4' : 'transparent'; }}
+                >
+                  <span style={{ fontSize: 18, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: 8, flexShrink: 0 }}>{item.emoji}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{item.label}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{item.desc}</div>
+                  </div>
+                  <div style={{ flexShrink: 0, fontSize: 11, color: isCopied ? '#16a34a' : '#cbd5e1', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {isCopied ? <><FontAwesomeIcon icon={faCircleCheck} /> Copied</> : <FontAwesomeIcon icon={faCopy} />}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
