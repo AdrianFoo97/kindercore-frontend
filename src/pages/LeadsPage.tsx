@@ -578,7 +578,10 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
                 const e = a.appointmentEnd ? new Date(a.appointmentEnd) : null;
                 const fmtT = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
                 return (
-                  <div key={a.id} onClick={() => onSelectLead(a as any)} style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', gap: 10 }}>
+                  <div key={a.id} onClick={() => onSelectLead(a as any)}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#eff6ff')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                    style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', gap: 10, transition: 'background 0.1s' }}>
                     <div style={{ width: 3, height: 28, borderRadius: 2, background: group.isToday ? '#3b82f6' : '#e2e8f0', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{a.childName}</div>
