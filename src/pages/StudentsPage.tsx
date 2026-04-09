@@ -209,6 +209,15 @@ export default function StudentsPage() {
   const safePage   = Math.min(page, totalPages);
   const paginated  = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+  // Total counts per group (from full filtered set, not paginated)
+  const groupTotals = new Map<string, number>();
+  if (groupBy !== 'none') {
+    for (const s of filtered) {
+      const key = groupBy === 'programme' ? s.package.programme : `Age ${calcAge(s.lead.childDob)}`;
+      groupTotals.set(key, (groupTotals.get(key) || 0) + 1);
+    }
+  }
+
   const grouped: { label: string; rows: Student[] }[] = (() => {
     if (groupBy === 'none') return [{ label: '', rows: paginated }];
     const map = new Map<string, Student[]>();
@@ -550,7 +559,7 @@ export default function StudentsPage() {
                     color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em',
                   }}>
                     {label}
-                    <span style={{ marginLeft: 8, fontWeight: 500, color: '#9ca3af', textTransform: 'none', letterSpacing: 0 }}>{rows.length}</span>
+                    <span style={{ marginLeft: 8, fontWeight: 500, color: '#9ca3af', textTransform: 'none', letterSpacing: 0 }}>{groupTotals.get(label) ?? rows.length}</span>
                   </div>
                 )}
                 {rows.map(s => {
@@ -650,7 +659,7 @@ export default function StudentsPage() {
                             background: '#f8fafc', borderBottom: '1px solid #f3f4f6',
                           }}>
                             {label}
-                            <span style={{ marginLeft: 8, fontWeight: 500, color: '#9ca3af', textTransform: 'none', letterSpacing: 0 }}>{rows.length}</span>
+                            <span style={{ marginLeft: 8, fontWeight: 500, color: '#9ca3af', textTransform: 'none', letterSpacing: 0 }}>{groupTotals.get(label) ?? rows.length}</span>
                           </td>
                         </tr>
                       )}

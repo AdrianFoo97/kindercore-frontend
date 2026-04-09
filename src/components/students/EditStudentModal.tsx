@@ -31,7 +31,7 @@ export default function EditStudentModal({
   const [childName, setChildName] = useState(student.lead.childName);
   const [parentPhone, setParentPhone] = useState(student.lead.parentPhone);
   const [dob, setDob] = useState(student.lead.childDob.split('T')[0]);
-  const [year, setYear] = useState(student.enrolmentYear);
+  const [year, setYear] = useState(student.package?.year ?? student.enrolmentYear);
   const [month, setMonth] = useState(student.enrolmentMonth);
   const [packageId, setPackageId] = useState(student.packageId);
   const [paymentDate, setPaymentDate] = useState(student.enrolledAt.split('T')[0]);
@@ -54,14 +54,14 @@ export default function EditStudentModal({
     enabled: !!year,
   });
 
+
+  // Keep monthlyFee in sync with package price when not overridden
   useEffect(() => {
-    if (packages.length === 0) return;
-    const currentPkg = packages.find(p => p.id === packageId);
-    if (currentPkg) return;
-    const childAge = year - new Date(student.lead.childDob).getFullYear();
-    const matched = packages.find(p => p.age === childAge);
-    setPackageId((matched ?? packages[0]).id);
-  }, [packages]);
+    if (!feeOverridden && packages.length > 0) {
+      const pkg = packages.find(p => p.id === packageId);
+      if (pkg) setMonthlyFee(pkg.price ?? 0);
+    }
+  }, [packages, packageId, feeOverridden]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
