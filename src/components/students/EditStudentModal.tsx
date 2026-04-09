@@ -79,10 +79,14 @@ export default function EditStudentModal({
     if (packages.length === 0) return;
     const currentPkg = packages.find(p => p.id === packageId);
     if (currentPkg) return;
-    // Student's package is not in the current year — match by programme + age
+    // Student's package is not in the current year — match by current age
+    const targetAge = classAgeOverridden ? classAge : calculatedAge;
     const studentProg = student.package?.programme;
-    const studentAge = student.package?.age;
-    const matched = packages.find(p => p.programme === studentProg && p.age === studentAge);
+    // Prefer same programme + current age, then first package matching current age
+    const matched =
+      packages.find(p => p.programme === studentProg && p.age === targetAge) ||
+      packages.find(p => p.age === targetAge) ||
+      packages[0];
     if (matched) setPackageId(matched.id);
   }, [packages]);
 
