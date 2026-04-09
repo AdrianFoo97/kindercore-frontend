@@ -43,6 +43,7 @@ export default function RevenueAnalysisPage() {
 
   return (
     <div style={s.page}>
+      <style>{`.recharts-wrapper, .recharts-surface, .recharts-wrapper:focus, .recharts-surface:focus, .recharts-wrapper *:focus, .recharts-surface *:focus { outline: none !important; }`}</style>
       <div style={s.inner}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
