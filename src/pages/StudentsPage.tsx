@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisVertical, faPen, faArrowRotateLeft, faCircleInfo, faRightFromBracket, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { fetchStudents, withdrawStudent, reactivateStudent, deleteStudent } from '../api/students.js';
+import { faEllipsisVertical, faPen, faArrowRotateLeft, faCircleInfo, faRightFromBracket, faTrash, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
+import { fetchStudents, updateStudent, completeOnboarding, withdrawStudent, reactivateStudent, deleteStudent } from '../api/students.js';
 import { Student } from '../types/index.js';
 import EditStudentModal from '../components/students/EditStudentModal.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
@@ -119,6 +119,7 @@ export default function StudentsPage() {
   const [sortDir,          setSortDir]          = useState<SortDir>('asc');
   const [page,             setPage]             = useState(1);
   const [openMenuId,       setOpenMenuId]       = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ message: string; onConfirm: () => void; destructive?: boolean } | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -879,6 +880,32 @@ export default function StudentsPage() {
               </>
             ) : (
               <>
+                {s.status === 'enrolled' && (
+                  <button className="sp-menu-item" onClick={() => {
+                    setOpenMenuId(null);
+                    const hasIncompleteTasks = s.onboardingProgress?.some((t: any) => !t.done);
+                    const hasTasks = s.onboardingProgress && s.onboardingProgress.length > 0;
+                    const doActivate = async () => {
+                      try {
+                        await completeOnboarding(s.id, true);
+                        await updateStudent(s.id, { startDate: new Date().toISOString().split('T')[0] });
+                        queryClient.invalidateQueries({ queryKey: ['students'] });
+                      } catch (e) {
+                        setConfirmModal({ message: e instanceof Error ? e.message : 'Failed to mark active', onConfirm: () => {} });
+                      }
+                    };
+                    if (hasIncompleteTasks || !hasTasks) {
+                      setConfirmModal({
+                        message: `${s.lead.childName} has ${!hasTasks ? 'no' : 'incomplete'} onboarding tasks. Mark as active anyway?`,
+                        onConfirm: doActivate,
+                      });
+                    } else {
+                      doActivate();
+                    }
+                  }} style={{ ...menuItemStyle, color: '#16a34a' }}>
+                    <FontAwesomeIcon icon={faCircleCheck} style={{ width: 14 }} /> Mark Active
+                  </button>
+                )}
                 <button className="sp-menu-item" onClick={() => { setEditingStudent(s); setOpenMenuId(null); }} style={menuItemStyle}>
                   <FontAwesomeIcon icon={faPen} style={{ width: 14, color: '#64748b' }} /> Edit Student
                 </button>
@@ -892,6 +919,20 @@ export default function StudentsPage() {
           document.body,
         );
       })()}
+      {/* Confirm modal */}
+      {confirmModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px', minWidth: 320, maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <p style={{ margin: '0 0 20px', fontSize: 14, fontWeight: 600, color: '#1a202c', lineHeight: 1.5 }}>{confirmModal.message}</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmModal(null)} style={{ padding: '8px 18px', background: '#edf2f7', color: '#4a5568', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} style={{ padding: '8px 18px', background: confirmModal.destructive ? '#dc2626' : '#3182ce', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                {confirmModal.destructive ? 'Delete' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

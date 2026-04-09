@@ -87,7 +87,7 @@ export default function EditStudentModal({
   const yearOptions = availableYears.includes(year) ? availableYears : [year, ...availableYears];
 
   return (
-    <div style={modal.backdrop} onClick={onClose}>
+    <div style={modal.backdrop}>
       <div style={modal.card} onClick={(e) => e.stopPropagation()}>
         <div style={modal.header}>
           <h2 style={modal.title}>Edit Student</h2>
@@ -123,7 +123,7 @@ export default function EditStudentModal({
         </div>
 
         <form onSubmit={handleSave}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18, minHeight: 320 }}>
 
             {activeTab === 'personal' && (
               <>

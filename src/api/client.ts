@@ -29,7 +29,8 @@ export async function apiFetch<T>(
       },
     });
   } catch {
-    throw new ApiError('Unable to connect to server. Please check your internet connection.', 0, 'NETWORK_ERROR');
+    alert('Unable to connect to server.\n\nPlease check:\n1. Your internet connection\n2. The server may be down or restarting\n\nTry refreshing the page. If the problem persists, contact your administrator.');
+    throw new ApiError('Unable to connect to server.', 0, 'NETWORK_ERROR');
   }
 
   if (!res.ok) {

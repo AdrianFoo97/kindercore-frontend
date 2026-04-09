@@ -63,8 +63,8 @@ export function patchOnboardingProgress(id: string, progress: OnboardingTask[]) 
   });
 }
 
-export function completeOnboarding(id: string) {
-  return apiFetch<Student>(`/api/students/${id}/complete-onboarding`, {
+export function completeOnboarding(id: string, force = false) {
+  return apiFetch<Student>(`/api/students/${id}/complete-onboarding${force ? '?force=true' : ''}`, {
     method: 'PATCH',
   });
 }
