@@ -42,7 +42,8 @@ export default function AddStudentModal({
 
   // Enrolment
   const [paymentDate, setPaymentDate] = useState(todayStr);
-  const [startDate, setStartDate] = useState('');
+  const [startDate, setStartDate] = useState(todayStr);
+  const [startDateManuallyEdited, setStartDateManuallyEdited] = useState(false);
   const [notes, setNotes] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -74,19 +75,22 @@ export default function AddStudentModal({
   const programmes = [...new Set(packages.map(p => p.programme))];
   const ages = [...new Set(packages.map(p => p.age))].sort((a, b) => a - b);
 
-  // Auto-set age + programme defaults when packages load or DOB changes
+  // Set programme default once packages load
   useEffect(() => {
     if (packages.length === 0) return;
     if (!selectedProgramme && programmes.length > 0) setSelectedProgramme(programmes[0]);
-    if (selectedAge === '' && ages.length > 0) {
-      if (dob) {
-        const childAge = year - new Date(dob).getFullYear();
-        setSelectedAge(ages.includes(childAge) ? childAge : ages[0]);
-      } else {
-        setSelectedAge(ages[0]);
-      }
+  }, [packages]);
+
+  // Auto-sync age group with DOB whenever DOB or packages change
+  useEffect(() => {
+    if (ages.length === 0) return;
+    if (dob) {
+      const childAge = year - new Date(dob).getFullYear();
+      setSelectedAge(ages.includes(childAge) ? childAge : ages[0]);
+    } else if (selectedAge === '') {
+      setSelectedAge(ages[0]);
     }
-  }, [packages, dob]);
+  }, [dob, packages, year]);
 
   // Resolve packageId from programme + age
   const selectedPackage = packages.find(p => p.programme === selectedProgramme && p.age === selectedAge);
@@ -99,15 +103,31 @@ export default function AddStudentModal({
     }
   }, [selectedPackageId, feeOverridden]);
 
+  // Default first day of school to payment date (unless user manually edited it)
+  useEffect(() => {
+    if (!startDateManuallyEdited) setStartDate(paymentDate);
+  }, [paymentDate, startDateManuallyEdited]);
+
   const yearOptions = availableYears.includes(year) ? availableYears : [year, ...availableYears];
 
   const resolvedChannel = channelChoice === OTHERS_VALUE ? otherChannel.trim() : channelChoice;
+
+  // Phone validation: digits + optional + space - ( ) only, with at least 8 digits
+  const phoneAllowedChars = /^[\d\s+\-()]*$/;
+  const phoneDigitCount = parentPhone.replace(/\D/g, '').length;
+  const phoneError =
+    parentPhone && !phoneAllowedChars.test(parentPhone)
+      ? 'Phone can only contain digits, spaces, +, -, ( )'
+      : parentPhone && phoneDigitCount < 8
+        ? 'Phone must contain at least 8 digits'
+        : '';
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!childName.trim()) { setError('Child name is required'); setActiveTab('personal'); return; }
     if (!parentPhone.trim()) { setError('Parent phone is required'); setActiveTab('personal'); return; }
+    if (phoneError) { setError(phoneError); setActiveTab('personal'); return; }
     if (!dob) { setError('Date of birth is required'); setActiveTab('personal'); return; }
     if (dobAgeError) { setError(dobAgeError); setActiveTab('personal'); return; }
     if (!resolvedChannel) { setError('Marketing channel is required'); setActiveTab('personal'); return; }
@@ -170,7 +190,18 @@ export default function AddStudentModal({
 
                 <label style={modal.label}>
                   Parent Phone
-                  <input type="text" style={modal.input} value={parentPhone} onChange={e => setParentPhone(e.target.value)} required />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    style={{ ...modal.input, borderColor: phoneError ? '#e53e3e' : '#e2e8f0' }}
+                    value={parentPhone}
+                    onChange={e => setParentPhone(e.target.value)}
+                    placeholder="e.g. 0123456789"
+                    required
+                  />
+                  {phoneError && (
+                    <span style={{ fontSize: 11, color: '#e53e3e', marginTop: 2 }}>{phoneError}</span>
+                  )}
                 </label>
 
                 <label style={modal.label}>
@@ -289,7 +320,12 @@ export default function AddStudentModal({
 
                 <label style={modal.label}>
                   First Day of School
-                  <input type="date" style={modal.input} value={startDate} onChange={e => setStartDate(e.target.value)} />
+                  <input
+                    type="date"
+                    style={modal.input}
+                    value={startDate}
+                    onChange={e => { setStartDate(e.target.value); setStartDateManuallyEdited(true); }}
+                  />
                 </label>
 
                 <label style={modal.label}>
