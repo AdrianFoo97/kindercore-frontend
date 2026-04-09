@@ -1713,7 +1713,8 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
 
 function EnrollmentModal({ lead, onClose, onEnrolled }: { lead: Lead; onClose: () => void; onEnrolled: () => void }) {
   const todayStr = new Date().toISOString().split('T')[0];
-  const [selectedPackageId, setSelectedPackageId] = useState('');
+  const [selectedProgramme, setSelectedProgramme] = useState('');
+  const [selectedAge, setSelectedAge] = useState<number | ''>('');
   const [paymentDate, setPaymentDate] = useState(todayStr);
   const [startDate, setStartDate] = useState(() => {
     const ref = lead.appointmentStart ?? lead.submittedAt;
@@ -1733,14 +1734,27 @@ function EnrollmentModal({ lead, onClose, onEnrolled }: { lead: Lead; onClose: (
     queryKey: ['packages', enrolmentYear], queryFn: () => fetchPackages(enrolmentYear), enabled: !!enrolmentYear,
   });
 
-  useEffect(() => { setSelectedPackageId(''); }, [enrolmentYear]);
+  // Derive unique programmes and ages from packages
+  const programmes = [...new Set(packages.map((p: Package) => p.programme))];
+  const ages = [...new Set(packages.map((p: Package) => p.age))].sort((a, b) => a - b);
+
+  // Auto-select based on child age and lead programme
   useEffect(() => {
     if (packages.length > 0) {
       const childAge = enrolmentYear - new Date(lead.childDob).getFullYear();
-      const matched = packages.find((p: Package) => p.age === childAge);
-      setSelectedPackageId((matched ?? packages[0]).id);
+      setSelectedAge(ages.includes(childAge) ? childAge : ages[0] ?? '');
+      // Match lead's programme if available
+      const leadProg = lead.programme;
+      if (leadProg && programmes.some(p => p.toLowerCase().includes(leadProg.toLowerCase()))) {
+        setSelectedProgramme(programmes.find(p => p.toLowerCase().includes(leadProg.toLowerCase())) || programmes[0]);
+      } else {
+        setSelectedProgramme(programmes[0] || '');
+      }
     }
   }, [packages]);
+
+  // Resolve package ID from programme + age
+  const selectedPackageId = packages.find((p: Package) => p.programme === selectedProgramme && p.age === selectedAge)?.id || '';
 
   const handleSubmit = async () => {
     if (!startDate) { setError('Please enter a first day of school'); return; }
@@ -1770,14 +1784,28 @@ function EnrollmentModal({ lead, onClose, onEnrolled }: { lead: Lead; onClose: (
             <input type="date" style={mo.input} value={startDate} onChange={e => setStartDate(e.target.value)} required />
           </label>
           <label style={mo.label}>
-            Package
-            {loadingPkgs ? <span style={{ fontSize: 13, color: '#a0aec0', marginTop: 4 }}>Loading…</span>
-              : packages.length === 0
-                ? <select style={{ ...mo.input, opacity: 0.5, cursor: 'not-allowed' }} disabled><option>No packages for {enrolmentYear}</option></select>
-              : <select style={mo.input} value={selectedPackageId} onChange={e => setSelectedPackageId(e.target.value)}>
-                  {packages.map((p: Package) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>}
+            Enrolment Year
+            <input type="text" style={{ ...mo.input, background: '#f8fafc', color: '#64748b' }} value={enrolmentYear} disabled />
           </label>
+          {loadingPkgs ? <span style={{ fontSize: 13, color: '#a0aec0' }}>Loading packages…</span>
+            : packages.length === 0
+              ? <span style={{ fontSize: 13, color: '#a0aec0' }}>No packages for {enrolmentYear}</span>
+            : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <label style={mo.label}>
+                  Programme
+                  <select style={mo.input} value={selectedProgramme} onChange={e => setSelectedProgramme(e.target.value)}>
+                    {programmes.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </label>
+                <label style={mo.label}>
+                  Age Group
+                  <select style={mo.input} value={selectedAge} onChange={e => setSelectedAge(Number(e.target.value))}>
+                    {ages.map(a => <option key={a} value={a}>Age {a}</option>)}
+                  </select>
+                </label>
+              </div>
+            )}
           <label style={mo.label}>Notes<textarea style={{ ...mo.input, height: 72, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes…" /></label>
         </div>
         {error && <p style={{ color: '#e53e3e', fontSize: 13, marginTop: 12 }}>{error}</p>}

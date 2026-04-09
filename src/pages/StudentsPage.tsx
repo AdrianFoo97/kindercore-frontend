@@ -883,8 +883,9 @@ export default function StudentsPage() {
                 {s.status === 'enrolled' && (
                   <button className="sp-menu-item" onClick={() => {
                     setOpenMenuId(null);
-                    const hasIncompleteTasks = s.onboardingProgress?.some((t: any) => !t.done);
-                    const hasTasks = s.onboardingProgress && s.onboardingProgress.length > 0;
+                    const tasks: { done: boolean }[] = Array.isArray(s.onboardingProgress) ? s.onboardingProgress : [];
+                    const hasTasks = tasks.length > 0;
+                    const hasIncompleteTasks = tasks.some(t => !t.done);
                     const doActivate = async () => {
                       try {
                         await completeOnboarding(s.id, true);
