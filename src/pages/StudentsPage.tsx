@@ -7,6 +7,7 @@ import { faEllipsisVertical, faPen, faArrowRotateLeft, faCircleInfo, faRightFrom
 import { fetchStudents, updateStudent, completeOnboarding, withdrawStudent, reactivateStudent, deleteStudent } from '../api/students.js';
 import { Student } from '../types/index.js';
 import EditStudentModal from '../components/students/EditStudentModal.js';
+import AddStudentModal from '../components/students/AddStudentModal.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useToast } from '../components/common/Toast.js';
 
@@ -109,6 +110,7 @@ export default function StudentsPage() {
   const [tab,              setTab]              = useState<FilterTab>('active');
   const [search,           setSearch]           = useState('');
   const [editingStudent,   setEditingStudent]   = useState<Student | null>(null);
+  const [addingStudent,    setAddingStudent]    = useState(false);
   const [withdrawingStudent, setWithdrawingStudent] = useState<Student | null>(null);
   const [withdrawDate,     setWithdrawDate]     = useState('');
   const [withdrawReason,   setWithdrawReason]   = useState('');
@@ -512,6 +514,18 @@ export default function StudentsPage() {
           </span>
           <div style={{ flex: 1 }} />
           <button
+            onClick={() => setAddingStudent(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 12px', fontSize: 12, fontWeight: 600,
+              color: '#fff', background: '#3182ce',
+              border: '1px solid #3182ce', borderRadius: 7,
+              cursor: 'pointer', marginRight: 6,
+            }}
+          >
+            + Add Student
+          </button>
+          <button
             onClick={() => exportToExcel(sorted, TAB_LABELS[tab])}
             disabled={sorted.length === 0}
             style={{
@@ -768,6 +782,18 @@ export default function StudentsPage() {
           student={editingStudent}
           onClose={() => setEditingStudent(null)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {addingStudent && (
+        <AddStudentModal
+          onClose={() => setAddingStudent(false)}
+          onCreated={() => {
+            queryClient.invalidateQueries({ queryKey: ['students'] });
+            queryClient.invalidateQueries({ queryKey: ['leads'] });
+            setAddingStudent(false);
+            showToast('Student created successfully');
+          }}
         />
       )}
 

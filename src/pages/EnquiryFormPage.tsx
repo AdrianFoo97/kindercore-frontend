@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCircleCheck } from '@fortawesome/free-solid-svg-icons';
+import { MARKETING_CHANNELS } from '../constants/marketingChannels.js';
 
 declare global { interface Window { fbq?: (...args: unknown[]) => void; } }
 
@@ -750,14 +751,9 @@ export default function EnquiryFormPage() {
                     style={{ ...inputStyle, appearance: 'auto' }}
                   >
                     <option value="">请选择</option>
-                    <option value="Facebook">Facebook</option>
-                    <option value="Friend Referral">朋友介绍</option>
-                    <option value="小红书">小红书</option>
-                    <option value="Instagram">Instagram</option>
-                    <option value="Pass By">驾车经过</option>
-                    <option value="Google">Google</option>
-                    <option value="Sibling">其他孩子在就读</option>
-                    <option value="Billboard">广告牌</option>
+                    {MARKETING_CHANNELS.map(c => (
+                      <option key={c.value} value={c.value}>{c.label.replace(/ \(.*\)$/, '')}</option>
+                    ))}
                     <option value="Others">其他</option>
                   </select>
                   {sourceOther && (

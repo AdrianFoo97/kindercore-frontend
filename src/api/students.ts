@@ -39,6 +39,28 @@ export function createStudent(payload: {
   });
 }
 
+export function createStudentWithLead(payload: {
+  childName: string;
+  parentPhone: string;
+  childDob: string;            // YYYY-MM-DD
+  howDidYouKnow: string;
+  programme: string;
+  submittedAt?: string;        // ISO datetime; default = now
+  enrolmentYear: number;
+  enrolmentMonth: number;
+  packageId: string;
+  enrolledAt?: string;
+  startDate?: string | null;
+  notes?: string | null;
+  monthlyFee?: number;
+  feeOverridden?: boolean;
+}) {
+  return apiFetch<Student>('/api/students/with-lead', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function updateStudent(id: string, payload: {
   enrolmentYear?: number;
   enrolmentMonth?: number;
