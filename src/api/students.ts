@@ -46,6 +46,8 @@ export function updateStudent(id: string, payload: {
   enrolledAt?: string;
   startDate?: string | null;
   notes?: string | null;
+  monthlyFee?: number;
+  feeOverridden?: boolean;
   childDob?: string;
   childName?: string;
   parentPhone?: string;
@@ -78,6 +80,27 @@ export function withdrawStudent(id: string, payload: { withdrawnAt: string; with
 
 export function reactivateStudent(id: string) {
   return apiFetch<Student>(`/api/students/${id}/reactivate`, { method: 'PATCH' });
+}
+
+export interface RevenueAnalyticsData {
+  selectedYear: number;
+  prevYear: number;
+  currentMonthIdx: number;
+  totalActiveStudents: number;
+  totalMonthlyRevenue: number;
+  avgRevenuePerStudent: number;
+  annualRevenue: number;
+  actualRevenue: number;
+  forecastRevenue: number;
+  monthlyRevenue: Array<{ month: string; revenue: number; studentCount: number; current: number; previous: number; isForecast: boolean }>;
+  revenueByProgramme: Array<{ programme: string; revenue: number; studentCount: number }>;
+  revenueByAge: Array<{ age: string; revenue: number; studentCount: number }>;
+  availableYears: number[];
+}
+
+export function fetchRevenueAnalytics(year?: number) {
+  const params = year ? `?year=${year}` : '';
+  return apiFetch<RevenueAnalyticsData>(`/api/students/revenue-analytics${params}`);
 }
 
 export function deleteStudent(id: string) {

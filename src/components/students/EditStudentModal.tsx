@@ -37,8 +37,11 @@ export default function EditStudentModal({
   const [paymentDate, setPaymentDate] = useState(student.enrolledAt.split('T')[0]);
   const [startDate, setStartDate] = useState(student.startDate ? student.startDate.split('T')[0] : defaultStartDate(student.enrolmentYear, student.enrolmentMonth));
   const [notes, setNotes] = useState(student.notes ?? '');
+  const [feeOverridden, setFeeOverridden] = useState(student.feeOverridden ?? false);
+  const [monthlyFee, setMonthlyFee] = useState(student.monthlyFee ?? 0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
 
   const { data: availableYears = [] } = useQuery({
     queryKey: ['packageYears'],
@@ -75,6 +78,8 @@ export default function EditStudentModal({
         enrolledAt: new Date(paymentDate).toISOString(),
         startDate: startDate || null,
         notes: notes || null,
+        monthlyFee,
+        feeOverridden,
       });
       onSaved(updated);
     } catch (err: unknown) {
@@ -169,11 +174,40 @@ export default function EditStudentModal({
                   {packages.length === 0 ? (
                     <span style={{ fontSize: 13, color: '#a0aec0', marginTop: 4 }}>Loading packages…</span>
                   ) : (
-                    <select style={modal.input} value={packageId} onChange={e => setPackageId(e.target.value)}>
+                    <select style={modal.input} value={packageId} onChange={e => {
+                      setPackageId(e.target.value);
+                      if (!feeOverridden) {
+                        const pkg = packages.find(p => p.id === e.target.value);
+                        if (pkg) setMonthlyFee(pkg.price ?? 0);
+                      }
+                    }}>
                       {packages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                   )}
                 </label>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#2d3748' }}>Monthly Fee</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#64748b', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={feeOverridden} onChange={e => {
+                        setFeeOverridden(e.target.checked);
+                        if (!e.target.checked) {
+                          const pkg = packages.find(p => p.id === packageId);
+                          if (pkg) setMonthlyFee(pkg.price ?? 0);
+                        }
+                      }} />
+                      Custom fee
+                    </label>
+                  </div>
+                  <input
+                    type="number" min={0} step={1}
+                    style={{ ...modal.input, background: feeOverridden ? '#fff' : '#f8fafc', color: feeOverridden ? '#1e293b' : '#94a3b8' }}
+                    value={monthlyFee}
+                    onChange={e => setMonthlyFee(Number(e.target.value))}
+                    disabled={!feeOverridden}
+                  />
+                  {!feeOverridden && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Auto-set from package price</div>}
+                </div>
               </>
             )}
 

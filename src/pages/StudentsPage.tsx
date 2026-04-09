@@ -8,6 +8,7 @@ import { fetchStudents, updateStudent, completeOnboarding, withdrawStudent, reac
 import { Student } from '../types/index.js';
 import EditStudentModal from '../components/students/EditStudentModal.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import { useToast } from '../components/common/Toast.js';
 
 const CURRENT_YEAR  = new Date().getFullYear();
 
@@ -103,6 +104,7 @@ function actionBtn(variant: 'neutral' | 'red' | 'green'): React.CSSProperties {
 export default function StudentsPage() {
   const { isMobile, isTablet } = useIsMobile();
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [tab,              setTab]              = useState<FilterTab>('active');
   const [search,           setSearch]           = useState('');
   const [editingStudent,   setEditingStudent]   = useState<Student | null>(null);
@@ -223,6 +225,7 @@ export default function StudentsPage() {
   const handleSaved   = (_updated: Student) => {
     queryClient.invalidateQueries({ queryKey: ['students'] });
     setEditingStudent(null);
+    showToast('Student updated successfully');
   };
   const handleTabSelect = (t: FilterTab) => {
     setTab(t); setFilterAge('all'); setFilterProgramme('all'); setSearch(''); setPage(1);
@@ -891,6 +894,7 @@ export default function StudentsPage() {
                         await completeOnboarding(s.id, true);
                         await updateStudent(s.id, { startDate: new Date().toISOString().split('T')[0] });
                         queryClient.invalidateQueries({ queryKey: ['students'] });
+                        showToast(`${s.lead.childName} marked as active`);
                       } catch (e) {
                         setConfirmModal({ message: e instanceof Error ? e.message : 'Failed to mark active', onConfirm: () => {} });
                       }

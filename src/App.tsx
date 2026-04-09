@@ -1,12 +1,14 @@
 import { Component, ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Navbar from './components/common/Navbar.js';
+import { ToastProvider } from './components/common/Toast.js';
 import LoginPage from './pages/LoginPage.js';
 import LeadsPage from './pages/LeadsPage.js';
 import ImportLeadsPage from './pages/ImportLeadsPage.js';
 import SettingsPage from './pages/SettingsPage.js';
 import SalesMarketingPage from './pages/analysis/SalesMarketingPage.js';
 import SalesAnalysisPage from './pages/analysis/SalesAnalysisPage.js';
+import RevenueAnalysisPage from './pages/analysis/RevenueAnalysisPage.js';
 import LandingPage from './pages/LandingPage.js';
 import EnquiryFormPage from './pages/EnquiryFormPage.js';
 import PackagesPage from './pages/PackagesPage.js';
@@ -71,6 +73,7 @@ function ProtectedLayout() {
 
 export default function App() {
   return (
+    <ToastProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -103,11 +106,13 @@ export default function App() {
           <Route path="/tools/operations-planner" element={<ErrorBoundary><OperationsPlannerPage /></ErrorBoundary>} />
           <Route path="/analysis/sales-marketing" element={<ErrorBoundary><SalesMarketingPage /></ErrorBoundary>} />
           <Route path="/analysis/sales" element={<ErrorBoundary><SalesAnalysisPage /></ErrorBoundary>} />
+          <Route path="/analysis/revenue" element={<ErrorBoundary><RevenueAnalysisPage /></ErrorBoundary>} />
         </Route>
         <Route path="/enquiry" element={<LandingPage />} />
         <Route path="/enquiry/form" element={<EnquiryFormPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   );
 }
