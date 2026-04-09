@@ -31,7 +31,7 @@ export default function EditStudentModal({
   const [childName, setChildName] = useState(student.lead.childName);
   const [parentPhone, setParentPhone] = useState(student.lead.parentPhone);
   const [dob, setDob] = useState(student.lead.childDob.split('T')[0]);
-  const [year, setYear] = useState(student.package?.year ?? student.enrolmentYear);
+  const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(student.enrolmentMonth);
   const [packageId, setPackageId] = useState(student.packageId);
   const [paymentDate, setPaymentDate] = useState(student.enrolledAt.split('T')[0]);
@@ -54,6 +54,18 @@ export default function EditStudentModal({
     enabled: !!year,
   });
 
+
+  // Auto-match to current year package if student's package is from another year
+  useEffect(() => {
+    if (packages.length === 0) return;
+    const currentPkg = packages.find(p => p.id === packageId);
+    if (currentPkg) return;
+    // Student's package is not in the current year — match by programme + age
+    const studentProg = student.package?.programme;
+    const studentAge = student.package?.age;
+    const matched = packages.find(p => p.programme === studentProg && p.age === studentAge);
+    if (matched) setPackageId(matched.id);
+  }, [packages]);
 
   // Keep monthlyFee in sync with package price when not overridden
   useEffect(() => {
