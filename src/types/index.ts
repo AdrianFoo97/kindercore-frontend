@@ -90,6 +90,7 @@ export interface Student {
   notes: string | null;
   monthlyFee: number | null;
   feeOverridden: boolean;
+  ageOffset: number;
   onboardingProgress: OnboardingTask[] | null;
   onboardingCompleted: boolean;
   withdrawnAt: string | null;

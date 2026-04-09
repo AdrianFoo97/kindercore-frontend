@@ -17,6 +17,7 @@ type SortKey   = 'name' | 'age';
 type SortDir   = 'asc'  | 'desc';
 
 function calcAge(dob: string)  { return CURRENT_YEAR - new Date(dob).getFullYear(); }
+function studentAge(s: Student): number { return calcAge(s.lead.childDob) + (s.ageOffset ?? 0); }
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -51,7 +52,7 @@ function exportToExcel(students: Student[], tabLabel: string) {
   const rows = students.map(s => ({
     'Name': s.lead.childName,
     'Date of Birth': new Date(s.lead.childDob).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }),
-    'Age': calcAge(s.lead.childDob),
+    'Age': studentAge(s),
     'Programme': s.package.programme,
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -188,11 +189,11 @@ export default function StudentsPage() {
 
   const tabFiltered = students.filter(s => s.status === tab);
 
-  const allAges       = [...new Set(tabFiltered.map(s => calcAge(s.lead.childDob)))].sort((a, b) => a - b);
+  const allAges       = [...new Set(tabFiltered.map(s => studentAge(s)))].sort((a, b) => a - b);
   const allProgrammes = [...new Set(tabFiltered.map(s => s.package.programme))].sort();
 
   const filtered = tabFiltered.filter(s => {
-    if (filterAge !== 'all' && calcAge(s.lead.childDob) !== Number(filterAge)) return false;
+    if (filterAge !== 'all' && studentAge(s) !== Number(filterAge)) return false;
     if (filterProgramme !== 'all' && s.package.programme !== filterProgramme) return false;
     if (search.trim() && !s.lead.childName.toLowerCase().includes(search.trim().toLowerCase())) return false;
     return true;
@@ -200,8 +201,8 @@ export default function StudentsPage() {
 
   const PAGE_SIZE  = 15;
   const sorted     = [...filtered].sort((a, b) => {
-    const p = sortKey === 'name' ? a.lead.childName.localeCompare(b.lead.childName) : calcAge(a.lead.childDob) - calcAge(b.lead.childDob);
-    const s = sortKey === 'name' ? calcAge(a.lead.childDob) - calcAge(b.lead.childDob) : a.lead.childName.localeCompare(b.lead.childName);
+    const p = sortKey === 'name' ? a.lead.childName.localeCompare(b.lead.childName) : studentAge(a) - studentAge(b);
+    const s = sortKey === 'name' ? studentAge(a) - studentAge(b) : a.lead.childName.localeCompare(b.lead.childName);
     const d = sortDir === 'asc' ? 1 : -1;
     return p !== 0 ? p * d : s;
   });
@@ -213,7 +214,7 @@ export default function StudentsPage() {
   const groupTotals = new Map<string, number>();
   if (groupBy !== 'none') {
     for (const s of filtered) {
-      const key = groupBy === 'programme' ? s.package.programme : `Age ${calcAge(s.lead.childDob)}`;
+      const key = groupBy === 'programme' ? s.package.programme : `Age ${studentAge(s)}`;
       groupTotals.set(key, (groupTotals.get(key) || 0) + 1);
     }
   }
@@ -222,7 +223,7 @@ export default function StudentsPage() {
     if (groupBy === 'none') return [{ label: '', rows: paginated }];
     const map = new Map<string, Student[]>();
     for (const s of paginated) {
-      const key = groupBy === 'programme' ? s.package.programme : `Age ${calcAge(s.lead.childDob)}`;
+      const key = groupBy === 'programme' ? s.package.programme : `Age ${studentAge(s)}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(s);
     }
@@ -563,7 +564,7 @@ export default function StudentsPage() {
                   </div>
                 )}
                 {rows.map(s => {
-                  const age = calcAge(s.lead.childDob);
+                  const age = studentAge(s);
                   const av  = avatarColor(s.lead.childName);
                   return (
                     <div key={s.id} style={{
@@ -664,7 +665,7 @@ export default function StudentsPage() {
                         </tr>
                       )}
                       {rows.map(s => {
-                        const age = calcAge(s.lead.childDob);
+                        const age = studentAge(s);
                         const av  = avatarColor(s.lead.childName);
                         return (
                           <tr key={s.id} className="sp-row">

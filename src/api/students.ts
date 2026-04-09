@@ -48,6 +48,7 @@ export function updateStudent(id: string, payload: {
   notes?: string | null;
   monthlyFee?: number;
   feeOverridden?: boolean;
+  ageOffset?: number;
   childDob?: string;
   childName?: string;
   parentPhone?: string;

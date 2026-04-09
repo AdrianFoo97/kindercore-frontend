@@ -8,6 +8,21 @@ import { Student } from '../../types/index.js';
 
 const MONTH_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+function formatExactAge(dob: string): string {
+  if (!dob) return '';
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return '';
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  if (now.getDate() < birth.getDate()) months -= 1;
+  if (months < 0) { years -= 1; months += 12; }
+  if (years < 0) return '';
+  const yLabel = `${years} year${years === 1 ? '' : 's'}`;
+  const mLabel = `${months} month${months === 1 ? '' : 's'}`;
+  return `${yLabel} ${mLabel}`;
+}
+
 function defaultStartDate(year: number, month: number): string {
   const now = new Date();
   if (year === now.getFullYear() && month === now.getMonth() + 1) {
@@ -39,6 +54,8 @@ export default function EditStudentModal({
   const [notes, setNotes] = useState(student.notes ?? '');
   const [feeOverridden, setFeeOverridden] = useState(student.feeOverridden ?? false);
   const [monthlyFee, setMonthlyFee] = useState(student.monthlyFee ?? 0);
+  const calculatedAge = new Date().getFullYear() - new Date(student.lead.childDob).getFullYear();
+  const [ageOffset, setAgeOffset] = useState(student.ageOffset ?? 0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -92,6 +109,7 @@ export default function EditStudentModal({
         notes: notes || null,
         monthlyFee,
         feeOverridden,
+        ageOffset,
       });
       onSaved(updated);
     } catch (err: unknown) {
@@ -111,7 +129,7 @@ export default function EditStudentModal({
           <button onClick={onClose} style={modal.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
         <p style={{ margin: '0 0 16px', fontSize: 14, color: '#4a5568' }}>
-          <strong>{childName}</strong> · Age {new Date().getFullYear() - new Date(student.lead.childDob).getFullYear()}
+          <strong>{childName}</strong> · Age {calculatedAge + ageOffset}
         </p>
 
         {/* ── Tabs ── */}
@@ -176,6 +194,38 @@ export default function EditStudentModal({
                     required
                   />
                 </label>
+
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 5 }}>Age</div>
+                  <div style={{ ...modal.input, background: '#f8fafc', color: '#64748b' }}>
+                    {formatExactAge(dob)}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#2d3748' }}>Class Age</span>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                      DOB age {calculatedAge} {ageOffset !== 0 && `→ displayed as ${calculatedAge + ageOffset}`}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button type="button" disabled={calculatedAge + ageOffset <= 0}
+                      onClick={() => setAgeOffset(Math.max(-calculatedAge, ageOffset - 1))}
+                      style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f7fafc', cursor: calculatedAge + ageOffset <= 0 ? 'not-allowed' : 'pointer', fontSize: 16, fontWeight: 600, opacity: calculatedAge + ageOffset <= 0 ? 0.4 : 1 }}>
+                      −
+                    </button>
+                    <div style={{ ...modal.input, textAlign: 'center', flex: 1, fontWeight: 600 }}>
+                      {ageOffset > 0 ? `+${ageOffset}` : ageOffset}
+                    </div>
+                    <button type="button" disabled={calculatedAge + ageOffset >= 6}
+                      onClick={() => setAgeOffset(Math.min(6 - calculatedAge, ageOffset + 1))}
+                      style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f7fafc', cursor: calculatedAge + ageOffset >= 6 ? 'not-allowed' : 'pointer', fontSize: 16, fontWeight: 600, opacity: calculatedAge + ageOffset >= 6 ? 0.4 : 1 }}>
+                      +
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Adjust offset from DOB-calculated age (e.g. born Jan 1 → +1)</div>
+                </div>
               </>
             )}
 
@@ -185,17 +235,22 @@ export default function EditStudentModal({
                   Package
                   {packages.length === 0 ? (
                     <span style={{ fontSize: 13, color: '#a0aec0', marginTop: 4 }}>Loading packages…</span>
-                  ) : (
-                    <select style={modal.input} value={packageId} onChange={e => {
-                      setPackageId(e.target.value);
-                      if (!feeOverridden) {
-                        const pkg = packages.find(p => p.id === e.target.value);
-                        if (pkg) setMonthlyFee(pkg.price ?? 0);
-                      }
-                    }}>
-                      {packages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                  )}
+                  ) : (() => {
+                    const childAge = year - new Date(student.lead.childDob).getFullYear() + ageOffset;
+                    const filtered = packages.filter(p => p.age === childAge);
+                    return (
+                      <select style={modal.input} value={packageId} onChange={e => {
+                        setPackageId(e.target.value);
+                        if (!feeOverridden) {
+                          const pkg = packages.find(p => p.id === e.target.value);
+                          if (pkg) setMonthlyFee(pkg.price ?? 0);
+                        }
+                      }}>
+                        {filtered.length > 0 ? filtered.map(p => <option key={p.id} value={p.id}>{p.name}</option>)
+                          : packages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    );
+                  })()}
                 </label>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
