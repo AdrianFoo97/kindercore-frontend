@@ -55,7 +55,9 @@ export default function EditStudentModal({
   const [feeOverridden, setFeeOverridden] = useState(student.feeOverridden ?? false);
   const [monthlyFee, setMonthlyFee] = useState(student.monthlyFee ?? 0);
   const calculatedAge = new Date().getFullYear() - new Date(student.lead.childDob).getFullYear();
-  const [ageOffset, setAgeOffset] = useState(student.ageOffset ?? 0);
+  const initialOffset = student.ageOffset ?? 0;
+  const [classAgeOverridden, setClassAgeOverridden] = useState(initialOffset !== 0);
+  const [classAge, setClassAge] = useState(calculatedAge + initialOffset);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -109,7 +111,7 @@ export default function EditStudentModal({
         notes: notes || null,
         monthlyFee,
         feeOverridden,
-        ageOffset,
+        ageOffset: classAgeOverridden ? classAge - calculatedAge : 0,
       });
       onSaved(updated);
     } catch (err: unknown) {
@@ -129,7 +131,7 @@ export default function EditStudentModal({
           <button onClick={onClose} style={modal.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
         <p style={{ margin: '0 0 16px', fontSize: 14, color: '#4a5568' }}>
-          <strong>{childName}</strong> · Age {calculatedAge + ageOffset}
+          <strong>{childName}</strong> · Age {classAgeOverridden ? classAge : calculatedAge}
         </p>
 
         {/* ── Tabs ── */}
@@ -205,26 +207,26 @@ export default function EditStudentModal({
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: '#2d3748' }}>Class Age</span>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>
-                      DOB age {calculatedAge} {ageOffset !== 0 && `→ displayed as ${calculatedAge + ageOffset}`}
-                    </span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#64748b', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={classAgeOverridden} onChange={e => {
+                        setClassAgeOverridden(e.target.checked);
+                        if (!e.target.checked) setClassAge(calculatedAge);
+                      }} />
+                      Custom class age
+                    </label>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <button type="button" disabled={calculatedAge + ageOffset <= 0}
-                      onClick={() => setAgeOffset(Math.max(-calculatedAge, ageOffset - 1))}
-                      style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f7fafc', cursor: calculatedAge + ageOffset <= 0 ? 'not-allowed' : 'pointer', fontSize: 16, fontWeight: 600, opacity: calculatedAge + ageOffset <= 0 ? 0.4 : 1 }}>
-                      −
-                    </button>
-                    <div style={{ ...modal.input, textAlign: 'center', flex: 1, fontWeight: 600 }}>
-                      {ageOffset > 0 ? `+${ageOffset}` : ageOffset}
-                    </div>
-                    <button type="button" disabled={calculatedAge + ageOffset >= 6}
-                      onClick={() => setAgeOffset(Math.min(6 - calculatedAge, ageOffset + 1))}
-                      style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f7fafc', cursor: calculatedAge + ageOffset >= 6 ? 'not-allowed' : 'pointer', fontSize: 16, fontWeight: 600, opacity: calculatedAge + ageOffset >= 6 ? 0.4 : 1 }}>
-                      +
-                    </button>
-                  </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Adjust offset from DOB-calculated age (e.g. born Jan 1 → +1)</div>
+                  <input
+                    type="number" min={0} max={6} step={1}
+                    style={{ ...modal.input, background: classAgeOverridden ? '#fff' : '#f8fafc', color: classAgeOverridden ? '#1e293b' : '#94a3b8' }}
+                    value={classAgeOverridden ? classAge : calculatedAge}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      if (Number.isNaN(v)) return;
+                      setClassAge(Math.max(0, Math.min(6, v)));
+                    }}
+                    disabled={!classAgeOverridden}
+                  />
+                  {!classAgeOverridden && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Auto-calculated from date of birth</div>}
                 </div>
               </>
             )}
@@ -236,7 +238,8 @@ export default function EditStudentModal({
                   {packages.length === 0 ? (
                     <span style={{ fontSize: 13, color: '#a0aec0', marginTop: 4 }}>Loading packages…</span>
                   ) : (() => {
-                    const childAge = year - new Date(student.lead.childDob).getFullYear() + ageOffset;
+                    const dobAge = year - new Date(student.lead.childDob).getFullYear();
+                    const childAge = classAgeOverridden ? classAge : dobAge;
                     const filtered = packages.filter(p => p.age === childAge);
                     return (
                       <select style={modal.input} value={packageId} onChange={e => {
