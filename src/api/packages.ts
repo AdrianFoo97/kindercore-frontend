@@ -4,6 +4,8 @@ import { Package } from '../types/index.js';
 export interface PackagesConfig {
   programmes: string[];
   ages: number[];
+  programmesDetail?: Array<{ name: string; packageCount: number; studentCount: number }>;
+  agesDetail?: Array<{ age: number; packageCount: number; studentCount: number }>;
 }
 
 export function fetchPackages(year?: number) {
@@ -55,6 +57,8 @@ export function updateProgrammes(payload: {
   renames: { from: string; to: string }[];
   add: string[];
   remove: string[];
+  order?: string[];
+  reassignPackages?: Record<string, string>;
 }) {
   return apiFetch<{ programmes: string[] }>('/api/packages/programmes', {
     method: 'PUT',
@@ -62,7 +66,13 @@ export function updateProgrammes(payload: {
   });
 }
 
-export function updateAges(payload: { add: number[]; remove: number[] }) {
+export function updateAges(payload: {
+  add: number[];
+  remove: number[];
+  renames?: { from: number; to: number }[];
+  order?: number[];
+  reassignPackages?: Record<string, number>;
+}) {
   return apiFetch<{ ages: number[] }>('/api/packages/ages', {
     method: 'PUT',
     body: JSON.stringify(payload),

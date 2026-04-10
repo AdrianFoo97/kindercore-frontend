@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, BarChart, Cell,
+  CartesianGrid, BarChart, Cell, LabelList,
 } from 'recharts';
 import { fetchRevenueAnalytics, fetchStudents } from '../../api/students.js';
 import { Student } from '../../types/index.js';
@@ -22,9 +22,15 @@ const PROG_COLORS: Record<string, string> = {
   'FullDay': '#4f46e5',
 };
 const AGE_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#f59e0b', '#ef4444', '#10b981', '#ec4899'];
+const MONTH_NAMES_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function fmtCurrency(n: number) {
   return 'RM ' + n.toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+// Same as fmtCurrency but uses a non-breaking space so chart labels don't wrap
+function fmtCurrencyNbsp(n: number) {
+  return 'RM\u00A0' + n.toLocaleString('en', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 export default function RevenueAnalysisPage() {
@@ -71,8 +77,16 @@ export default function RevenueAnalysisPage() {
 
         {/* KPI Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
-          <KpiCard label="Active Students" value={String(data.totalActiveStudents)} color={C.blue} />
-          <KpiCard label="Monthly Revenue" value={fmtCurrency(data.totalMonthlyRevenue)} color={C.green} />
+          <KpiCard
+            label={`Active Students (${MONTH_NAMES_FULL[data.currentMonthIdx] ?? ''})`}
+            value={String(data.totalActiveStudents)}
+            color={C.blue}
+          />
+          <KpiCard
+            label={`${MONTH_NAMES_FULL[data.currentMonthIdx] ?? ''} Revenue`}
+            value={fmtCurrency(data.totalMonthlyRevenue)}
+            color={C.green}
+          />
           <KpiCard label="Actual YTD" value={fmtCurrency(data.actualRevenue)} color={C.indigo} />
           <KpiCard label="Annual (incl. forecast)" value={fmtCurrency(data.annualRevenue)} color={C.purple} sub={data.forecastRevenue > 0 ? `Forecast: ${fmtCurrency(data.forecastRevenue)}` : undefined} />
         </div>
@@ -85,8 +99,8 @@ export default function RevenueAnalysisPage() {
             <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#bfdbfe', marginRight: 4 }} />Forecast</span>
             <span><span style={{ display: 'inline-block', width: 10, height: 4, background: C.amber, marginRight: 4, verticalAlign: 'middle' }} />Students</span>
           </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={data.monthlyRevenue} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={320}>
+            <ComposedChart data={data.monthlyRevenue} margin={{ top: 30, right: 20, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis
                 dataKey="month"
@@ -98,8 +112,20 @@ export default function RevenueAnalysisPage() {
                   }
                 }}
               />
-              <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <YAxis
+                yAxisId="left"
+                tick={{ fontSize: 11, fill: '#94a3b8' }}
+                tickFormatter={v => `${(v / 1000).toFixed(0)}k`}
+                domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.55 / 5000) * 5000]}
+                tickCount={6}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tick={{ fontSize: 11, fill: '#94a3b8' }}
+                domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.05 / 5) * 5]}
+                tickCount={6}
+              />
               <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtCurrency(v), name]} />
               <Bar
                 yAxisId="left"
@@ -110,16 +136,47 @@ export default function RevenueAnalysisPage() {
                 cursor="pointer"
                 onClick={(_data: any, index: number) => setSelectedMonth(index)}
               >
-                {data.monthlyRevenue.map((entry, i) => (
-                  <Cell
-                    key={i}
-                    fill={entry.isForecast ? '#bfdbfe' : C.blue}
-                    stroke={selectedMonth === i ? '#1e40af' : 'none'}
-                    strokeWidth={selectedMonth === i ? 3 : 0}
-                  />
-                ))}
+                {data.monthlyRevenue.map((entry, i) => {
+                  const isCurrentMonth = i === data.currentMonthIdx;
+                  const isSelected = selectedMonth === i;
+                  // Fill: current month gets a darker shade so it stands out vs past/forecast
+                  const fill = isCurrentMonth
+                    ? '#1e3a8a'                                       // dark blue
+                    : entry.isForecast
+                      ? '#bfdbfe'                                     // light blue
+                      : C.blue;                                       // normal blue
+                  return (
+                    <Cell
+                      key={i}
+                      fill={fill}
+                      stroke={isSelected && !isCurrentMonth ? '#0f172a' : 'none'}
+                      strokeWidth={isSelected && !isCurrentMonth ? 2 : 0}
+                    />
+                  );
+                })}
+                <LabelList
+                  dataKey="revenue"
+                  position="top"
+                  formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)}
+                  style={{ fontSize: 10, fill: '#475569', fontWeight: 600 }}
+                />
               </Bar>
-              <Line yAxisId="right" type="monotone" dataKey="studentCount" stroke={C.amber} strokeWidth={2} dot={{ r: 3 }} name="Students" />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="studentCount"
+                stroke={C.amber}
+                strokeWidth={2}
+                dot={{ r: 4, fill: '#fff', stroke: C.amber, strokeWidth: 2 }}
+                name="Students"
+              >
+                <LabelList
+                  dataKey="studentCount"
+                  position="top"
+                  offset={10}
+                  style={{ fontSize: 10, fill: C.amber, fontWeight: 700 }}
+                />
+              </Line>
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -137,15 +194,26 @@ export default function RevenueAnalysisPage() {
           <div style={s.chartCard}>
             <h3 style={s.chartTitle}>Revenue by Programme</h3>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={data.revenueByProgramme} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+              <BarChart data={data.revenueByProgramme} layout="vertical" margin={{ top: 5, right: 60, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tickFormatter={v => `${(v / 1000).toFixed(0)}k`}
+                  domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2 / 1000) * 1000]}
+                />
                 <YAxis type="category" dataKey="programme" tick={{ fontSize: 11, fill: '#475569' }} width={120} />
                 <Tooltip cursor={false} formatter={(v: number) => fmtCurrency(v)} />
                 <Bar dataKey="revenue" radius={[0, 4, 4, 0]} barSize={20}>
                   {data.revenueByProgramme.map((entry, i) => (
                     <Cell key={entry.programme} fill={PROG_COLORS[entry.programme] || AGE_COLORS[i % AGE_COLORS.length]} />
                   ))}
+                  <LabelList
+                    dataKey="revenue"
+                    position="right"
+                    formatter={(v: number) => fmtCurrencyNbsp(v)}
+                    style={{ fontSize: 11, fill: '#475569', fontWeight: 700 }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -154,15 +222,24 @@ export default function RevenueAnalysisPage() {
           <div style={s.chartCard}>
             <h3 style={s.chartTitle}>Students by Programme</h3>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={data.revenueByProgramme} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+              <BarChart data={data.revenueByProgramme} layout="vertical" margin={{ top: 5, right: 40, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2)]}
+                />
                 <YAxis type="category" dataKey="programme" tick={{ fontSize: 11, fill: '#475569' }} width={120} />
                 <Tooltip cursor={false} />
                 <Bar dataKey="studentCount" radius={[0, 4, 4, 0]} barSize={20} name="Students">
                   {data.revenueByProgramme.map((entry, i) => (
                     <Cell key={entry.programme} fill={PROG_COLORS[entry.programme] || AGE_COLORS[i % AGE_COLORS.length]} />
                   ))}
+                  <LabelList
+                    dataKey="studentCount"
+                    position="right"
+                    style={{ fontSize: 11, fill: '#475569', fontWeight: 700 }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -172,16 +249,26 @@ export default function RevenueAnalysisPage() {
         {/* Chart 5: Revenue by Age */}
         <div style={s.chartCard}>
           <h3 style={s.chartTitle}>Revenue by Age Group</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={data.revenueByAge} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={data.revenueByAge} margin={{ top: 30, right: 10, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="age" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+              <YAxis
+                tick={{ fontSize: 11, fill: '#94a3b8' }}
+                tickFormatter={v => `${(v / 1000).toFixed(0)}k`}
+                domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2 / 1000) * 1000]}
+              />
               <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtCurrency(v), name]} />
               <Bar dataKey="revenue" fill={C.teal} radius={[4, 4, 0, 0]} barSize={36} name="Revenue">
                 {data.revenueByAge.map((_, i) => (
                   <Cell key={i} fill={AGE_COLORS[i % AGE_COLORS.length]} />
                 ))}
+                <LabelList
+                  dataKey="revenue"
+                  position="top"
+                  formatter={(v: number) => fmtCurrencyNbsp(v)}
+                  style={{ fontSize: 11, fill: '#475569', fontWeight: 700 }}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -511,7 +598,9 @@ function NewStudentsList({
                                   marginLeft: 8, padding: '1px 6px', borderRadius: 4,
                                   background: '#fee2e2', color: '#991b1b', fontSize: 10, fontWeight: 700,
                                   textTransform: 'uppercase', letterSpacing: '0.04em',
-                                }}>Withdrawn</span>
+                                }}>
+                                  Withdrawn{st.withdrawnAt ? ` · ${fmtDate(st.withdrawnAt)}` : ''}
+                                </span>
                               )}
                             </td>
                             <td style={nsTd}>{st.package.programme} <span style={{ color: '#94a3b8' }}>· {st.package.age}y</span></td>

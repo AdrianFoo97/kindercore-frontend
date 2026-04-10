@@ -2,6 +2,7 @@ import { Component, ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Navbar from './components/common/Navbar.js';
 import { ToastProvider } from './components/common/Toast.js';
+import { DeleteDialogProvider } from './components/common/DeleteDialog.js';
 import LoginPage from './pages/LoginPage.js';
 import LeadsPage from './pages/LeadsPage.js';
 import ImportLeadsPage from './pages/ImportLeadsPage.js';
@@ -74,6 +75,7 @@ function ProtectedLayout() {
 export default function App() {
   return (
     <ToastProvider>
+    <DeleteDialogProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -113,6 +115,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
+    </DeleteDialogProvider>
     </ToastProvider>
   );
 }

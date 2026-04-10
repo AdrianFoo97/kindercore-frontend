@@ -53,6 +53,7 @@ function AssignmentsEditor({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string>('');
   const [showAddForm, setShowAddForm] = useState(false);
 
   useEffect(() => { if (programmes.length) setAddProg(p => p || programmes[0]); }, [programmes]);
@@ -81,10 +82,21 @@ function AssignmentsEditor({
   };
 
   const handleDelete = async (id: string) => {
-    setConfirmDeleteId(null); setDeletingId(id);
-    try { await deletePackage(id); onChanged(); }
-    catch { /* ignore */ }
-    finally { setDeletingId(null); }
+    setConfirmDeleteId(null); setDeletingId(id); setDeleteError('');
+    try {
+      await deletePackage(id);
+      onChanged();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete';
+      // apiFetch may serialise the JSON body — try to extract `message`
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed?.message) { setDeleteError(parsed.message); return; }
+      } catch { /* not JSON */ }
+      setDeleteError(msg);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const startEdit = (pkg: Package) => { setEditingId(pkg.id); setEditingName(pkg.name); setEditingPrice(pkg.price !== null ? String(pkg.price) : ''); };
@@ -230,6 +242,20 @@ function AssignmentsEditor({
           )}
         </div>
       </div>
+
+      {/* ── Delete error ── */}
+      {deleteError && (
+        <div style={{
+          background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+          padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#991b1b',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span><strong>⚠</strong> {deleteError}</span>
+          <button onClick={() => setDeleteError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b', fontSize: 13, padding: 4 }}>
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </div>
+      )}
 
       {/* ── Quick add form ── */}
       {showAddForm && (

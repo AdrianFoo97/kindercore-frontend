@@ -9,6 +9,8 @@ import { fetchPackages, fetchPackageYears } from '../api/packages.js';
 import { createStudent } from '../api/students.js';
 import { Lead, LeadStatus, LeadsResponse, Package } from '../types/index.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import { useDeleteDialog } from '../components/common/DeleteDialog.js';
+import { useToast } from '../components/common/Toast.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
@@ -1858,7 +1860,8 @@ export default function LeadsPage() {
   };
   const [enrollingLead, setEnrollingLead] = useState<Lead | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void; destructive?: boolean; details?: string[] } | null>(null);
-  const [deleteLeadTarget, setDeleteLeadTarget] = useState<Lead | null>(null);
+  const { confirm: confirmDelete } = useDeleteDialog();
+  const { showToast } = useToast();
   const [confirmBookingLead, setConfirmBookingLead] = useState<Lead | null>(null);
   const [confirmBookingLang, setConfirmBookingLang] = useState<'en' | 'zh'>('zh');
   const [confirmBookingTplId, setConfirmBookingTplId] = useState('confirm_appointment');
@@ -1872,7 +1875,6 @@ export default function LeadsPage() {
   const [rowResults, setRowResults] = useState<Record<string, { link?: string | null; error?: string }>>({});
   const [isExporting, setIsExporting] = useState(false);
   const [selectedTrashIds, setSelectedTrashIds] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; link?: string; action?: { label: string; onClick: () => void } } | null>(null);
   const [attendedLead, setAttendedLead] = useState<Lead | null>(null);
   const [attendedNotes, setAttendedNotes] = useState('');
   const [attendedDate, setAttendedDate] = useState('');
@@ -2064,9 +2066,21 @@ export default function LeadsPage() {
   const urgencyOrangeDays = typeof settings?.urgency_orange_days === 'number' ? settings.urgency_orange_days : 1;
   const urgencyRedDays = typeof settings?.urgency_red_days === 'number' ? settings.urgency_red_days : 3;
 
-  function showToast(message: string, type: 'success' | 'error' = 'success', link?: string, action?: { label: string; onClick: () => void }) {
-    setToast({ message, type, link, action });
-    setTimeout(() => setToast(null), 6000);
+  async function requestMoveToTrash(lead: Lead) {
+    const ok = await confirmDelete({
+      entityType: 'Lead',
+      entityName: lead.childName,
+      actionLabel: 'Move to Trash',
+      consequence: <>This will move <strong>{lead.childName}</strong> to Trash. You can restore them later.</>,
+      onConfirm: async () => {
+        await deleteLead(lead.id);
+        invalidateAll();
+        queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
+      },
+    });
+    if (ok) {
+      showToast(`${lead.childName} moved to`, 'success', undefined, { label: 'Trash', onClick: () => handleStageSelect('TRASH') });
+    }
   }
 
   async function markAttendance(lead: Lead, attended: boolean, notes?: string, attendedDateStr?: string) {
@@ -2148,22 +2162,6 @@ export default function LeadsPage() {
     <div style={{ display: 'flex', flexDirection: isTablet ? 'column' : 'row', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', height: '100%', overflow: 'hidden' }}>
       <style>{`.kc-no-scrollbar::-webkit-scrollbar{display:none}.kc-no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}@keyframes kcFadeHL{0%{background:#fefce8}100%{background:transparent}}.kc-hl{animation:kcFadeHL 2s forwards}textarea:focus::placeholder{color:transparent}.kc-mi{display:flex;align-items:center;width:100%;padding:8px 12px;text-align:left;background:none;border:none;border-radius:8px;cursor:pointer;font-size:13px;color:#374151;font-weight:500;text-decoration:none;box-sizing:border-box;transition:all .12s ease;letter-spacing:-0.01em;line-height:1.3}.kc-mi:hover{background:#f1f5f9}.kc-mi:active{background:#e8ecf1}.kc-mi-danger{color:#dc2626!important;font-weight:500}.kc-mi-danger:hover{background:#fef2f2!important}.kc-row{transition:background .15s ease}.kc-row:hover{background:#f1f5f9!important}.kc-phone .kc-copy{opacity:0;transition:opacity .12s}.kc-phone:hover .kc-copy{opacity:1}@keyframes kc-slide-in{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
 
-      {/* Toast */}
-      {toast && (
-        <div style={{ position: 'fixed', top: isMobile ? 60 : 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'success' ? '#276749' : '#c53030', color: '#fff', padding: isMobile ? '10px 14px' : '14px 28px', borderRadius: 10, fontSize: isMobile ? 12 : 15, fontWeight: 500, boxShadow: '0 6px 32px rgba(0,0,0,0.3)', whiteSpace: isMobile ? 'normal' as const : 'nowrap', display: 'flex', alignItems: 'center', gap: 8, width: isMobile ? 'calc(100vw - 32px)' : undefined, maxWidth: isMobile ? 'calc(100vw - 32px)' : undefined, boxSizing: 'border-box' }}>
-          <span>{toast.type === 'success' ? <FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> : <FontAwesomeIcon icon={faCircleXmark} style={{ marginRight: 6 }} />}{toast.message}{toast.action && (
-            <span onClick={() => { toast.action!.onClick(); setToast(null); }}
-              style={{ color: '#fff', fontWeight: 700, textDecoration: 'underline', cursor: 'pointer', marginLeft: 4 }}>
-              {toast.action.label}
-            </span>
-          )}</span>
-          {toast.link && (
-            <a href={toast.link} target="_blank" rel="noreferrer" style={{ color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'underline', opacity: 0.9 }}>
-              View in Calendar <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ marginLeft: 6 }} />
-            </a>
-          )}
-        </div>
-      )}
 
       {/* Attended modal */}
       {attendedLead && (
@@ -2413,36 +2411,6 @@ export default function LeadsPage() {
           onRejected={() => { const { childName, id } = rejectingLead; invalidateAll(); showToast(`${childName} rejected — moved to`, 'success', undefined, { label: 'Rejected', onClick: () => { handleStageSelect('REJECTED'); setHighlightId(id); } }); }} />
       )}
 
-      {deleteLeadTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          onClick={() => setDeleteLeadTarget(null)}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700, color: '#1a202c' }}>Move to Trash</h3>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4a5568' }}>
-              Move <strong>{deleteLeadTarget.childName}</strong> to Trash? You can restore it later.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeleteLeadTarget(null)}
-                style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f7fafc', color: '#4a5568', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
-                Cancel
-              </button>
-              <button onClick={async () => {
-                const { id, childName } = deleteLeadTarget;
-                setDeleteLeadTarget(null);
-                try {
-                  await deleteLead(id);
-                  invalidateAll();
-                  queryClient.invalidateQueries({ queryKey: ['leads-trash'] });
-                  showToast(`${childName} moved to`, 'success', undefined, { label: 'Trash', onClick: () => handleStageSelect('TRASH') });
-                } catch { showToast('Failed to delete lead', 'error'); }
-              }}
-                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#e53e3e', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
-                Move to Trash
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Left Pipeline Nav — desktop: vertical sidebar, mobile/tablet: horizontal pills */}
       {!isTablet && (
@@ -2841,7 +2809,7 @@ export default function LeadsPage() {
                           </div>
                           {sep}
                           <div style={{ padding: '0 2px' }}>
-                            <button onClick={() => { setDeleteLeadTarget(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`} style={{ fontSize: 12 }}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8, fontSize: 11 }} /> Delete</button>
+                            <button onClick={() => { void requestMoveToTrash(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`} style={{ fontSize: 12 }}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8, fontSize: 11 }} /> Delete</button>
                           </div>
                         </div>
                       );
@@ -3097,7 +3065,7 @@ export default function LeadsPage() {
                                     </div>
                                     {sep}
                                     <div style={{ padding: '0 2px' }}>
-                                      <button onClick={() => { setDeleteLeadTarget(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`} style={{ fontSize: 12 }}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8, fontSize: 11 }} /> Delete</button>
+                                      <button onClick={() => { void requestMoveToTrash(lead); setMenuOpenId(null); }} className={`${mI} kc-mi-danger`} style={{ fontSize: 12 }}><FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8, fontSize: 11 }} /> Delete</button>
                                     </div>
                                   </>;
                                 })()}
