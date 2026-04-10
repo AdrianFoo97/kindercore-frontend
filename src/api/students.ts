@@ -134,7 +134,15 @@ export interface RevenueAnalyticsData {
   annualRevenue: number;
   actualRevenue: number;
   forecastRevenue: number;
-  monthlyRevenue: Array<{ month: string; revenue: number; studentCount: number; current: number; previous: number; isForecast: boolean }>;
+  monthlyRevenue: Array<{
+    month: string;
+    revenue: number;
+    studentCount: number;
+    current: number;
+    previous: number;
+    isForecast: boolean;
+    breakdown: Record<string, Record<string, { count: number; revenue: number }>>;
+  }>;
   revenueByProgramme: Array<{ programme: string; revenue: number; studentCount: number }>;
   revenueByAge: Array<{ age: string; revenue: number; studentCount: number }>;
   availableYears: number[];

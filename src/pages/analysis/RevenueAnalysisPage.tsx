@@ -93,22 +93,6 @@ export default function RevenueAnalysisPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Chart 2: Year over Year */}
-        <div style={s.chartCard}>
-          <h3 style={s.chartTitle}>Year-over-Year Revenue</h3>
-          <p style={{ margin: '-4px 0 12px', fontSize: 12, color: '#94a3b8' }}>Comparing {selectedYear} vs {data.prevYear}</p>
-          <ResponsiveContainer width="100%" height={250}>
-            <ComposedChart data={data.monthlyRevenue} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip cursor={false} formatter={(v: number) => fmtCurrency(v)} itemSorter={() => -1} />
-              <Bar dataKey="current" fill={C.blue} radius={[4, 4, 0, 0]} barSize={24} name={String(selectedYear)} />
-              <Line type="monotone" dataKey="previous" stroke={C.slate} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, fill: C.slate }} name={String(data.prevYear)} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-
         {/* Charts 3 & 4: Programme breakdown */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 14 }}>
           <div style={s.chartCard}>
@@ -163,6 +147,109 @@ export default function RevenueAnalysisPage() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Excel-style monthly breakdown */}
+        <MonthlyBreakdownTable data={data} />
+
+        {/* Year over Year — bottom of page */}
+        <div style={s.chartCard}>
+          <h3 style={s.chartTitle}>Year-over-Year Revenue</h3>
+          <p style={{ margin: '-4px 0 12px', fontSize: 12, color: '#94a3b8' }}>Comparing {selectedYear} vs {data.prevYear}</p>
+          <ResponsiveContainer width="100%" height={250}>
+            <ComposedChart data={data.monthlyRevenue} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip cursor={false} formatter={(v: number) => fmtCurrency(v)} itemSorter={() => -1} />
+              <Bar dataKey="current" fill={C.blue} radius={[4, 4, 0, 0]} barSize={24} name={String(selectedYear)} />
+              <Line type="monotone" dataKey="previous" stroke={C.slate} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, fill: C.slate }} name={String(data.prevYear)} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Excel-style monthly breakdown table ───────────────────────────────────────
+
+const AGE_TO_CLASS: Record<string, string> = { '3': 'N1', '4': 'N2', '5': 'P1', '6': 'P2' };
+const PROG_SHORT: Record<string, string> = {
+  'Half Day + Enrichment': '4H',
+  'Half Day': 'HD',
+  'Full Day': 'FD',
+};
+const PROG_ORDER = ['Half Day + Enrichment', 'Half Day', 'Full Day'];
+
+function MonthlyBreakdownTable({ data }: { data: import('../../api/students.js').RevenueAnalyticsData }) {
+  // Discover the set of (age × programme) columns that have data anywhere this year
+  const ageSet = new Set<string>();
+  const progSet = new Set<string>();
+  for (const m of data.monthlyRevenue) {
+    for (const age of Object.keys(m.breakdown ?? {})) {
+      ageSet.add(age);
+      for (const p of Object.keys(m.breakdown[age])) progSet.add(p);
+    }
+  }
+  const ages = [...ageSet].sort((a, b) => Number(a) - Number(b));
+  const progs = PROG_ORDER.filter(p => progSet.has(p)).concat([...progSet].filter(p => !PROG_ORDER.includes(p)));
+
+  const cell: React.CSSProperties = { padding: '6px 8px', fontSize: 12, textAlign: 'center', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' };
+  const headTop: React.CSSProperties = { ...cell, background: '#dbeafe', fontWeight: 700, color: '#1e3a8a' };
+  const headSub: React.CSSProperties = { ...cell, background: '#eff6ff', fontWeight: 600, color: '#475569' };
+  const totalCell: React.CSSProperties = { ...cell, background: '#dcfce7', fontWeight: 700, color: '#065f46' };
+  const revCell: React.CSSProperties = { ...cell, background: '#ede9fe', fontWeight: 700, color: '#5b21b6', fontVariantNumeric: 'tabular-nums' };
+  const monthCell: React.CSSProperties = { ...cell, background: '#f8fafc', fontWeight: 600, color: '#475569', textAlign: 'left', paddingLeft: 12 };
+
+  return (
+    <div style={s.chartCard}>
+      <h3 style={s.chartTitle}>Monthly Breakdown</h3>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 720 }}>
+          <thead>
+            <tr>
+              <th style={{ ...headTop, textAlign: 'left', paddingLeft: 12 }} rowSpan={2}>Month</th>
+              {ages.map(age => (
+                <th key={age} style={{ ...headTop, borderRight: '1px solid #93c5fd' }} colSpan={progs.length}>
+                  {AGE_TO_CLASS[age] ?? `Age ${age}`}
+                </th>
+              ))}
+              <th style={{ ...totalCell }} rowSpan={2}>Total Students</th>
+              <th style={{ ...revCell }} rowSpan={2}>Revenue</th>
+            </tr>
+            <tr>
+              {ages.flatMap(age =>
+                progs.map(prog => (
+                  <th key={`${age}-${prog}`} style={headSub}>{PROG_SHORT[prog] ?? prog}</th>
+                ))
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {data.monthlyRevenue.map((m, i) => {
+              const isCurrent = i === data.currentMonthIdx;
+              return (
+                <tr key={m.month} style={{ background: m.isForecast ? '#fafafa' : (isCurrent ? '#fef9c3' : '#fff') }}>
+                  <td style={{ ...monthCell, opacity: m.isForecast ? 0.6 : 1 }}>
+                    {m.month}{m.isForecast ? ' (forecast)' : ''}
+                  </td>
+                  {ages.flatMap(age =>
+                    progs.map(prog => {
+                      const v = m.breakdown?.[age]?.[prog]?.count ?? 0;
+                      return (
+                        <td key={`${m.month}-${age}-${prog}`} style={{ ...cell, color: v === 0 ? '#cbd5e1' : '#0f172a' }}>
+                          {v || ''}
+                        </td>
+                      );
+                    })
+                  )}
+                  <td style={totalCell}>{m.studentCount}</td>
+                  <td style={revCell}>{fmtCurrency(m.revenue)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
