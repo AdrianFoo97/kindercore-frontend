@@ -74,21 +74,22 @@ export default function EditStudentModal({
   });
 
 
-  // Auto-match to current year package if student's package is from another year
+  // Auto-match: ensure the selected package matches the child's current age.
+  // Triggers when (a) saved package isn't in the current year list, OR
+  // (b) saved package is for a different age than the child's current age.
   useEffect(() => {
     if (packages.length === 0) return;
-    const currentPkg = packages.find(p => p.id === packageId);
-    if (currentPkg) return;
-    // Student's package is not in the current year — match by current age
     const targetAge = classAgeOverridden ? classAge : calculatedAge;
+    const currentPkg = packages.find(p => p.id === packageId);
+    if (currentPkg && currentPkg.age === targetAge) return; // already correct
+
     const studentProg = student.package?.programme;
-    // Prefer same programme + current age, then first package matching current age
     const matched =
       packages.find(p => p.programme === studentProg && p.age === targetAge) ||
       packages.find(p => p.age === targetAge) ||
       packages[0];
-    if (matched) setPackageId(matched.id);
-  }, [packages]);
+    if (matched && matched.id !== packageId) setPackageId(matched.id);
+  }, [packages, classAgeOverridden, classAge, calculatedAge]);
 
   // Keep monthlyFee in sync with package price when not overridden
   useEffect(() => {
