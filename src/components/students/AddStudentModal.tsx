@@ -110,6 +110,9 @@ export default function AddStudentModal({
 
   const yearOptions = availableYears.includes(year) ? availableYears : [year, ...availableYears];
 
+  // Clear form-level error when user edits any field
+  useEffect(() => { setError(''); }, [childName, parentPhone, dob, channelChoice, otherChannel, submittedAt, selectedProgramme, selectedAge, paymentDate, startDate]);
+
   const resolvedChannel = channelChoice === OTHERS_VALUE ? otherChannel.trim() : channelChoice;
 
   // Phone validation: digits + optional + space - ( ) only, with at least 8 digits

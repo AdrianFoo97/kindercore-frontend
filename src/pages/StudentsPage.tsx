@@ -661,7 +661,7 @@ export default function StudentsPage() {
                       </span>
                     </th>
                     <th style={th}>Programme</th>
-                    {(tab === 'active' || tab === 'enrolled') && <th style={{ ...th, width: 120 }}>Enrolment</th>}
+                    {(tab === 'active' || tab === 'enrolled') && <th style={{ ...th, width: 120 }}>First Day</th>}
                     {tab === 'withdrawn'                       && <th style={{ ...th, width: 130 }}>Withdrawn</th>}
                     <th style={{ ...th, width: 148, paddingRight: 20 }} />
                   </tr>
@@ -719,10 +719,10 @@ export default function StudentsPage() {
                             {/* Programme — plain text, no badge */}
                             <td style={{ ...td, fontSize: 13, color: '#374151' }}>{s.package.programme}</td>
 
-                            {/* Enrolment / Withdrawn date */}
+                            {/* First day / Withdrawn date */}
                             {(tab === 'active' || tab === 'enrolled') && (
                               <td style={{ ...td, fontSize: 13, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
-                                {formatEnrolmentMonth(s.enrolmentMonth, s.enrolmentYear)}
+                                {s.startDate ? formatDate(s.startDate) : '—'}
                               </td>
                             )}
                             {tab === 'withdrawn' && (

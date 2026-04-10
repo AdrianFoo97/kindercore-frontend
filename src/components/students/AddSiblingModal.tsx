@@ -92,6 +92,9 @@ export default function AddSiblingModal({
 
   const yearOptions = availableYears.includes(year) ? availableYears : [year, ...availableYears];
 
+  // Clear form-level error when user edits any field
+  useEffect(() => { setError(''); }, [childName, dob, selectedProgramme, selectedAge, paymentDate, startDate]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
