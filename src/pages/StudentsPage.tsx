@@ -8,6 +8,8 @@ import { fetchStudents, updateStudent, completeOnboarding, withdrawStudent, reac
 import { Student } from '../types/index.js';
 import EditStudentModal from '../components/students/EditStudentModal.js';
 import AddStudentModal from '../components/students/AddStudentModal.js';
+import AddSiblingModal from '../components/students/AddSiblingModal.js';
+import { faChildren } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useToast } from '../components/common/Toast.js';
 
@@ -111,6 +113,7 @@ export default function StudentsPage() {
   const [search,           setSearch]           = useState('');
   const [editingStudent,   setEditingStudent]   = useState<Student | null>(null);
   const [addingStudent,    setAddingStudent]    = useState(false);
+  const [addingSiblingOf,  setAddingSiblingOf]  = useState<Student | null>(null);
   const [withdrawingStudent, setWithdrawingStudent] = useState<Student | null>(null);
   const [withdrawDate,     setWithdrawDate]     = useState('');
   const [withdrawReason,   setWithdrawReason]   = useState('');
@@ -695,8 +698,16 @@ export default function StudentsPage() {
                                   {initials(s.lead.childName)}
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.01em' }}>
+                                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
                                     {s.lead.childName}
+                                    {s.siblings && s.siblings.length > 0 && (
+                                      <span
+                                        title={`Sibling of ${s.siblings.map(x => x.childName).join(', ')}`}
+                                        style={{ display: 'inline-flex', alignItems: 'center', color: '#3182ce', fontSize: 11 }}
+                                      >
+                                        <FontAwesomeIcon icon={faChildren} />
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -793,6 +804,18 @@ export default function StudentsPage() {
             queryClient.invalidateQueries({ queryKey: ['leads'] });
             setAddingStudent(false);
             showToast('Student created successfully');
+          }}
+        />
+      )}
+
+      {addingSiblingOf && (
+        <AddSiblingModal
+          sourceStudent={addingSiblingOf}
+          onClose={() => setAddingSiblingOf(null)}
+          onCreated={() => {
+            queryClient.invalidateQueries({ queryKey: ['students'] });
+            setAddingSiblingOf(null);
+            showToast('Sibling created successfully');
           }}
         />
       )}
@@ -949,6 +972,9 @@ export default function StudentsPage() {
                 )}
                 <button className="sp-menu-item" onClick={() => { setEditingStudent(s); setOpenMenuId(null); }} style={menuItemStyle}>
                   <FontAwesomeIcon icon={faPen} style={{ width: 14, color: '#64748b' }} /> Edit Student
+                </button>
+                <button className="sp-menu-item" onClick={() => { setAddingSiblingOf(s); setOpenMenuId(null); }} style={menuItemStyle}>
+                  <FontAwesomeIcon icon={faChildren} style={{ width: 14, color: '#64748b' }} /> Add Sibling
                 </button>
                 <div style={{ height: 1, background: '#f3f4f6', margin: '4px 0' }} />
                 <button className="sp-menu-item" onClick={() => { setWithdrawingStudent(s); setWithdrawDate(new Date().toISOString().split('T')[0]); setWithdrawReason(''); setOpenMenuId(null); }} style={{ ...menuItemStyle, color: '#dc2626' }}>

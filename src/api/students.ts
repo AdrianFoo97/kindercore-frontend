@@ -39,6 +39,25 @@ export function createStudent(payload: {
   });
 }
 
+export function createSibling(payload: {
+  leadId: string;
+  childName: string;
+  childDob: string;            // YYYY-MM-DD
+  enrolmentYear: number;
+  enrolmentMonth: number;
+  packageId: string;
+  enrolledAt?: string;
+  startDate?: string | null;
+  notes?: string | null;
+  monthlyFee?: number;
+  feeOverridden?: boolean;
+}) {
+  return apiFetch<Student>('/api/students/sibling', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function createStudentWithLead(payload: {
   childName: string;
   parentPhone: string;

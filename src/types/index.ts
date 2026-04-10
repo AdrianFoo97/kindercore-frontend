@@ -97,6 +97,7 @@ export interface Student {
   withdrawReason: string | null;
   status: 'enrolled' | 'active' | 'graduated' | 'withdrawn';
   createdAt: string;
+  siblings: { id: string; childName: string }[];
   lead: { childName: string; childDob: string; parentPhone: string; submittedAt: string };
   package: { name: string; programme: string; age: number; year: number };
 }
