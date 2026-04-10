@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, BarChart, Cell,
 } from 'recharts';
-import { fetchRevenueAnalytics } from '../../api/students.js';
+import { fetchRevenueAnalytics, fetchStudents } from '../../api/students.js';
+import { Student } from '../../types/index.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 
 const C = {
@@ -30,11 +31,19 @@ export default function RevenueAnalysisPage() {
   const { isMobile } = useIsMobile();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  // null = show all months for the selected year; 0..11 = filter to that month
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['revenue-analytics', selectedYear],
     queryFn: () => fetchRevenueAnalytics(selectedYear),
   });
+
+  const { data: studentsData } = useQuery({
+    queryKey: ['students', { pageSize: 1000 }],
+    queryFn: () => fetchStudents({ pageSize: 1000 }),
+  });
+  const allStudents: Student[] = studentsData?.items ?? [];
 
   if (isLoading) return <div style={s.page}><p style={{ padding: 40, color: '#94a3b8' }}>Loading...</p></div>;
   if (isError || !data) return <div style={s.page}><p style={{ padding: 40, color: '#dc2626' }}>Failed to load revenue data.</p></div>;
@@ -79,19 +88,49 @@ export default function RevenueAnalysisPage() {
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={data.monthlyRevenue} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: '#94a3b8', cursor: 'pointer' }}
+                onClick={(e: any) => {
+                  if (e && e.value) {
+                    const idx = data.monthlyRevenue.findIndex(m => m.month === e.value);
+                    if (idx >= 0) setSelectedMonth(idx);
+                  }
+                }}
+              />
               <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
               <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#94a3b8' }} />
               <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtCurrency(v), name]} />
-              <Bar yAxisId="left" dataKey="revenue" radius={[4, 4, 0, 0]} barSize={28} name="Revenue">
+              <Bar
+                yAxisId="left"
+                dataKey="revenue"
+                radius={[4, 4, 0, 0]}
+                barSize={28}
+                name="Revenue"
+                cursor="pointer"
+                onClick={(_data: any, index: number) => setSelectedMonth(index)}
+              >
                 {data.monthlyRevenue.map((entry, i) => (
-                  <Cell key={i} fill={entry.isForecast ? '#bfdbfe' : C.blue} />
+                  <Cell
+                    key={i}
+                    fill={entry.isForecast ? '#bfdbfe' : C.blue}
+                    stroke={selectedMonth === i ? '#1e40af' : 'none'}
+                    strokeWidth={selectedMonth === i ? 3 : 0}
+                  />
                 ))}
               </Bar>
               <Line yAxisId="right" type="monotone" dataKey="studentCount" stroke={C.amber} strokeWidth={2} dot={{ r: 3 }} name="Students" />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
+
+        {/* New students joined list */}
+        <NewStudentsList
+          students={allStudents}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          onClearMonth={() => setSelectedMonth(null)}
+        />
 
         {/* Charts 3 & 4: Programme breakdown */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 14 }}>
@@ -354,6 +393,155 @@ function MonthlyBreakdownTable({ data }: { data: import('../../api/students.js')
     </div>
   );
 }
+
+// ── New students joined list ──────────────────────────────────────────────────
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function NewStudentsList({
+  students,
+  selectedYear,
+  selectedMonth,
+  onClearMonth,
+}: {
+  students: Student[];
+  selectedYear: number;
+  selectedMonth: number | null;
+  onClearMonth: () => void;
+}) {
+  // "New" = students whose startDate (first day of school) is in the selected year/month
+  const filtered = students.filter(st => {
+    if (!st.startDate) return false;
+    const d = new Date(st.startDate);
+    if (d.getFullYear() !== selectedYear) return false;
+    if (selectedMonth !== null && d.getMonth() !== selectedMonth) return false;
+    return true;
+  }).sort((a, b) => {
+    const ad = a.startDate ? new Date(a.startDate).getTime() : 0;
+    const bd = b.startDate ? new Date(b.startDate).getTime() : 0;
+    return ad - bd;
+  });
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const title = selectedMonth !== null
+    ? `New Students — ${MONTH_NAMES[selectedMonth]} ${selectedYear}`
+    : `New Students — ${selectedYear}`;
+
+  return (
+    <div style={s.chartCard}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <h3 style={{ ...s.chartTitle, marginBottom: 0 }}>{title} <span style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>· {filtered.length}</span></h3>
+        <div style={{ fontSize: 11, color: '#94a3b8' }}>
+          {selectedMonth !== null ? (
+            <button
+              onClick={onClearMonth}
+              style={{
+                padding: '4px 10px', borderRadius: 6, border: '1px solid #e2e8f0',
+                background: '#fff', color: '#475569', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+              }}
+            >
+              ← Show whole year
+            </button>
+          ) : (
+            <span>Click a bar above to filter by month</span>
+          )}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p style={{ margin: 0, padding: '20px 0', textAlign: 'center', fontSize: 13, color: '#94a3b8' }}>
+          No new students {selectedMonth !== null ? `in ${MONTH_NAMES[selectedMonth]} ${selectedYear}` : `in ${selectedYear}`}
+        </p>
+      ) : (() => {
+        // Group by month when showing the whole year; flat list when a month is selected
+        const groupByMonth = selectedMonth === null;
+        const groups = new Map<number, Student[]>();
+        if (groupByMonth) {
+          for (const st of filtered) {
+            const m = new Date(st.startDate!).getMonth();
+            if (!groups.has(m)) groups.set(m, []);
+            groups.get(m)!.push(st);
+          }
+        } else {
+          groups.set(selectedMonth!, filtered);
+        }
+        const sortedKeys = [...groups.keys()].sort((a, b) => a - b);
+
+        return (
+          <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  <th style={nsTh}>First Day</th>
+                  <th style={nsTh}>Name</th>
+                  <th style={nsTh}>Programme</th>
+                  <th style={{ ...nsTh, textAlign: 'right' }}>Monthly Fee</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedKeys.map(monthIdx => {
+                  const rows = groups.get(monthIdx)!;
+                  return (
+                    <React.Fragment key={monthIdx}>
+                      {groupByMonth && (
+                        <tr style={{ background: '#eff6ff' }}>
+                          <td colSpan={4} style={{
+                            padding: '7px 12px', fontSize: 11, fontWeight: 700,
+                            color: '#1e3a8a', textTransform: 'uppercase', letterSpacing: '0.06em',
+                            borderBottom: '1px solid #dbeafe',
+                          }}>
+                            {MONTH_NAMES[monthIdx]} {selectedYear}
+                            <span style={{ marginLeft: 8, color: '#64748b', fontWeight: 500 }}>· {rows.length}</span>
+                          </td>
+                        </tr>
+                      )}
+                      {rows.map(st => {
+                        const withdrawn = st.status === 'withdrawn';
+                        return (
+                          <tr key={st.id} className="ns-row" style={{ opacity: withdrawn ? 0.6 : 1 }}>
+                            <td style={{ ...nsTd, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                              {st.startDate ? fmtDate(st.startDate) : '—'}
+                            </td>
+                            <td style={{ ...nsTd, fontWeight: 600, color: '#0f172a' }}>
+                              {st.lead.childName}
+                              {withdrawn && (
+                                <span style={{
+                                  marginLeft: 8, padding: '1px 6px', borderRadius: 4,
+                                  background: '#fee2e2', color: '#991b1b', fontSize: 10, fontWeight: 700,
+                                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                                }}>Withdrawn</span>
+                              )}
+                            </td>
+                            <td style={nsTd}>{st.package.programme} <span style={{ color: '#94a3b8' }}>· {st.package.age}y</span></td>
+                            <td style={{ ...nsTd, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#5b21b6', fontWeight: 600 }}>
+                              {st.monthlyFee != null ? fmtCurrency(st.monthlyFee) : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
+      <style>{`.ns-row:hover td { background: #f8fafc; }`}</style>
+    </div>
+  );
+}
+
+const nsTh: React.CSSProperties = {
+  padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700,
+  color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em',
+  borderBottom: '1px solid #e2e8f0',
+};
+const nsTd: React.CSSProperties = {
+  padding: '10px 12px', borderBottom: '1px solid #f1f5f9', fontSize: 12,
+};
 
 function KpiCard({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
   return (
