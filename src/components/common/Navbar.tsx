@@ -256,8 +256,7 @@ export default function Navbar() {
                   {section(faBoxesStacked, 'Packages & Pricing')}
                   {link('/settings/packages/programmes', 'Programmes')}
                   {link('/settings/packages/age-groups', 'Age Groups')}
-                  {link('/settings/packages/assignment', 'Package Assignment')}
-                  {link('/packages', 'Pricing')}
+                  {link('/packages', 'Packages & Pricing')}
                   {sep}
                   {section(faCalendarDays, 'Timetable')}
                   {link('/settings/timetable/teachers', 'Teachers')}

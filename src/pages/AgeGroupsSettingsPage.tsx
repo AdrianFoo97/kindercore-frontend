@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchPackages, fetchPackagesConfig, updateAges } from '../api/packages.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faTrash, faCheck, faXmark, faPlus, faGripVertical, faSpinner,
+  faTrash, faCheck, faXmark, faPlus, faSpinner,
 } from '@fortawesome/free-solid-svg-icons';
 import ConfirmDialog from '../components/common/ConfirmDialog.js';
 import DeleteDialog from '../components/common/DeleteDialog.js';
 import { useToast } from '../components/common/Toast.js';
+import { Package } from '../types/index.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,13 +46,24 @@ export default function AgeGroupsSettingsPage() {
     queryKey: ['packages-config'],
     queryFn: fetchPackagesConfig,
   });
-  useQuery({ queryKey: ['packages-all'], queryFn: () => fetchPackages() });
+  const { data: allPackages = [] } = useQuery({ queryKey: ['packages-all'], queryFn: () => fetchPackages() });
 
   const serverAges: number[] = Array.isArray(config?.ages) ? config!.ages : [];
   const usage: Map<number, UsageInfo> = useMemo(
     () => new Map((config?.agesDetail ?? []).map(d => [d.age, d])),
     [config],
   );
+
+  /** Packages grouped by age — for the expandable detail row */
+  const packagesByAge = useMemo(() => {
+    const m = new Map<number, typeof allPackages>();
+    for (const pkg of allPackages) {
+      const list = m.get(pkg.age) ?? [];
+      list.push(pkg);
+      m.set(pkg.age, list);
+    }
+    return m;
+  }, [allPackages]);
 
   // ── Local state ─────────────────────────────────────────────────────────────
 
@@ -61,15 +74,12 @@ export default function AgeGroupsSettingsPage() {
   const [newAgeValue, setNewAgeValue] = useState('');
   const newRowInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Drag-and-drop state
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dropIdx, setDropIdx] = useState<number | null>(null);
-
   // Per-row inline feedback (Saving… / Saved ✓)
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   // Briefly highlight the row that just successfully saved
   const [flashKey, setFlashKey] = useState<string | null>(null);
 
+  const [expandedAge, setExpandedAge] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [conflictError, setConflictError] = useState<null | {
     conflicts: Array<{ age: number; packageCount: number; studentCount: number }>;
@@ -80,9 +90,10 @@ export default function AgeGroupsSettingsPage() {
   // and never collide on the API.
   const savePromiseRef = useRef<Promise<unknown>>(Promise.resolve());
 
-  // Sync from server when config arrives or changes
+  // Sync from server when config arrives or changes — always ascending
   useEffect(() => {
-    setRows(serverAges.map((a, i) => ({ key: `s-${a}-${i}`, original: a, current: a })));
+    const sorted = [...serverAges].sort((a, b) => a - b);
+    setRows(sorted.map((a, i) => ({ key: `s-${a}-${i}`, original: a, current: a })));
   }, [config]);
 
   useEffect(() => { if (adding) newRowInputRef.current?.focus(); }, [adding]);
@@ -155,40 +166,6 @@ export default function AgeGroupsSettingsPage() {
     return next;
   };
 
-  // ── Drag-and-drop ───────────────────────────────────────────────────────────
-
-  const onDragStart = (idx: number) => (e: React.DragEvent) => {
-    setDragIdx(idx);
-    e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', String(idx)); } catch { /* noop */ }
-  };
-
-  const onDragOver = (idx: number) => (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dropIdx !== idx) setDropIdx(idx);
-  };
-
-  const onDragEnd = () => {
-    setDragIdx(null);
-    setDropIdx(null);
-  };
-
-  const onDrop = (idx: number) => async (e: React.DragEvent) => {
-    e.preventDefault();
-    if (dragIdx === null || dragIdx === idx) {
-      onDragEnd();
-      return;
-    }
-    const next = [...rows];
-    const [moved] = next.splice(dragIdx, 1);
-    next.splice(idx, 0, moved);
-    setRows(next);
-    onDragEnd();
-    setError('');
-    await persistRows(next, { toast: 'Order updated' });
-  };
-
   // ── Inline edit ─────────────────────────────────────────────────────────────
 
   const startEdit = (row: Row) => {
@@ -211,7 +188,8 @@ export default function AgeGroupsSettingsPage() {
       return;
     }
     const editKey = editingKey;
-    const newRows = rows.map(r => r.key === editKey ? { ...r, current: newVal } : r);
+    const newRows = rows.map(r => r.key === editKey ? { ...r, current: newVal } : r)
+      .sort((a, b) => a.current - b.current);
     setRows(newRows);
     setEditingKey(null);
     setError('');
@@ -257,7 +235,8 @@ export default function AgeGroupsSettingsPage() {
       return;
     }
     const newKey = `n-${Date.now()}-${val}`;
-    const newRows = [...rows, { key: newKey, original: null, current: val }];
+    const newRows = [...rows, { key: newKey, original: null, current: val }]
+      .sort((a, b) => a.current - b.current);
     setRows(newRows);
     setNewAgeValue('');
     setAdding(false);
@@ -323,8 +302,7 @@ export default function AgeGroupsSettingsPage() {
             <table style={s.table}>
               <thead>
                 <tr style={s.theadRow}>
-                  <th style={{ ...s.th, width: 36, borderTopLeftRadius: 10 }} aria-label="Drag handle" />
-                  <th style={s.th}>Age group</th>
+                  <th style={{ ...s.th, borderTopLeftRadius: 10 }}>Age group</th>
                   <th style={{ ...s.th, width: 110, textAlign: 'right' }}>Packages</th>
                   <th style={{ ...s.th, width: 110, textAlign: 'right' }}>Students</th>
                   <th style={{ ...s.th, width: 110 }}>Status</th>
@@ -336,8 +314,6 @@ export default function AgeGroupsSettingsPage() {
                   const u = row.original !== null ? usage.get(row.original) : null;
                   const inUse = u ? u.packageCount > 0 || u.studentCount > 0 : false;
                   const editing = editingKey === row.key;
-                  const isDragging = dragIdx === idx;
-                  const isDropTarget = dropIdx === idx && dragIdx !== null && dragIdx !== idx;
                   const rowFeedback = feedback?.rowKey === row.key ? feedback : null;
                   const isFlashing = flashKey === row.key;
 
@@ -346,30 +322,11 @@ export default function AgeGroupsSettingsPage() {
                       key={row.key}
                       className="ag-row"
                       style={{
-                        opacity: isDragging ? 0.4 : 1,
                         background: isFlashing ? '#ecfdf5' : (row.original === null ? '#f0fdf4' : (inUse ? '#fff' : '#fafafa')),
                         borderBottom: '1px solid #f1f5f9',
-                        borderTop: isDropTarget ? '2px solid #2563eb' : undefined,
-                        transition: 'background 0.4s, opacity 0.12s',
+                        transition: 'background 0.4s',
                       }}
-                      onDragOver={onDragOver(idx)}
-                      onDrop={onDrop(idx)}
                     >
-                      {/* Drag handle */}
-                      <td style={s.tdHandle}>
-                        <span
-                          draggable
-                          onDragStart={onDragStart(idx)}
-                          onDragEnd={onDragEnd}
-                          className="ag-handle"
-                          style={s.dragHandle}
-                          title="Drag to reorder"
-                          aria-label="Drag to reorder"
-                        >
-                          <FontAwesomeIcon icon={faGripVertical} />
-                        </span>
-                      </td>
-
                       {/* Name (inline editable) */}
                       <td style={s.td}>
                         {editing ? (
@@ -405,11 +362,21 @@ export default function AgeGroupsSettingsPage() {
                         )}
                       </td>
 
-                      {/* Packages */}
+                      {/* Packages — clickable to show modal */}
                       <td style={{ ...s.td, textAlign: 'right' }}>
-                        <span style={u && u.packageCount > 0 ? s.numStrong : s.numMuted}>
-                          {u?.packageCount ?? 0}
-                        </span>
+                        {u && u.packageCount > 0 ? (
+                          <button
+                            type="button"
+                            className="ag-pkg-btn"
+                            onClick={() => setExpandedAge(row.current)}
+                            style={s.pkgCountBtn}
+                            title="Click to view packages"
+                          >
+                            {u.packageCount}
+                          </button>
+                        ) : (
+                          <span style={s.numMuted}>0</span>
+                        )}
                       </td>
 
                       {/* Students */}
@@ -458,7 +425,6 @@ export default function AgeGroupsSettingsPage() {
                 {/* Add row */}
                 {adding && (
                   <tr style={s.rowAdd}>
-                    <td style={s.tdHandle} />
                     <td style={s.td} colSpan={4}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input
@@ -525,6 +491,15 @@ export default function AgeGroupsSettingsPage() {
         );
       })()}
 
+      {/* Package detail modal */}
+      {expandedAge !== null && (
+        <PackageModal
+          age={expandedAge}
+          packages={packagesByAge.get(expandedAge) ?? []}
+          onClose={() => setExpandedAge(null)}
+        />
+      )}
+
       {/* Server-side conflict (race condition fallback) */}
       {conflictError && (
         <ConfirmDialog
@@ -573,14 +548,66 @@ function SaveIndicator({ type }: { type: 'saving' | 'saved' }) {
   );
 }
 
+function PackageModal({ age, packages: pkgs, onClose }: { age: number; packages: Package[]; onClose: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  // Group by year, newest first
+  const byYear = new Map<number, Package[]>();
+  for (const p of pkgs) {
+    const list = byYear.get(p.year) ?? [];
+    list.push(p);
+    byYear.set(p.year, list);
+  }
+  const sortedYears = [...byYear.keys()].sort((a, b) => b - a);
+
+  return ReactDOM.createPortal(
+    <div style={s.modalOverlay} onClick={onClose}>
+      <div style={s.modal} onClick={e => e.stopPropagation()}>
+        <div style={s.modalHeader}>
+          <span style={s.modalTitle}>Age {age} Packages</span>
+          <span style={s.modalCount}>{pkgs.length}</span>
+          <button type="button" onClick={onClose} style={s.modalClose} aria-label="Close">
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </div>
+        <div style={s.modalBody}>
+          {sortedYears.map(year => {
+            const yearPkgs = byYear.get(year)!;
+            const students = yearPkgs.reduce((sum, p) => sum + (p.studentCount ?? 0), 0);
+            return (
+              <div key={year} style={s.detailRow}>
+                <span style={s.detailYear}>{year}</span>
+                <div style={s.detailPills}>
+                  {yearPkgs.map(p => (
+                    <span key={p.id} style={s.detailPill}>{p.programme}</span>
+                  ))}
+                </div>
+                {students > 0 && (
+                  <span style={s.detailStudents}>
+                    {students} student{students !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function SkeletonTable({ rowCount }: { rowCount: number }) {
   return (
     <div style={{ ...s.tableWrap, marginTop: 20 }}>
       <table style={s.table}>
         <thead>
           <tr style={s.theadRow}>
-            <th style={{ ...s.th, width: 36, borderTopLeftRadius: 10 }} />
-            <th style={s.th}>Age group</th>
+            <th style={{ ...s.th, borderTopLeftRadius: 10 }}>Age group</th>
             <th style={{ ...s.th, width: 110, textAlign: 'right' }}>Packages</th>
             <th style={{ ...s.th, width: 110, textAlign: 'right' }}>Students</th>
             <th style={{ ...s.th, width: 110 }}>Status</th>
@@ -590,7 +617,6 @@ function SkeletonTable({ rowCount }: { rowCount: number }) {
         <tbody>
           {Array.from({ length: rowCount }).map((_, i) => (
             <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <td style={s.tdHandle}><span style={{ ...s.dragHandle, opacity: 0.2 }}>⋮⋮</span></td>
               <td style={s.td}><div style={{ ...skel, width: 70, height: 14 }} /></td>
               <td style={{ ...s.td, textAlign: 'right' }}><div style={{ ...skel, width: 24, height: 14, marginLeft: 'auto' }} /></td>
               <td style={{ ...s.td, textAlign: 'right' }}><div style={{ ...skel, width: 24, height: 14, marginLeft: 'auto' }} /></td>
@@ -618,13 +644,11 @@ const rowHoverCss = `
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }
-  .ag-row .ag-handle { opacity: 0; transition: opacity 0.12s; }
-  .ag-row:hover .ag-handle { opacity: 1; }
-  .ag-row .ag-handle:active { cursor: grabbing; }
   .ag-row:hover { background: #f8fafc !important; }
   .ag-name-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 4px; }
   .ag-delete-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
   .ag-delete-btn:not(:disabled):hover { background: #fef2f2 !important; border-color: #fca5a5 !important; }
+  .ag-pkg-btn:hover { text-decoration: underline; }
 `;
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -717,24 +741,7 @@ const s: Record<string, React.CSSProperties> = {
     verticalAlign: 'middle',
     fontSize: 13,
   },
-  tdHandle: {
-    padding: '10px 4px 10px 10px',
-    verticalAlign: 'middle',
-    width: 28,
-  },
   rowAdd: { background: '#f0fdf4' },
-
-  dragHandle: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 20,
-    height: 20,
-    color: '#94a3b8',
-    cursor: 'grab',
-    fontSize: 12,
-    userSelect: 'none' as const,
-  },
 
   ageName: { fontSize: 14, fontWeight: 600, color: '#0f172a' },
   nameBtn: {
@@ -841,5 +848,124 @@ const s: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 6,
+  },
+
+  // Package count button — clickable to expand
+  pkgCountBtn: {
+    background: 'none',
+    border: 'none',
+    padding: '2px 4px',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#2563eb',
+    fontFamily: 'inherit',
+    fontVariantNumeric: 'tabular-nums' as any,
+    borderRadius: 4,
+    transition: 'color 0.12s',
+  },
+
+  // Modal
+  modalOverlay: {
+    position: 'fixed' as const,
+    inset: 0,
+    zIndex: 1000,
+    background: 'rgba(15, 23, 42, 0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modal: {
+    background: '#fff',
+    borderRadius: 12,
+    boxShadow: '0 20px 60px rgba(15, 23, 42, 0.18)',
+    width: '100%',
+    maxWidth: 480,
+    maxHeight: '80vh',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '16px 20px',
+    borderBottom: '1px solid #f1f5f9',
+  },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: '#0f172a',
+  },
+  modalCount: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 22,
+    height: 20,
+    padding: '0 6px',
+    background: '#f1f5f9',
+    color: '#64748b',
+    borderRadius: 10,
+    fontSize: 11,
+    fontWeight: 600,
+  },
+  modalClose: {
+    marginLeft: 'auto' as const,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#94a3b8',
+    fontSize: 16,
+    padding: 4,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 4,
+    transition: 'color 0.12s',
+  },
+  modalBody: {
+    padding: '16px 20px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 12,
+    overflowY: 'auto' as const,
+  },
+  detailRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    fontSize: 12,
+  },
+  detailYear: {
+    fontWeight: 700,
+    fontSize: 12,
+    color: '#334155',
+    minWidth: 36,
+    fontVariantNumeric: 'tabular-nums' as any,
+  },
+  detailPills: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    gap: 6,
+    flex: 1,
+  },
+  detailPill: {
+    padding: '3px 10px',
+    background: '#fff',
+    border: '1px solid #e2e8f0',
+    borderRadius: 12,
+    fontSize: 11,
+    fontWeight: 500,
+    color: '#334155',
+    whiteSpace: 'nowrap' as const,
+  },
+  detailStudents: {
+    color: '#94a3b8',
+    fontSize: 11,
+    whiteSpace: 'nowrap' as const,
+    fontVariantNumeric: 'tabular-nums' as any,
   },
 };

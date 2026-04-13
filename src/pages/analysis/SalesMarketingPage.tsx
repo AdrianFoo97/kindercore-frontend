@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, BarChart, Cell, PieChart, Pie, Legend, Sector,
 } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark } from '@fortawesome/free-solid-svg-icons';
-import { fetchAnalytics } from '../../api/leads.js';
+import { fetchAnalytics, fetchLeadById } from '../../api/leads.js';
+import { Lead } from '../../types/index.js';
+import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
+import EditLeadModal from '../../components/leads/EditLeadModal.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 
 // ── Palette ───────────────────────────────────────────────────────
@@ -37,7 +40,6 @@ const DONUT_PALETTE = [
   '#60a5fa','#93c5fd','#bfdbfe','#dbeafe',
 ];
 
-import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
 
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -96,10 +98,28 @@ function KpiCard({ label, value, sub, color, children }: {
 }
 
 // ── Page ──────────────────────────────────────────────────────────
+const STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
+  NEW:                { label: 'New',         bg: '#dbeafe', color: '#1e40af' },
+  CONTACTED:          { label: 'Contacted',   bg: '#e0e7ff', color: '#3730a3' },
+  APPOINTMENT_BOOKED: { label: 'Appt Booked', bg: '#fef3c7', color: '#92400e' },
+  FOLLOW_UP:          { label: 'Follow Up',   bg: '#fef9c3', color: '#854d0e' },
+  ENROLLED:           { label: 'Enrolled',    bg: '#dcfce7', color: '#166534' },
+  LOST:               { label: 'Lost',        bg: '#fee2e2', color: '#991b1b' },
+  REJECTED:           { label: 'Rejected',    bg: '#f1f5f9', color: '#64748b' },
+};
+
+const PAGE_SIZE = 10;
+
+type FilterState = { type: 'address' | 'channel'; value: string } | null;
+
 export default function SalesMarketingPage() {
   const { isMobile } = useIsMobile();
+  const queryClient = useQueryClient();
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterState>(null);
+  const [page, setPage] = useState(1);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', selectedYear],
@@ -132,6 +152,28 @@ export default function SalesMarketingPage() {
   const addressData = deriveDonut('address');
   const channelData = deriveDonut('channel');
 
+  // ── Filtered + paginated leads for table ──
+  const filteredLeads = activeFilter
+    ? monthLeads.filter(r =>
+        activeFilter.type === 'address'
+          ? r.address === activeFilter.value
+          : r.channel === activeFilter.value
+      )
+    : monthLeads;
+
+  const sortedLeads = [...filteredLeads].sort((a: any, b: any) => {
+    if (a.enrolmentYear !== b.enrolmentYear) return a.enrolmentYear - b.enrolmentYear;
+    return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+  });
+  const pageCount = Math.max(1, Math.ceil(sortedLeads.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pagedLeads = sortedLeads.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const handleSegmentClick = (type: 'address' | 'channel', value: string) => {
+    setActiveFilter(prev => (prev?.type === type && prev?.value === value) ? null : { type, value });
+    setPage(1);
+  };
+
   const filteredMonthlyByAge = selectedMonth !== null
     ? data.monthlyByAge.filter(m => m.month === MONTH_LABELS[selectedMonth])
     : data.monthlyByAge;
@@ -142,11 +184,13 @@ export default function SalesMarketingPage() {
     const idx = MONTH_LABELS.indexOf(chartData.activeLabel);
     if (idx === -1) return;
     setSelectedMonth(prev => prev === idx ? null : idx);
+    setActiveFilter(null);
+    setPage(1);
   }
 
   return (
     <div style={{ ...s.page, ...(isMobile ? { padding: '20px 12px' } : {}) }}>
-      <style>{`.recharts-wrapper *:focus { outline: none !important; }`}</style>
+      <style>{`.recharts-wrapper *:focus { outline: none !important; } .mk-row:hover { background: #eef2fa !important; }`}</style>
 
       {/* ── Header ── */}
       <div style={{ ...s.pageHeader, ...(isMobile ? { flexDirection: 'column' } : {}) }}>
@@ -161,6 +205,8 @@ export default function SalesMarketingPage() {
             onChange={e => {
               setSelectedYear(e.target.value ? Number(e.target.value) : undefined);
               setSelectedMonth(null);
+              setActiveFilter(null);
+              setPage(1);
             }}>
             <option value="">Current Year</option>
             {data.availableYears
@@ -319,26 +365,150 @@ export default function SalesMarketingPage() {
       <div style={{ ...s.donutRow, ...(isMobile ? { gridTemplateColumns: '1fr', gap: 12 } : {}) }}>
         <DonutCard
           title="Leads by Address"
-          sub={selectedMonth !== null ? `${MONTH_LABELS[selectedMonth]} — where do enquiries come from?` : 'Where do enquiries come from?'}
+          sub="Click a segment to filter the table"
           data={addressData}
           topN={5}
           colorFn={getAddressColor}
+          filterType="address"
+          activeValue={activeFilter?.type === 'address' ? activeFilter.value : undefined}
+          onSegmentClick={handleSegmentClick}
         />
         <DonutCard
           title="Marketing Channel"
-          sub={selectedMonth !== null ? `${MONTH_LABELS[selectedMonth]} — how did they hear about us?` : 'How did they hear about us?'}
+          sub="Click a segment to filter the table"
           data={channelData}
           topN={5}
           colorFn={getChannelColor}
+          filterType="channel"
+          activeValue={activeFilter?.type === 'channel' ? activeFilter.value : undefined}
+          onSegmentClick={handleSegmentClick}
         />
       </div>
 
+      {/* ── Leads table ── */}
+      <div style={s.card}>
+        <div style={{ ...s.cardHeader, marginBottom: 14 }}>
+          <div>
+            <h2 style={s.cardTitle}>Leads Detail</h2>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: C.muted }}>
+              {activeFilter
+                ? <>Filtered by <strong>{activeFilter.value}</strong> · {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
+                : <>All leads · {selectedMonth !== null ? MONTH_LABELS[selectedMonth] + ' ' : ''}{data.selectedYear} — {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
+              }
+            </p>
+          </div>
+          {activeFilter && (
+            <button onClick={() => { setActiveFilter(null); setPage(1); }} style={s.clearBtn}>
+              <FontAwesomeIcon icon={faXmark} /> Clear filter
+            </button>
+          )}
+        </div>
+        <div style={{ overflowX: 'auto', minHeight: 448 }}>
+          <table style={s.table}>
+            <thead>
+              <tr>
+                {['Name', 'Age', 'Address', 'Marketing Channel'].map(h => (
+                  <th key={h} style={s.th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pagedLeads.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ ...s.td, textAlign: 'center', color: '#cbd5e1', padding: '32px 0' }}>
+                    No leads match this filter.
+                  </td>
+                </tr>
+              ) : (() => {
+                const rows: React.ReactNode[] = [];
+                let lastYear: number | null = null;
+                pagedLeads.forEach((row: any, i: number) => {
+                  if (row.enrolmentYear !== lastYear) {
+                    lastYear = row.enrolmentYear;
+                    rows.push(
+                      <tr key={`grp-${row.enrolmentYear}`}>
+                        <td colSpan={4} style={{ padding: '12px 14px 10px', background: '#e0e7ff', borderTop: '2px solid #c7d2fe', borderBottom: '1px solid #c7d2fe', fontSize: 12, fontWeight: 800, color: '#3730a3', letterSpacing: '0.04em' }}>
+                          Enrolment Year {row.enrolmentYear}
+                        </td>
+                      </tr>
+                    );
+                  }
+                  rows.push(
+                    <tr key={row.id} className="mk-row" style={{ background: i % 2 === 0 ? C.card : '#f8fafc', cursor: 'pointer', transition: 'background 0.1s' }}
+                      onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead(lead); } catch { /* ignore */ } }}>
+                      <td style={s.td}><span style={{ fontWeight: 600, color: C.text }}>{row.childName}</span></td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>
+                        <span style={{ display: 'inline-block', minWidth: 24, padding: '2px 8px', fontSize: 11, fontWeight: 700, borderRadius: 10, background: AGE_PALETTE[String(row.age)] ? `${AGE_PALETTE[String(row.age)]}18` : '#f1f5f9', color: AGE_PALETTE[String(row.age)] ?? C.muted, textAlign: 'center' }}>{row.age}</span>
+                      </td>
+                      <td style={s.td}>{row.address ?? <span style={{ color: '#cbd5e1' }}>—</span>}</td>
+                      <td style={s.td}>{row.channel ? <span style={{ color: getChannelColor(row.channel, 0), fontWeight: 600 }}>{row.channel}</span> : <span style={{ color: '#cbd5e1' }}>—</span>}</td>
+                    </tr>
+                  );
+                });
+                return rows;
+              })()}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {pageCount > 1 && (
+          <div style={s.pagination}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <PagBtn label="‹" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} />
+              {Array.from({ length: pageCount }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === pageCount || Math.abs(p - safePage) <= 1)
+                .reduce<(number | '…')[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('…');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === '…'
+                    ? <span key={`e${i}`} style={{ width: 32, textAlign: 'center' as const, fontSize: 12, color: C.muted }}>…</span>
+                    : <PagBtn key={p} label={String(p)} onClick={() => setPage(p as number)} active={safePage === p} />
+                )
+              }
+              <PagBtn label="›" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage === pageCount} />
+            </div>
+            <div style={{ fontSize: 11, color: C.muted, textAlign: 'center', marginTop: 6 }}>
+              {Math.min((safePage - 1) * PAGE_SIZE + 1, filteredLeads.length)}–{Math.min(safePage * PAGE_SIZE, filteredLeads.length)} of {filteredLeads.length}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {editingLead && (
+        <EditLeadModal
+          lead={editingLead}
+          lostReasons={[]}
+          onClose={() => setEditingLead(null)}
+          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['analytics'] }); setEditingLead(null); }}
+        />
+      )}
     </div>
   );
 }
 
 // ── Donut card ────────────────────────────────────────────────────
-function DonutCard({ title, sub, data, topN, colorFn }: { title: string; sub: string; data: { name: string; value: number }[]; topN?: number; colorFn?: (name: string, index: number) => string }) {
+function PagBtn({ label, onClick, disabled, active }: { label: string; onClick: () => void; disabled?: boolean; active?: boolean }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{
+        width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        border: `1px solid ${active ? C.indigo : C.border}`, borderRadius: 6,
+        background: active ? C.indigo : C.card, color: active ? '#fff' : disabled ? '#cbd5e1' : C.text,
+        fontSize: 13, fontWeight: 600, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit',
+      }}>{label}</button>
+  );
+}
+
+function DonutCard({ title, sub, data, topN, colorFn, filterType, activeValue, onSegmentClick }: {
+  title: string; sub: string; data: { name: string; value: number }[]; topN?: number;
+  colorFn?: (name: string, index: number) => string;
+  filterType?: 'address' | 'channel'; activeValue?: string;
+  onSegmentClick?: (type: 'address' | 'channel', value: string) => void;
+}) {
   const getColor = colorFn ?? ((_name: string, i: number) => DONUT_PALETTE[i % DONUT_PALETTE.length]);
   const [showOthers, setShowOthers] = useState(false);
   const hasOthers = topN != null && data.length > topN;
@@ -352,7 +522,10 @@ function DonutCard({ title, sub, data, topN, colorFn }: { title: string; sub: st
   const othersValue = hasOthers ? pieData[othersIndex].value : 0;
 
   const handlePieClick = (_: any, index: number) => {
-    if (hasOthers && index === othersIndex) setShowOthers(prev => !prev);
+    if (hasOthers && index === othersIndex) { setShowOthers(prev => !prev); return; }
+    if (filterType && onSegmentClick && pieData[index]) {
+      onSegmentClick(filterType, pieData[index].name);
+    }
   };
 
   const legendData = showOthers ? othersItems : pieData;
@@ -377,9 +550,10 @@ function DonutCard({ title, sub, data, topN, colorFn }: { title: string; sub: st
                   labelLine label={(props: any) => <DonutLabel {...props} />}
                   isAnimationActive={false} style={{ outline: 'none' }}
                   onClick={handlePieClick}>
-                  {pieData.map((_, i) => (
-                    <Cell key={i} fill={getColor(pieData[i]?.name ?? '', i)}
-                      style={{ cursor: i === othersIndex ? 'pointer' : 'default' }} />
+                  {pieData.map((entry, i) => (
+                    <Cell key={i} fill={getColor(entry?.name ?? '', i)}
+                      opacity={activeValue && activeValue !== entry.name ? 0.3 : 1}
+                      style={{ cursor: 'pointer' }} />
                   ))}
                 </Pie>
                 {/* Pop-out overlay — only Others slice, slightly larger, rendered on top */}
@@ -420,21 +594,28 @@ function DonutCard({ title, sub, data, topN, colorFn }: { title: string; sub: st
             )}
 
             <div style={s.donutTable}>
-              {legendData.map((d, i) => (
-                <div key={d.name} style={{
-                  ...s.donutRow2,
-                  ...(d.name === 'Others' && hasOthers && !showOthers ? { cursor: 'pointer' } : {}),
-                }}
-                  onClick={d.name === 'Others' && hasOthers && !showOthers ? () => setShowOthers(true) : undefined}
-                >
-                  <span style={{ ...s.legendDot(getColor(d.name, i)), flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 12, color: C.text }}>{d.name}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{d.value}</span>
-                  <span style={{ fontSize: 12, color: C.muted, width: 36, textAlign: 'right' }}>
-                    {pct(d.value / total)}
-                  </span>
-                </div>
-              ))}
+              {legendData.map((d, i) => {
+                const isOthersToggle = d.name === 'Others' && hasOthers && !showOthers;
+                const isActive = activeValue === d.name;
+                const clickable = isOthersToggle || (filterType && onSegmentClick && d.name !== 'Others');
+                return (
+                  <div key={d.name} style={{
+                    ...s.donutRow2,
+                    ...(clickable ? { cursor: 'pointer' } : {}),
+                    ...(isActive ? { background: '#eff6ff', borderRadius: 6, margin: '-2px -6px', padding: '2px 6px' } : {}),
+                    ...(activeValue && !isActive ? { opacity: 0.4 } : {}),
+                  }}
+                    onClick={isOthersToggle ? () => setShowOthers(true) : clickable ? () => onSegmentClick!(filterType!, d.name) : undefined}
+                  >
+                    <span style={{ ...s.legendDot(getColor(d.name, i)), flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 12, color: C.text }}>{d.name}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{d.value}</span>
+                    <span style={{ fontSize: 12, color: C.muted, width: 36, textAlign: 'right' }}>
+                      {pct(d.value / total)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </>
         )}
@@ -465,4 +646,9 @@ const s: Record<string, any> = {
   donutRow2: { display: 'flex', alignItems: 'center', gap: 8 },
   centered: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: C.muted, fontSize: 15 },
   empty: { color: '#cbd5e1', fontSize: 14, textAlign: 'center' as const, padding: '60px 0', margin: 0 },
+  clearBtn: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 11, fontWeight: 600, border: `1px solid ${C.border}`, borderRadius: 6, background: C.card, color: C.muted, cursor: 'pointer', fontFamily: 'inherit' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
+  th: { textAlign: 'left', padding: '8px 14px', fontWeight: 600, fontSize: 11, color: C.muted, letterSpacing: '0.04em', textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' },
+  td: { padding: '9px 14px', borderBottom: `1px solid #f1f5f9`, fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  pagination: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTop: `1px solid #f1f5f9` },
 };

@@ -542,7 +542,7 @@ function SaveIndicator({ type }: { type: 'saving' | 'saved' }) {
 // ── Hover & focus styles ─────────────────────────────────────────────────────
 
 const rowHoverCss = `
-  .pg-row .pg-handle { opacity: 0; transition: opacity 0.12s; }
+  .pg-row .pg-handle { opacity: 0.35; transition: opacity 0.12s; }
   .pg-row:hover .pg-handle { opacity: 1; }
   .pg-row .pg-handle:active { cursor: grabbing; }
   .pg-row:hover { background: #f8fafc !important; }

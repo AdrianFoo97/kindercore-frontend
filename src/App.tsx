@@ -13,7 +13,6 @@ import RevenueAnalysisPage from './pages/analysis/RevenueAnalysisPage.js';
 import LandingPage from './pages/LandingPage.js';
 import EnquiryFormPage from './pages/EnquiryFormPage.js';
 import PackagesPage from './pages/PackagesPage.js';
-import PackageSettingsPage from './pages/PackageSettingsPage.js';
 import ProgrammesSettingsPage from './pages/ProgrammesSettingsPage.js';
 import AgeGroupsSettingsPage from './pages/AgeGroupsSettingsPage.js';
 import StudentsPage from './pages/StudentsPage.js';
@@ -94,10 +93,11 @@ export default function App() {
           <Route path="/students" element={<ErrorBoundary><StudentsPage /></ErrorBoundary>} />
           <Route path="/students/import" element={<ErrorBoundary><ImportStudentsPage /></ErrorBoundary>} />
           <Route path="/onboarding" element={<ErrorBoundary><OnboardingPage /></ErrorBoundary>} />
-          <Route path="/settings/packages/assignment" element={<ErrorBoundary><PackageSettingsPage /></ErrorBoundary>} />
+          {/* Package Assignment was merged into the unified /packages page (matrix-based) */}
+          <Route path="/settings/packages/assignment" element={<Navigate to="/packages" replace />} />
           <Route path="/settings/packages/programmes" element={<ErrorBoundary><ProgrammesSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/packages/age-groups" element={<ErrorBoundary><AgeGroupsSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/packages" element={<Navigate to="/settings/packages/assignment" replace />} />
+          <Route path="/settings/packages" element={<Navigate to="/packages" replace />} />
           <Route path="/settings/onboarding" element={<ErrorBoundary><OnboardingSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />

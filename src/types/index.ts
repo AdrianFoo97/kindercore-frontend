@@ -72,6 +72,8 @@ export interface Package {
   name: string;
   price: number | null;
   updatedAt: string;
+  /** Number of students currently assigned to this package — populated by /api/packages */
+  studentCount?: number;
 }
 
 export interface OnboardingTask {

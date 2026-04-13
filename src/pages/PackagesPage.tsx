@@ -1,52 +1,417 @@
-import { useState, useRef, useEffect } from 'react';
+import { forwardRef, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck, faXmark, faPen } from '@fortawesome/free-solid-svg-icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchPackages, fetchPackageYears, upsertPackages } from '../api/packages.js';
+import { faTrash, faPlus, faPen } from '@fortawesome/free-solid-svg-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  fetchPackages, fetchPackageYears, fetchPackagesConfig,
+  createPackage, deletePackage, patchPackage,
+} from '../api/packages.js';
 import { Package } from '../types/index.js';
+import { useToast } from '../components/common/Toast.js';
+import { useDeleteDialog } from '../components/common/DeleteDialog.js';
 
 const CURRENT_YEAR = new Date().getFullYear();
+const CURRENCY_RE = /^\d+(\.\d{0,2})?$/;
 
-type ErrorDraft = Record<string, string>;
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function cellKey(programme: string, age: number) { return `${programme}|${age}`; }
 
-const CURRENCY_RE = /^\d+(\.\d{0,2})?$/;
-
-function formatPrice(price: number | null): string {
-  if (price === null || price === 0) return '';
+function fmtPrice(price: number | null | undefined): string {
+  if (price === null || price === undefined) return '';
   return `RM ${price.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// ── Inline editable price cell ──────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Page wrapper — owns data, mutations, and the matrix viewport
+// ─────────────────────────────────────────────────────────────────────────────
 
-function PriceCell({ pkg, isAdmin, onSave, editingKey, onEditStart }: {
-  pkg: Package;
+export default function PackagesPage() {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const { confirm: confirmDelete } = useDeleteDialog();
+
+  const raw = localStorage.getItem('user');
+  const isAdmin = raw
+    ? (() => {
+        const role = (JSON.parse(raw) as { role: string }).role;
+        return role === 'ADMIN' || role === 'SUPERADMIN';
+      })()
+    : false;
+
+  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+
+  const { data: years = [] } = useQuery({
+    queryKey: ['package-years'],
+    queryFn: fetchPackageYears,
+  });
+  const { data: config } = useQuery({
+    queryKey: ['packages-config'],
+    queryFn: fetchPackagesConfig,
+  });
+  const { data: packages = [], isLoading } = useQuery({
+    queryKey: ['packages', selectedYear],
+    queryFn: () => fetchPackages(selectedYear),
+  });
+  // Keep the global packages cache warm for sibling/edit modals on other pages
+  useQuery({
+    queryKey: ['packages-all'],
+    queryFn: () => fetchPackages(),
+  });
+
+  const programmes: string[] = config?.programmes ?? [];
+  const ages: number[] = config?.ages ?? [];
+  const allYears = useMemo(() => {
+    const next = CURRENT_YEAR + 1;
+    return [...new Set([...years, CURRENT_YEAR, next])].sort((a, b) => b - a);
+  }, [years]);
+
+  const pkgMap = useMemo(() => {
+    const m = new Map<string, Package>();
+    for (const p of packages) m.set(cellKey(p.programme, p.age), p);
+    return m;
+  }, [packages]);
+
+  // ── Mutations ───────────────────────────────────────────────────────────────
+
+  const handleSavePrice = async (pkg: Package, newPrice: number) => {
+    if (pkg.price === newPrice) return; // no-op
+    try {
+      await patchPackage(pkg.id, { price: newPrice });
+      queryClient.invalidateQueries({ queryKey: ['packages', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['packages-all'] });
+      showToast(`${pkg.programme} · Age ${pkg.age} → ${fmtPrice(newPrice)}`);
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to update price', 'error');
+    }
+  };
+
+  const handleCreate = async (programme: string, age: number, price: number) => {
+    try {
+      const name = `${selectedYear} ${programme} (${age}Y)`;
+      await createPackage({ year: selectedYear, programme, age, name, price });
+      queryClient.invalidateQueries({ queryKey: ['packages', selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['packages-all'] });
+      queryClient.invalidateQueries({ queryKey: ['package-years'] });
+      showToast(`${programme} · Age ${age} created at ${fmtPrice(price)}`);
+    } catch (e: any) {
+      const msg = e?.message ?? 'Failed to create package';
+      try {
+        const parsed = JSON.parse(msg);
+        showToast(parsed?.message ?? msg, 'error');
+      } catch {
+        showToast(msg, 'error');
+      }
+    }
+  };
+
+  const handleDelete = async (pkg: Package) => {
+    // The trash button is disabled in the cell when studentCount > 0, so this
+    // path is only reachable for safe deletes. The dependencies array is still
+    // passed as a defensive race-condition guard.
+    const ok = await confirmDelete({
+      entityType: 'price',
+      entityName: `${pkg.programme} · Age ${pkg.age}`,
+      title: 'Delete this price?',
+      consequence: <><strong>{pkg.programme} · Age {pkg.age}</strong> for {selectedYear} will be unassigned. This action cannot be undone.</>,
+      dependencies: [{ label: 'student', count: pkg.studentCount ?? 0 }],
+      onConfirm: async () => {
+        try {
+          await deletePackage(pkg.id);
+          queryClient.invalidateQueries({ queryKey: ['packages', selectedYear] });
+          queryClient.invalidateQueries({ queryKey: ['packages-all'] });
+        } catch (e: any) {
+          const msg = e instanceof Error ? e.message : 'Failed to delete';
+          try {
+            const parsed = JSON.parse(msg);
+            showToast(parsed?.message ?? msg, 'error');
+          } catch {
+            showToast(msg, 'error');
+          }
+          throw e;
+        }
+      },
+    });
+    if (ok) showToast(`${pkg.programme} · Age ${pkg.age} unassigned`);
+  };
+
+  // Clear selection when year changes
+  useEffect(() => { setSelectedKey(null); setEditingKey(null); }, [selectedYear]);
+
+  const selectedPkg = selectedKey ? pkgMap.get(selectedKey) ?? null : null;
+
+  const handleToolbarEdit = () => {
+    if (selectedKey) setEditingKey(selectedKey);
+  };
+  const handleToolbarDelete = () => {
+    if (selectedPkg) {
+      void handleDelete(selectedPkg);
+      setSelectedKey(null);
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  // Click outside the table → deselect
+  const tableRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!selectedKey && !editingKey) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (tableRef.current?.contains(t)) return;
+      if (headerRef.current?.contains(t)) return;
+      setSelectedKey(null);
+      setEditingKey(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [selectedKey, editingKey]);
+
+  return (
+    <div style={s.page}>
+      <div style={s.inner}>
+        <Header
+          ref={headerRef}
+          selectedYear={selectedYear}
+          allYears={allYears}
+          onYearChange={setSelectedYear}
+          packageCount={packages.length}
+          isLoading={isLoading}
+          isAdmin={isAdmin}
+          selectedPkg={selectedPkg}
+          onEdit={handleToolbarEdit}
+          onDelete={handleToolbarDelete}
+        />
+
+        {isLoading ? (
+          <SkeletonMatrix programmes={programmes.length || 3} ages={ages.length || 5} />
+        ) : programmes.length === 0 || ages.length === 0 ? (
+          <div style={s.emptyState}>
+            <div style={s.emptyTitle}>No programmes or age groups configured</div>
+            <div style={s.emptySub}>
+              Add programmes under <strong>Settings → Programmes</strong> and age groups under{' '}
+              <strong>Settings → Age Groups</strong> first.
+            </div>
+          </div>
+        ) : (
+          <PricingTable
+            ref={tableRef}
+            programmes={programmes}
+            ages={ages}
+            year={selectedYear}
+            pkgMap={pkgMap}
+            isAdmin={isAdmin}
+            selectedKey={selectedKey}
+            setSelectedKey={setSelectedKey}
+            editingKey={editingKey}
+            setEditingKey={setEditingKey}
+            onSavePrice={handleSavePrice}
+            onCreate={handleCreate}
+          />
+        )}
+
+        {!isAdmin && packages.length > 0 && (
+          <p style={s.readonlyNote}>Viewing only. Contact an admin to manage prices.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PricingTable — wraps the matrix, owns hover-column + editing-cell state
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PricingTableProps {
+  programmes: string[];
+  ages: number[];
+  year: number;
+  pkgMap: Map<string, Package>;
   isAdmin: boolean;
-  onSave: (pkg: Package, price: number | null) => void;
+  selectedKey: string | null;
+  setSelectedKey: (key: string | null) => void;
   editingKey: string | null;
-  onEditStart: (key: string | null) => void;
-}) {
-  const key = cellKey(pkg.programme, pkg.age);
-  const editing = editingKey === key;
+  setEditingKey: (key: string | null) => void;
+  onSavePrice: (pkg: Package, price: number) => void | Promise<void>;
+  onCreate: (programme: string, age: number, price: number) => void | Promise<void>;
+}
+
+const PricingTable = forwardRef<HTMLDivElement, PricingTableProps>(function PricingTable({
+  programmes, ages, year, pkgMap, isAdmin,
+  selectedKey, setSelectedKey, editingKey, setEditingKey,
+  onSavePrice, onCreate,
+}, ref) {
+  const [hoverCol, setHoverCol] = useState<number | null>(null);
+
+  return (
+    <div ref={ref} style={s.tableWrap}>
+      <div style={s.tableScroll} onMouseLeave={() => setHoverCol(null)}>
+        <table style={s.table}>
+          <colgroup>
+            <col style={{ width: 220 }} />
+            {ages.map(age => <col key={age} style={{ width: 160 }} />)}
+          </colgroup>
+          <thead>
+            <tr style={s.theadRow}>
+              <th style={{ ...s.th, ...s.thProg, borderTopLeftRadius: 10 }}>Programme</th>
+              {ages.map((age, i) => (
+                <th
+                  key={age}
+                  style={{
+                    ...s.th,
+                    ...s.thAge,
+                    ...(hoverCol === age ? s.thAgeHover : {}),
+                    borderTopRightRadius: i === ages.length - 1 ? 10 : 0,
+                  }}
+                  onMouseEnter={() => setHoverCol(age)}
+                >
+                  <span style={s.thAgeLabel}>Age</span>
+                  <span style={s.thAgeNum}>{age}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {programmes.map((prog, rowIdx) => (
+              <PricingRow
+                key={prog}
+                programme={prog}
+                ages={ages}
+                year={year}
+                pkgMap={pkgMap}
+                isAdmin={isAdmin}
+                isLast={rowIdx === programmes.length - 1}
+                selectedKey={selectedKey}
+                setSelectedKey={setSelectedKey}
+                editingKey={editingKey}
+                setEditingKey={setEditingKey}
+                hoverCol={hoverCol}
+                setHoverCol={setHoverCol}
+                onSavePrice={onSavePrice}
+                onCreate={onCreate}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PricingRow — one programme row, knows about its empty state
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PricingRowProps {
+  programme: string;
+  ages: number[];
+  year: number;
+  pkgMap: Map<string, Package>;
+  isAdmin: boolean;
+  isLast: boolean;
+  selectedKey: string | null;
+  setSelectedKey: (key: string | null) => void;
+  editingKey: string | null;
+  setEditingKey: (key: string | null) => void;
+  hoverCol: number | null;
+  setHoverCol: (age: number | null) => void;
+  onSavePrice: (pkg: Package, price: number) => void | Promise<void>;
+  onCreate: (programme: string, age: number, price: number) => void | Promise<void>;
+}
+
+function PricingRow({
+  programme, ages, year, pkgMap, isAdmin, isLast,
+  selectedKey, setSelectedKey, editingKey, setEditingKey, hoverCol, setHoverCol,
+  onSavePrice, onCreate,
+}: PricingRowProps) {
+  // Detect "no prices set" — every cell in this row is unassigned
+  const isFullyEmpty = useMemo(
+    () => ages.every(age => !pkgMap.get(cellKey(programme, age))),
+    [programme, ages, pkgMap],
+  );
+
+  return (
+    <tr
+      className="pkg-tr"
+      style={{ borderBottom: isLast ? 'none' : '1px solid #f1f5f9' }}
+    >
+      <td style={s.tdProg}>
+        <div style={s.progNameWrap}>
+          <span style={s.progName}>{programme}</span>
+          {isFullyEmpty && (
+            <span style={s.progEmptyHint}>No prices set</span>
+          )}
+        </div>
+      </td>
+      {ages.map(age => {
+        const key = cellKey(programme, age);
+        const pkg = pkgMap.get(key);
+        return (
+          <td
+            key={age}
+            style={{
+              ...s.tdCell,
+              ...(hoverCol === age ? s.tdCellColHover : {}),
+            }}
+            onMouseEnter={() => setHoverCol(age)}
+          >
+            <PricingCell
+              programme={programme}
+              age={age}
+              pkg={pkg}
+              isAdmin={isAdmin}
+              isSelected={selectedKey === key}
+              isEditing={editingKey === key}
+              onSelect={() => { setSelectedKey(key); setEditingKey(null); }}
+              onStartEdit={() => setEditingKey(key)}
+              onStopEdit={() => { setEditingKey(null); setSelectedKey(null); }}
+              onSavePrice={onSavePrice}
+              onCreate={onCreate}
+            />
+          </td>
+        );
+      })}
+    </tr>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PricingCell — empty / filled / editing
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface PricingCellProps {
+  programme: string;
+  age: number;
+  pkg?: Package;
+  isAdmin: boolean;
+  isSelected: boolean;
+  isEditing: boolean;
+  onSelect: () => void;
+  onStartEdit: () => void;
+  onStopEdit: () => void;
+  onSavePrice: (pkg: Package, price: number) => void | Promise<void>;
+  onCreate: (programme: string, age: number, price: number) => void | Promise<void>;
+}
+
+const PricingCell = memo(function PricingCell({
+  programme, age, pkg, isAdmin, isSelected, isEditing,
+  onSelect, onStartEdit, onStopEdit, onSavePrice, onCreate,
+}: PricingCellProps) {
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
-  const [hovered, setHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const blurringRef = useRef(false);
 
   useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+    if (isEditing) {
+      setDraft(pkg?.price !== null && pkg?.price !== undefined ? String(pkg.price) : '');
+      setError('');
+      setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 0);
     }
-  }, [editing]);
-
-  const startEdit = () => {
-    if (!isAdmin) return;
-    setDraft(pkg.price !== null && pkg.price !== 0 ? String(pkg.price) : '');
-    setError('');
-    onEditStart(key);
-  };
+  }, [isEditing, pkg]);
 
   const handleChange = (val: string) => {
     if (val !== '' && !CURRENCY_RE.test(val)) return;
@@ -54,308 +419,604 @@ function PriceCell({ pkg, isAdmin, onSave, editingKey, onEditStart }: {
     setError('');
   };
 
-  const handleSave = () => {
-    const val = draft.trim();
-    if (val === '') {
-      setError('Required');
-      return;
-    }
-    const n = parseFloat(val);
-    if (!CURRENCY_RE.test(val) || isNaN(n) || n < 0) {
-      setError('Invalid');
-      return;
-    }
-    onSave(pkg, n);
-    onEditStart(null);
-    setHovered(false);
-  };
-
-  const handleCancel = () => {
-    onEditStart(null);
+  const exitEdit = () => {
+    onStopEdit();
     setError('');
-    setHovered(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSave();
-    if (e.key === 'Escape') handleCancel();
+  /** Validate + persist. Returns true on success, false on validation failure. */
+  const trySave = async (): Promise<boolean> => {
+    const v = draft.trim();
+    if (v === '') return false;
+    const n = parseFloat(v);
+    if (!CURRENCY_RE.test(v) || isNaN(n) || n < 0) {
+      setError('Invalid');
+      return false;
+    }
+    if (pkg) {
+      if (pkg.price !== n) await onSavePrice(pkg, n);
+    } else {
+      await onCreate(programme, age, n);
+    }
+    return true;
   };
 
-  const hasPrice = pkg.price !== null && pkg.price !== 0;
-  const display = formatPrice(pkg.price);
+  const onBlur = async () => {
+    blurringRef.current = true;
+    await trySave();
+    exitEdit();
+    blurringRef.current = false;
+  };
 
-  if (editing) {
+  const onKey = async (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const saved = await trySave();
+      if (saved) exitEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      exitEdit();
+    }
+  };
+
+  // ── Editing state ─────────────────────────────────────────────────────────
+  if (isEditing) {
     return (
-      <div style={s.editingCell}>
-        <div style={s.inputRow}>
+      <div style={s.editingWrap}>
+        <div style={{ ...s.inputRow, ...(error ? s.inputRowErr : {}) }}>
           <span style={s.rmPrefix}>RM</span>
           <input
             ref={inputRef}
             type="text"
-            style={{ ...s.inlineInput, ...(error ? s.inputErr : {}) }}
+            inputMode="decimal"
             value={draft}
             onChange={e => handleChange(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={onKey}
+            onBlur={onBlur}
             placeholder="0.00"
+            style={s.priceInput}
           />
-          <button onClick={handleSave} style={s.inlineSave} title="Save"><FontAwesomeIcon icon={faCheck} /></button>
-          <button onClick={handleCancel} style={s.inlineCancel} title="Cancel"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
-        {error && <span style={s.cellError}>{error}</span>}
+        {error && <span style={s.errorText}>{error}</span>}
       </div>
     );
   }
 
+  // ── Filled (default) state ────────────────────────────────────────────────
+  // Click selects the cell — Edit/Delete actions live in the toolbar above.
+  if (pkg) {
+    return (
+      <div
+        className={`pkg-cell pkg-cell-assigned${isSelected ? ' pkg-cell-selected' : ''}`}
+        style={{
+          ...s.assignedCell,
+          ...(isSelected ? s.assignedCellSelected : {}),
+        }}
+        onClick={() => isAdmin && onSelect()}
+      >
+        <span style={s.priceText}>{fmtPrice(pkg.price)}</span>
+      </div>
+    );
+  }
+
+  // ── Empty state ───────────────────────────────────────────────────────────
   return (
     <div
-      style={{ ...s.displayCell, ...(isAdmin && hovered && !editingKey ? s.displayCellHover : {}) }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={startEdit}
+      className="pkg-cell pkg-cell-empty"
+      style={s.emptyCell}
+      onClick={() => isAdmin && onStartEdit()}
     >
-      {hasPrice ? (
-        <>
-          <span style={s.priceText}>{display}</span>
-          <span style={{ ...s.editIcon, opacity: isAdmin && hovered && !editingKey ? 1 : 0 }}><FontAwesomeIcon icon={faPen} /></span>
-        </>
+      {isAdmin ? (
+        <span className="pkg-empty-text" style={s.emptyAddText}>
+          <FontAwesomeIcon icon={faPlus} style={{ fontSize: 9, marginRight: 5 }} />
+          Set Price
+        </span>
       ) : (
-        <span style={s.addPrice}>{isAdmin ? '+ Add Price' : '—'}</span>
+        <span style={s.naDash}>—</span>
       )}
     </div>
   );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Header
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface HeaderProps {
+  selectedYear: number;
+  allYears: number[];
+  onYearChange: (y: number) => void;
+  packageCount: number;
+  isLoading?: boolean;
+  isAdmin: boolean;
+  selectedPkg: Package | null;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
-// ── Main page ───────────────────────────────────────────────────────────────
-
-export default function PackagesPage() {
-  const queryClient = useQueryClient();
-  const raw = localStorage.getItem('user');
-  const isAdmin = raw ? (JSON.parse(raw) as { role: string }).role === 'ADMIN' || (JSON.parse(raw) as { role: string }).role === 'SUPERADMIN' : false;
-
-  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
-  const [toast, setToast] = useState<string | null>(null);
-  const pendingToastRef = useRef<string | null>(null);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-
-  const { data: years = [] } = useQuery({
-    queryKey: ['package-years'],
-    queryFn: fetchPackageYears,
-  });
-
-  const { data: packages = [], isLoading } = useQuery({
-    queryKey: ['packages', selectedYear],
-    queryFn: () => fetchPackages(selectedYear),
-  });
-
-  const allYears = [...new Set([...years, CURRENT_YEAR])].sort((a, b) => b - a);
-
-  const programmes = [...new Set(packages.map((p) => p.programme))].sort();
-  const ages = [...new Set(packages.map((p) => p.age))].sort((a, b) => a - b);
-
-  const pkgMap = new Map<string, Package>();
-  for (const pkg of packages) pkgMap.set(cellKey(pkg.programme, pkg.age), pkg);
-
-  const mutation = useMutation({
-    mutationFn: upsertPackages,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['packages', selectedYear] });
-      setToast(pendingToastRef.current);
-      setTimeout(() => setToast(null), 2500);
-    },
-  });
-
-  const handleCellSave = (pkg: Package, price: number | null) => {
-    const priceStr = price !== null ? `RM ${price.toFixed(2)}` : 'empty';
-    pendingToastRef.current = `${pkg.programme} Age ${pkg.age} → ${priceStr}`;
-    mutation.mutate([{ year: pkg.year, programme: pkg.programme, age: pkg.age, price }]);
-  };
+const Header = forwardRef<HTMLElement, HeaderProps>(function Header({
+  selectedYear, allYears, onYearChange, packageCount, isLoading,
+  isAdmin, selectedPkg, onEdit, onDelete,
+}, ref) {
+  const hasSelection = selectedPkg !== null;
+  const blocked = hasSelection && (selectedPkg.studentCount ?? 0) > 0;
 
   return (
-    <div style={styles.page}>
-      <div style={styles.inner}>
-
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <h1 style={styles.heading}>Packages &amp; Pricing</h1>
-            <select
-              value={selectedYear}
-              onChange={e => { setSelectedYear(Number(e.target.value)); setToast(null); }}
-              style={styles.yearSelect}
+    <header ref={ref} style={s.header}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <h1 style={s.heading}>Packages &amp; Pricing</h1>
+        {!isLoading && <span style={s.countBadge}>{packageCount}</span>}
+      </div>
+      <div style={s.headerActions}>
+        {isAdmin && (
+          <>
+            <button
+              type="button"
+              disabled={!hasSelection}
+              onClick={onEdit}
+              style={{
+                ...s.toolbarBtn,
+                ...(hasSelection ? s.toolbarBtnActive : {}),
+              }}
+              title={hasSelection ? `Edit ${selectedPkg.programme} · Age ${selectedPkg.age}` : 'Select a cell first'}
             >
-              {allYears.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {toast && (
-          <div style={styles.toast}>
-            <span style={styles.toastIcon}><FontAwesomeIcon icon={faCheck} /></span>
-            <div>
-              <div style={styles.toastTitle}>Price Updated</div>
-              <div style={styles.toastDetail}>{toast}</div>
-            </div>
-          </div>
+              <FontAwesomeIcon icon={faPen} style={{ fontSize: 11, marginRight: 6 }} />
+              Edit
+            </button>
+            <button
+              type="button"
+              disabled={!hasSelection || blocked}
+              onClick={onDelete}
+              style={{
+                ...s.toolbarBtn,
+                ...(hasSelection && !blocked ? s.toolbarBtnDanger : {}),
+                ...(blocked ? s.toolbarBtnBlocked : {}),
+              }}
+              title={
+                !hasSelection ? 'Select a cell first'
+                : blocked ? `Cannot delete — in use by ${selectedPkg.studentCount} student${selectedPkg.studentCount !== 1 ? 's' : ''}`
+                : `Delete ${selectedPkg.programme} · Age ${selectedPkg.age}`
+              }
+            >
+              <FontAwesomeIcon icon={faTrash} style={{ fontSize: 11, marginRight: 6 }} />
+              Delete
+            </button>
+          </>
         )}
+        <select
+          value={selectedYear}
+          onChange={e => onYearChange(Number(e.target.value))}
+          style={s.yearSelect}
+        >
+          {allYears.map(y => (
+            <option key={y} value={y}>
+              {y === CURRENT_YEAR ? `${y} (current)` : y}
+            </option>
+          ))}
+        </select>
+      </div>
+    </header>
+  );
+});
 
-        {isLoading ? (
-          <p style={styles.stateMsg}>Loading…</p>
-        ) : packages.length === 0 ? (
-          <p style={styles.stateMsg}>
-            No packages assigned yet.{isAdmin && ' Go to Settings → Packages to create assignments.'}
-          </p>
-        ) : (
-          <div style={styles.card}>
-            <div style={styles.tableWrapper}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={{ ...styles.th, ...styles.progCol }}>Programme</th>
-                    {ages.map((age) => (
-                      <th key={age} style={styles.th}>Age {age}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {programmes.map((prog, progIdx) => (
-                    <tr key={prog} style={{ ...styles.tr, ...(progIdx % 2 === 1 ? styles.trAlt : {}) }}>
-                      <td style={{ ...styles.td, ...styles.progCell }}>{prog}</td>
-                      {ages.map((age) => {
-                        const pkg = pkgMap.get(cellKey(prog, age));
-                        return (
-                          <td key={age} style={styles.td}>
-                            {!pkg ? (
-                              <span style={styles.na}>—</span>
-                            ) : (
-                              <PriceCell pkg={pkg} isAdmin={isAdmin} onSave={handleCellSave} editingKey={editingKey} onEditStart={setEditingKey} />
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+// ─────────────────────────────────────────────────────────────────────────────
+// Skeleton loader
+// ─────────────────────────────────────────────────────────────────────────────
 
-        {!isAdmin && packages.length > 0 && (
-          <p style={styles.readonlyNote}>Viewing only. Contact an admin to update pricing.</p>
-        )}
+function SkeletonMatrix({ programmes, ages }: { programmes: number; ages: number }) {
+  return (
+    <div style={s.tableWrap}>
+      <div style={s.tableScroll}>
+        <table style={s.table}>
+          <colgroup>
+            <col style={{ width: 220 }} />
+            {Array.from({ length: ages }).map((_, i) => <col key={i} style={{ width: 160 }} />)}
+          </colgroup>
+          <thead>
+            <tr style={s.theadRow}>
+              <th style={{ ...s.th, ...s.thProg, borderTopLeftRadius: 10 }}>Programme</th>
+              {Array.from({ length: ages }).map((_, i) => (
+                <th
+                  key={i}
+                  style={{
+                    ...s.th,
+                    ...s.thAge,
+                    borderTopRightRadius: i === ages - 1 ? 10 : 0,
+                  }}
+                >
+                  <span style={s.thAgeLabel}>Age</span>
+                  <span style={s.thAgeNum}>—</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: programmes }).map((_, r) => (
+              <tr key={r} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={s.tdProg}><div style={{ ...skel, width: 90, height: 14 }} /></td>
+                {Array.from({ length: ages }).map((_, c) => (
+                  <td key={c} style={s.tdCell}>
+                    <div style={{ ...skel, width: 100, height: 20, borderRadius: 6, marginLeft: 'auto' }} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-// ── Inline cell styles ──────────────────────────────────────────────────────
-
-const s: Record<string, React.CSSProperties> = {
-  displayCell: {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    width: 150, height: 32, borderRadius: 6, cursor: 'pointer',
-    transition: 'background .15s', padding: '0 8px', position: 'relative',
-    boxSizing: 'border-box',
-  },
-  displayCellHover: {
-    background: '#f1f5f9',
-  },
-  priceText: {
-    fontSize: 14, fontWeight: 600, color: '#1e293b', fontVariantNumeric: 'tabular-nums',
-  },
-  addPrice: {
-    fontSize: 12, fontWeight: 500, color: '#94a3b8',
-  },
-  editIcon: {
-    fontSize: 11, color: '#94a3b8', transition: 'opacity .15s', flexShrink: 0, width: 12,
-  },
-  editingCell: {
-    display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-    width: 150, boxSizing: 'border-box',
-  },
-  inputRow: {
-    display: 'inline-flex', alignItems: 'center', gap: 0, borderRadius: 6,
-    border: '1.5px solid #3b82f6', background: '#fff', overflow: 'hidden', height: 30,
-    width: '100%',
-  },
-  rmPrefix: {
-    fontSize: 12, fontWeight: 600, color: '#64748b', padding: '0 6px 0 8px',
-    background: '#f8fafc', height: '100%', display: 'flex', alignItems: 'center',
-    borderRight: '1px solid #e2e8f0',
-  },
-  inlineInput: {
-    flex: 1, minWidth: 0, height: '100%', border: 'none', outline: 'none',
-    fontSize: 13, fontWeight: 600, color: '#1e293b', padding: '0 4px',
-    fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums',
-  },
-  inputErr: { color: '#dc2626' },
-  inlineSave: {
-    width: 26, height: '100%', border: 'none', borderLeft: '1px solid #e2e8f0',
-    background: '#f0fdf4', color: '#16a34a', cursor: 'pointer', fontSize: 13, fontWeight: 700,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  inlineCancel: {
-    width: 26, height: '100%', border: 'none', borderLeft: '1px solid #e2e8f0',
-    background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  cellError: {
-    fontSize: 10, color: '#dc2626',
-  },
+const skel: React.CSSProperties = {
+  background: 'linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%)',
+  backgroundSize: '200% 100%',
+  borderRadius: 4,
+  animation: 'pkg-skel 1.4s ease-in-out infinite',
 };
 
-// ── Page styles ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Global CSS — micro-interactions, row hover, animations
+// ─────────────────────────────────────────────────────────────────────────────
 
-const styles: Record<string, React.CSSProperties> = {
-  page: { padding: '32px 24px', fontFamily: 'system-ui, sans-serif', display: 'flex', justifyContent: 'center', background: '#f8fafc', minHeight: '100vh' },
-  inner: { width: '100%', maxWidth: 1200 },
-  header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 },
-  heading: { margin: 0, fontSize: 22, fontWeight: 700, color: '#1a202c' },
+const globalCss = `
+  @keyframes pkg-skel {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  @keyframes pkg-fade-in {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* Row + cell hover layering */
+  .pkg-tr:hover td { background: #fafbfc; }
+  .pkg-cell-assigned { transition: background 0.12s, box-shadow 0.12s; }
+  .pkg-cell-assigned:hover {
+    background: #f1f5f9;
+    box-shadow: 0 0 0 1px #e2e8f0 inset;
+  }
+  /* Direct cell hover wins over row hover */
+  .pkg-tr:hover .pkg-cell-assigned:hover {
+    background: #e2e8f0;
+    box-shadow: 0 0 0 1px #cbd5e1 inset;
+  }
+  /* Empty cell hover */
+  .pkg-cell-empty { transition: background 0.12s, border-color 0.12s; }
+  .pkg-cell-empty:hover { background: #eff6ff !important; border-color: #93c5fd !important; }
+  .pkg-cell-empty:hover .pkg-empty-text { color: #2563eb !important; }
+  /* Active press effect */
+  .pkg-cell-assigned:active, .pkg-cell-empty:active { transform: scale(0.99); }
+  /* Selected cell highlight */
+  .pkg-cell-selected {
+    background: #eff6ff !important;
+    box-shadow: 0 0 0 2px #2563eb inset !important;
+  }
+  .pkg-tr:hover .pkg-cell-selected {
+    background: #eff6ff !important;
+  }
+`;
+
+// inject styles once
+if (typeof document !== 'undefined' && !document.getElementById('pkg-page-styles')) {
+  const tag = document.createElement('style');
+  tag.id = 'pkg-page-styles';
+  tag.textContent = globalCss;
+  document.head.appendChild(tag);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────────────────────
+
+const s: Record<string, React.CSSProperties> = {
+  page: {
+    padding: '32px 40px',
+    background: '#f8fafc',
+    minHeight: '100vh',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    color: '#0f172a',
+  },
+  inner: { maxWidth: 1180, margin: '0 auto' },
+
+  // ── Header ──────────────────────────────────────────────────────────────
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+    marginBottom: 20,
+  },
+  headerActions: { display: 'flex', alignItems: 'center', gap: 8 },
+  heading: { margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: '-0.01em' },
+  countBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 24,
+    height: 22,
+    padding: '0 8px',
+    background: '#f1f5f9',
+    color: '#64748b',
+    borderRadius: 11,
+    fontSize: 12,
+    fontWeight: 600,
+    fontVariantNumeric: 'tabular-nums' as any,
+  },
   yearSelect: {
-    padding: '5px 12px', borderRadius: 8, border: '1px solid #e2e8f0',
-    fontSize: 14, fontWeight: 700, color: '#2b6cb0', background: '#ebf8ff',
-    cursor: 'pointer', outline: 'none',
-  },
-  toast: {
-    position: 'fixed' as const, top: 24, left: '50%', transform: 'translateX(-50%)',
-    zIndex: 9999, padding: '12px 20px', borderRadius: 10,
-    background: '#fff', color: '#1e293b', fontSize: 13,
-    boxShadow: '0 8px 30px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
+    padding: '7px 14px',
     border: '1px solid #e2e8f0',
-    display: 'flex', alignItems: 'center', gap: 12,
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#0f172a',
+    background: '#fff',
+    cursor: 'pointer',
+    outline: 'none',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
   },
-  toastIcon: {
-    width: 28, height: 28, borderRadius: '50%', background: '#dcfce7', color: '#16a34a',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 14, fontWeight: 700, flexShrink: 0,
+
+  // ── Empty state (no programmes/ages) ────────────────────────────────────
+  emptyState: {
+    border: '1px dashed #cbd5e1',
+    borderRadius: 10,
+    padding: '48px 24px',
+    textAlign: 'center' as const,
+    background: '#fafbfc',
   },
-  toastTitle: {
-    fontSize: 13, fontWeight: 700, color: '#0f172a', lineHeight: 1.3,
+  emptyTitle: { fontSize: 15, fontWeight: 600, color: '#334155', marginBottom: 6 },
+  emptySub: { fontSize: 13, color: '#94a3b8', maxWidth: 460, margin: '0 auto', lineHeight: 1.55 },
+
+  // ── Table ───────────────────────────────────────────────────────────────
+  tableWrap: {
+    border: '1px solid #e5e7eb',
+    borderRadius: 10,
+    overflow: 'hidden',
+    background: '#fff',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
   },
-  toastDetail: {
-    fontSize: 12, color: '#64748b', fontWeight: 500, lineHeight: 1.3, marginTop: 1,
+  tableScroll: { overflowX: 'auto' as const },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    background: '#fff',
+    tableLayout: 'fixed' as const,
   },
-  stateMsg: { color: '#718096', textAlign: 'center', marginTop: 48, fontSize: 15 },
-  card: {
-    background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden',
+  theadRow: {
+    background: '#fafbfc',
+    borderBottom: '1px solid #e2e8f0',
   },
-  tableWrapper: {},
-  table: { width: '100%', borderCollapse: 'collapse' },
   th: {
-    textAlign: 'center', padding: '11px 16px',
-    background: '#f7fafc', fontWeight: 700, fontSize: 12,
-    color: '#718096', textTransform: 'uppercase' as const, letterSpacing: '0.05em',
-    borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' as const,
+    padding: '14px 16px',
+    fontWeight: 600,
+    fontSize: 11,
+    color: '#94a3b8',
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase' as const,
+    whiteSpace: 'nowrap' as const,
+    textAlign: 'left' as const,
+    transition: 'background 0.12s',
   },
-  progCol: { textAlign: 'left', width: 180 },
-  tr: { borderBottom: '1px solid #f0f4f8', transition: 'background 0.15s' },
-  trAlt: { background: '#fafbfc' },
-  td: { padding: '0 16px', height: 58, verticalAlign: 'middle', textAlign: 'center' },
-  progCell: {
-    textAlign: 'left', fontWeight: 600, fontSize: 14,
-    color: '#2d3748', whiteSpace: 'nowrap' as const,
+  thProg: {
+    background: '#fafbfc',
+    borderRight: '1px solid #f1f5f9',
+    position: 'sticky' as const,
+    left: 0,
+    zIndex: 2,
   },
-  na: { color: '#e2e8f0', fontSize: 18, fontWeight: 300 },
-  readonlyNote: { marginTop: 16, fontSize: 12, color: '#a0aec0', textAlign: 'center' as const },
+  thAge: {
+    textAlign: 'center' as const,
+    padding: '12px 16px',
+    borderRight: '1px solid #f1f5f9',
+  },
+  thAgeHover: {
+    background: '#f1f5f9',
+  },
+  thAgeLabel: {
+    display: 'block',
+    fontSize: 10,
+    fontWeight: 500,
+    color: '#94a3b8',
+    letterSpacing: '0.08em',
+    marginBottom: 2,
+  },
+  thAgeNum: {
+    display: 'block',
+    fontSize: 14,
+    fontWeight: 700,
+    color: '#1e293b',
+    letterSpacing: 0,
+    textTransform: 'none' as const,
+  },
+
+  // Programme name column
+  tdProg: {
+    padding: '0 16px',
+    background: '#fafbfc',
+    borderRight: '1px solid #f1f5f9',
+    height: 64,
+    verticalAlign: 'middle' as const,
+    position: 'sticky' as const,
+    left: 0,
+    zIndex: 1,
+  },
+  progNameWrap: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 2,
+  },
+  progName: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: '#0f172a',
+    whiteSpace: 'nowrap' as const,
+  },
+  progEmptyHint: {
+    fontSize: 11,
+    fontWeight: 500,
+    color: '#cbd5e1',
+    fontStyle: 'italic' as const,
+  },
+
+  // Cell wrapper td
+  tdCell: {
+    padding: '6px 8px',
+    verticalAlign: 'middle' as const,
+    textAlign: 'right' as const,
+    borderRight: '1px solid #f1f5f9',
+    height: 64,
+    transition: 'background 0.12s',
+  },
+  tdCellColHover: {
+    background: '#f8fafc',
+  },
+
+  // ── Assigned cell ───────────────────────────────────────────────────────
+  assignedCell: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    width: '100%',
+    height: 44,
+    borderRadius: 7,
+    cursor: 'pointer',
+    padding: '0 12px',
+    boxSizing: 'border-box' as const,
+  },
+  priceText: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#0f172a',
+    fontVariantNumeric: 'tabular-nums' as any,
+    whiteSpace: 'nowrap' as const,
+  },
+  // Selected cell visual
+  assignedCellSelected: {
+    background: '#eff6ff',
+    boxShadow: '0 0 0 2px #2563eb inset',
+  },
+
+  // Toolbar buttons
+  toolbarBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '7px 14px',
+    border: '1px solid #e2e8f0',
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    color: '#94a3b8',
+    background: '#fff',
+    cursor: 'not-allowed',
+    outline: 'none',
+    transition: 'all 0.15s',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+    opacity: 0.6,
+  },
+  toolbarBtnActive: {
+    color: '#0f172a',
+    borderColor: '#cbd5e1',
+    cursor: 'pointer',
+    opacity: 1,
+  },
+  toolbarBtnDanger: {
+    color: '#dc2626',
+    borderColor: '#fecaca',
+    background: '#fef2f2',
+    cursor: 'pointer',
+    opacity: 1,
+  },
+  toolbarBtnBlocked: {
+    color: '#cbd5e1',
+    borderColor: '#e2e8f0',
+    background: '#f8fafc',
+    cursor: 'not-allowed',
+    opacity: 0.6,
+  },
+
+  // ── Empty cell ──────────────────────────────────────────────────────────
+  emptyCell: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: 44,
+    borderRadius: 7,
+    border: '1px dashed #e2e8f0',
+    background: 'transparent',
+    cursor: 'pointer',
+    boxSizing: 'border-box' as const,
+  },
+  emptyAddText: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: '#cbd5e1',
+    transition: 'color 0.12s',
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
+  naDash: {
+    color: '#cbd5e1',
+    fontSize: 16,
+  },
+
+  // ── Editing state ───────────────────────────────────────────────────────
+  editingWrap: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'stretch',
+    gap: 2,
+    width: '100%',
+  },
+  inputRow: {
+    display: 'flex',
+    alignItems: 'stretch',
+    height: 38,
+    border: '1.5px solid #2563eb',
+    borderRadius: 7,
+    background: '#fff',
+    overflow: 'hidden',
+    boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.12)',
+  },
+  inputRowErr: {
+    borderColor: '#dc2626',
+    boxShadow: '0 0 0 3px rgba(220, 38, 38, 0.12)',
+  },
+  rmPrefix: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 9px',
+    background: '#f8fafc',
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#64748b',
+    borderRight: '1px solid #e2e8f0',
+  },
+  priceInput: {
+    flex: 1,
+    minWidth: 0,
+    border: 'none',
+    outline: 'none',
+    padding: '0 10px',
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#0f172a',
+    fontFamily: 'inherit',
+    fontVariantNumeric: 'tabular-nums' as any,
+    textAlign: 'right' as const,
+  },
+  errorText: {
+    fontSize: 10,
+    color: '#dc2626',
+    marginTop: 2,
+    paddingRight: 4,
+    textAlign: 'right' as const,
+  },
+
+  readonlyNote: {
+    marginTop: 16,
+    fontSize: 12,
+    color: '#94a3b8',
+    textAlign: 'center' as const,
+  },
 };

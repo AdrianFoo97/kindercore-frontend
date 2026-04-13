@@ -113,7 +113,7 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
 
   return (
     <div style={mo.backdrop} onClick={onClose}>
-      <div style={{ ...mo.card, maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+      <div style={mo.card} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={mo.header}>
           <h2 style={mo.title}>{lead.childName}</h2>
@@ -261,7 +261,7 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
 
 const mo: Record<string, React.CSSProperties> = {
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 },
-  card: { background: '#fff', borderRadius: 10, padding: 28, maxWidth: 560, boxShadow: '0 8px 32px rgba(0,0,0,0.2)', boxSizing: 'border-box' },
+  card: { background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 600, maxHeight: '85vh', overflowY: 'auto' as const, boxShadow: '0 8px 32px rgba(0,0,0,0.2)', boxSizing: 'border-box' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { margin: 0, fontSize: 18 },
   closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#718096', lineHeight: 1 },
