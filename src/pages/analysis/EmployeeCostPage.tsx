@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceArea } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, ReferenceArea } from 'recharts';
 import { faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachersWithSalary, fetchPayrollByMonth, fetchTeacherWeightsByMonth, fetchEmployerContributions } from '../../api/salary.js';
 import { fetchSettings } from '../../api/settings.js';
@@ -290,6 +290,7 @@ export default function EmployeeCostPage() {
               { color: C.primary, label: 'Actual' },
               { color: '#312e81', label: 'Current' },
               { color: '#c7d2fe', label: 'Forecast' },
+              { color: '#0ea5e9', label: 'Staff count' },
             ]}
           />
         </div>
@@ -297,10 +298,11 @@ export default function EmployeeCostPage() {
           <p style={s.empty}>No staff cost data</p>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={entries} margin={{ top: 20, right: 16, left: 0, bottom: 0 }} style={{ outline: 'none' }}>
+            <ComposedChart data={entries} margin={{ top: 20, right: 44, left: 0, bottom: 0 }} style={{ outline: 'none' }}>
               <CartesianGrid vertical={false} stroke={C.border} />
               <XAxis dataKey="label" tick={{ fontSize: 12, fill: C.muted }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} width={50} domain={payrollYDomain} allowDecimals={false} tickFormatter={v => `${(v / 1000).toFixed(1)}k`} />
+              <YAxis yAxisId="cost" tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} width={50} domain={payrollYDomain} allowDecimals={false} tickFormatter={v => `${(v / 1000).toFixed(1)}k`} />
+              <YAxis yAxisId="staff" orientation="right" tick={{ fontSize: 11, fill: '#0ea5e9' }} axisLine={false} tickLine={false} width={28} domain={[0, 'dataMax + 2']} allowDecimals={false} />
               <Tooltip
                 cursor={{ fill: 'transparent' }}
                 content={({ active, payload, label }: any) => {
@@ -328,6 +330,7 @@ export default function EmployeeCostPage() {
                 />
               )}
               <Bar
+                yAxisId="cost"
                 dataKey="total"
                 radius={[6, 6, 0, 0]}
                 maxBarSize={groupBy === 'quarter' ? 80 : 42}
@@ -339,14 +342,25 @@ export default function EmployeeCostPage() {
                 }}
                 label={({ x, y, width, value }: any) => {
                   if (!value) return <text key={`l-${x}`} />;
-                  return <text key={`l-${x}`} x={x + width / 2} y={y - 6} textAnchor="middle" fill={C.muted} fontSize={10} fontWeight={600}>{`${(value / 1000).toFixed(1)}k`}</text>;
+                  return <text key={`l-${x}`} x={x + width / 2} y={y - 6} textAnchor="middle" fill={C.muted} fontSize={10} fontWeight={600}>{value.toLocaleString('en-MY')}</text>;
                 }}>
                 {entries.map((e, i) => {
                   const fill = e.containsCurrent ? '#312e81' : e.isForecast ? '#c7d2fe' : C.primary;
                   return <Cell key={i} fill={fill} />;
                 })}
               </Bar>
-            </BarChart>
+              <Line
+                yAxisId="staff"
+                type="monotone"
+                dataKey="teacherCount"
+                name="Staff"
+                stroke="#0ea5e9"
+                strokeWidth={2}
+                dot={{ r: 3, fill: '#fff', stroke: '#0ea5e9', strokeWidth: 2 }}
+                activeDot={{ r: 5 }}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>

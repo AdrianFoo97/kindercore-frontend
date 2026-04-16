@@ -1,30 +1,68 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ComposedChart, Bar, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend, Cell, ReferenceArea } from 'recharts';
+import { ComposedChart, Bar, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Cell, ReferenceArea, ReferenceLine } from 'recharts';
 import { faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { fetchFinanceSummary, FinanceMonth } from '../../api/finance.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
 
+// ── Design tokens ────────────────────────────────────────────────────────
+// Semantic palette, kept small and disciplined.
+//   • positive / negative  — the only two "loud" colors, reserved for profit.
+//   • revenue              — a softer positive; an input, not the headline.
+//   • staff / operating    — neutral slate; supporting context, not alarms.
 const C = {
-  bg: '#f8fafc', card: '#fff', text: '#1e293b', muted: '#64748b', border: '#e2e8f0',
-  primary: '#5a67d8', green: '#059669', red: '#dc2626', blue: '#3b82f6', amber: '#d97706',
+  bg: '#f8fafc',
+  card: '#ffffff',
+  cardBorder: '#e5e7eb',
+  gridLine: '#f3f4f6',
+  divider: '#f1f5f9',
+
+  text: '#0f172a',
+  textSub: '#475569',
+  muted: '#64748b',
+  mutedSoft: '#94a3b8',
+
+  positive: '#059669',      // profit / revenue value
+  positiveSoft: '#10b981',  // revenue bar
+  positiveMuted: '#6ee7b7', // forecast profit / revenue (lighter semantic tone)
+  positiveBg: '#ecfdf5',
+  positiveBorder: '#a7f3d0',
+
+  negative: '#dc2626',
+  negativeMuted: '#fca5a5', // forecast loss (lighter semantic tone)
+  negativeBg: '#fef2f2',
+  negativeBorder: '#fecaca',
+
+  nowAccent: '#6366f1',     // left-border indicator on the current row
+  nowBg: '#eef2ff',         // slightly tinted background for the current row
+
+  expenseDark: '#475569',   // staff cost  (larger expense → darker slate)
+  expenseLight: '#94a3b8',  // operating   (smaller expense → lighter slate)
+
+  highlight: '#eef2ff',     // current / selected period band
 };
+
+// Spacing scale (4/8). Use these; don't invent ad-hoc values.
+const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
+const RADIUS = 14;
+const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)';
+const SHADOW_HERO = '0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.06)';
 
 function fmtRM(v: number) {
   const sign = v < 0 ? '−' : '';
   return `${sign}RM ${Math.abs(v).toLocaleString('en-MY', { minimumFractionDigits: 0 })}`;
 }
-function fmtPct(v: number) { return `${(v * 100).toFixed(1)}%`; }
+function fmtPct(v: number) {
+  const sign = v < 0 ? '−' : '';
+  return `${sign}${Math.abs(v * 100).toFixed(1)}%`;
+}
 
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 type GroupBy = 'month' | 'quarter';
 
-// A display entry is either a month or a quarter bucket — same shape so the
-// chart and table don't care which grouping they're rendering.
 interface PeriodEntry {
-  key: string;              // 'jan'...'dec' or 'q1'...'q4'
-  label: string;            // 'Jan' or 'Q1'
+  key: string;
+  label: string;
   revenue: number;
   staffCost: number;
   operatingCost: number;
@@ -32,8 +70,8 @@ interface PeriodEntry {
   margin: number;
   studentCount: number;
   teacherCount: number;
-  isForecast: boolean;      // true only if ALL underlying months are forecast
-  containsCurrent: boolean; // true if the current month falls inside this entry
+  isForecast: boolean;
+  containsCurrent: boolean;
 }
 
 function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: GroupBy): PeriodEntry[] {
@@ -52,7 +90,6 @@ function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: 
       containsCurrent: i === currentMonthIdx,
     }));
   }
-  // Quarterly aggregation
   return [0, 1, 2, 3].map(qi => {
     const indices = [qi * 3, qi * 3 + 1, qi * 3 + 2];
     const slice = indices.map(i => months[i]);
@@ -97,18 +134,50 @@ export default function FinanceAnalysisPage() {
     [data, groupBy],
   );
 
-  const profitYDomain = useMemo<[number, number]>(() => {
+  // Single Y-axis covering both stacked expenses and the profit line (which
+  // can go negative). Padded at both ends; rounded to clean 1k steps.
+  const yDomain = useMemo<[number, number]>(() => {
     if (entries.length === 0) return [0, 0];
-    const profits = entries.map(e => e.profit);
-    const min = Math.min(...profits, 0);
-    const max = Math.max(...profits, 0);
-    const range = max - min;
-    const pad = range > 0 ? range * 0.2 : 1000;
-    return [Math.floor((min - pad) / 100) * 100, Math.ceil((max + pad) / 100) * 100];
+    const highs = entries.map(e => Math.max(e.revenue, e.staffCost + e.operatingCost));
+    const lows = entries.map(e => Math.min(e.profit, 0));
+    const hi = Math.max(...highs, 0);
+    const lo = Math.min(...lows, 0);
+    const range = hi - lo;
+    const pad = range > 0 ? range * 0.12 : 1000;
+    return [Math.floor((lo - pad) / 1000) * 1000, Math.ceil((hi + pad) / 1000) * 1000];
   }, [entries]);
 
-  // When year or grouping changes, jump to the current month/quarter if the
-  // selected year is the current year. Otherwise fall back to "all".
+  const zeroOffset = useMemo(() => {
+    const [lo, hi] = yDomain;
+    if (hi <= 0) return 0;
+    if (lo >= 0) return 1;
+    return hi / (hi - lo);
+  }, [yDomain]);
+
+  // Chart geometry — used to drive a userSpaceOnUse gradient whose zero-line
+  // stop lands at the *chart's* zero axis instead of at a fraction of each
+  // individual Line's bounding box. Without this, a line whose values are
+  // entirely below zero still renders with a green top, because the default
+  // `objectBoundingBox` gradient normalizes to the line's own bbox.
+  const CHART_HEIGHT = 320;
+  const CHART_MARGIN_TOP = SP.md;
+  const CHART_MARGIN_BOTTOM = SP.sm;
+  const PLOT_HEIGHT = CHART_HEIGHT - CHART_MARGIN_TOP - CHART_MARGIN_BOTTOM;
+
+  // Split profit into two series so the forecast segment can render dashed.
+  // The last actual point is duplicated into `forecastProfit` so the two
+  // lines visually connect at the boundary without a gap.
+  const chartData = useMemo(() => {
+    return entries.map((e, i) => {
+      const isLastActual = !e.isForecast && i + 1 < entries.length && entries[i + 1].isForecast;
+      return {
+        ...e,
+        actualProfit: e.isForecast ? null : e.profit,
+        forecastProfit: e.isForecast || isLastActual ? e.profit : null,
+      };
+    });
+  }, [entries]);
+
   useEffect(() => {
     const now = new Date();
     if (year !== now.getFullYear()) {
@@ -119,24 +188,23 @@ export default function FinanceAnalysisPage() {
     setPeriod(groupBy === 'quarter' ? `q${Math.floor(m / 3) + 1}` : String(m));
   }, [year, groupBy]);
 
-  // If the selected period becomes entirely forecast (e.g. year change), reset.
   useEffect(() => {
     if (!data || period === 'all') return;
     const entry = entries.find(e => e.key === period);
     if (!entry || entry.isForecast) setPeriod('all');
   }, [data, entries, period]);
 
-  if (isLoading || !data) return <div style={s.centered}>Loading...</div>;
+  if (isLoading || !data) return <div style={s.centered}>Loading…</div>;
 
   const selectedEntry = entries.find(e => e.key === period);
 
   const selected = period === 'all'
     ? {
-        label: groupBy === 'quarter' ? 'Annual' : 'Annual',
-        revenue: entries.reduce((s, e) => s + e.revenue, 0),
-        staffCost: entries.reduce((s, e) => s + e.staffCost, 0),
-        operatingCost: entries.reduce((s, e) => s + e.operatingCost, 0),
-        profit: entries.reduce((s, e) => s + e.profit, 0),
+        label: 'Annual',
+        revenue: entries.reduce((acc, e) => acc + e.revenue, 0),
+        staffCost: entries.reduce((acc, e) => acc + e.staffCost, 0),
+        operatingCost: entries.reduce((acc, e) => acc + e.operatingCost, 0),
+        profit: entries.reduce((acc, e) => acc + e.profit, 0),
         margin: 0,
       }
     : {
@@ -149,25 +217,28 @@ export default function FinanceAnalysisPage() {
       };
   if (period === 'all') selected.margin = selected.revenue > 0 ? selected.profit / selected.revenue : 0;
 
+  const isProfit = selected.profit >= 0;
+  // (staff + operating) / revenue. < 100% = healthy; ≥ 100% = operating at a loss.
+  const expenseRatio = selected.revenue > 0
+    ? (selected.staffCost + selected.operatingCost) / selected.revenue
+    : null;
+
   return (
-    <div style={{ ...s.page, ...(isMobile ? { padding: '20px 12px' } : {}) }}>
+    <div style={{ ...s.page, ...(isMobile ? { padding: `${SP.xl}px ${SP.md}px` } : {}) }}>
       <style>{`
         .recharts-wrapper *:focus { outline: none !important; }
-        .fa-row:hover { background: #f0f9ff !important; }
+        .fa-row { transition: background 120ms ease; }
+        .fa-row:hover { background: ${C.highlight} !important; }
       `}</style>
       <FilterPillStyles />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <header style={s.header}>
         <div>
           <h1 style={s.title}>Finance Analysis</h1>
           <p style={s.subtitle}>Profit = revenue − staff cost (salary + contributions) − operating cost</p>
         </div>
-        {/*
-          Filter bar: three independent pills on a shared baseline.
-          No outer container — each control stands on its own with consistent
-          34px height, matching border radius, and soft hover affordance.
-        */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={s.filterGroup}>
           <PillSelect
             icon={faCalendar}
             value={String(year)}
@@ -177,7 +248,6 @@ export default function FinanceAnalysisPage() {
               return [now - 1, now, now + 1].map(y => ({ value: String(y), label: String(y) }));
             })()}
           />
-
           <PillToggle
             value={groupBy}
             onChange={v => setGroupBy(v as GroupBy)}
@@ -186,7 +256,6 @@ export default function FinanceAnalysisPage() {
               { value: 'quarter', label: 'Quarter' },
             ]}
           />
-
           <PillSelect
             value={period}
             onChange={setPeriod}
@@ -201,196 +270,680 @@ export default function FinanceAnalysisPage() {
             ]}
           />
         </div>
-      </div>
+      </header>
 
-      {/* KPI strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
-        <KpiCard label={`${selected.label} Revenue`} value={fmtRM(selected.revenue)} color={C.blue} />
-        <KpiCard label="Staff Cost" value={fmtRM(selected.staffCost)} color={C.amber} />
-        <KpiCard label="Operating Cost" value={fmtRM(selected.operatingCost)} color={C.muted} />
+      {/* ── KPI strip: 4 supporting + 1 hero ────────────────────────────── */}
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr 1fr 1.3fr',
+          gap: SP.lg,
+          marginBottom: SP.xxl,
+        }}
+      >
         <KpiCard
-          label={selected.profit >= 0 ? 'Profit' : 'Loss'}
-          value={fmtRM(selected.profit)}
-          color={selected.profit >= 0 ? C.green : C.red}
-          sub={`Margin ${fmtPct(selected.margin)}`}
+          label={`${selected.label} Revenue`}
+          value={fmtRM(selected.revenue)}
+          accent={C.positiveSoft}
+          valueColor={C.positive}
         />
-      </div>
+        <KpiCard
+          label="Staff Cost"
+          value={fmtRM(selected.staffCost)}
+          accent={C.expenseDark}
+          valueColor={C.textSub}
+        />
+        <KpiCard
+          label="Operating Cost"
+          value={fmtRM(selected.operatingCost)}
+          accent={C.expenseLight}
+          valueColor={C.textSub}
+        />
+        <KpiCard
+          label="Expense Ratio"
+          value={expenseRatio == null ? '—' : fmtPct(expenseRatio)}
+          accent={expenseRatio != null && expenseRatio >= 1 ? C.negative : C.expenseDark}
+          valueColor={expenseRatio != null && expenseRatio >= 1 ? C.negative : C.textSub}
+        />
+        <HeroKpiCard
+          label={isProfit ? 'Profit' : 'Loss'}
+          value={fmtRM(selected.profit)}
+          margin={fmtPct(selected.margin)}
+          isProfit={isProfit}
+        />
+      </section>
 
-      {/* Profit chart */}
-      <div style={s.card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+      {/* ── Profit chart ────────────────────────────────────────────────── */}
+      <section style={s.card}>
+        <div style={s.cardHeader}>
           <div>
             <h2 style={s.cardTitle}>Profit by {groupBy === 'quarter' ? 'Quarter' : 'Month'}</h2>
             <p style={s.cardSub}>
-              {data.year} · Actual: {fmtRM(data.totals.actual.profit)} · Forecast: {fmtRM(data.totals.forecast.profit)} · Annual: {fmtRM(data.totals.profit)}
+              <span>Actual {fmtRM(data.totals.actual.profit)}</span>
+              <SubDot />
+              <span>Forecast {fmtRM(data.totals.forecast.profit)}</span>
+              <SubDot />
+              <span style={{ color: data.totals.profit >= 0 ? C.positive : C.negative, fontWeight: 600 }}>
+                Annual {fmtRM(data.totals.profit)}
+              </span>
+            </p>
+          </div>
+          <ChartLegend />
+        </div>
+
+        <div style={{ marginTop: SP.md }}>
+          <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+            <ComposedChart data={chartData} margin={{ top: CHART_MARGIN_TOP, right: SP.lg, left: 0, bottom: CHART_MARGIN_BOTTOM }} style={{ outline: 'none' }}>
+              <defs>
+                {/* userSpaceOnUse anchors the gradient to the chart plot area
+                    (y=0 → top of plot, y=PLOT_HEIGHT → bottom), so the green/red
+                    split stays at the true y=0 line regardless of how each
+                    Line's value range happens to fall. */}
+                <linearGradient
+                  id="profitGradient"
+                  gradientUnits="userSpaceOnUse"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2={PLOT_HEIGHT}
+                >
+                  <stop offset={zeroOffset} stopColor={C.positive} />
+                  <stop offset={zeroOffset} stopColor={C.negative} />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid vertical={false} stroke={C.gridLine} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 12, fill: C.muted }}
+                axisLine={false}
+                tickLine={false}
+                padding={{ left: SP.sm, right: SP.sm }}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: C.mutedSoft }}
+                axisLine={false}
+                tickLine={false}
+                width={56}
+                domain={yDomain}
+                allowDecimals={false}
+                tickFormatter={v => `${v >= 0 ? '' : '−'}${Math.abs(v / 1000).toFixed(0)}k`}
+              />
+
+              {/* Loss-zone wash (only when the domain straddles zero) */}
+              {zeroOffset > 0 && zeroOffset < 1 && (
+                <ReferenceArea y1={yDomain[0]} y2={0} fill={C.negative} fillOpacity={0.03} />
+              )}
+              <ReferenceLine y={0} stroke={C.cardBorder} strokeWidth={1} />
+
+              {/* Current / selected period band — refined, not heavy */}
+              {selectedEntry && (
+                <ReferenceArea
+                  x1={selectedEntry.label}
+                  x2={selectedEntry.label}
+                  fill={C.highlight}
+                  fillOpacity={0.5}
+                  ifOverflow="extendDomain"
+                />
+              )}
+
+              <Tooltip cursor={{ fill: C.highlight, opacity: 0.35 }} content={<FinanceTooltip />} />
+
+              {/* Revenue (own stackId so it renders as a distinct cluster to
+                  the LEFT of the expense stack, respecting declaration order) */}
+              <Bar dataKey="revenue" name="Revenue" stackId="rev" radius={[4, 4, 0, 0]} maxBarSize={groupBy === 'quarter' ? 60 : 26}>
+                {entries.map((e, i) => (
+                  <Cell key={`r-${i}`} fill={C.positiveSoft} fillOpacity={e.isForecast ? 0.45 : 1} />
+                ))}
+              </Bar>
+
+              {/* Expense stack: staff (dark) + operating (light), both slightly
+                  attenuated so they never outshout the revenue bar */}
+              <Bar dataKey="staffCost" name="Staff Cost" stackId="exp" radius={[0, 0, 0, 0]} maxBarSize={groupBy === 'quarter' ? 60 : 26}>
+                {entries.map((e, i) => (
+                  <Cell key={`s-${i}`} fill={C.expenseDark} fillOpacity={e.isForecast ? 0.35 : 0.9} />
+                ))}
+              </Bar>
+              <Bar dataKey="operatingCost" name="Operating Cost" stackId="exp" radius={[4, 4, 0, 0]} maxBarSize={groupBy === 'quarter' ? 60 : 26}>
+                {entries.map((e, i) => (
+                  <Cell key={`o-${i}`} fill={C.expenseLight} fillOpacity={e.isForecast ? 0.3 : 0.8} />
+                ))}
+              </Bar>
+
+              {/* Profit line — the hero. Thicker so it reads first. */}
+              <Line
+                type="monotone"
+                dataKey="actualProfit"
+                name="Profit"
+                stroke="url(#profitGradient)"
+                strokeWidth={3}
+                connectNulls={false}
+                dot={(props: any) => {
+                  const { cx, cy, payload, index } = props;
+                  if (payload.actualProfit == null) return <g key={`da-${index}`} />;
+                  const entry = entries[index];
+                  const isSelected = selectedEntry?.key === entry?.key;
+                  const isCurrent = entry?.containsCurrent ?? false;
+                  const color = payload.profit >= 0 ? C.positive : C.negative;
+                  return (
+                    <circle
+                      key={`da-${index}`}
+                      cx={cx}
+                      cy={cy}
+                      r={isSelected ? 6 : isCurrent ? 5 : 3.5}
+                      fill={color}
+                      stroke={color}
+                      strokeWidth={isSelected ? 3 : 2}
+                    />
+                  );
+                }}
+                activeDot={(props: any) => {
+                  const { cx, cy, payload } = props;
+                  if (payload?.profit == null) return <g />;
+                  const color = payload.profit >= 0 ? C.positive : C.negative;
+                  return <circle cx={cx} cy={cy} r={6} fill={color} stroke="#fff" strokeWidth={2} />;
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="forecastProfit"
+                name="Forecast"
+                stroke="url(#profitGradient)"
+                strokeWidth={2.5}
+                strokeDasharray="5 4"
+                connectNulls={false}
+                dot={(props: any) => {
+                  const { cx, cy, payload, index } = props;
+                  if (payload.forecastProfit == null || !payload.isForecast) return <g key={`df-${index}`} />;
+                  const entry = entries[index];
+                  const isSelected = selectedEntry?.key === entry?.key;
+                  const color = payload.profit >= 0 ? C.positive : C.negative;
+                  return (
+                    <circle
+                      key={`df-${index}`}
+                      cx={cx}
+                      cy={cy}
+                      r={isSelected ? 6 : 3.5}
+                      fill="#fff"
+                      stroke={color}
+                      strokeWidth={isSelected ? 3 : 2}
+                    />
+                  );
+                }}
+                activeDot={(props: any) => {
+                  const { cx, cy, payload } = props;
+                  if (payload?.profit == null) return <g />;
+                  const color = payload.profit >= 0 ? C.positive : C.negative;
+                  return <circle cx={cx} cy={cy} r={6} fill={color} stroke="#fff" strokeWidth={2} />;
+                }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      {/* ── Breakdown table ─────────────────────────────────────────────── */}
+      <section style={s.card}>
+        <div style={s.cardHeader}>
+          <div>
+            <h2 style={s.cardTitle}>{groupBy === 'quarter' ? 'Quarterly' : 'Monthly'} Breakdown</h2>
+            <p style={s.cardSub}>
+              <span>{data.year}</span>
+              <SubDot />
+              <span>{entries.filter(e => !e.isForecast).length} actual</span>
+              <SubDot />
+              <span>{entries.filter(e => e.isForecast).length} forecast</span>
             </p>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={entries} margin={{ top: 20, right: 16, left: 0, bottom: 0 }} style={{ outline: 'none' }}>
-            <CartesianGrid vertical={false} stroke={C.border} />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: C.muted }} axisLine={false} tickLine={false} />
-            <YAxis
-              tick={{ fontSize: 11, fill: C.muted }}
-              axisLine={false}
-              tickLine={false}
-              width={55}
-              domain={profitYDomain}
-              allowDecimals={false}
-              tickFormatter={v => `${(v / 1000).toFixed(1)}k`}
-            />
-            <Tooltip
-              cursor={{ fill: 'transparent' }}
-              content={({ active, payload, label }: any) => {
-                if (!active || !payload?.length) return null;
-                const d = payload[0]?.payload as PeriodEntry;
-                return (
-                  <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', fontSize: 12, minWidth: 180 }}>
-                    <div style={{ fontWeight: 700, color: C.text, marginBottom: 6 }}>{label}{d.isForecast ? ' · Forecast' : ''}</div>
-                    <TooltipRow color={C.blue} label="Revenue" value={fmtRM(d.revenue)} />
-                    <TooltipRow color={C.amber} label="Staff Cost" value={fmtRM(-d.staffCost)} />
-                    <TooltipRow color={C.muted} label="Operating" value={fmtRM(-d.operatingCost)} />
-                    <div style={{ height: 1, background: C.border, margin: '6px 0' }} />
-                    <TooltipRow
-                      color={d.profit >= 0 ? C.green : C.red}
-                      label="Profit"
-                      value={`${fmtRM(d.profit)} (${fmtPct(d.margin)})`}
-                      bold
-                    />
-                  </div>
-                );
-              }}
-            />
-            <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} iconType="square" iconSize={10} />
-            {selectedEntry && (
-              <ReferenceArea
-                x1={selectedEntry.label}
-                x2={selectedEntry.label}
-                fill="#312e81"
-                fillOpacity={0.08}
-                stroke="#312e81"
-                strokeOpacity={0.25}
-                strokeDasharray="3 3"
-                ifOverflow="extendDomain"
-              />
-            )}
-            <Bar dataKey="revenue" name="Revenue" fill={C.blue} radius={[4, 4, 0, 0]} maxBarSize={groupBy === 'quarter' ? 56 : 28}>
-              {entries.map((e, i) => (
-                <Cell key={`r-${i}`} fill={e.isForecast ? '#bfdbfe' : C.blue} />
-              ))}
-            </Bar>
-            <Bar dataKey="staffCost" name="Staff Cost" fill={C.amber} radius={[4, 4, 0, 0]} maxBarSize={groupBy === 'quarter' ? 56 : 28}>
-              {entries.map((e, i) => (
-                <Cell key={`s-${i}`} fill={e.isForecast ? '#fde68a' : C.amber} />
-              ))}
-            </Bar>
-            <Bar dataKey="operatingCost" name="Operating" fill={C.muted} radius={[4, 4, 0, 0]} maxBarSize={groupBy === 'quarter' ? 56 : 28} />
-            <Line
-              type="monotone"
-              dataKey="profit"
-              name="Profit"
-              stroke={C.green}
-              strokeWidth={2.5}
-              dot={(props: any) => {
-                const { cx, cy, payload, index } = props;
-                const entry = entries[index];
-                const isSelected = selectedEntry?.key === entry?.key;
-                const isCurrent = entry?.containsCurrent ?? false;
-                const fill = payload.isForecast ? '#fff' : C.green;
-                return (
-                  <circle
-                    key={`d-${index}`}
-                    cx={cx}
-                    cy={cy}
-                    r={isSelected ? 6 : isCurrent ? 5 : 3.5}
-                    fill={fill}
-                    stroke={C.green}
-                    strokeWidth={isSelected ? 3 : 2}
-                  />
-                );
-              }}
-              activeDot={{ r: 6 }}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
 
-      {/* Breakdown table */}
-      <div style={s.card}>
-        <h2 style={{ ...s.cardTitle, marginBottom: 14 }}>{groupBy === 'quarter' ? 'Quarterly' : 'Monthly'} Breakdown</h2>
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto', marginTop: SP.md }}>
           <table style={s.table}>
             <thead>
               <tr>
-                {[groupBy === 'quarter' ? 'Quarter' : 'Month', 'Revenue', 'Staff Cost', 'Operating', 'Profit', 'Margin'].map((h, i) => (
-                  <th key={h} style={{ ...s.th, ...(i >= 1 ? { textAlign: 'right' as const } : {}) }}>{h}</th>
+                {[groupBy === 'quarter' ? 'Quarter' : 'Month', 'Revenue', 'Expenses', 'Profit', 'Margin'].map((h, i) => (
+                  <th
+                    key={h}
+                    style={{
+                      ...s.th,
+                      textAlign: i >= 1 ? 'right' as const : 'left' as const,
+                      ...(h === 'Profit' ? { paddingRight: SP.lg } : null),
+                    }}
+                  >{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {entries.map((e, i) => (
-                <tr key={e.key} className="fa-row" style={{ background: e.containsCurrent ? '#eef2ff' : i % 2 === 0 ? C.card : '#f8fafc', opacity: e.isForecast ? 0.5 : 1 }}>
-                  <td style={s.td}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontWeight: 600 }}>{e.label}</span>
-                      {e.containsCurrent && <span style={{ fontSize: 9, fontWeight: 700, background: '#312e81', color: '#fff', padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Now</span>}
-                      {e.isForecast && <span style={{ fontSize: 9, fontWeight: 700, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Forecast</span>}
-                    </div>
-                  </td>
-                  <td style={{ ...s.td, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmtRM(e.revenue)}</td>
-                  <td style={{ ...s.td, textAlign: 'right', color: C.amber, fontVariantNumeric: 'tabular-nums' }}>−{fmtRM(e.staffCost).replace('RM ', 'RM ')}</td>
-                  <td style={{ ...s.td, textAlign: 'right', color: C.muted, fontVariantNumeric: 'tabular-nums' }}>{e.operatingCost > 0 ? `−${fmtRM(e.operatingCost)}` : '—'}</td>
-                  <td style={{ ...s.td, textAlign: 'right', fontWeight: 700, color: e.profit >= 0 ? C.green : C.red, fontVariantNumeric: 'tabular-nums' }}>{fmtRM(e.profit)}</td>
-                  <td style={{ ...s.td, textAlign: 'right', fontWeight: 600, color: e.profit >= 0 ? C.green : C.red, fontVariantNumeric: 'tabular-nums' }}>{fmtPct(e.margin)}</td>
-                </tr>
-              ))}
-              <tr style={{ borderTop: `2px solid ${C.border}` }}>
-                <td style={{ ...s.td, fontWeight: 700, fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Annual</td>
-                <td style={{ ...s.td, textAlign: 'right', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{fmtRM(data.totals.revenue)}</td>
-                <td style={{ ...s.td, textAlign: 'right', fontWeight: 800, color: C.amber, fontVariantNumeric: 'tabular-nums' }}>−{fmtRM(data.totals.staffCost).replace('RM ', 'RM ')}</td>
-                <td style={{ ...s.td, textAlign: 'right', fontWeight: 800, color: C.muted, fontVariantNumeric: 'tabular-nums' }}>{data.totals.operatingCost > 0 ? `−${fmtRM(data.totals.operatingCost)}` : '—'}</td>
-                <td style={{ ...s.td, textAlign: 'right', fontWeight: 800, fontSize: 14, color: data.totals.profit >= 0 ? C.green : C.red, fontVariantNumeric: 'tabular-nums' }}>{fmtRM(data.totals.profit)}</td>
-                <td style={{ ...s.td, textAlign: 'right', fontWeight: 800, color: data.totals.profit >= 0 ? C.green : C.red, fontVariantNumeric: 'tabular-nums' }}>{data.totals.revenue > 0 ? fmtPct(data.totals.profit / data.totals.revenue) : '—'}</td>
+              {entries.map((e) => {
+                // Forecast rows: use muted semantic tones instead of `opacity`
+                // so badges and tabular-nums stay crisp.
+                const profitColor = e.profit >= 0
+                  ? (e.isForecast ? C.positiveMuted : C.positive)
+                  : (e.isForecast ? C.negativeMuted : C.negative);
+                const revenueColor = e.isForecast ? C.positiveMuted : C.positive;
+                const neutralColor = e.isForecast ? C.mutedSoft : C.textSub;
+                const labelColor = e.isForecast ? C.mutedSoft : C.text;
+                return (
+                  <tr
+                    key={e.key}
+                    className="fa-row"
+                    style={{ background: e.containsCurrent ? C.nowBg : 'transparent' }}
+                  >
+                    <td
+                      style={{
+                        ...s.td,
+                        // Inset left-bar anchor for the current month
+                        boxShadow: e.containsCurrent ? `inset 3px 0 0 ${C.nowAccent}` : 'none',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm }}>
+                        <span style={{ fontWeight: 600, color: labelColor }}>{e.label}</span>
+                        {e.containsCurrent && <Badge tone="indigo">Now</Badge>}
+                        {e.isForecast && <Badge tone="ghost">Forecast</Badge>}
+                      </div>
+                    </td>
+                    <td style={{ ...s.tdNum, color: revenueColor, fontWeight: 600 }}>{fmtRM(e.revenue)}</td>
+                    <td
+                      style={s.tdNum}
+                      title={`Staff ${fmtRM(e.staffCost)}  ·  Operating ${fmtRM(e.operatingCost)}`}
+                    >
+                      <ExpenseCell
+                        staff={e.staffCost}
+                        operating={e.operatingCost}
+                        muted={e.isForecast}
+                      />
+                    </td>
+                    <td style={{ ...s.tdProfit, color: profitColor }}>{fmtRM(e.profit)}</td>
+                    <td style={{ ...s.tdNum, fontWeight: 700, color: profitColor }}>{fmtPct(e.margin)}</td>
+                  </tr>
+                );
+              })}
+              <tr style={s.totalRow}>
+                <td style={{ ...s.td, ...s.totalCell, fontWeight: 800, fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Annual</td>
+                <td style={{ ...s.tdNum, ...s.totalCell, fontWeight: 800, color: C.positive }}>{fmtRM(data.totals.revenue)}</td>
+                <td
+                  style={{ ...s.tdNum, ...s.totalCell }}
+                  title={`Staff ${fmtRM(data.totals.staffCost)}  ·  Operating ${fmtRM(data.totals.operatingCost)}`}
+                >
+                  <ExpenseCell
+                    staff={data.totals.staffCost}
+                    operating={data.totals.operatingCost}
+                    strong
+                  />
+                </td>
+                <td style={{ ...s.tdProfit, ...s.totalCell, color: data.totals.profit >= 0 ? C.positive : C.negative }}>{fmtRM(data.totals.profit)}</td>
+                <td style={{ ...s.tdNum, ...s.totalCell, fontWeight: 800, color: data.totals.profit >= 0 ? C.positive : C.negative }}>{data.totals.revenue > 0 ? fmtPct(data.totals.profit / data.totals.revenue) : '—'}</td>
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ── KPI cards ─────────────────────────────────────────────────────────────
+
+function KpiCard({ label, value, accent, valueColor }: {
+  label: string; value: string; accent: string; valueColor: string;
+}) {
+  return (
+    <div style={s.kpi}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, marginBottom: SP.sm }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: accent, display: 'inline-block' }} />
+        <span style={s.kpiLabel}>{label}</span>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: valueColor, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function HeroKpiCard({ label, value, margin, isProfit }: {
+  label: string; value: string; margin: string; isProfit: boolean;
+}) {
+  const fg = isProfit ? C.positive : C.negative;
+  const bg = isProfit ? C.positiveBg : C.negativeBg;
+  const bd = isProfit ? C.positiveBorder : C.negativeBorder;
+  return (
+    <div
+      style={{
+        ...s.kpi,
+        background: bg,
+        border: `1.5px solid ${bd}`,
+        boxShadow: SHADOW_HERO,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, marginBottom: SP.sm }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: fg, display: 'inline-block' }} />
+        <span style={{ ...s.kpiLabel, color: fg }}>{label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: SP.md, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 28, fontWeight: 800, color: fg, letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' as any }}>
+          {value}
+        </div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: fg,
+            background: '#ffffff',
+            border: `1px solid ${bd}`,
+            padding: '3px 8px',
+            borderRadius: 999,
+            letterSpacing: '0.02em',
+            fontVariantNumeric: 'tabular-nums' as any,
+          }}
+        >
+          {margin} margin
         </div>
       </div>
     </div>
   );
 }
 
-function KpiCard({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
+// ── Chart helpers ─────────────────────────────────────────────────────────
+
+function ChartLegend() {
   return (
-    <div style={{ background: C.card, borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderTop: `3px solid ${color}`, padding: '16px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-      <span style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{value}</span>
-      {sub && <span style={{ fontSize: 10, color: C.muted }}>{sub}</span>}
+    <div style={{ display: 'flex', alignItems: 'center', gap: SP.md, fontSize: 11, color: C.textSub, flexWrap: 'wrap' }}>
+      <LegendItem color={C.positiveSoft} label="Revenue" />
+      <LegendItem color={C.expenseDark} label="Staff" />
+      <LegendItem color={C.expenseLight} label="Operating" />
+      <LegendItem kind="line" label="Profit" />
+      <LegendItem kind="dash" label="Forecast" />
     </div>
   );
 }
 
-function TooltipRow({ color, label, value, bold }: { color: string; label: string; value: string; bold?: boolean }) {
+function LegendItem({ color, label, kind = 'square' }: { color?: string; label: string; kind?: 'square' | 'line' | 'dash' }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '2px 0', fontWeight: bold ? 700 : 500 }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.text }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {kind === 'square' && (
+        <span style={{ width: 10, height: 10, borderRadius: 2, background: color }} />
+      )}
+      {kind === 'line' && (
+        <svg width="18" height="10"><line x1="0" y1="5" x2="18" y2="5" stroke={C.positive} strokeWidth="3" /></svg>
+      )}
+      {kind === 'dash' && (
+        <svg width="18" height="10"><line x1="0" y1="5" x2="18" y2="5" stroke={C.muted} strokeWidth="2.5" strokeDasharray="4 3" /></svg>
+      )}
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function FinanceTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload as PeriodEntry;
+  const rowColor = d.profit >= 0 ? C.positive : C.negative;
+  return (
+    <div
+      style={{
+        background: '#fff',
+        border: `1px solid ${C.cardBorder}`,
+        borderRadius: 10,
+        padding: `${SP.md}px ${SP.lg}px`,
+        fontSize: 12,
+        minWidth: 220,
+        boxShadow: SHADOW_HERO,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: SP.sm }}>
+        <span style={{ fontWeight: 700, color: C.text }}>{label}</span>
+        {d.isForecast && <Badge tone="ghost">Forecast</Badge>}
+      </div>
+      <TooltipRow color={C.positiveSoft} label="Revenue" value={fmtRM(d.revenue)} />
+      <TooltipRow color={C.expenseDark} label="Staff" value={fmtRM(-d.staffCost)} />
+      <TooltipRow color={C.expenseLight} label="Operating" value={fmtRM(-d.operatingCost)} />
+      <div style={{ height: 1, background: C.divider, margin: `${SP.sm}px 0` }} />
+      <TooltipRow
+        color={rowColor}
+        label={d.profit >= 0 ? 'Profit' : 'Loss'}
+        value={`${fmtRM(d.profit)}  (${fmtPct(d.margin)})`}
+        strong
+      />
+    </div>
+  );
+}
+
+function TooltipRow({ color, label, value, strong }: { color: string; label: string; value: string; strong?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.lg, padding: '4px 0' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: SP.sm, color: strong ? C.text : C.muted, fontWeight: strong ? 700 : 500 }}>
         <span style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
         {label}
       </span>
-      <span style={{ color, fontVariantNumeric: 'tabular-nums' as any }}>{value}</span>
+      <span style={{
+        color: strong ? color : C.textSub,
+        fontWeight: strong ? 800 : 600,
+        fontVariantNumeric: 'tabular-nums' as any,
+        textAlign: 'right',
+      }}>
+        {value}
+      </span>
     </div>
   );
 }
 
+// Total expenses + a mini stacked proportion bar (staff : operating). Mirrors
+// the chart's stacked expense bar so staff-vs-operating reads at a glance.
+function ExpenseCell({ staff, operating, muted, strong }: {
+  staff: number; operating: number; muted?: boolean; strong?: boolean;
+}) {
+  const total = staff + operating;
+  const staffPct = total > 0 ? (staff / total) * 100 : 0;
+  const opPct = total > 0 ? (operating / total) * 100 : 0;
+  const color = muted ? C.mutedSoft : C.textSub;
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+      <span style={{ color, fontWeight: strong ? 700 : 500 }}>
+        {total > 0 ? `−${fmtRM(total).replace('RM ', 'RM ')}` : '—'}
+      </span>
+      {total > 0 && (
+        <span
+          aria-hidden="true"
+          style={{
+            display: 'inline-flex',
+            width: 72,
+            height: 3,
+            borderRadius: 2,
+            overflow: 'hidden',
+            background: C.divider,
+            opacity: muted ? 0.55 : 1,
+          }}
+        >
+          <span style={{ width: `${staffPct}%`, background: C.expenseDark, display: 'block' }} />
+          <span style={{ width: `${opPct}%`, background: C.expenseLight, display: 'block' }} />
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Atoms ─────────────────────────────────────────────────────────────────
+
+function SubDot() {
+  return <span style={{ margin: `0 ${SP.sm}px`, color: C.cardBorder }}>·</span>;
+}
+
+function Badge({ tone, children }: { tone: 'indigo' | 'ghost'; children: React.ReactNode }) {
+  const styles: Record<string, React.CSSProperties> = {
+    indigo: {
+      fontSize: 10,
+      fontWeight: 600,
+      padding: '1px 7px',
+      borderRadius: 999,
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      background: '#eef2ff',
+      color: '#4338ca',
+      border: '1px solid #c7d2fe',
+    },
+    ghost: {
+      fontSize: 9,
+      fontWeight: 600,
+      padding: '1px 6px',
+      borderRadius: 999,
+      textTransform: 'uppercase',
+      letterSpacing: '0.06em',
+      background: 'transparent',
+      color: C.mutedSoft,
+      border: `1px solid ${C.cardBorder}`,
+    },
+  };
+  return <span style={styles[tone]}>{children}</span>;
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────
+
 const s: Record<string, React.CSSProperties> = {
-  page: { padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' },
-  title: { fontSize: 22, fontWeight: 800, color: C.text, margin: '0 0 4px' },
-  subtitle: { fontSize: 13, color: C.muted, margin: 0 },
-  card: { background: C.card, borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 20 },
-  cardTitle: { fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 2px' },
-  cardSub: { fontSize: 12, color: C.muted, margin: '0 0 16px' },
-  table: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 },
-  th: { textAlign: 'left' as const, padding: '8px 12px', fontWeight: 600, fontSize: 11, color: C.muted, letterSpacing: '0.04em', textTransform: 'uppercase' as const, borderBottom: `2px solid ${C.border}`, whiteSpace: 'nowrap' as const },
-  td: { padding: '10px 12px', borderBottom: '1px solid #f1f5f9', fontSize: 13, color: C.text, whiteSpace: 'nowrap' as const },
-  centered: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: C.muted, fontSize: 15 },
+  page: {
+    padding: `${SP.xxl + SP.xs}px ${SP.xxxl}px`,
+    maxWidth: 1200,
+    margin: '0 auto',
+    background: C.bg,
+    minHeight: '100vh',
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    color: C.text,
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SP.lg,
+    flexWrap: 'wrap',
+    marginBottom: SP.xxl + SP.xs,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: C.text,
+    margin: `0 0 ${SP.xs}px`,
+    letterSpacing: '-0.02em',
+  },
+  subtitle: {
+    fontSize: 13,
+    color: C.muted,
+    margin: 0,
+    lineHeight: 1.5,
+  },
+  filterGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: SP.sm,
+    flexWrap: 'wrap',
+  },
+  kpi: {
+    background: C.card,
+    border: `1px solid ${C.cardBorder}`,
+    borderRadius: RADIUS,
+    padding: `${SP.md}px ${SP.xl}px`,
+    boxShadow: SHADOW,
+    minHeight: 84,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: C.mutedSoft,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+  },
+  card: {
+    background: C.card,
+    border: `1px solid ${C.cardBorder}`,
+    borderRadius: RADIUS,
+    padding: `${SP.xl}px ${SP.xxl}px`,
+    boxShadow: SHADOW,
+    marginBottom: SP.xxl,
+  },
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SP.lg,
+    flexWrap: 'wrap',
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: C.text,
+    margin: `0 0 ${SP.xs}px`,
+    letterSpacing: '-0.01em',
+  },
+  cardSub: {
+    fontSize: 12,
+    color: C.muted,
+    margin: 0,
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse' as const,
+    fontSize: 13,
+  },
+  th: {
+    padding: `${SP.md}px ${SP.md}px`,
+    fontWeight: 600,
+    fontSize: 11,
+    color: C.muted,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase' as const,
+    borderBottom: `1px solid ${C.cardBorder}`,
+    whiteSpace: 'nowrap' as const,
+    background: '#fafbfc',
+    verticalAlign: 'middle' as const,
+  },
+  td: {
+    padding: `10px ${SP.md}px`,
+    borderBottom: `1px solid ${C.divider}`,
+    fontSize: 13,
+    color: C.text,
+    whiteSpace: 'nowrap' as const,
+    verticalAlign: 'middle' as const,
+  },
+  tdNum: {
+    padding: `10px ${SP.md}px`,
+    borderBottom: `1px solid ${C.divider}`,
+    fontSize: 13,
+    textAlign: 'right' as const,
+    whiteSpace: 'nowrap' as const,
+    fontVariantNumeric: 'tabular-nums' as any,
+    verticalAlign: 'middle' as const,
+  },
+  // Profit column: the scan anchor — slightly larger, bolder, with extra
+  // right padding so it doesn't crowd the margin column.
+  tdProfit: {
+    padding: `10px ${SP.lg}px 10px ${SP.md}px`,
+    borderBottom: `1px solid ${C.divider}`,
+    fontSize: 14,
+    fontWeight: 800,
+    letterSpacing: '-0.01em',
+    textAlign: 'right' as const,
+    whiteSpace: 'nowrap' as const,
+    fontVariantNumeric: 'tabular-nums' as any,
+    verticalAlign: 'middle' as const,
+  },
+  totalRow: {
+    background: '#f8fafc',
+  },
+  totalCell: {
+    borderTop: `2px solid ${C.textSub}`,
+    borderBottom: 'none' as const,
+    padding: `12px ${SP.md}px`,
+  },
+  centered: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 300,
+    color: C.muted,
+    fontSize: 14,
+  },
 };
