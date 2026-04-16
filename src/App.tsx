@@ -10,6 +10,8 @@ import SettingsPage from './pages/SettingsPage.js';
 import SalesMarketingPage from './pages/analysis/SalesMarketingPage.js';
 import SalesAnalysisPage from './pages/analysis/SalesAnalysisPage.js';
 import RevenueAnalysisPage from './pages/analysis/RevenueAnalysisPage.js';
+import EmployeeCostPage from './pages/analysis/EmployeeCostPage.js';
+import FinanceAnalysisPage from './pages/analysis/FinanceAnalysisPage.js';
 import LandingPage from './pages/LandingPage.js';
 import EnquiryFormPage from './pages/EnquiryFormPage.js';
 import PackagesPage from './pages/PackagesPage.js';
@@ -24,7 +26,13 @@ import TestToolsPage from './pages/TestToolsPage.js';
 import GoogleCalendarSettingsPage from './pages/GoogleCalendarSettingsPage.js';
 import ImportStudentsPage from './pages/ImportStudentsPage.js';
 import OperationsPlannerPage from './pages/OperationsPlannerPage.js';
+import OperatingCostsPage from './pages/operations/OperatingCostsPage.js';
+import OperatingCostCategoriesPage from './pages/settings/OperatingCostCategoriesPage.js';
+import OperatingCostMainCategoriesPage from './pages/settings/OperatingCostMainCategoriesPage.js';
 import TimetableSettingsPage from './pages/settings/TimetableSettingsPage.js';
+import EditTeacherPage from './pages/settings/EditTeacherPage.js';
+import EmployeeSalaryPage from './pages/settings/EmployeeSalaryPage.js';
+import TeachersPage from './pages/TeachersPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
 import SetupAccountPage from './pages/SetupAccountPage.js';
 import { APP_VERSION, LAST_UPDATED } from './version.js';
@@ -100,15 +108,23 @@ export default function App() {
           <Route path="/settings/packages" element={<Navigate to="/packages" replace />} />
           <Route path="/settings/onboarding" element={<ErrorBoundary><OnboardingSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
+          <Route path="/teachers" element={<ErrorBoundary><TeachersPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id" element={<ErrorBoundary><EditTeacherPage /></ErrorBoundary>} />
+          <Route path="/settings/employee-salary" element={<ErrorBoundary><EmployeeSalaryPage /></ErrorBoundary>} />
           <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage key="reset-leads" tool="reset-leads" /></ErrorBoundary>} />
           <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
           <Route path="/settings/test/seed-dummy" element={<ErrorBoundary><TestToolsPage key="seed-dummy" tool="seed-dummy" /></ErrorBoundary>} />
           <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<ErrorBoundary><OperationsPlannerPage /></ErrorBoundary>} />
+          <Route path="/operations/operating-costs" element={<ErrorBoundary><OperatingCostsPage /></ErrorBoundary>} />
+          <Route path="/settings/operating-cost-main-categories" element={<ErrorBoundary><OperatingCostMainCategoriesPage /></ErrorBoundary>} />
+          <Route path="/settings/operating-cost-categories" element={<ErrorBoundary><OperatingCostCategoriesPage /></ErrorBoundary>} />
           <Route path="/analysis/sales-marketing" element={<ErrorBoundary><SalesMarketingPage /></ErrorBoundary>} />
           <Route path="/analysis/sales" element={<ErrorBoundary><SalesAnalysisPage /></ErrorBoundary>} />
           <Route path="/analysis/revenue" element={<ErrorBoundary><RevenueAnalysisPage /></ErrorBoundary>} />
+          <Route path="/analysis/employee-cost" element={<ErrorBoundary><EmployeeCostPage /></ErrorBoundary>} />
+          <Route path="/analysis/finance" element={<ErrorBoundary><FinanceAnalysisPage /></ErrorBoundary>} />
         </Route>
         <Route path="/enquiry" element={<LandingPage />} />
         <Route path="/enquiry/form" element={<EnquiryFormPage />} />

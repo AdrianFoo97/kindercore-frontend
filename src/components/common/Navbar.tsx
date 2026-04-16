@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function Navbar() {
@@ -34,7 +34,9 @@ export default function Navbar() {
   const toolsRef = useRef<HTMLDivElement>(null);
   const devRef = useRef<HTMLDivElement>(null);
   const adminRef = useRef<HTMLDivElement>(null);
-  const onOpsRoute = !!useMatch('/tools/operations-planner');
+  const onOpsPlannerRoute = !!useMatch('/tools/operations-planner');
+  const onOperatingCostsRoute = !!useMatch('/operations/operating-costs');
+  const onOpsRoute = onOpsPlannerRoute || onOperatingCostsRoute;
   const onToolsRoute = !!useMatch('/tools/*');
   const onAdminRoute = !!useMatch('/settings/users');
   const onDevRoute = !!useMatch('/settings/test/*');
@@ -135,6 +137,14 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* Teachers link */}
+        <NavLink to="/teachers" end onClick={closeAll}
+          className={mobile ? '' : 'nav-link'}
+          style={({ isActive }) => mobile
+            ? { ...mLink, ...(isActive ? mLinkActive : {}) }
+            : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
+          }>Teachers</NavLink>
+
         {/* Analysis dropdown */}
         <div ref={mobile ? undefined : analysisRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setAnalysisOpen(o => !o)} className={mobile ? '' : 'nav-link'}
@@ -161,6 +171,18 @@ export default function Navbar() {
                 <FontAwesomeIcon icon={faCoins} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
                 Revenue
               </NavLink>
+              <NavLink to="/analysis/employee-cost" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faUsers} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Staff
+              </NavLink>
+              <NavLink to="/analysis/finance" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faMoneyBillTrendUp} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Finance
+              </NavLink>
             </div>
           )}
         </div>
@@ -178,6 +200,12 @@ export default function Navbar() {
                 onClick={closeAll}>
                 <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
                 Planner
+              </NavLink>
+              <NavLink to="/operations/operating-costs" className={mobile ? '' : 'nav-drop-item'}
+                style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                onClick={closeAll}>
+                <FontAwesomeIcon icon={faReceipt} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Operating Costs
               </NavLink>
             </div>
           )}
@@ -259,10 +287,16 @@ export default function Navbar() {
                   {link('/packages', 'Packages & Pricing')}
                   {sep}
                   {section(faCalendarDays, 'Timetable')}
-                  {link('/settings/timetable/teachers', 'Teachers')}
                   {link('/settings/timetable/classes', 'Classes')}
                   {link('/settings/timetable/subjects', 'Subjects')}
                   {link('/settings/timetable/tasks', 'Tasks')}
+                  {sep}
+                  {section(faCoins, 'HR & Payroll')}
+                  {link('/settings/employee-salary', 'Employee Salary')}
+                  {sep}
+                  {section(faReceipt, 'Operating Cost')}
+                  {link('/settings/operating-cost-main-categories', 'Main Categories')}
+                  {link('/settings/operating-cost-categories', 'Categories')}
                   {sep}
                   {section(faMessage, 'Communication')}
                   {link('/settings/whatsapp-templates', 'Message Templates')}

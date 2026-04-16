@@ -7,11 +7,30 @@ export function fetchTeachers() {
   return apiFetch<Teacher[]>('/api/planner/teachers');
 }
 
-export function createTeacher(data: { name: string; color: string; allowedSubjectIds?: string[]; allowedClassroomIds?: string[]; workStartMinute?: number; workEndMinute?: number; workDays?: number[] }) {
+export function createTeacher(data: {
+  name: string; color: string;
+  allowedSubjectIds?: string[]; allowedClassroomIds?: string[];
+  workStartMinute?: number; workEndMinute?: number; workDays?: number[];
+  positionId?: string | null; level?: number | null;
+  attendanceAllowance?: number | null; kpiAllowance?: number | null;
+  isFixedSalary?: boolean; fixedSalaryAmount?: number | null;
+}) {
   return apiFetch<Teacher>('/api/planner/teachers', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export function updateTeacher(id: string, data: Partial<{ name: string; color: string; allowedSubjectIds: string[] | null; allowedClassroomIds: string[] | null; workStartMinute: number | null; workEndMinute: number | null; workDays: number[] | null }>) {
+export function updateTeacher(id: string, data: Partial<{
+  name: string; color: string;
+  allowedSubjectIds: string[] | null; allowedClassroomIds: string[] | null;
+  workStartMinute: number | null; workEndMinute: number | null; workDays: number[] | null;
+  positionId: string | null; level: number | null;
+  attendanceAllowance: number | null; kpiAllowance: number | null;
+  isFixedSalary: boolean; fixedSalaryAmount: number | null;
+  salaryType: string; hourlyRate: number | null;
+  excludeFromProfitShare: boolean;
+  overrideProfitShareWeight: boolean; customProfitShareWeight: number | null;
+  isActive: boolean; resignedAt: string | null; createdAt: string | null;
+  phone: string | null; employmentType: string | null;
+}>) {
   return apiFetch<Teacher>(`/api/planner/teachers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 }
 

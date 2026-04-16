@@ -114,6 +114,48 @@ export interface StudentsResponse {
   availableYears: number[];
 }
 
+// ── Employee Salary ──────────────────────────────────────────────────────────
+
+export interface Position {
+  positionId: string;
+  name: string;
+  titleWeight: number;
+  basicSalary: number;
+  maxLevel: number;
+  sortOrder: number;
+}
+
+export interface LevelIncentive {
+  id: string;
+  positionId: string;
+  level: number;
+  amount: number;
+}
+
+export interface AllowanceType {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  sortOrder: number;
+}
+
+export interface TeacherAllowance {
+  id: string;
+  teacherId: string;
+  allowanceTypeId: string;
+  amount: number;
+}
+
+export interface CareerRecord {
+  id: string;
+  teacherId: string;
+  positionId: string;
+  level: number;
+  effectiveDate: string;
+  notes: string | null;
+  createdAt: string;
+}
+
 // ── Operations Planner ───────────────────────────────────────────────────────
 
 export interface Teacher {
@@ -126,6 +168,18 @@ export interface Teacher {
   workStartMinute: number | null;
   workEndMinute: number | null;
   workDays: number[] | null;
+  positionId: string | null;
+  level: number | null;
+  isFixedSalary: boolean;
+  fixedSalaryAmount: number | null;
+  salaryType: string | null;
+  hourlyRate: number | null;
+  excludeFromProfitShare: boolean;
+  overrideProfitShareWeight: boolean;
+  customProfitShareWeight: number | null;
+  phone: string | null;
+  employmentType: string | null;
+  resignedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
