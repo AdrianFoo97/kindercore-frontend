@@ -4,6 +4,7 @@ import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faPen, faPlus, faTrash, faXmark, faArrowLeft, faLock, faMessage, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -327,6 +328,7 @@ export default function WhatsAppTemplatesPage() {
   return (
     <div style={{ ...s.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}>
       <div style={{ ...s.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
+        <SettingsBreadcrumb label="Message Templates" />
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>

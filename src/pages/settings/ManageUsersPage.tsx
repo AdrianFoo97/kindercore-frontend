@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserPlus, faCopy, faCheck, faTrash, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../../api/client.js';
+import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
 
 interface UserRecord {
   id: string;
@@ -102,6 +103,7 @@ export default function ManageUsersPage() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
+      <SettingsBreadcrumb label="Team Members" />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', margin: 0 }}>Team Members</h1>

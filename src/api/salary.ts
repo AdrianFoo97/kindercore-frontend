@@ -86,3 +86,14 @@ export interface PayrollByMonth {
 export function fetchPayrollByMonth(year?: number) {
   return apiFetch<PayrollByMonth>(`/api/salary/payroll-by-month${year ? `?year=${year}` : ''}`);
 }
+
+export interface EmployerContributions {
+  total: number;
+  epf: number;
+  socso: number;
+  eis: number;
+}
+
+export function fetchEmployerContributions() {
+  return apiFetch<EmployerContributions>('/api/salary/employer-contributions');
+}

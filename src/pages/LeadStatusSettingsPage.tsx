@@ -4,6 +4,7 @@ import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faXmark, faCheck, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 const PINNED_REASON = "Didn't attend the enquiry";
 
@@ -322,6 +323,7 @@ export default function LeadStatusSettingsPage() {
   return (
     <div style={{ ...st.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}>
       <div style={{ ...st.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
+        <SettingsBreadcrumb label="Lead Settings" />
         <div style={{ marginBottom: 24 }}>
           <h1 style={st.heading}>Lead Settings</h1>
           <p style={st.subtitle}>Configure how leads are managed across the pipeline.</p>

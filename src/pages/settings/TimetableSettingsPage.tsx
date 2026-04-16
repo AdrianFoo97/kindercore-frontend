@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faPen, faTrash, faChevronLeft, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faPen, faTrash, faChevronLeft, faXmark, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchTeachers, createTeacher, updateTeacher, deleteTeacher,
   fetchClassrooms, createClassroom, updateClassroom, deleteClassroom,
@@ -10,6 +10,7 @@ import {
   fetchTasks, createTask, updateTask, deleteTask,
 } from '../../api/planner.js';
 import { Teacher, Classroom, PlannerSubject, PlannerTask } from '../../types/index.js';
+import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
 
 const C = {
   primary: '#5a67d8', primaryLight: '#eef0fa', card: '#fff', text: '#1e293b',
@@ -52,6 +53,7 @@ export default function TimetableSettingsPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [color, setColor] = useState(PRESET_COLORS[0]);
   const [capacity, setCapacity] = useState('');
@@ -76,7 +78,10 @@ export default function TimetableSettingsPage() {
     setFormOpen(false);
   };
 
-  const openNew = () => { reset(); setFormOpen(true); };
+  const openNew = () => {
+    if (resourceType === 'teachers') { navigate('/teachers/new'); return; }
+    reset(); setFormOpen(true);
+  };
   const openEdit = (item: any) => {
     setEditingId(item.id); setName(item.name);
     if (item.color) setColor(item.color);
@@ -166,6 +171,7 @@ export default function TimetableSettingsPage() {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
+      <SettingsBreadcrumb label={title} />
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -429,14 +435,22 @@ export default function TimetableSettingsPage() {
             </div>
 
             {/* Actions */}
-            <button onClick={() => openEdit(item)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: '6px 8px', borderRadius: 6 }}
+            <button onClick={() => resourceType === 'teachers' ? navigate(`/teachers/${item.id}`) : openEdit(item)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: '6px 8px', borderRadius: 6 }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
               <FontAwesomeIcon icon={faPen} style={{ fontSize: 12 }} />
             </button>
-            <button onClick={() => setDeleteConfirm({ id: item.id, name: item.name })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger, padding: '6px 8px', borderRadius: 6, opacity: 0.6 }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.opacity = '1'; }} onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.opacity = '0.6'; }}>
-              <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => setMenuOpenId(menuOpenId === item.id ? null : item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: '6px 8px', borderRadius: 6 }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                <FontAwesomeIcon icon={faEllipsisVertical} style={{ fontSize: 14 }} />
+              </button>
+              {menuOpenId === item.id && (
+                <MoreMenu
+                  onDelete={() => { setMenuOpenId(null); setDeleteConfirm({ id: item.id, name: item.name }); }}
+                  onClose={() => setMenuOpenId(null)}
+                />
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -465,6 +479,39 @@ export default function TimetableSettingsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MoreMenu({ onDelete, onClose }: { onDelete: () => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return (
+    <div ref={ref} style={{
+      position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 20,
+      background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8,
+      boxShadow: '0 4px 16px rgba(0,0,0,0.1)', minWidth: 140, overflow: 'hidden',
+    }}>
+      <button
+        onClick={onDelete}
+        onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+        onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+          padding: '9px 14px', fontSize: 13, fontWeight: 500, color: C.danger,
+          background: '#fff', border: 'none', cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <FontAwesomeIcon icon={faTrash} style={{ fontSize: 11 }} />
+        Delete
+      </button>
     </div>
   );
 }

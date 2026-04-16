@@ -1,12 +1,61 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, BarChart, Cell, LabelList,
+  CartesianGrid, BarChart, Cell, LabelList, ReferenceArea,
 } from 'recharts';
+import { faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { fetchRevenueAnalytics, fetchStudents } from '../../api/students.js';
 import { Student } from '../../types/index.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
+import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
+
+type GroupBy = 'month' | 'quarter';
+
+interface RevenueEntry {
+  key: string;
+  label: string;
+  revenue: number;
+  studentCount: number;
+  current: number;
+  previous: number;
+  isForecast: boolean;
+  containsCurrent: boolean;
+}
+
+function buildRevenueEntries(
+  months: { month: string; revenue: number; studentCount: number; current: number; previous: number; isForecast: boolean }[],
+  currentMonthIdx: number,
+  groupBy: GroupBy,
+): RevenueEntry[] {
+  if (groupBy === 'month') {
+    return months.map((m, i) => ({
+      key: String(i),
+      label: m.month,
+      revenue: m.revenue,
+      studentCount: m.studentCount,
+      current: m.current,
+      previous: m.previous,
+      isForecast: m.isForecast,
+      containsCurrent: i === currentMonthIdx,
+    }));
+  }
+  return [0, 1, 2, 3].map(qi => {
+    const indices = [qi * 3, qi * 3 + 1, qi * 3 + 2];
+    const slice = indices.map(i => months[i]);
+    const last = slice[slice.length - 1];
+    return {
+      key: `q${qi + 1}`,
+      label: `Q${qi + 1}`,
+      revenue: slice.reduce((s, m) => s + m.revenue, 0),
+      studentCount: last.studentCount,
+      current: slice.reduce((s, m) => s + m.current, 0),
+      previous: slice.reduce((s, m) => s + m.previous, 0),
+      isForecast: slice.every(m => m.isForecast),
+      containsCurrent: indices.includes(currentMonthIdx),
+    };
+  });
+}
 
 const C = {
   blue: '#5a79c8', indigo: '#4f46e5', purple: '#7c3aed', green: '#059669',
@@ -37,8 +86,8 @@ export default function RevenueAnalysisPage() {
   const { isMobile } = useIsMobile();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  // null = show all months for the selected year; 0..11 = filter to that month
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+  const [groupBy, setGroupBy] = useState<GroupBy>('month');
+  const [period, setPeriod] = useState<string>(() => String(new Date().getMonth()));
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['revenue-analytics', selectedYear],
@@ -51,27 +100,80 @@ export default function RevenueAnalysisPage() {
   });
   const allStudents: Student[] = studentsData?.items ?? [];
 
+  // Build chart entries (12 months or 4 quarters)
+  const entries = useMemo<RevenueEntry[]>(
+    () => data ? buildRevenueEntries(data.monthlyRevenue, data.currentMonthIdx, groupBy) : [],
+    [data, groupBy],
+  );
+
+  // Reset period to current month/quarter when year or grouping changes
+  useEffect(() => {
+    const now = new Date();
+    if (selectedYear !== now.getFullYear()) {
+      setPeriod('all');
+      return;
+    }
+    const m = now.getMonth();
+    setPeriod(groupBy === 'quarter' ? `q${Math.floor(m / 3) + 1}` : String(m));
+  }, [selectedYear, groupBy]);
+
+  // If the selected period becomes entirely forecast, reset to "all"
+  useEffect(() => {
+    if (entries.length === 0 || period === 'all') return;
+    const entry = entries.find(e => e.key === period);
+    if (!entry || entry.isForecast) setPeriod('all');
+  }, [entries, period]);
+
   if (isLoading) return <div style={s.page}><p style={{ padding: 40, color: '#94a3b8' }}>Loading...</p></div>;
   if (isError || !data) return <div style={s.page}><p style={{ padding: 40, color: '#dc2626' }}>Failed to load revenue data.</p></div>;
 
   const years = data.availableYears.length > 0 ? data.availableYears : [currentYear];
 
+  // Derive selectedMonth for the NewStudentsList: only when period is a single month
+  const selectedMonth: number | null =
+    period === 'all' || period.startsWith('q') ? null : Number(period);
+
+  const selectedEntry = entries.find(e => e.key === period);
+
   return (
     <div style={s.page}>
       <style>{`.recharts-wrapper, .recharts-surface, .recharts-wrapper:focus, .recharts-surface:focus, .recharts-wrapper *:focus, .recharts-surface *:focus { outline: none !important; }`}</style>
+      <FilterPillStyles />
       <div style={s.inner}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, gap: 12, flexWrap: 'wrap' }}>
           <div>
             <h1 style={s.heading}>Revenue Analysis</h1>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94a3b8' }}>Monthly revenue, programme breakdown, and year-over-year trends</p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13, color: '#94a3b8' }}>Year</span>
-            <select value={selectedYear} onChange={e => setSelectedYear(Number(e.target.value))}
-              style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: '#fff' }}>
-              {years.map(y => <option key={y} value={y}>{y === currentYear ? 'Current Year' : y}</option>)}
-            </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <PillSelect
+              icon={faCalendar}
+              value={String(selectedYear)}
+              onChange={v => setSelectedYear(Number(v))}
+              options={years.map(y => ({ value: String(y), label: String(y) }))}
+            />
+            <PillToggle
+              value={groupBy}
+              onChange={v => setGroupBy(v as GroupBy)}
+              options={[
+                { value: 'month', label: 'Month' },
+                { value: 'quarter', label: 'Quarter' },
+              ]}
+            />
+            <PillSelect
+              value={period}
+              onChange={setPeriod}
+              options={[
+                { value: 'all', label: groupBy === 'quarter' ? 'All quarters' : 'All months' },
+                ...entries
+                  .filter(e => !e.isForecast)
+                  .map(e => ({
+                    value: e.key,
+                    label: e.containsCurrent ? `${e.label} (current)` : e.label,
+                  })),
+              ]}
+            />
           </div>
         </div>
 
@@ -93,22 +195,22 @@ export default function RevenueAnalysisPage() {
 
         {/* Chart 1: Monthly Revenue */}
         <div style={s.chartCard}>
-          <h3 style={s.chartTitle}>Monthly Revenue — {selectedYear}</h3>
+          <h3 style={s.chartTitle}>Revenue by {groupBy === 'quarter' ? 'Quarter' : 'Month'} — {selectedYear}</h3>
           <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: 11, color: '#94a3b8' }}>
             <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: C.blue, marginRight: 4 }} />Actual</span>
             <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#bfdbfe', marginRight: 4 }} />Forecast</span>
             <span><span style={{ display: 'inline-block', width: 10, height: 4, background: C.amber, marginRight: 4, verticalAlign: 'middle' }} />Students</span>
           </div>
           <ResponsiveContainer width="100%" height={320}>
-            <ComposedChart data={data.monthlyRevenue} margin={{ top: 30, right: 20, left: 10, bottom: 0 }}>
+            <ComposedChart data={entries} margin={{ top: 30, right: 20, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis
-                dataKey="month"
+                dataKey="label"
                 tick={{ fontSize: 11, fill: '#94a3b8', cursor: 'pointer' }}
                 onClick={(e: any) => {
                   if (e && e.value) {
-                    const idx = data.monthlyRevenue.findIndex(m => m.month === e.value);
-                    if (idx >= 0) setSelectedMonth(idx);
+                    const entry = entries.find(x => x.label === e.value);
+                    if (entry) setPeriod(entry.key);
                   }
                 }}
               />
@@ -127,32 +229,38 @@ export default function RevenueAnalysisPage() {
                 tickCount={6}
               />
               <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtCurrency(v), name]} />
+              {selectedEntry && (
+                <ReferenceArea
+                  yAxisId="left"
+                  x1={selectedEntry.label}
+                  x2={selectedEntry.label}
+                  fill="#312e81"
+                  fillOpacity={0.08}
+                  stroke="#312e81"
+                  strokeOpacity={0.25}
+                  strokeDasharray="3 3"
+                  ifOverflow="extendDomain"
+                />
+              )}
               <Bar
                 yAxisId="left"
                 dataKey="revenue"
                 radius={[4, 4, 0, 0]}
-                barSize={28}
+                barSize={groupBy === 'quarter' ? 80 : 28}
                 name="Revenue"
                 cursor="pointer"
-                onClick={(_data: any, index: number) => setSelectedMonth(index)}
+                onClick={(_data: any, index: number) => {
+                  const entry = entries[index];
+                  if (entry) setPeriod(entry.key);
+                }}
               >
-                {data.monthlyRevenue.map((entry, i) => {
-                  const isCurrentMonth = i === data.currentMonthIdx;
-                  const isSelected = selectedMonth === i;
-                  // Fill: current month gets a darker shade so it stands out vs past/forecast
-                  const fill = isCurrentMonth
-                    ? '#1e3a8a'                                       // dark blue
+                {entries.map((entry, i) => {
+                  const fill = entry.containsCurrent
+                    ? '#1e3a8a'
                     : entry.isForecast
-                      ? '#bfdbfe'                                     // light blue
-                      : C.blue;                                       // normal blue
-                  return (
-                    <Cell
-                      key={i}
-                      fill={fill}
-                      stroke={isSelected && !isCurrentMonth ? '#0f172a' : 'none'}
-                      strokeWidth={isSelected && !isCurrentMonth ? 2 : 0}
-                    />
-                  );
+                      ? '#bfdbfe'
+                      : C.blue;
+                  return <Cell key={i} fill={fill} />;
                 })}
                 <LabelList
                   dataKey="revenue"
@@ -186,7 +294,7 @@ export default function RevenueAnalysisPage() {
           students={allStudents}
           selectedYear={selectedYear}
           selectedMonth={selectedMonth}
-          onClearMonth={() => setSelectedMonth(null)}
+          onClearMonth={() => setPeriod('all')}
         />
 
         {/* Charts 3 & 4: Programme breakdown */}

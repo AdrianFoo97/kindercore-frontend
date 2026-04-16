@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 export default function OnboardingSettingsPage() {
   const queryClient = useQueryClient();
@@ -24,6 +25,7 @@ export default function OnboardingSettingsPage() {
   return (
     <div style={styles.page}>
       <div style={styles.inner}>
+        <SettingsBreadcrumb label="Student Onboarding" />
         <h1 style={styles.heading}>Student Onboarding</h1>
         <p style={styles.subheading}>Tasks to complete when a new student is enrolled.</p>
         {!isAdmin && (

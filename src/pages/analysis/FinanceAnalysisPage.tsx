@@ -160,7 +160,7 @@ export default function FinanceAnalysisPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={s.title}>Finance Analysis</h1>
-          <p style={s.subtitle}>Profit = revenue − staff cost − operating cost</p>
+          <p style={s.subtitle}>Profit = revenue − staff cost (salary + contributions) − operating cost</p>
         </div>
         {/*
           Filter bar: three independent pills on a shared baseline.

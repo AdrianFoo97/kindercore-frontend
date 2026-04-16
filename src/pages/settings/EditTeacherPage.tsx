@@ -109,6 +109,9 @@ export default function EditTeacherPage() {
   const [excludeFromProfitShare, setExcludeFromProfitShare] = useState(false);
   const [overrideProfitShareWeight, setOverrideProfitShareWeight] = useState(false);
   const [customProfitShareWeight, setCustomProfitShareWeight] = useState<number>(0);
+  const [hasEpf, setHasEpf] = useState(true);
+  const [hasSocso, setHasSocso] = useState(true);
+  const [hasEis, setHasEis] = useState(true);
   const isFixedSalary = salaryType === 'fixed';
   const isHourly = salaryType === 'hourly';
   const [loaded, setLoaded] = useState(false);
@@ -152,6 +155,9 @@ export default function EditTeacherPage() {
       setExcludeFromProfitShare(teacher.excludeFromProfitShare ?? false);
       setOverrideProfitShareWeight(teacher.overrideProfitShareWeight ?? false);
       setCustomProfitShareWeight(teacher.customProfitShareWeight ?? 0);
+      setHasEpf(teacher.hasEpf ?? true);
+      setHasSocso(teacher.hasSocso ?? true);
+      setHasEis(teacher.hasEis ?? true);
       setLoaded(true);
     }
   }, [teacher, isNew, loaded]);
@@ -234,6 +240,7 @@ export default function EditTeacherPage() {
       excludeFromProfitShare,
       overrideProfitShareWeight,
       customProfitShareWeight: overrideProfitShareWeight ? customProfitShareWeight : null,
+      hasEpf, hasSocso, hasEis,
     };
     if (isNew) createMut.mutate(d as any);
     else updateMut.mutate({ id: id!, data: d });
@@ -505,6 +512,20 @@ export default function EditTeacherPage() {
                           ~{monthlyHours.toFixed(0)} hrs/month based on schedule
                         </div>
                       )}
+                    </div>
+
+                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid #f1f5f9` }}>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.muted, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>Statutory Contributions</label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {([['EPF', hasEpf, setHasEpf], ['SOCSO', hasSocso, setHasSocso], ['EIS', hasEis, setHasEis]] as const).map(([label, val, setter]) => (
+                          <button key={label} type="button"
+                            onClick={() => setter(!val)}
+                            style={{ padding: '6px 16px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer', background: val ? C.primary : '#f1f5f9', color: val ? '#fff' : C.muted, transition: 'all 0.15s' }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: 11, color: C.muted, margin: '6px 0 0' }}>Highlighted = employer must contribute. Toggle off for exempt staff.</p>
                     </div>
 
                     <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid #f1f5f9` }}>

@@ -177,6 +177,9 @@ export interface Teacher {
   excludeFromProfitShare: boolean;
   overrideProfitShareWeight: boolean;
   customProfitShareWeight: number | null;
+  hasEpf: boolean;
+  hasSocso: boolean;
+  hasEis: boolean;
   phone: string | null;
   employmentType: string | null;
   resignedAt: string | null;

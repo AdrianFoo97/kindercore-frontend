@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGoogleStatus, getConnectToken, listGoogleCalendars, setGoogleCalendar } from '../api/google.js';
+import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 function CheckIcon() {
   return (
@@ -99,6 +100,7 @@ export default function GoogleCalendarSettingsPage() {
     <div style={{ padding: '32px 24px', fontFamily: 'system-ui, sans-serif', display: 'flex', justifyContent: 'center' }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{ width: '100%', maxWidth: 560 }}>
+        <SettingsBreadcrumb label="Google Calendar" />
         <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#1a202c' }}>Google Calendar</h1>
         <p style={{ margin: '0 0 28px', fontSize: 14, color: '#6b7280' }}>
           Connect a Google account to enable calendar event creation when booking appointments.

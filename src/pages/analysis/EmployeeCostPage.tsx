@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, ReferenceArea } from 'recharts';
 import { faCalendar } from '@fortawesome/free-solid-svg-icons';
-import { fetchTeachersWithSalary, fetchPayrollByMonth, fetchTeacherWeightsByMonth } from '../../api/salary.js';
+import { fetchTeachersWithSalary, fetchPayrollByMonth, fetchTeacherWeightsByMonth, fetchEmployerContributions } from '../../api/salary.js';
+import { fetchSettings } from '../../api/settings.js';
 import { fetchTeachers } from '../../api/planner.js';
 import { fetchOperatingCostCategories, fetchOperatingCostEntries } from '../../api/operatingCost.js';
 import { Teacher } from '../../types/index.js';
@@ -98,6 +99,17 @@ export default function EmployeeCostPage() {
   const { data: opEntries } = useQuery({
     queryKey: ['op-cost-entries', year],
     queryFn: () => fetchOperatingCostEntries(year),
+    staleTime: 0,
+  });
+  const { data: contribSettings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: fetchSettings,
+    staleTime: 60_000,
+  });
+  const { data: employerContribs } = useQuery({
+    queryKey: ['employer-contributions'],
+    queryFn: fetchEmployerContributions,
+    refetchOnMount: 'always',
     staleTime: 0,
   });
 
@@ -230,15 +242,31 @@ export default function EmployeeCostPage() {
       </div>
 
       {/* KPI strip — full width */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>
-        <KpiCard label="Monthly Staff Cost" value={fmtRM(totalMonthly)} color={C.primary} />
-        <KpiCard label="Active Teachers" value={String(teachers.length)} color={C.green} />
-        <KpiCard
-          label="HR Benefits (This Month)"
-          value={hrBenefitsMonthly !== null ? fmtRM(hrBenefitsMonthly) : '—'}
-          color="#7c3aed"
-        />
-      </div>
+      {(() => {
+        const staffCost = totalMonthly + (employerContribs?.total ?? 0);
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+            <KpiCard
+              label="Staff Cost"
+              value={employerContribs ? fmtRM(staffCost) : '—'}
+              color={C.primary}
+              sub={employerContribs ? `Salary + Employer Contributions` : undefined}
+            />
+            <KpiCard label="Monthly Salary" value={fmtRM(totalMonthly)} color="#6366f1" sub={`${teachers.length} active teachers`} />
+            <KpiCard
+              label="Employer Contributions"
+              value={employerContribs ? fmtRM(employerContribs.total) : '—'}
+              color="#0891b2"
+              sub={employerContribs ? `EPF ${fmtRM(employerContribs.epf)} · SOCSO ${fmtRM(employerContribs.socso)} · EIS ${fmtRM(employerContribs.eis)}` : undefined}
+            />
+            <KpiCard
+              label="HR Benefits (This Month)"
+              value={hrBenefitsMonthly !== null ? fmtRM(hrBenefitsMonthly) : '—'}
+              color="#7c3aed"
+            />
+          </div>
+        );
+      })()}
 
       {/* Payroll chart — respects Group by and Period selection */}
       <div style={s.card}>

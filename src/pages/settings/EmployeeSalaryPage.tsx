@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faTrash, faPen, faGripVertical, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
 import { fetchPositions, upsertPosition, deletePosition, fetchLevelIncentives, upsertLevelIncentives, fetchTeachersWithSalary } from '../../api/salary.js';
 import { fetchAllowanceTypes, createAllowanceType, updateAllowanceType, deleteAllowanceType } from '../../api/allowance.js';
+import { fetchSettings, patchSetting } from '../../api/settings.js';
 import { Position } from '../../types/index.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
@@ -42,6 +43,37 @@ export default function EmployeeSalaryPage() {
   const [menuOpenPosId, setMenuOpenPosId] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
+
+  // ── Employer contribution settings ────────────────────────────────────
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings, staleTime: 60_000 });
+  const [contribDraft, setContribDraft] = useState<Record<string, number | boolean>>({});
+  const [contribSaving, setContribSaving] = useState(false);
+  const getC = (key: string, def: number | boolean) => (contribDraft[key] !== undefined ? contribDraft[key] : ((settings as any)?.[key] ?? def)) as any;
+  const setC = (key: string, v: number | boolean) => setContribDraft(p => ({ ...p, [key]: v }));
+
+  const saveContribs = async () => {
+    setContribSaving(true);
+    try {
+      const keys: [string, number | boolean][] = [
+        ['epf_enabled', getC('epf_enabled', true)],
+        ['epf_rate_below', getC('epf_rate_below', 13)],
+        ['epf_rate_above', getC('epf_rate_above', 12)],
+        ['epf_threshold', getC('epf_threshold', 5000)],
+        ['socso_enabled', getC('socso_enabled', true)],
+        ['socso_rate', getC('socso_rate', 1.75)],
+        ['socso_ceiling', getC('socso_ceiling', 4000)],
+        ['eis_enabled', getC('eis_enabled', true)],
+        ['eis_rate', getC('eis_rate', 0.4)],
+        ['eis_ceiling', getC('eis_ceiling', 4000)],
+      ];
+      await Promise.all(keys.map(([k, v]) => patchSetting(k, v)));
+      qc.invalidateQueries({ queryKey: ['settings'] });
+      qc.invalidateQueries({ queryKey: ['employer-contributions'] });
+      setContribDraft({});
+      showToast('Contribution rates saved');
+    } catch (e: any) { showToast(e?.message ?? 'Failed to save', 'error'); }
+    setContribSaving(false);
+  };
 
   const onDragStart = (idx: number) => (e: React.DragEvent) => {
     setDragIdx(idx);
@@ -443,6 +475,117 @@ export default function EmployeeSalaryPage() {
                 showToast(`${at.name} deleted`);
               }} />
             ))}
+          </div>
+        </div>
+
+        {/* ── Employer Contributions ── */}
+        <div style={s.card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+            <div>
+              <h2 style={s.sectionTitle}>Employer Contribution Rates</h2>
+              <p style={{ fontSize: 12, color: C.muted, margin: '3px 0 0' }}>Rates applied when calculating the employer contribution KPI</p>
+            </div>
+            <button onClick={saveContribs} disabled={contribSaving} style={s.saveBtn}>{contribSaving ? 'Saving…' : 'Save Rates'}</button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+
+            {/* EPF card */}
+            {(() => {
+              const enabled = getC('epf_enabled', true) as boolean;
+              return (
+                <div style={{ borderRadius: 10, border: `1.5px solid ${enabled ? '#5a67d8' : C.border}`, overflow: 'hidden', opacity: enabled ? 1 : 0.6, transition: 'all 0.2s' }}>
+                  <div style={{ background: enabled ? '#5a67d8' : '#f1f5f9', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: enabled ? '#fff' : C.muted, letterSpacing: '0.04em' }}>EPF</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={enabled} onChange={e => setC('epf_enabled', e.target.checked)} style={{ accentColor: '#fff', width: 14, height: 14 }} />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: enabled ? '#ffffffcc' : C.muted }}>Enabled</span>
+                    </label>
+                  </div>
+                  <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Salary Threshold (RM)</label>
+                      <input type="text" inputMode="numeric" value={getC('epf_threshold', 5000)} onChange={e => setC('epf_threshold', Number(numOnly(e.target.value)) || 5000)} style={{ ...s.cellInput, width: '100%', boxSizing: 'border-box' as const }} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Rate ≤ threshold</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <input type="text" inputMode="numeric" value={getC('epf_rate_below', 13)} onChange={e => setC('epf_rate_below', Number(numOnly(e.target.value)) || 0)} style={{ ...s.cellInput, flex: 1 }} />
+                          <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Rate above</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <input type="text" inputMode="numeric" value={getC('epf_rate_above', 12)} onChange={e => setC('epf_rate_above', Number(numOnly(e.target.value)) || 0)} style={{ ...s.cellInput, flex: 1 }} />
+                          <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* SOCSO card */}
+            {(() => {
+              const enabled = getC('socso_enabled', true) as boolean;
+              return (
+                <div style={{ borderRadius: 10, border: `1.5px solid ${enabled ? '#0891b2' : C.border}`, overflow: 'hidden', opacity: enabled ? 1 : 0.6, transition: 'all 0.2s' }}>
+                  <div style={{ background: enabled ? '#0891b2' : '#f1f5f9', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: enabled ? '#fff' : C.muted, letterSpacing: '0.04em' }}>SOCSO</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={enabled} onChange={e => setC('socso_enabled', e.target.checked)} style={{ accentColor: '#fff', width: 14, height: 14 }} />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: enabled ? '#ffffffcc' : C.muted }}>Enabled</span>
+                    </label>
+                  </div>
+                  <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Employer Rate</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <input type="text" inputMode="numeric" value={getC('socso_rate', 1.75)} onChange={e => setC('socso_rate', Number(numOnly(e.target.value)) || 0)} style={{ ...s.cellInput, flex: 1 }} />
+                        <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>%</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Wage Ceiling (RM)</label>
+                      <input type="text" inputMode="numeric" value={getC('socso_ceiling', 4000)} onChange={e => setC('socso_ceiling', Number(numOnly(e.target.value)) || 0)} style={{ ...s.cellInput, width: '100%', boxSizing: 'border-box' as const }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* EIS card */}
+            {(() => {
+              const enabled = getC('eis_enabled', true) as boolean;
+              return (
+                <div style={{ borderRadius: 10, border: `1.5px solid ${enabled ? '#059669' : C.border}`, overflow: 'hidden', opacity: enabled ? 1 : 0.6, transition: 'all 0.2s' }}>
+                  <div style={{ background: enabled ? '#059669' : '#f1f5f9', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: enabled ? '#fff' : C.muted, letterSpacing: '0.04em' }}>EIS</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={enabled} onChange={e => setC('eis_enabled', e.target.checked)} style={{ accentColor: '#fff', width: 14, height: 14 }} />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: enabled ? '#ffffffcc' : C.muted }}>Enabled</span>
+                    </label>
+                  </div>
+                  <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Employer Rate</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <input type="text" inputMode="numeric" value={getC('eis_rate', 0.4)} onChange={e => setC('eis_rate', Number(numOnly(e.target.value)) || 0)} style={{ ...s.cellInput, flex: 1 }} />
+                        <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>%</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: C.muted, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Wage Ceiling (RM)</label>
+                      <input type="text" inputMode="numeric" value={getC('eis_ceiling', 4000)} onChange={e => setC('eis_ceiling', Number(numOnly(e.target.value)) || 0)} style={{ ...s.cellInput, width: '100%', boxSizing: 'border-box' as const }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
           </div>
         </div>
 
