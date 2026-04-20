@@ -5,12 +5,13 @@ import {
   CartesianGrid, PieChart, Pie, Cell,
 } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { fetchSalesAnalytics, fetchLeadById } from '../../api/leads.js';
 import { Lead } from '../../types/index.js';
 import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
 import EditLeadModal from '../../components/leads/EditLeadModal.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
+import { FilterPillStyles, PillSelect } from '../../components/common/FilterPill.js';
 
 // ── Palette ───────────────────────────────────────────────────────
 const C = {
@@ -136,32 +137,56 @@ export default function SalesAnalysisPage() {
   return (
     <div style={{ ...s.page, ...(isMobile ? { padding: '20px 12px' } : {}) }}>
       <style>{`.recharts-wrapper, .recharts-wrapper svg, .recharts-wrapper *:focus { outline: none !important; } .sa-row:hover { background: #eef2fa !important; }`}</style>
+      <FilterPillStyles />
 
       {/* ── Header ── */}
       <div style={{ ...s.header, ...(isMobile ? { flexDirection: 'column' } : {}) }}>
         <div>
           <h1 style={s.title}>Sales Analysis</h1>
-          <p style={s.subtitle}>Closing rate — enrolled leads vs lost sales (excludes no-shows)</p>
         </div>
         <div style={s.filterWrap}>
-          <span style={s.filterLabel}>Year</span>
-          <select style={s.select} value={selectedYear ?? ''}
-            onChange={e => handleYearChange(e.target.value ? Number(e.target.value) : undefined)}>
-            <option value="">Current Year</option>
-            {data.availableYears
-              .filter(y => y < new Date().getFullYear())
-              .map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+          <PillSelect
+            icon={faCalendar}
+            value={String(selectedYear ?? new Date().getFullYear())}
+            onChange={v => {
+              const n = Number(v);
+              handleYearChange(n === new Date().getFullYear() ? undefined : n);
+            }}
+            options={(() => {
+              const now = new Date().getFullYear();
+              return [now - 2, now - 1, now].map(y => ({
+                value: String(y),
+                label: y === now ? `${y} (current)` : String(y),
+              }));
+            })()}
+          />
         </div>
       </div>
 
       {/* ── KPI strip ── */}
       <div style={{ ...s.kpiStrip, ...(isMobile ? { gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 } : {}) }}>
         {/* Closing rate hero */}
-        <div style={{ ...s.card, borderTop: `3px solid ${C.indigo}`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '18px 20px', marginBottom: 0 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Closing Rate</span>
-          <RateRing rate={data.closingRate} color={C.indigo} />
-          <span style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>{data.enrolledLeads} closed of {data.totalLeads} sales talks</span>
+        <div style={{
+          background: '#fff',
+          border: '1px solid #e5e7eb',
+          borderRadius: 14,
+          padding: '12px 20px',
+          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
+          minHeight: 84,
+          marginBottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          gap: 8,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: C.indigo, display: 'inline-block' }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Closing Rate</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <RateRing rate={data.closingRate} color={C.indigo} />
+            <span style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', textAlign: 'center' }}>{data.enrolledLeads} closed of {data.totalLeads} sales talks</span>
+          </div>
         </div>
         <StatCard label="Total Sales Talks" value={data.totalLeads}    color={C.blue}  sub="enrolled + lost sales" />
         <StatCard label="Closed Sales"      value={data.enrolledLeads} color={C.green} sub={`${closingPct}% closing rate`} />
@@ -458,10 +483,24 @@ function RateRing({ rate, color }: { rate: number; color: string }) {
 
 function StatCard({ label, value, color, sub }: { label: string; value: number; color: string; sub?: string }) {
   return (
-    <div style={{ ...s.card, borderTop: `3px solid ${color}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '18px 16px', marginBottom: 0 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>{label}</span>
-      <span style={{ fontSize: 44, fontWeight: 900, color, lineHeight: 1 }}>{value}</span>
-      {sub && <span style={{ fontSize: 11, color: C.muted }}>{sub}</span>}
+    <div style={{
+      background: '#fff',
+      border: '1px solid #e5e7eb',
+      borderRadius: 14,
+      padding: '12px 20px',
+      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
+      minHeight: 84,
+      marginBottom: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 800, color, letterSpacing: '-0.02em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -596,19 +635,26 @@ function PagBtn({ label, onClick, disabled, active }: { label: string; onClick: 
 
 // ── Styles ────────────────────────────────────────────────────────
 const s: Record<string, any> = {
-  page:       { padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' },
-  header:     { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 },
-  title:      { fontSize: 22, fontWeight: 800, color: C.text, margin: '0 0 4px' },
-  subtitle:   { fontSize: 13, color: C.muted, margin: 0 },
+  page:       { padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', color: '#0f172a' },
+  header:     { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, gap: 16 },
+  title:      { fontSize: 24, fontWeight: 700, color: '#0f172a', margin: '0 0 4px', letterSpacing: '-0.02em' },
+  subtitle:   { fontSize: 13, color: C.muted, margin: 0, lineHeight: 1.5 },
   filterWrap: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
   filterLabel:{ fontSize: 12, fontWeight: 600, color: C.muted },
   select:     { padding: '7px 14px', border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.text, background: C.card, cursor: 'pointer', fontWeight: 500 },
 
-  kpiStrip:   { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16, marginBottom: 20, alignItems: 'stretch' },
+  kpiStrip:   { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16, marginBottom: 24, alignItems: 'stretch' },
 
-  card:       { background: C.card, borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)', marginBottom: 20 },
+  card:       {
+    background: C.card,
+    border: '1px solid #e5e7eb',
+    borderRadius: 14,
+    padding: '20px 24px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
+    marginBottom: 24,
+  },
   cardHeaderRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 },
-  cardTitle:  { fontSize: 14, fontWeight: 700, color: C.text, margin: 0 },
+  cardTitle:  { fontSize: 15, fontWeight: 700, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' },
   cardSub:    { fontSize: 12, color: C.muted, margin: '2px 0 0' },
   legendRow:  { display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' },
   legendItem: { display: 'flex', alignItems: 'center', gap: 4 },
@@ -621,8 +667,8 @@ const s: Record<string, any> = {
   pagination: { display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}`, gap: 8 },
 
   table:  { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th:     { padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `2px solid ${C.border}`, whiteSpace: 'nowrap' },
-  td:     { padding: '10px 14px', borderBottom: `1px solid ${C.border}`, fontSize: 13, color: C.text, verticalAlign: 'middle' },
+  th:     { padding: '12px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap', background: '#fafbfc', verticalAlign: 'middle' },
+  td:     { padding: '10px 12px', borderBottom: '1px solid #f1f5f9', fontSize: 13, color: '#0f172a', verticalAlign: 'middle' },
   badge:  { display: 'inline-block', padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' },
   name:   { fontWeight: 600, color: C.text },
   centered: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: C.muted, fontSize: 15 },

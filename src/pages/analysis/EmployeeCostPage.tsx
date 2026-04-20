@@ -205,7 +205,6 @@ export default function EmployeeCostPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 style={s.title}>Staff</h1>
-          <p style={s.subtitle}>Monthly staff cost breakdown and salary analysis</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <PillSelect
@@ -214,7 +213,10 @@ export default function EmployeeCostPage() {
             onChange={v => setYear(Number(v))}
             options={(() => {
               const now = new Date().getFullYear();
-              return [now - 1, now, now + 1].map(y => ({ value: String(y), label: String(y) }));
+              return [now - 2, now - 1, now].map(y => ({
+                value: String(y),
+                label: y === now ? `${y} (current)` : String(y),
+              }));
             })()}
           />
           <PillToggle
@@ -690,10 +692,23 @@ function TeacherWeightsTable({
 
 function KpiCard({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
   return (
-    <div style={{ background: C.card, borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderTop: `3px solid ${color}`, padding: '16px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-      <span style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{value}</span>
-      {sub && <span style={{ fontSize: 10, color: C.muted }}>{sub}</span>}
+    <div style={{
+      background: C.card,
+      border: '1px solid #e5e7eb',
+      borderRadius: 14,
+      padding: '12px 20px',
+      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
+      minHeight: 84,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -894,15 +909,22 @@ function StaffChangesList({
 }
 
 const s: Record<string, React.CSSProperties> = {
-  page: { padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' },
-  title: { fontSize: 22, fontWeight: 800, color: C.text, margin: '0 0 4px' },
-  subtitle: { fontSize: 13, color: C.muted, margin: 0 },
-  card: { background: C.card, borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 20 },
-  cardTitle: { fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 2px' },
+  page: { padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', color: '#0f172a' },
+  title: { fontSize: 24, fontWeight: 700, color: '#0f172a', margin: '0 0 4px', letterSpacing: '-0.02em' },
+  subtitle: { fontSize: 13, color: C.muted, margin: 0, lineHeight: 1.5 },
+  card: {
+    background: C.card,
+    border: '1px solid #e5e7eb',
+    borderRadius: 14,
+    padding: '20px 24px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
+    marginBottom: 24,
+  },
+  cardTitle: { fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '0 0 4px', letterSpacing: '-0.01em' },
   cardSub: { fontSize: 12, color: C.muted, margin: '0 0 16px' },
   table: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 },
-  th: { textAlign: 'left' as const, padding: '8px 12px', fontWeight: 600, fontSize: 11, color: C.muted, letterSpacing: '0.04em', textTransform: 'uppercase' as const, borderBottom: `2px solid ${C.border}`, whiteSpace: 'nowrap' as const },
-  td: { padding: '10px 12px', borderBottom: '1px solid #f1f5f9', fontSize: 13, color: C.text, whiteSpace: 'nowrap' as const },
-  centered: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: C.muted, fontSize: 15 },
+  th: { textAlign: 'left' as const, padding: '12px 12px', fontWeight: 600, fontSize: 11, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase' as const, borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' as const, background: '#fafbfc', verticalAlign: 'middle' as const },
+  td: { padding: '10px 12px', borderBottom: '1px solid #f1f5f9', fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap' as const, verticalAlign: 'middle' as const },
+  centered: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: C.muted, fontSize: 14 },
   empty: { color: '#cbd5e1', fontSize: 14, textAlign: 'center' as const, padding: '40px 0', margin: 0 },
 };

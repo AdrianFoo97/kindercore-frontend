@@ -15,6 +15,7 @@ import { CategorySidebar, SidebarGroup } from './operating-costs/CategorySidebar
 import { CategoryPanel, RowWithState } from './operating-costs/CategoryPanel.js';
 import { StickySaveBar } from './operating-costs/StickySaveBar.js';
 import { C, SIZE, MONTH_LABELS, cellKey, fmtRMCompact, computeRowState } from './operating-costs/shared.js';
+import ConfirmDialog from '../../components/common/ConfirmDialog.js';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,8 @@ export default function OperatingCostsPage() {
   const [values, setValues] = useState<Record<string, number>>({});
   const [originalValues, setOriginalValues] = useState<Record<string, number>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   // ── Queries ────────────────────────────────────────────────────────────────
   const { data: categories = [] } = useQuery({
@@ -72,26 +75,17 @@ export default function OperatingCostsPage() {
     staleTime: 0,
   });
 
-  // ── Hydrate values from saved entries + category defaults ──────────────────
-  // originalValues tracks ONLY what's actually in the DB. values tracks what
-  // the user sees (server data + unsaved default prefills). This way, applying
-  // defaults is a real pending change that shows up in the sticky save bar on
-  // first visit — the user clicks Save once and the defaults become real rows.
+  // ── Hydrate values from saved entries only ─────────────────────────────────
+  // Category defaultAmounts are shown as input PLACEHOLDERS inside ExpenseRow,
+  // not auto-persisted. This keeps the DB clean (presets never become rows
+  // unless the user explicitly types and saves a value).
   useEffect(() => {
     if (!entriesData || categories.length === 0) return;
     const serverSnapshot: Record<string, number> = {};
     for (const row of entriesData.rows) {
       serverSnapshot[cellKey(row.categoryId, row.month)] = row.amount;
     }
-    const draft: Record<string, number> = { ...serverSnapshot };
-    for (const cat of categories) {
-      if (cat.defaultAmount == null || cat.defaultAmount <= 0) continue;
-      for (let m = 0; m < 12; m++) {
-        const k = cellKey(cat.id, m);
-        if (draft[k] === undefined) draft[k] = cat.defaultAmount;
-      }
-    }
-    setValues(draft);
+    setValues(serverSnapshot);
     setOriginalValues(serverSnapshot);
   }, [entriesData, categories]);
 
@@ -283,6 +277,65 @@ export default function OperatingCostsPage() {
     setValues({ ...originalValues });
   }
 
+  // A key belongs to the current reset scope if it's in the selected month
+  // (month view) or any month (year view).
+  function inResetScope(key: string): boolean {
+    if (viewMode === 'year') return true;
+    const [, monthStr] = key.split('|');
+    return Number(monthStr) === selectedMonth;
+  }
+
+  async function handleReset() {
+    setIsResetting(true);
+    try {
+      // Zero out every (category, month) in scope that currently has a saved
+      // entry. Also clear matching pending drafts so nothing sneaks back in.
+      const keys = new Set([
+        ...Object.keys(values).filter(inResetScope),
+        ...Object.keys(originalValues).filter(inResetScope),
+      ]);
+      const rows: { categoryId: string; month: number; amount: number }[] = [];
+      for (const k of keys) {
+        const [categoryId, monthStr] = k.split('|');
+        rows.push({ categoryId, month: Number(monthStr), amount: 0 });
+      }
+      if (rows.length > 0) {
+        await bulkUpsertOperatingCostEntries(year, rows);
+      }
+      // Strip just the in-scope keys from local state
+      setValues(prev => {
+        const next = { ...prev };
+        for (const k of Object.keys(next)) if (inResetScope(k)) delete next[k];
+        return next;
+      });
+      setOriginalValues(prev => {
+        const next = { ...prev };
+        for (const k of Object.keys(next)) if (inResetScope(k)) delete next[k];
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ['operating-cost-entries', year] });
+      qc.invalidateQueries({ queryKey: ['finance-summary'] });
+      showToast(
+        viewMode === 'year'
+          ? `All ${year} operating costs reset to 0`
+          : `${MONTH_LABELS[selectedMonth]} ${year} operating costs reset to 0`,
+        'success'
+      );
+      setShowResetConfirm(false);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to reset', 'error');
+    } finally {
+      setIsResetting(false);
+    }
+  }
+
+  const hasAnyData = useMemo(() => {
+    const allKeys = [...Object.keys(values), ...Object.keys(originalValues)];
+    return allKeys.some(inResetScope);
+  }, [values, originalValues, viewMode, selectedMonth]);
+
+  const resetScopeLabel = viewMode === 'year' ? String(year) : `${MONTH_LABELS[selectedMonth]} ${year}`;
+
   // ── Rendering ──────────────────────────────────────────────────────────────
   const periodLabel = viewMode === 'year'
     ? `${year}`
@@ -354,7 +407,10 @@ export default function OperatingCostsPage() {
             onChange={v => setYear(Number(v))}
             options={(() => {
               const y = new Date().getFullYear();
-              return [y - 1, y, y + 1].map(n => ({ value: String(n), label: String(n) }));
+              return [y - 2, y - 1, y].map(n => ({
+                value: String(n),
+                label: n === y ? `${n} (current)` : String(n),
+              }));
             })()}
           />
           <PillToggle
@@ -379,6 +435,28 @@ export default function OperatingCostsPage() {
                 }))
             }
           />
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm(true)}
+            disabled={!hasAnyData || isSaving || isResetting}
+            style={{
+              height: 34,
+              padding: '0 14px',
+              borderRadius: 999,
+              border: `1px solid ${hasAnyData ? '#fecaca' : '#e5e7eb'}`,
+              background: '#fff',
+              color: hasAnyData ? '#dc2626' : '#cbd5e1',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: hasAnyData && !isSaving && !isResetting ? 'pointer' : 'not-allowed',
+              transition: 'background 120ms, border-color 120ms',
+            }}
+            onMouseEnter={e => { if (hasAnyData && !isSaving && !isResetting) e.currentTarget.style.background = '#fef2f2'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+            title={`Set every saved entry for ${resetScopeLabel} to RM 0`}
+          >
+            Reset {resetScopeLabel}
+          </button>
         </div>
       </header>
 
@@ -439,6 +517,24 @@ export default function OperatingCostsPage() {
         onDiscard={handleDiscard}
         onSave={handleSave}
       />
+
+      {showResetConfirm && (
+        <ConfirmDialog
+          title={`Reset ${resetScopeLabel} operating costs?`}
+          message={
+            <>
+              Every saved entry for <strong>{resetScopeLabel}</strong> will be
+              set to <strong>RM 0</strong>. This cannot be undone.
+              {viewMode === 'month' && ' Other months are not affected.'}
+            </>
+          }
+          destructive
+          confirmLabel="Reset to 0"
+          loading={isResetting}
+          onConfirm={handleReset}
+          onCancel={() => setShowResetConfirm(false)}
+        />
+      )}
     </div>
   );
 }

@@ -5,12 +5,13 @@ import {
   CartesianGrid, BarChart, Cell, PieChart, Pie, Legend, Sector,
 } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { fetchAnalytics, fetchLeadById } from '../../api/leads.js';
 import { Lead } from '../../types/index.js';
 import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
 import EditLeadModal from '../../components/leads/EditLeadModal.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
+import { FilterPillStyles, PillSelect } from '../../components/common/FilterPill.js';
 
 // ── Palette ───────────────────────────────────────────────────────
 const C = {
@@ -88,11 +89,34 @@ function KpiCard({ label, value, sub, color, children }: {
   label: string; value?: number | string; sub?: string;
   color: string; children?: React.ReactNode;
 }) {
+  const hasChildren = !!children;
   return (
-    <div style={{ background: C.card, borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)', borderTop: `3px solid ${color}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '14px 12px' }}>
-      <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>{label}</span>
-      {children ?? <span style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1 }}>{value}</span>}
-      {sub && <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{sub}</span>}
+    <div style={{
+      background: C.card,
+      border: '1px solid #e5e7eb',
+      borderRadius: 14,
+      padding: '12px 20px',
+      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
+      minHeight: 84,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      </div>
+      {hasChildren ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          {children}
+          {sub && <span style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', textAlign: 'center' }}>{sub}</span>}
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 28, fontWeight: 800, color, letterSpacing: '-0.02em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>{value}</div>
+          {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
+        </>
+      )}
     </div>
   );
 }
@@ -191,28 +215,32 @@ export default function SalesMarketingPage() {
   return (
     <div style={{ ...s.page, ...(isMobile ? { padding: '20px 12px' } : {}) }}>
       <style>{`.recharts-wrapper *:focus { outline: none !important; } .mk-row:hover { background: #eef2fa !important; }`}</style>
+      <FilterPillStyles />
 
       {/* ── Header ── */}
       <div style={{ ...s.pageHeader, ...(isMobile ? { flexDirection: 'column' } : {}) }}>
         <div>
           <h1 style={s.pageTitle}>Marketing Analysis</h1>
-          <p style={s.pageSubtitle}>Enquiry trends, appointment performance and channel insights</p>
         </div>
         <div style={s.filterWrap}>
-          <span style={s.filterLabel}>Year</span>
-          <select style={s.select}
-            value={selectedYear ?? ''}
-            onChange={e => {
-              setSelectedYear(e.target.value ? Number(e.target.value) : undefined);
+          <PillSelect
+            icon={faCalendar}
+            value={String(selectedYear ?? new Date().getFullYear())}
+            onChange={v => {
+              const n = Number(v);
+              setSelectedYear(n === new Date().getFullYear() ? undefined : n);
               setSelectedMonth(null);
               setActiveFilter(null);
               setPage(1);
-            }}>
-            <option value="">Current Year</option>
-            {data.availableYears
-              .filter(y => y < new Date().getFullYear())
-              .map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+            }}
+            options={(() => {
+              const now = new Date().getFullYear();
+              return [now - 2, now - 1, now].map(y => ({
+                value: String(y),
+                label: y === now ? `${y} (current)` : String(y),
+              }));
+            })()}
+          />
         </div>
       </div>
 
@@ -625,17 +653,24 @@ function DonutCard({ title, sub, data, topN, colorFn, filterType, activeValue, o
 
 // ── Styles ────────────────────────────────────────────────────────
 const s: Record<string, any> = {
-  page: { padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' },
-  pageHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 },
-  pageTitle: { fontSize: 22, fontWeight: 800, color: C.text, margin: '0 0 4px' },
-  pageSubtitle: { fontSize: 13, color: C.muted, margin: 0 },
+  page: { padding: '28px 32px', maxWidth: 1200, margin: '0 auto', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', color: '#0f172a' },
+  pageHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, gap: 16 },
+  pageTitle: { fontSize: 24, fontWeight: 700, color: '#0f172a', margin: '0 0 4px', letterSpacing: '-0.02em' },
+  pageSubtitle: { fontSize: 13, color: C.muted, margin: 0, lineHeight: 1.5 },
   filterWrap: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
   filterLabel: { fontSize: 12, fontWeight: 600, color: C.muted },
   select: { padding: '7px 14px', border: `1.5px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.text, background: C.card, cursor: 'pointer', fontWeight: 500 },
-  kpiRow: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 20 },
-  card: { background: C.card, borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)', marginBottom: 20 },
+  kpiRow: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 24 },
+  card: {
+    background: C.card,
+    border: '1px solid #e5e7eb',
+    borderRadius: 14,
+    padding: '20px 24px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
+    marginBottom: 24,
+  },
   cardHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' },
-  cardTitle: { fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 2px' },
+  cardTitle: { fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '0 0 4px', letterSpacing: '-0.01em' },
   cardSub: { fontSize: 12, color: C.muted, margin: 0 },
   legendInline: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   legendInlineItem: { display: 'flex', alignItems: 'center', gap: 4 },
@@ -648,7 +683,7 @@ const s: Record<string, any> = {
   empty: { color: '#cbd5e1', fontSize: 14, textAlign: 'center' as const, padding: '60px 0', margin: 0 },
   clearBtn: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 11, fontWeight: 600, border: `1px solid ${C.border}`, borderRadius: 6, background: C.card, color: C.muted, cursor: 'pointer', fontFamily: 'inherit' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: { textAlign: 'left', padding: '8px 14px', fontWeight: 600, fontSize: 11, color: C.muted, letterSpacing: '0.04em', textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' },
-  td: { padding: '9px 14px', borderBottom: `1px solid #f1f5f9`, fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+  th: { textAlign: 'left', padding: '12px 12px', fontWeight: 600, fontSize: 11, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap', background: '#fafbfc', verticalAlign: 'middle' },
+  td: { padding: '10px 12px', borderBottom: `1px solid #f1f5f9`, fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' },
   pagination: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTop: `1px solid #f1f5f9` },
 };

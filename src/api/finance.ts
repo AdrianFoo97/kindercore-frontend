@@ -10,6 +10,8 @@ export interface FinanceMonth {
   studentCount: number;
   teacherCount: number;
   isForecast: boolean;
+  /** True when the month's operating cost is a projection (no saved entries). */
+  operatingIsProjected: boolean;
 }
 
 export interface FinanceTotalsSplit {

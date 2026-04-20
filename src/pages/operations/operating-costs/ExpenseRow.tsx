@@ -140,7 +140,11 @@ export function ExpenseRow({
         display: 'flex',
         alignItems: 'center',
       }}>
-        <CurrencyInput value={value} onChange={onChange} />
+        <CurrencyInput
+          value={value}
+          onChange={onChange}
+          presetAmount={category.defaultAmount ?? 0}
+        />
       </div>
     </div>
   );
@@ -250,10 +254,13 @@ function DeltaIndicator({ state }: { state: RowState }) {
 interface CurrencyInputProps {
   value: number;
   onChange: (v: number) => void;
+  /** Category default amount. Shown as a placeholder when the field is empty —
+      it is NOT persisted unless the user explicitly types a value. */
+  presetAmount?: number;
 }
 
 const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
-  function CurrencyInput({ value, onChange }, ref) {
+  function CurrencyInput({ value, onChange, presetAmount = 0 }, ref) {
     const [focused, setFocused] = useState(false);
     const [draft, setDraft] = useState(value === 0 ? '' : String(value));
 
@@ -311,7 +318,7 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
               if (idx >= 0 && idx + 1 < inputs.length) inputs[idx + 1].focus();
             }
           }}
-          placeholder=""
+          placeholder={presetAmount > 0 ? String(presetAmount) : ''}
           className="occ-money-input"
           style={{
             flex: 1,

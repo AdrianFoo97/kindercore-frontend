@@ -72,6 +72,8 @@ interface PeriodEntry {
   teacherCount: number;
   isForecast: boolean;
   containsCurrent: boolean;
+  /** True if any underlying month's operating cost is projected (no entries). */
+  operatingIsProjected: boolean;
 }
 
 function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: GroupBy): PeriodEntry[] {
@@ -88,6 +90,7 @@ function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: 
       teacherCount: m.teacherCount,
       isForecast: m.isForecast,
       containsCurrent: i === currentMonthIdx,
+      operatingIsProjected: m.operatingIsProjected,
     }));
   }
   return [0, 1, 2, 3].map(qi => {
@@ -111,6 +114,7 @@ function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: 
       teacherCount: last.teacherCount,
       isForecast: slice.every(m => m.isForecast),
       containsCurrent: indices.includes(currentMonthIdx),
+      operatingIsProjected: slice.some(m => m.operatingIsProjected),
     };
   });
 }
@@ -147,6 +151,18 @@ export default function FinanceAnalysisPage() {
     return [Math.floor((lo - pad) / 1000) * 1000, Math.ceil((hi + pad) / 1000) * 1000];
   }, [entries]);
 
+  // Chart geometry — used to drive a userSpaceOnUse gradient whose zero-line
+  // stop lands at the chart's real y=0 pixel. Recharts' <Line> is rendered
+  // inside a <g transform="translate(leftMargin, topMargin)">, so the
+  // gradient's user space starts at the top of the plot area (not the svg
+  // root). We therefore size the gradient to PLOT_HEIGHT and do NOT re-add
+  // the top margin when computing the stop.
+  const CHART_HEIGHT = 320;
+  const CHART_MARGIN_TOP = SP.md;
+  const CHART_MARGIN_BOTTOM = SP.sm;
+  const PLOT_HEIGHT = CHART_HEIGHT - CHART_MARGIN_TOP - CHART_MARGIN_BOTTOM;
+
+  // Fraction 0..1 along PLOT_HEIGHT where y_data=0 sits.
   const zeroOffset = useMemo(() => {
     const [lo, hi] = yDomain;
     if (hi <= 0) return 0;
@@ -154,26 +170,20 @@ export default function FinanceAnalysisPage() {
     return hi / (hi - lo);
   }, [yDomain]);
 
-  // Chart geometry — used to drive a userSpaceOnUse gradient whose zero-line
-  // stop lands at the *chart's* zero axis instead of at a fraction of each
-  // individual Line's bounding box. Without this, a line whose values are
-  // entirely below zero still renders with a green top, because the default
-  // `objectBoundingBox` gradient normalizes to the line's own bbox.
-  const CHART_HEIGHT = 320;
-  const CHART_MARGIN_TOP = SP.md;
-  const CHART_MARGIN_BOTTOM = SP.sm;
-  const PLOT_HEIGHT = CHART_HEIGHT - CHART_MARGIN_TOP - CHART_MARGIN_BOTTOM;
-
   // Split profit into two series so the forecast segment can render dashed.
-  // The last actual point is duplicated into `forecastProfit` so the two
-  // lines visually connect at the boundary without a gap.
+  // A month counts as "projection" if it's a future month OR its operating
+  // cost was substituted with the forecast value (no saved entries). That way
+  // the line goes dashed from the *last fully-actual* month, not at the naive
+  // past/future boundary.
   const chartData = useMemo(() => {
+    const isProjection = (e: PeriodEntry) => e.isForecast || e.operatingIsProjected;
     return entries.map((e, i) => {
-      const isLastActual = !e.isForecast && i + 1 < entries.length && entries[i + 1].isForecast;
+      const next = entries[i + 1];
+      const isLastActual = !isProjection(e) && !!next && isProjection(next);
       return {
         ...e,
-        actualProfit: e.isForecast ? null : e.profit,
-        forecastProfit: e.isForecast || isLastActual ? e.profit : null,
+        actualProfit: isProjection(e) ? null : e.profit,
+        forecastProfit: isProjection(e) || isLastActual ? e.profit : null,
       };
     });
   }, [entries]);
@@ -236,7 +246,6 @@ export default function FinanceAnalysisPage() {
       <header style={s.header}>
         <div>
           <h1 style={s.title}>Finance Analysis</h1>
-          <p style={s.subtitle}>Profit = revenue − staff cost (salary + contributions) − operating cost</p>
         </div>
         <div style={s.filterGroup}>
           <PillSelect
@@ -245,7 +254,10 @@ export default function FinanceAnalysisPage() {
             onChange={v => setYear(Number(v))}
             options={(() => {
               const now = new Date().getFullYear();
-              return [now - 1, now, now + 1].map(y => ({ value: String(y), label: String(y) }));
+              return [now - 2, now - 1, now].map(y => ({
+                value: String(y),
+                label: y === now ? `${y} (current)` : String(y),
+              }));
             })()}
           />
           <PillToggle
@@ -335,10 +347,10 @@ export default function FinanceAnalysisPage() {
           <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
             <ComposedChart data={chartData} margin={{ top: CHART_MARGIN_TOP, right: SP.lg, left: 0, bottom: CHART_MARGIN_BOTTOM }} style={{ outline: 'none' }}>
               <defs>
-                {/* userSpaceOnUse anchors the gradient to the chart plot area
-                    (y=0 → top of plot, y=PLOT_HEIGHT → bottom), so the green/red
-                    split stays at the true y=0 line regardless of how each
-                    Line's value range happens to fall. */}
+                {/* userSpaceOnUse anchors the gradient to the plot area (the
+                    <g> that Recharts wraps the Line in already applies the
+                    top-margin translate). `zeroOffset` is a 0..1 fraction of
+                    PLOT_HEIGHT placing the stop at the real y=0 pixel. */}
                 <linearGradient
                   id="profitGradient"
                   gradientUnits="userSpaceOnUse"
@@ -350,6 +362,17 @@ export default function FinanceAnalysisPage() {
                   <stop offset={zeroOffset} stopColor={C.positive} />
                   <stop offset={zeroOffset} stopColor={C.negative} />
                 </linearGradient>
+                {/* Hatch pattern for projected (no-data) operating segments. */}
+                <pattern
+                  id="projectedHatch"
+                  patternUnits="userSpaceOnUse"
+                  width="6"
+                  height="6"
+                  patternTransform="rotate(45)"
+                >
+                  <rect width="6" height="6" fill={C.expenseLight} fillOpacity={0.55} />
+                  <line x1="0" y1="0" x2="0" y2="6" stroke="#fff" strokeWidth="2" />
+                </pattern>
               </defs>
 
               <CartesianGrid vertical={false} stroke={C.gridLine} />
@@ -406,7 +429,11 @@ export default function FinanceAnalysisPage() {
               </Bar>
               <Bar dataKey="operatingCost" name="Operating Cost" stackId="exp" radius={[4, 4, 0, 0]} maxBarSize={groupBy === 'quarter' ? 60 : 26}>
                 {entries.map((e, i) => (
-                  <Cell key={`o-${i}`} fill={C.expenseLight} fillOpacity={e.isForecast ? 0.3 : 0.8} />
+                  <Cell
+                    key={`o-${i}`}
+                    fill={e.operatingIsProjected ? 'url(#projectedHatch)' : C.expenseLight}
+                    fillOpacity={e.operatingIsProjected ? 1 : e.isForecast ? 0.3 : 0.8}
+                  />
                 ))}
               </Bar>
 
@@ -454,7 +481,11 @@ export default function FinanceAnalysisPage() {
                 connectNulls={false}
                 dot={(props: any) => {
                   const { cx, cy, payload, index } = props;
-                  if (payload.forecastProfit == null || !payload.isForecast) return <g key={`df-${index}`} />;
+                  // Skip non-projection months (no dot on the dashed line for
+                  // them) and the shared connector point (drawn by the actual
+                  // line). Projection = future month OR operating is projected.
+                  const isProjection = payload.isForecast || payload.operatingIsProjected;
+                  if (payload.forecastProfit == null || !isProjection) return <g key={`df-${index}`} />;
                   const entry = entries[index];
                   const isSelected = selectedEntry?.key === entry?.key;
                   const color = payload.profit >= 0 ? C.positive : C.negative;
@@ -545,12 +576,13 @@ export default function FinanceAnalysisPage() {
                     <td style={{ ...s.tdNum, color: revenueColor, fontWeight: 600 }}>{fmtRM(e.revenue)}</td>
                     <td
                       style={s.tdNum}
-                      title={`Staff ${fmtRM(e.staffCost)}  ·  Operating ${fmtRM(e.operatingCost)}`}
+                      title={`Staff ${fmtRM(e.staffCost)}  ·  Operating ${fmtRM(e.operatingCost)}${e.operatingIsProjected ? '  (projected — no entries recorded)' : ''}`}
                     >
                       <ExpenseCell
                         staff={e.staffCost}
                         operating={e.operatingCost}
                         muted={e.isForecast}
+                        projected={e.operatingIsProjected}
                       />
                     </td>
                     <td style={{ ...s.tdProfit, color: profitColor }}>{fmtRM(e.profit)}</td>
@@ -651,17 +683,28 @@ function ChartLegend() {
       <LegendItem color={C.positiveSoft} label="Revenue" />
       <LegendItem color={C.expenseDark} label="Staff" />
       <LegendItem color={C.expenseLight} label="Operating" />
+      <LegendItem kind="hatch" label="Projected" />
       <LegendItem kind="line" label="Profit" />
       <LegendItem kind="dash" label="Forecast" />
     </div>
   );
 }
 
-function LegendItem({ color, label, kind = 'square' }: { color?: string; label: string; kind?: 'square' | 'line' | 'dash' }) {
+function LegendItem({ color, label, kind = 'square' }: { color?: string; label: string; kind?: 'square' | 'line' | 'dash' | 'hatch' }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       {kind === 'square' && (
         <span style={{ width: 10, height: 10, borderRadius: 2, background: color }} />
+      )}
+      {kind === 'hatch' && (
+        <span
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: 2,
+            background: `repeating-linear-gradient(45deg, ${C.expenseLight} 0, ${C.expenseLight} 2px, #fff 2px, #fff 4px)`,
+          }}
+        />
       )}
       {kind === 'line' && (
         <svg width="18" height="10"><line x1="0" y1="5" x2="18" y2="5" stroke={C.positive} strokeWidth="3" /></svg>
@@ -729,8 +772,12 @@ function TooltipRow({ color, label, value, strong }: { color: string; label: str
 
 // Total expenses + a mini stacked proportion bar (staff : operating). Mirrors
 // the chart's stacked expense bar so staff-vs-operating reads at a glance.
-function ExpenseCell({ staff, operating, muted, strong }: {
-  staff: number; operating: number; muted?: boolean; strong?: boolean;
+// When `projected` is true, the operating portion was substituted with a
+// forecast value (month had no saved entries). The total number renders in
+// italic with a '~' prefix, and the operating segment of the mini bar gets a
+// diagonal-stripe pattern so the projection is visually obvious.
+function ExpenseCell({ staff, operating, muted, strong, projected }: {
+  staff: number; operating: number; muted?: boolean; strong?: boolean; projected?: boolean;
 }) {
   const total = staff + operating;
   const staffPct = total > 0 ? (staff / total) * 100 : 0;
@@ -738,8 +785,16 @@ function ExpenseCell({ staff, operating, muted, strong }: {
   const color = muted ? C.mutedSoft : C.textSub;
   return (
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-      <span style={{ color, fontWeight: strong ? 700 : 500 }}>
-        {total > 0 ? `−${fmtRM(total).replace('RM ', 'RM ')}` : '—'}
+      <span
+        style={{
+          color,
+          fontWeight: strong ? 700 : 500,
+          fontStyle: projected ? 'italic' : 'normal',
+        }}
+      >
+        {total > 0
+          ? `${projected ? '~' : ''}−${fmtRM(total).replace('RM ', 'RM ')}`
+          : '—'}
       </span>
       {total > 0 && (
         <span
@@ -755,7 +810,15 @@ function ExpenseCell({ staff, operating, muted, strong }: {
           }}
         >
           <span style={{ width: `${staffPct}%`, background: C.expenseDark, display: 'block' }} />
-          <span style={{ width: `${opPct}%`, background: C.expenseLight, display: 'block' }} />
+          <span
+            style={{
+              width: `${opPct}%`,
+              display: 'block',
+              background: projected
+                ? `repeating-linear-gradient(45deg, ${C.expenseLight} 0, ${C.expenseLight} 2px, ${C.divider} 2px, ${C.divider} 4px)`
+                : C.expenseLight,
+            }}
+          />
         </span>
       )}
     </div>

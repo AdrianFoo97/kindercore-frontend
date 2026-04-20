@@ -144,7 +144,6 @@ export default function RevenueAnalysisPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, gap: 12, flexWrap: 'wrap' }}>
           <div>
             <h1 style={s.heading}>Revenue Analysis</h1>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94a3b8' }}>Monthly revenue, programme breakdown, and year-over-year trends</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <PillSelect
@@ -742,22 +741,38 @@ const nsTd: React.CSSProperties = {
 
 function KpiCard({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '16px 20px', borderTop: `3px solid ${color}` }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
+    <div style={{
+      background: '#fff',
+      border: '1px solid #e5e7eb',
+      borderRadius: 14,
+      padding: '12px 20px',
+      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
+      minHeight: 84,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
 
 const s: Record<string, React.CSSProperties> = {
-  page: { padding: '32px 24px', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', minHeight: '100vh' },
-  inner: { maxWidth: 1100, margin: '0 auto' },
-  heading: { margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a' },
+  page: { padding: '28px 32px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', background: '#f8fafc', minHeight: '100vh', color: '#0f172a' },
+  inner: { maxWidth: 1200, margin: '0 auto' },
+  heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' },
   chartCard: {
-    background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
-    padding: '20px 20px 12px', marginBottom: 14,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    background: '#fff',
+    border: '1px solid #e5e7eb',
+    borderRadius: 14,
+    padding: '20px 24px',
+    marginBottom: 24,
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
   },
-  chartTitle: { margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: '#1e293b' },
+  chartTitle: { margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.01em' },
 };
