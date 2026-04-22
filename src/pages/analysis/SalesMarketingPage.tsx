@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, BarChart, Cell, PieChart, Pie, Legend, Sector,
+  CartesianGrid, BarChart, Cell, PieChart, Pie, Legend, Sector, LabelList,
 } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faCalendar } from '@fortawesome/free-solid-svg-icons';
@@ -84,12 +84,46 @@ function RateRing({ rate }: { rate: number }) {
   );
 }
 
-// ── KPI card ──────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, color, children }: {
-  label: string; value?: number | string; sub?: string;
-  color: string; children?: React.ReactNode;
-}) {
-  const hasChildren = !!children;
+// ── KPI card · unified decision pattern ───────────────────────────
+// One visual rule for every bar in the strip:
+//   "current value as a fraction of a reference"
+//     • rate cards  — reference is 100%, fill = the rate itself
+//     • count cards — reference is the prior-period benchmark,
+//                     fill = min(100, current / prev * 100)
+//
+// Anatomy (identical across every card):
+//   1. label row   — accent dot + label + optional trend chip (right)
+//   2. hero value  — 32px, tabular-nums
+//   3. fill bar    — 6px, single-colour on a slate track
+//   4. breakdown   — plain-english, 12px muted
+//
+// The shell matches the Financial / Staff / Revenue analysis pages:
+// 1px slate border, 14px radius, soft two-layer shadow, accent-dot
+// label row.
+interface KpiCardProps {
+  label: string;
+  value: string | number;
+  accent: string;                       // label dot + default value colour
+  valueColor?: string;                  // overrides accent for the number
+  trend?: {
+    delta: string;                      // e.g. "+4", "−142 vs 2025"
+    dir: 'up' | 'down' | 'flat';
+    semantic?: 'positive' | 'negative' | 'neutral';
+  };
+  bar?: { fill: number; color: string; title?: string };   // fill 0..100
+  breakdown?: string;
+}
+
+function KpiCard({ label, value, accent, valueColor, trend, bar, breakdown }: KpiCardProps) {
+  const trendColor = !trend ? undefined
+    : trend.semantic === 'negative' ? C.red
+    : trend.semantic === 'neutral'  ? C.muted
+    : C.green;
+  const trendGlyph = !trend ? '' : trend.dir === 'up' ? '↑' : trend.dir === 'down' ? '↓' : '—';
+  // Matches EmployeeCostPage / RevenueAnalysisPage typography (22/700 coloured
+  // value, 11px muted subtitle) but keeps the single-segment fill bar under
+  // the value to show ratio at a glance for rate-style KPIs.
+  const resolvedValueColor = valueColor ?? accent;
   return (
     <div style={{
       background: C.card,
@@ -102,20 +136,46 @@ function KpiCard({ label, value, sub, color, children }: {
       flexDirection: 'column',
       justifyContent: 'center',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: accent, display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+        </span>
+        {trend && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: trendColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' as any }}>
+            {trendGlyph} {trend.delta}
+          </span>
+        )}
       </div>
-      {hasChildren ? (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          {children}
-          {sub && <span style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', textAlign: 'center' }}>{sub}</span>}
+      <div style={{ fontSize: 22, fontWeight: 700, color: resolvedValueColor, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>
+        {value}
+      </div>
+      {bar && (
+        <div
+          title={bar.title}
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: 6,
+            background: '#e2e8f0',
+            borderRadius: 3,
+            overflow: 'hidden',
+            marginTop: 8,
+          }}
+        >
+          <div
+            style={{
+              width: `${Math.max(0, Math.min(100, bar.fill))}%`,
+              height: '100%',
+              background: bar.color,
+              borderRadius: 3,
+              transition: 'width 240ms ease, background 240ms ease',
+            }}
+          />
         </div>
-      ) : (
-        <>
-          <div style={{ fontSize: 28, fontWeight: 800, color, letterSpacing: '-0.02em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>{value}</div>
-          {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
-        </>
+      )}
+      {breakdown && (
+        <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{breakdown}</div>
       )}
     </div>
   );
@@ -185,8 +245,14 @@ export default function SalesMarketingPage() {
       )
     : monthLeads;
 
+  // Sort order: enrolment year ↑, then outcome bucket (matches the bar stack:
+  // attended → didn't attend → unqualified → pending), then submittedAt desc.
+  const OUTCOME_ORDER: Record<string, number> = { attended: 0, noShow: 1, unqualified: 2, pending: 3 };
   const sortedLeads = [...filteredLeads].sort((a: any, b: any) => {
     if (a.enrolmentYear !== b.enrolmentYear) return a.enrolmentYear - b.enrolmentYear;
+    const ao = OUTCOME_ORDER[a.outcome] ?? 99;
+    const bo = OUTCOME_ORDER[b.outcome] ?? 99;
+    if (ao !== bo) return ao - bo;
     return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
   });
   const pageCount = Math.max(1, Math.ceil(sortedLeads.length / PAGE_SIZE));
@@ -244,34 +310,58 @@ export default function SalesMarketingPage() {
         </div>
       </div>
 
-      {/* ── KPI strip — row 1: appointment metrics ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16, marginBottom: 12 }}>
-        <div style={{ height: '100%' }}>
-          <KpiCard label="Appointment Rate" color={C.indigo}>
-            <RateRing rate={data.appointmentRate} />
-            <span style={{ fontSize: 12, color: C.muted }}>{data.attendedAppointments} of {data.attendedAppointments + data.noShowLeads} booked</span>
-          </KpiCard>
-        </div>
-        <KpiCard label="Completed" value={data.attendedAppointments + data.noShowLeads} color={C.indigo}
-          sub="attended + didn't attend" />
-        <KpiCard label="Total Attended" value={data.attendedAppointments} color={C.green}
-          sub="completed leads who attended" />
-        <KpiCard label="Total Didn't Attend" value={data.noShowLeads} color={C.red}
-          sub="marked as didn't attend" />
-      </div>
-      {/* ── KPI strip — row 2: lead overview ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16, marginBottom: 20 }}>
-        <KpiCard label="Lead Quality Rate" color={C.green}>
-          <RateRing rate={data.totalLeads > 0 ? (data.attendedAppointments + data.noShowLeads) / data.totalLeads : 0} />
-          <span style={{ fontSize: 12, color: C.muted }}>{data.attendedAppointments + data.noShowLeads} completed of {data.totalLeads} leads</span>
-        </KpiCard>
-        <KpiCard label="Total Leads" value={data.totalLeads} color={C.blue}
-          sub={`in ${data.selectedYear}`} />
-        <KpiCard label="Rejected" value={data.rejectedLeads} color={'#92400e'}
-          sub="rejected by school" />
-        <KpiCard label="Active / Pending" value={data.pendingLeads} color={C.amber}
-          sub="no final outcome yet" />
-      </div>
+      {/* ── KPI strip · unified 3-card decision layout ── */}
+      {(() => {
+        // `completedWithAppt` = leads that had an appointment outcome
+        // (either attended or no-show) — used for Appointment Rate.
+        const completedWithAppt = data.attendedAppointments + data.noShowLeads;
+        const appointmentPct = Math.round(data.appointmentRate * 100);
+        // Lead Quality = qualified / total. A lead is qualified if marketing
+        // delivered a real prospect: they either showed intent (attended or
+        // booked an appointment) or lost for a user-defined reason (e.g. fee,
+        // distance). Unqualified = rejected or lost as "cold" (didn't reply).
+        const leadQualityPct = Math.round(data.leadQualityRate * 100);
+
+        // YoY comparison — the only trend we can compute from existing data.
+        const prevYearTotal = data.monthlyComparison.reduce((s, m) => s + (m.previous ?? 0), 0);
+        const leadsDelta = data.totalLeads - prevYearTotal;
+        const hasYoy = prevYearTotal > 0;
+        const yoyRatioPct = hasYoy ? Math.min(100, Math.round((data.totalLeads / prevYearTotal) * 100)) : 0;
+        const leadsTrend = hasYoy
+          ? {
+              delta: `${leadsDelta >= 0 ? '+' : '−'}${Math.abs(leadsDelta)} vs ${data.prevYear}`,
+              dir: (leadsDelta > 0 ? 'up' : leadsDelta < 0 ? 'down' : 'flat') as 'up' | 'down' | 'flat',
+              semantic: (leadsDelta >= 0 ? 'positive' : 'negative') as 'positive' | 'negative' | 'neutral',
+            }
+          : undefined;
+
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+            <KpiCard
+              label="Lead Quality"
+              value={`${leadQualityPct}%`}
+              accent={C.green}
+              bar={{ fill: leadQualityPct, color: C.green, title: `${data.qualifiedLeads} qualified out of ${data.totalLeads} total` }}
+              breakdown={`${data.qualifiedLeads} qualified out of ${data.totalLeads} total`}
+            />
+            <KpiCard
+              label="Appointment Rate"
+              value={`${appointmentPct}%`}
+              accent={C.indigo}
+              bar={{ fill: appointmentPct, color: C.indigo, title: `${data.attendedAppointments} attended out of ${completedWithAppt} with appointments` }}
+              breakdown={`${data.attendedAppointments} attended out of ${completedWithAppt} with appointments`}
+            />
+            <KpiCard
+              label="Leads Received"
+              value={data.totalLeads}
+              accent={C.indigo}
+              trend={leadsTrend}
+              bar={hasYoy ? { fill: yoyRatioPct, color: C.indigo, title: `${yoyRatioPct}% of ${data.prevYear} volume` } : undefined}
+              breakdown={hasYoy ? `${yoyRatioPct}% of ${data.prevYear} volume` : undefined}
+            />
+          </div>
+        );
+      })()}
 
       {/* ── YoY Comparison ── */}
       <div style={s.card}>
@@ -292,40 +382,191 @@ export default function SalesMarketingPage() {
               )}
             </p>
           </div>
-          <div style={s.legendInline}>
-            <span style={s.legendDot(C.blue)} /><span style={s.legendText}>{data.selectedYear}</span>
-            <span style={s.legendDot(C.slate)} /><span style={s.legendText}>{data.prevYear}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: C.muted, flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: C.green }} />
+              Attended
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: C.red }} />
+              Didn't attend
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: C.amber }} />
+              Unqualified
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: C.slate }} />
+              Pending
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <svg width="20" height="10">
+                <line x1="0" y1="5" x2="20" y2="5" stroke={C.slate} strokeWidth="2" strokeDasharray="4 3" />
+              </svg>
+              {data.prevYear}
+            </span>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={300}>
           <ComposedChart
-            data={data.monthlyComparison}
-            margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
+            data={data.monthlyComparison.map(m => ({
+              ...m,
+              total: (m.attended ?? 0) + (m.noShow ?? 0) + (m.unqualified ?? 0) + (m.pending ?? 0),
+            }))}
+            margin={{ top: 20, right: 16, left: 0, bottom: 0 }}
             style={{ outline: 'none', cursor: 'pointer' }}
             onClick={handleMonthClick}>
             <CartesianGrid vertical={false} stroke={C.border} />
-            <XAxis dataKey="month" tick={{ fontSize: 12, fill: C.muted }} axisLine={false} tickLine={false} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} width={28} />
+            <XAxis dataKey="month" tick={{ fontSize: 12, fill: C.muted }} axisLine={false} tickLine={false} padding={{ left: 6, right: 6 }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={28} />
             <Tooltip
-              cursor={{ fill: 'transparent' }}
-              contentStyle={{ borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12 }}
-              formatter={(v: number, name: string) => [v, name === 'current' ? String(data.selectedYear) : String(data.prevYear)]}
+              cursor={{ fill: '#eef2ff', opacity: 0.35 }}
+              content={({ active, payload, label }: any) => {
+                if (!active || !payload?.length) return null;
+                const row = payload[0]?.payload;
+                if (!row) return null;
+                const total = (row.attended ?? 0) + (row.noShow ?? 0) + (row.unqualified ?? 0) + (row.pending ?? 0);
+                const monthIdx = MONTH_LABELS.indexOf(String(label));
+                const isSelected = selectedMonth !== null && monthIdx === selectedMonth;
+                const row1 = (dotColor: string, name: string, value: number, strong = false) => (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '3px 0' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: strong ? C.text : C.muted, fontWeight: strong ? 700 : 500 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: dotColor }} />
+                      {name}
+                    </span>
+                    <span style={{ color: strong ? C.text : '#475569', fontWeight: strong ? 800 : 600, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+                  </div>
+                );
+                return (
+                  <div style={{
+                    background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10,
+                    padding: '12px 14px', fontSize: 12, minWidth: 200,
+                    boxShadow: '0 1px 2px rgba(15,23,42,0.05), 0 4px 12px rgba(15,23,42,0.06)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontWeight: 700, color: C.text }}>{label} {data.selectedYear}</span>
+                      {isSelected && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#4338ca', background: '#e0e7ff', padding: '1px 7px', borderRadius: 999, letterSpacing: '0.05em' }}>SELECTED</span>
+                      )}
+                    </div>
+                    {/* Months with no current-year activity skip the outcome
+                        rows entirely — four "0" lines add noise without
+                        changing any decision. */}
+                    {total > 0 && (
+                      <>
+                        {row1(C.green, 'Attended', row.attended ?? 0)}
+                        {row1(C.red, "Didn't attend", row.noShow ?? 0)}
+                        {row1(C.amber, 'Unqualified', row.unqualified ?? 0)}
+                        {row1(C.slate, 'Pending', row.pending ?? 0)}
+                        <div style={{ height: 1, background: '#f1f5f9', margin: '8px 0' }} />
+                      </>
+                    )}
+                    {row1(C.text, 'Total', total, true)}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '3px 0', marginTop: 4 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: C.muted, fontWeight: 500 }}>
+                        <svg width="14" height="8"><line x1="0" y1="4" x2="14" y2="4" stroke={C.slate} strokeWidth="2" strokeDasharray="3 2" /></svg>
+                        {data.prevYear}
+                      </span>
+                      <span style={{ color: '#475569', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{row.previous ?? 0}</span>
+                    </div>
+                  </div>
+                );
+              }}
             />
-            <Bar dataKey="current" radius={[4, 4, 0, 0]} maxBarSize={32} name="current" activeBar={false}
-              label={({ x, y, width, height, index }: any) => {
-                const v = data.monthlyComparison[index]?.current ?? 0;
-                if (!v) return null;
-                if (height < 18) return <text key={`c-${x}`} x={x + width / 2} y={y - 4} textAnchor="middle" fill={C.blue} fontSize={10} fontWeight={700}>{v}</text>;
-                return <text key={`c-${x}`} x={x + width / 2} y={y + height / 2} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={11} fontWeight={700}>{v}</text>;
-              }}>
-              {data.monthlyComparison.map((entry, i) => {
+            {/* Stacked outcome bars aligned with the qualification framework:
+                attended (green) + noShow (red) + unqualified (amber) + pending (slate).
+                Rounded cap is applied ONLY to the topmost non-zero segment via a
+                custom shape function, so we never see a rounded notch peeking out
+                from an underlying segment. Totals are drawn separately by an
+                invisible Line overlay (see below) — that's more reliable than
+                Bar labels, which skip any cell with value 0. */}
+            {(() => {
+              const topmostFor = (row: any): 'attended' | 'noShow' | 'unqualified' | 'pending' | null => {
+                if ((row.pending ?? 0) > 0) return 'pending';
+                if ((row.unqualified ?? 0) > 0) return 'unqualified';
+                if ((row.noShow ?? 0) > 0) return 'noShow';
+                if ((row.attended ?? 0) > 0) return 'attended';
+                return null;
+              };
+              const makeShape = (key: 'attended' | 'noShow' | 'unqualified' | 'pending') => (props: any) => {
+                const { x, y, width, height, fill, opacity, payload } = props;
+                if (!height || height <= 0) return <g key={`s-${key}-${x}`} />;
+                const isTop = topmostFor(payload) === key;
+                const r = isTop ? Math.min(4, width / 2, height) : 0;
+                // Rect with top-left and top-right corners rounded when topmost,
+                // flat otherwise. SVG path: M (x, y+r) Q x,y x+r,y L x+w-r,y Q x+w,y x+w,y+r L x+w,y+h L x,y+h Z
+                const d = r > 0
+                  ? `M ${x},${y + r} Q ${x},${y} ${x + r},${y} L ${x + width - r},${y} Q ${x + width},${y} ${x + width},${y + r} L ${x + width},${y + height} L ${x},${y + height} Z`
+                  : `M ${x},${y} L ${x + width},${y} L ${x + width},${y + height} L ${x},${y + height} Z`;
+                return <path key={`s-${key}-${x}`} d={d} fill={fill} opacity={opacity} />;
+              };
+              const cellsFor = (fill: string) => data.monthlyComparison.map((entry, i) => {
                 const monthIdx = MONTH_LABELS.indexOf(entry.month);
                 const dimmed = selectedMonth !== null && monthIdx !== selectedMonth;
-                return <Cell key={i} fill={C.blue} opacity={dimmed ? 0.25 : 1} />;
-              })}
-            </Bar>
-            <Line dataKey="previous" stroke={C.slate} strokeWidth={2} strokeDasharray="5 4"
-              dot={{ r: 3, fill: C.slate }} activeDot={{ r: 5 }} name="previous" />
+                return <Cell key={`${fill}-${i}`} fill={fill} opacity={dimmed ? 0.25 : 1} />;
+              });
+              return (
+                <>
+                  <Bar dataKey="attended" stackId="outcome" maxBarSize={38} name="attended" isAnimationActive={false} shape={makeShape('attended')}>
+                    {cellsFor(C.green)}
+                  </Bar>
+                  <Bar dataKey="noShow" stackId="outcome" maxBarSize={38} name="noShow" isAnimationActive={false} shape={makeShape('noShow')}>
+                    {cellsFor(C.red)}
+                  </Bar>
+                  <Bar dataKey="unqualified" stackId="outcome" maxBarSize={38} name="unqualified" isAnimationActive={false} shape={makeShape('unqualified')}>
+                    {cellsFor(C.amber)}
+                  </Bar>
+                  <Bar dataKey="pending" stackId="outcome" maxBarSize={38} name="pending" isAnimationActive={false} shape={makeShape('pending')}>
+                    {cellsFor(C.slate)}
+                  </Bar>
+                </>
+              );
+            })()}
+
+            {/* Invisible line at y = total for each month — reliably hosts the
+                total label because Line labels fire for every data point,
+                unlike Bar labels which skip 0-value cells. */}
+            <Line
+              dataKey="total"
+              stroke="transparent"
+              isAnimationActive={false}
+              dot={false}
+              activeDot={false}
+              legendType="none"
+            >
+              <LabelList
+                dataKey="total"
+                position="top"
+                content={(props: any) => {
+                  const { x, y, value } = props;
+                  const v = Number(value) || 0;
+                  if (v <= 0) return <text key={`lt-${x}`} />;
+                  return (
+                    <text
+                      x={x}
+                      y={y - 8}
+                      textAnchor="middle"
+                      fill={C.text}
+                      fontSize={11}
+                      fontWeight={700}
+                      style={{ fontVariantNumeric: 'tabular-nums' as any }}
+                    >
+                      {v}
+                    </text>
+                  );
+                }}
+              />
+            </Line>
+            <Line
+              dataKey="previous"
+              stroke={C.slate}
+              strokeWidth={2}
+              strokeDasharray="5 4"
+              dot={{ r: 2.5, fill: '#fff', stroke: C.slate, strokeWidth: 1.5 }}
+              activeDot={{ r: 4, fill: C.slate, stroke: '#fff', strokeWidth: 2 }}
+              name="previous"
+              isAnimationActive={false}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -435,7 +676,7 @@ export default function SalesMarketingPage() {
           <table style={s.table}>
             <thead>
               <tr>
-                {['Name', 'Age', 'Address', 'Marketing Channel'].map(h => (
+                {['Name', 'Status', 'Age', 'Address', 'Marketing Channel'].map(h => (
                   <th key={h} style={s.th}>{h}</th>
                 ))}
               </tr>
@@ -443,11 +684,17 @@ export default function SalesMarketingPage() {
             <tbody>
               {pagedLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ ...s.td, textAlign: 'center', color: '#cbd5e1', padding: '32px 0' }}>
+                  <td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#cbd5e1', padding: '32px 0' }}>
                     No leads match this filter.
                   </td>
                 </tr>
               ) : (() => {
+                const OUTCOME_META: Record<string, { label: string; fg: string; bg: string }> = {
+                  attended:    { label: 'Attended', fg: C.green, bg: '#dcfce7' },
+                  noShow:      { label: "Didn't attend", fg: C.red, bg: '#fee2e2' },
+                  unqualified: { label: 'Unqualified', fg: C.amber, bg: '#fef3c7' },
+                  pending:     { label: 'Pending', fg: C.slate, bg: '#f1f5f9' },
+                };
                 const rows: React.ReactNode[] = [];
                 let lastYear: number | null = null;
                 pagedLeads.forEach((row: any, i: number) => {
@@ -455,16 +702,39 @@ export default function SalesMarketingPage() {
                     lastYear = row.enrolmentYear;
                     rows.push(
                       <tr key={`grp-${row.enrolmentYear}`}>
-                        <td colSpan={4} style={{ padding: '12px 14px 10px', background: '#e0e7ff', borderTop: '2px solid #c7d2fe', borderBottom: '1px solid #c7d2fe', fontSize: 12, fontWeight: 800, color: '#3730a3', letterSpacing: '0.04em' }}>
+                        <td colSpan={5} style={{ padding: '12px 14px 10px', background: '#e0e7ff', borderTop: '2px solid #c7d2fe', borderBottom: '1px solid #c7d2fe', fontSize: 12, fontWeight: 800, color: '#3730a3', letterSpacing: '0.04em' }}>
                           Enrolment Year {row.enrolmentYear}
                         </td>
                       </tr>
                     );
                   }
+                  const meta = OUTCOME_META[row.outcome] ?? OUTCOME_META.pending;
+                  // Tooltip reflects the lead's *real* reason when one is
+                  // stored (lostReason, or free-text notes). For leads with
+                  // nothing recorded — e.g. legacy REJECTED rows — we skip
+                  // the tooltip rather than inventing a label that repeats
+                  // what the pill already says.
+                  const reasonNote = row.notes && row.notes !== row.lostReason ? row.notes : null;
+                  const pillTooltip: string | undefined = row.lostReason ?? reasonNote ?? undefined;
                   rows.push(
-                    <tr key={row.id} className="mk-row" style={{ background: i % 2 === 0 ? C.card : '#f8fafc', cursor: 'pointer', transition: 'background 0.1s' }}
+                    <tr key={row.id} className="mk-row" style={{ cursor: 'pointer', transition: 'background 0.1s' }}
                       onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead(lead); } catch { /* ignore */ } }}>
                       <td style={s.td}><span style={{ fontWeight: 600, color: C.text }}>{row.childName}</span></td>
+                      <td style={s.td}>
+                        <span title={pillTooltip} style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          borderRadius: 999,
+                          background: meta.bg,
+                          color: meta.fg,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          whiteSpace: 'nowrap',
+                          cursor: pillTooltip ? 'help' : 'default',
+                        }}>{meta.label}</span>
+                      </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>
                         <span style={{ display: 'inline-block', minWidth: 24, padding: '2px 8px', fontSize: 11, fontWeight: 700, borderRadius: 10, background: AGE_PALETTE[String(row.age)] ? `${AGE_PALETTE[String(row.age)]}18` : '#f1f5f9', color: AGE_PALETTE[String(row.age)] ?? C.muted, textAlign: 'center' }}>{row.age}</span>
                       </td>

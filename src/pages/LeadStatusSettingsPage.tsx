@@ -6,7 +6,14 @@ import { faPen, faXmark, faCheck, faPlus } from '@fortawesome/free-solid-svg-ico
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
-const PINNED_REASON = "Didn't attend the enquiry";
+// Lost reasons pinned as SYSTEM — they drive the Lead Quality / Appointment
+// Rate KPIs, so users can't delete or rename them. Any change to this list
+// must mirror `kindercore-backend/src/constants/lostReasons.ts`.
+const SYSTEM_LOST_REASONS = [
+  'Missed appointment',
+  'No response or declined appointment',
+] as const;
+const SYSTEM_LOST_REASONS_SET = new Set<string>(SYSTEM_LOST_REASONS);
 
 // ── Save button ──────────────────────────────────────────────────────────────
 
@@ -162,7 +169,8 @@ function UrgencySettings({ settings, isAdmin, onSaved }: {
 function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
   reasons: string[]; isAdmin: boolean; onSaved: () => void;
 }) {
-  const [items, setItems] = useState<string[]>(reasons.filter(r => r !== PINNED_REASON));
+  const userReasons = (arr: string[]) => arr.filter(r => !SYSTEM_LOST_REASONS_SET.has(r));
+  const [items, setItems] = useState<string[]>(userReasons(reasons));
   const [newItem, setNewItem] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -175,7 +183,7 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
 
   const mark = () => { setDirty(true); setSaved(false); };
   const reset = () => {
-    setItems(reasons.filter(r => r !== PINNED_REASON));
+    setItems(userReasons(reasons));
     setNewItem(''); setEditingIdx(null); setEditingValue('');
     setDirty(false); setError('');
   };
@@ -196,7 +204,7 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
 
   const addItem = () => {
     const trimmed = newItem.trim();
-    if (!trimmed || items.includes(trimmed)) return;
+    if (!trimmed || items.includes(trimmed) || SYSTEM_LOST_REASONS_SET.has(trimmed)) return;
     setItems(prev => [...prev, trimmed]);
     setNewItem(''); mark();
   };
@@ -207,7 +215,7 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
   const commitEdit = () => {
     if (editingIdx === null) return;
     const trimmed = editingValue.trim();
-    if (trimmed && trimmed !== PINNED_REASON) {
+    if (trimmed && !SYSTEM_LOST_REASONS_SET.has(trimmed)) {
       setItems(prev => prev.map((item, i) => i === editingIdx ? trimmed : item));
       mark();
     }
@@ -217,7 +225,7 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
   const handleSave = async () => {
     setSaving(true); setError('');
     try {
-      await patchSetting('lost_reasons', [PINNED_REASON, ...items]);
+      await patchSetting('lost_reasons', [...SYSTEM_LOST_REASONS, ...items]);
       setSaved(true); setDirty(false); onSaved();
       setTimeout(() => setSaved(false), 2000);
     } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Save failed'); }
@@ -228,7 +236,7 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
     <div style={st.card}>
       <div style={{ ...st.cardHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h2 style={st.cardTitle}>Lost Reasons</h2>
-        <span style={{ fontSize: 11, color: '#b0b8c9' }}>{1 + items.length} reasons</span>
+        <span style={{ fontSize: 11, color: '#b0b8c9' }}>{SYSTEM_LOST_REASONS.length + items.length} reasons</span>
       </div>
       <div style={st.cardBody}>
         {/* Add input */}
@@ -249,11 +257,16 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
 
         {/* List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {/* System reason */}
-          <div style={rs.systemRow}>
-            <span style={rs.systemText}>{PINNED_REASON}</span>
-            <span style={rs.systemBadge}>system</span>
-          </div>
+          {/* System reasons — power Lead Quality / Appointment Rate; unremovable */}
+          {SYSTEM_LOST_REASONS.map(label => (
+            <div key={label} style={rs.systemRow}>
+              <span style={rs.systemText}>{label}</span>
+              <span style={rs.systemBadge}>system</span>
+            </div>
+          ))}
+          <p style={{ fontSize: 11, color: '#94a3b8', margin: '2px 0 8px', lineHeight: 1.5 }}>
+            The two system reasons above power Lead Quality and Appointment Rate. They can't be renamed or deleted.
+          </p>
 
           {/* Custom reasons */}
           {items.map((item, idx) => (

@@ -164,34 +164,53 @@ export default function SalesAnalysisPage() {
       </div>
 
       {/* ── KPI strip ── */}
-      <div style={{ ...s.kpiStrip, ...(isMobile ? { gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 } : {}) }}>
-        {/* Closing rate hero */}
-        <div style={{
-          background: '#fff',
-          border: '1px solid #e5e7eb',
-          borderRadius: 14,
-          padding: '12px 20px',
-          boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
-          minHeight: 84,
-          marginBottom: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          gap: 8,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: C.indigo, display: 'inline-block' }} />
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Closing Rate</span>
+      {(() => {
+        const prevYearTotal = data.monthlyComparison.reduce((acc, m) => acc + (m.previous ?? 0), 0);
+        const talksDelta = data.totalLeads - prevYearTotal;
+        const hasYoy = prevYearTotal > 0;
+        const yoyRatioPct = hasYoy ? Math.min(100, Math.round((data.totalLeads / prevYearTotal) * 100)) : 0;
+        const talksTrend = hasYoy
+          ? {
+              delta: `${talksDelta >= 0 ? '+' : '−'}${Math.abs(talksDelta)} vs ${data.prevYear}`,
+              dir: (talksDelta > 0 ? 'up' : talksDelta < 0 ? 'down' : 'flat') as 'up' | 'down' | 'flat',
+              semantic: (talksDelta >= 0 ? 'positive' : 'negative') as 'positive' | 'negative' | 'neutral',
+            }
+          : undefined;
+        const lostPct = data.totalLeads > 0 ? Math.round((data.lostLeads / data.totalLeads) * 100) : 0;
+        return (
+          <div style={{ ...s.kpiStrip, ...(isMobile ? { gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 } : {}) }}>
+            <KpiCard
+              label="Closing Rate"
+              value={`${closingPct}%`}
+              accent={C.indigo}
+              bar={{ fill: closingPct, color: C.indigo, title: `${data.enrolledLeads} closed out of ${data.totalLeads} sales talks` }}
+              breakdown={`${data.enrolledLeads} closed out of ${data.totalLeads} sales talks`}
+            />
+            <KpiCard
+              label="Total Sales Talks"
+              value={data.totalLeads}
+              accent={C.blue}
+              trend={talksTrend}
+              bar={hasYoy ? { fill: yoyRatioPct, color: C.blue, title: `${yoyRatioPct}% of ${data.prevYear} volume` } : undefined}
+              breakdown={hasYoy ? `${yoyRatioPct}% of ${data.prevYear} volume` : 'enrolled + lost sales'}
+            />
+            <KpiCard
+              label="Closed Sales"
+              value={data.enrolledLeads}
+              accent={C.green}
+              bar={{ fill: closingPct, color: C.green, title: `${closingPct}% closing rate` }}
+              breakdown={`${closingPct}% closing rate`}
+            />
+            <KpiCard
+              label="Lost Sales"
+              value={data.lostLeads}
+              accent={C.red}
+              bar={{ fill: lostPct, color: C.red, title: `${lostPct}% of sales talks lost` }}
+              breakdown="attended but didn't enrol"
+            />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <RateRing rate={data.closingRate} color={C.indigo} />
-            <span style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', textAlign: 'center' }}>{data.enrolledLeads} closed of {data.totalLeads} sales talks</span>
-          </div>
-        </div>
-        <StatCard label="Total Sales Talks" value={data.totalLeads}    color={C.blue}  sub="enrolled + lost sales" />
-        <StatCard label="Closed Sales"      value={data.enrolledLeads} color={C.green} sub={`${closingPct}% closing rate`} />
-        <StatCard label="Lost Sales"        value={data.lostLeads}     color={C.red}   sub="attended but didn't enrol" />
-      </div>
+        );
+      })()}
 
       {/* ── YoY monthly comparison ── */}
       <div style={s.card}>
@@ -405,7 +424,7 @@ export default function SalesAnalysisPage() {
                   }
                   const sm = STATUS_META[row.status] ?? { label: row.status, bg: '#f1f5f9', color: C.muted };
                   rows.push(
-                    <tr key={row.id} className="sa-row" style={{ background: i % 2 === 0 ? C.card : C.faint, cursor: 'pointer', transition: 'background 0.1s' }} onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead(lead); } catch { /* ignore */ } }}>
+                    <tr key={row.id} className="sa-row" style={{ cursor: 'pointer', transition: 'background 0.1s' }} onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead(lead); } catch { /* ignore */ } }}>
                       <td style={s.td}><span style={s.name}>{row.childName}</span></td>
                       <td style={s.td}>
                         <span style={{ ...s.badge, background: sm.bg, color: sm.color }}>{sm.label}</span>
@@ -463,25 +482,25 @@ export default function SalesAnalysisPage() {
 }
 
 // ── Sub-components ────────────────────────────────────────────────
-function RateRing({ rate, color }: { rate: number; color: string }) {
-  const p = Math.round(rate * 100);
-  return (
-    <div style={{ position: 'relative', width: 110, height: 110 }}>
-      <PieChart width={110} height={110} style={{ outline: 'none' }}>
-        <Pie data={[{ v: p }, { v: 100 - p }]} dataKey="v"
-          innerRadius={40} outerRadius={52} startAngle={90} endAngle={-270} paddingAngle={0} style={{ outline: 'none' }}>
-          <Cell fill={color} />
-          <Cell fill="#e2e8f0" />
-        </Pie>
-      </PieChart>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{p}%</span>
-      </div>
-    </div>
-  );
+// Shared with Marketing/Staff/Revenue analysis pages: 22/700 colored value,
+// 12×20 padding, optional single-segment fill bar + muted breakdown line.
+interface KpiCardProps {
+  label: string;
+  value: string | number;
+  accent: string;
+  valueColor?: string;
+  trend?: { delta: string; dir: 'up' | 'down' | 'flat'; semantic?: 'positive' | 'negative' | 'neutral' };
+  bar?: { fill: number; color: string; title?: string };
+  breakdown?: string;
 }
 
-function StatCard({ label, value, color, sub }: { label: string; value: number; color: string; sub?: string }) {
+function KpiCard({ label, value, accent, valueColor, trend, bar, breakdown }: KpiCardProps) {
+  const trendColor = !trend ? undefined
+    : trend.semantic === 'negative' ? C.red
+    : trend.semantic === 'neutral'  ? C.muted
+    : C.green;
+  const trendGlyph = !trend ? '' : trend.dir === 'up' ? '↑' : trend.dir === 'down' ? '↓' : '—';
+  const resolvedValueColor = valueColor ?? accent;
   return (
     <div style={{
       background: '#fff',
@@ -490,17 +509,35 @@ function StatCard({ label, value, color, sub }: { label: string; value: number; 
       padding: '12px 20px',
       boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)',
       minHeight: 84,
-      marginBottom: 0,
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: accent, display: 'inline-block', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+        </span>
+        {trend && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: trendColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' as any }}>
+            {trendGlyph} {trend.delta}
+          </span>
+        )}
       </div>
-      <div style={{ fontSize: 28, fontWeight: 800, color, letterSpacing: '-0.02em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
+      <div style={{ fontSize: 22, fontWeight: 700, color: resolvedValueColor, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>
+        {value}
+      </div>
+      {bar && (
+        <div
+          title={bar.title}
+          style={{ position: 'relative', width: '100%', height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden', marginTop: 8 }}
+        >
+          <div style={{ width: `${Math.max(0, Math.min(100, bar.fill))}%`, height: '100%', background: bar.color, borderRadius: 3, transition: 'width 240ms ease, background 240ms ease' }} />
+        </div>
+      )}
+      {breakdown && (
+        <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{breakdown}</div>
+      )}
     </div>
   );
 }

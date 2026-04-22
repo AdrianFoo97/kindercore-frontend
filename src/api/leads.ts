@@ -136,11 +136,36 @@ export interface AnalyticsData {
   appointmentRate: number;
   pendingLeads: number;
   rejectedLeads: number;
-  monthlyComparison: { month: string; current: number; previous: number }[];
+  qualifiedLeads: number;
+  unqualifiedLeads: number;
+  openLeads: number;
+  leadQualityRate: number;
+  monthlyComparison: {
+    month: string;
+    current: number;
+    previous: number;
+    attended: number;
+    noShow: number;
+    unqualified: number;
+    pending: number;
+  }[];
   monthlyByAge: MonthlyAgeEntry[];
   addressBreakdown: { location: string; count: number }[];
   marketingChannelBreakdown: { channel: string; count: number }[];
-  leadsDetail: { monthIdx: number; address: string | null; channel: string | null }[];
+  leadsDetail: {
+    id: string;
+    childName: string;
+    status: string;
+    outcome: 'attended' | 'noShow' | 'unqualified' | 'pending';
+    lostReason: string | null;
+    enrolmentYear: number;
+    notes: string | null;
+    monthIdx: number;
+    address: string | null;
+    channel: string | null;
+    age: number;
+    submittedAt: string;
+  }[];
   availableYears: number[];
 }
 

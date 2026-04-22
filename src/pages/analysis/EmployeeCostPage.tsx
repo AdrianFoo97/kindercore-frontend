@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, ReferenceArea } from 'recharts';
 import { faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachersWithSalary, fetchPayrollByMonth, fetchTeacherWeightsByMonth, fetchEmployerContributions } from '../../api/salary.js';
+import { fetchCareerEventsByYear, CareerEvent } from '../../api/career.js';
 import { fetchSettings } from '../../api/settings.js';
 import { fetchTeachers } from '../../api/planner.js';
-import { fetchOperatingCostCategories, fetchOperatingCostEntries } from '../../api/operatingCost.js';
+import { fetchOperatingCostCategories, fetchOperatingCostEntries, fetchOperatingCostGroups } from '../../api/operatingCost.js';
 import { Teacher } from '../../types/index.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
@@ -92,13 +93,21 @@ export default function EmployeeCostPage() {
     staleTime: 0,
   });
   const { data: opCategories = [] } = useQuery({
-    queryKey: ['op-cost-categories'],
+    queryKey: ['operating-cost-categories'],
     queryFn: fetchOperatingCostCategories,
-    staleTime: 60_000,
+    refetchOnMount: 'always',
+    staleTime: 0,
+  });
+  const { data: opGroups = [] } = useQuery({
+    queryKey: ['operating-cost-groups'],
+    queryFn: fetchOperatingCostGroups,
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
   const { data: opEntries } = useQuery({
-    queryKey: ['op-cost-entries', year],
+    queryKey: ['operating-cost-entries', year],
     queryFn: () => fetchOperatingCostEntries(year),
+    refetchOnMount: 'always',
     staleTime: 0,
   });
   const { data: contribSettings } = useQuery({
@@ -112,21 +121,36 @@ export default function EmployeeCostPage() {
     refetchOnMount: 'always',
     staleTime: 0,
   });
+  const { data: careerEvents = [] } = useQuery({
+    queryKey: ['career-events-by-year', year],
+    queryFn: () => fetchCareerEventsByYear(year),
+    refetchOnMount: 'always',
+    staleTime: 0,
+  });
 
   const totalMonthly = useMemo(() => teachers.reduce((s, t) => s + t.calculatedSalary, 0), [teachers]);
 
-  // HR Benefits: sum entries for categories belonging to the protected "HR Benefits" group
-  const hrBenefitsMonthly = useMemo(() => {
-    if (!opEntries) return null;
+  // Benefits KPI: sum entries for categories belonging to the protected
+  // (system-seeded) operating-cost group. The group's display name is
+  // user-editable, so we always read its current name off the group row —
+  // if it was renamed e.g. "HR Benefits" → "Staff Welfare", the KPI label
+  // and its underlying totals follow automatically.
+  const benefitsGroup = useMemo(
+    () => opGroups.find(g => g.isProtected) ?? null,
+    [opGroups],
+  );
+  const benefitsLabel = benefitsGroup ? `${benefitsGroup.name} (This Month)` : 'Benefits (This Month)';
+  const benefitsMonthly = useMemo(() => {
+    if (!opEntries || !benefitsGroup) return null;
     const currentMonthIdx = payroll?.currentMonthIdx ?? new Date().getMonth();
-    const hrCatIds = new Set(
-      opCategories.filter(c => c.groupName === 'HR Benefits').map(c => c.id)
+    const catIds = new Set(
+      opCategories.filter(c => c.groupId === benefitsGroup.id).map(c => c.id),
     );
-    if (hrCatIds.size === 0) return null;
+    if (catIds.size === 0) return null;
     return opEntries.rows
-      .filter(e => hrCatIds.has(e.categoryId) && e.month === currentMonthIdx)
+      .filter(e => catIds.has(e.categoryId) && e.month === currentMonthIdx)
       .reduce((s, e) => s + e.amount, 0);
-  }, [opCategories, opEntries, payroll]);
+  }, [opCategories, opEntries, payroll, benefitsGroup]);
 
   const entries = useMemo<PayrollEntry[]>(
     () => payroll ? buildPayrollEntries(payroll.months, payroll.currentMonthIdx, groupBy) : [],
@@ -159,11 +183,11 @@ export default function EmployeeCostPage() {
     setPeriod(groupBy === 'quarter' ? `q${Math.floor(m / 3) + 1}` : String(m));
   }, [year, groupBy]);
 
-  // If the selected period becomes entirely forecast, reset to "all"
+  // If the selected period no longer exists (e.g. entries rebuild), reset.
   useEffect(() => {
     if (entries.length === 0 || period === 'all') return;
     const entry = entries.find(e => e.key === period);
-    if (!entry || entry.isForecast) setPeriod('all');
+    if (!entry) setPeriod('all');
   }, [entries, period]);
 
   // Profit share weights — derived from weightsData (same source as the table)
@@ -232,12 +256,14 @@ export default function EmployeeCostPage() {
             onChange={setPeriod}
             options={[
               { value: 'all', label: groupBy === 'quarter' ? 'All quarters' : 'All months' },
-              ...entries
-                .filter(e => !e.isForecast)
-                .map(e => ({
-                  value: e.key,
-                  label: e.containsCurrent ? `${e.label} (current)` : e.label,
-                })),
+              ...entries.map(e => ({
+                value: e.key,
+                label: e.containsCurrent
+                  ? `${e.label} (current)`
+                  : e.isForecast
+                    ? `${e.label} (forecast)`
+                    : e.label,
+              })),
             ]}
           />
         </div>
@@ -262,8 +288,8 @@ export default function EmployeeCostPage() {
               sub={employerContribs ? `EPF ${fmtRM(employerContribs.epf)} · SOCSO ${fmtRM(employerContribs.socso)} · EIS ${fmtRM(employerContribs.eis)}` : undefined}
             />
             <KpiCard
-              label="HR Benefits (This Month)"
-              value={hrBenefitsMonthly !== null ? fmtRM(hrBenefitsMonthly) : '—'}
+              label={benefitsLabel}
+              value={benefitsMonthly !== null ? fmtRM(benefitsMonthly) : '—'}
               color="#7c3aed"
             />
           </div>
@@ -300,7 +326,20 @@ export default function EmployeeCostPage() {
           <p style={s.empty}>No staff cost data</p>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={entries} margin={{ top: 20, right: 44, left: 0, bottom: 0 }} style={{ outline: 'none' }}>
+            <ComposedChart
+              data={entries}
+              margin={{ top: 20, right: 44, left: 0, bottom: 0 }}
+              style={{ outline: 'none' }}
+              onClick={(ev: any) => {
+                // Chart-level click is more reliable than Bar.onClick here —
+                // the Line overlay (staff count) can intercept direct clicks.
+                const idx = ev?.activeTooltipIndex;
+                if (idx == null) return;
+                const entry = entries[idx];
+                if (!entry) return;
+                setPeriod(prev => prev === entry.key ? 'all' : entry.key);
+              }}
+            >
               <CartesianGrid vertical={false} stroke={C.border} />
               <XAxis dataKey="label" tick={{ fontSize: 12, fill: C.muted }} axisLine={false} tickLine={false} />
               <YAxis yAxisId="cost" tick={{ fontSize: 11, fill: C.muted }} axisLine={false} tickLine={false} width={50} domain={payrollYDomain} allowDecimals={false} tickFormatter={v => `${(v / 1000).toFixed(1)}k`} />
@@ -321,13 +360,13 @@ export default function EmployeeCostPage() {
               />
               {period !== 'all' && entries.find(e => e.key === period) && (
                 <ReferenceArea
+                  yAxisId="cost"
                   x1={entries.find(e => e.key === period)!.label}
                   x2={entries.find(e => e.key === period)!.label}
-                  fill="#312e81"
-                  fillOpacity={0.08}
-                  stroke="#312e81"
-                  strokeOpacity={0.25}
-                  strokeDasharray="3 3"
+                  fill="#6366f1"
+                  fillOpacity={0.12}
+                  stroke="#6366f1"
+                  strokeOpacity={0.5}
                   ifOverflow="extendDomain"
                 />
               )}
@@ -337,17 +376,22 @@ export default function EmployeeCostPage() {
                 radius={[6, 6, 0, 0]}
                 maxBarSize={groupBy === 'quarter' ? 80 : 42}
                 cursor="pointer"
-                onClick={(_data: any, index: number) => {
-                  const entry = entries[index];
-                  if (!entry || entry.isForecast) return;
-                  setPeriod(prev => prev === entry.key ? 'all' : entry.key);
-                }}
                 label={({ x, y, width, value }: any) => {
                   if (!value) return <text key={`l-${x}`} />;
                   return <text key={`l-${x}`} x={x + width / 2} y={y - 6} textAnchor="middle" fill={C.muted} fontSize={10} fontWeight={600}>{value.toLocaleString('en-MY')}</text>;
                 }}>
                 {entries.map((e, i) => {
-                  const fill = e.containsCurrent ? '#312e81' : e.isForecast ? '#c7d2fe' : C.primary;
+                  const isSelected = period !== 'all' && e.key === period;
+                  // Selected takes priority → deep indigo.
+                  // Current month (if not selected) → medium indigo.
+                  // Forecast → soft periwinkle; otherwise primary.
+                  const fill = isSelected
+                    ? '#312e81'
+                    : e.containsCurrent
+                      ? '#4338ca'
+                      : e.isForecast
+                        ? '#c7d2fe'
+                        : C.primary;
                   return <Cell key={i} fill={fill} />;
                 })}
               </Bar>
@@ -361,15 +405,17 @@ export default function EmployeeCostPage() {
                 dot={{ r: 3, fill: '#fff', stroke: '#0ea5e9', strokeWidth: 2 }}
                 activeDot={{ r: 5 }}
                 isAnimationActive={false}
+                style={{ pointerEvents: 'none' }}
               />
             </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      {/* Staff changes — joins & resignations */}
+      {/* Staff changes — joins, resignations, promotions, demotions */}
       <StaffChangesList
         teachers={allTeachers}
+        careerEvents={careerEvents}
         year={year}
         period={period}
         groupBy={groupBy}
@@ -378,8 +424,7 @@ export default function EmployeeCostPage() {
 
       {/* Profit Share by Weight */}
       <div style={s.card}>
-        <h2 style={s.cardTitle}>Profit Share Weight</h2>
-        <p style={s.cardSub}>Title weight + interpolated level weight. Total = {profitShares.totalWeight.toFixed(2)}</p>
+        <h2 style={{ ...s.cardTitle, marginBottom: 14 }}>Profit Share Weight</h2>
         {profitShares.data.length === 0 ? <p style={s.empty}>No teachers with title weight</p> : (
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '320px 1fr', gap: 24, alignItems: 'center' }}>
             {/* Pie chart */}
@@ -451,8 +496,8 @@ export default function EmployeeCostPage() {
               </tr>
             </thead>
             <tbody>
-              {[...teachers].sort((a, b) => b.calculatedSalary - a.calculatedSalary).map((t, i) => (
-                <tr key={t.id} className="ec-row" style={{ background: i % 2 === 0 ? C.card : '#f8fafc' }}>
+              {[...teachers].sort((a, b) => b.calculatedSalary - a.calculatedSalary).map((t) => (
+                <tr key={t.id} className="ec-row">
                   <td style={s.td}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
@@ -488,19 +533,16 @@ export default function EmployeeCostPage() {
             </tbody>
           </table>
         </div>
+      </div>
 
-        {/* Profit-share weight per teacher — honours CareerRecord history */}
-        <div style={s.card}>
-          <div style={{ marginBottom: 14 }}>
-            <h2 style={s.cardTitle}>{groupBy === 'quarter' ? 'Quarterly' : 'Monthly'} Profit-Share Weight</h2>
-            <p style={s.cardSub}>Title weight + interpolated level weight, halved for part-time. Cells change when a teacher is promoted mid-year.</p>
-          </div>
-          {weightsData && weightsData.teachers.length > 0 ? (
-            <TeacherWeightsTable data={weightsData} groupBy={groupBy} />
-          ) : (
-            <p style={s.empty}>No teacher weight data</p>
-          )}
-        </div>
+      {/* Profit-share weight per teacher — its own card, honours CareerRecord history */}
+      <div style={s.card}>
+        <h2 style={{ ...s.cardTitle, marginBottom: 14 }}>{groupBy === 'quarter' ? 'Quarterly' : 'Monthly'} Profit-Share Weight</h2>
+        {weightsData && weightsData.teachers.length > 0 ? (
+          <TeacherWeightsTable data={weightsData} groupBy={groupBy} />
+        ) : (
+          <p style={s.empty}>No teacher weight data</p>
+        )}
       </div>
     </div>
   );
@@ -657,6 +699,7 @@ function TeacherWeightsTable({
                     color: !c.isActive ? '#cbd5e1' : c.changed ? C.primary : C.text,
                     background: !c.isActive ? '#fafbfc' : c.changed ? '#eef0fa' : c.isCurrent ? '#f8faff' : 'transparent',
                     padding: '10px 6px',
+                    cursor: 'default',
                   }}
                 >{c.isActive ? c.value.toFixed(c.value % 1 === 0 ? 0 : 2) : '—'}</td>
               ))}
@@ -746,21 +789,29 @@ function fmtDate(iso: string | null | undefined) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+type StaffEventKind = 'join' | 'resign' | 'promotion' | 'demotion' | 'position_change' | 'assignment';
+
 interface StaffEvent {
-  teacher: Teacher;
-  type: 'join' | 'resign';
+  kind: StaffEventKind;
   date: Date;
   monthIdx: number;
+  teacherId: string;
+  teacherName: string;
+  teacherColor: string;
+  // Populated for career events
+  career?: CareerEvent;
 }
 
 function StaffChangesList({
   teachers,
+  careerEvents,
   year,
   period,
   groupBy,
   onClearPeriod,
 }: {
   teachers: Teacher[];
+  careerEvents: CareerEvent[];
   year: number;
   period: string;
   groupBy: GroupBy;
@@ -779,30 +830,57 @@ function StaffChangesList({
   const events = useMemo<StaffEvent[]>(() => {
     const result: StaffEvent[] = [];
     for (const t of teachers) {
-      // Join event
       if (t.createdAt) {
         const d = new Date(t.createdAt);
         if (d.getFullYear() === year) {
-          result.push({ teacher: t, type: 'join', date: d, monthIdx: d.getMonth() });
+          result.push({
+            kind: 'join',
+            date: d,
+            monthIdx: d.getMonth(),
+            teacherId: t.id,
+            teacherName: t.name,
+            teacherColor: t.color ?? '#94a3b8',
+          });
         }
       }
-      // Resignation event
       if (t.resignedAt) {
         const d = new Date(t.resignedAt);
         if (d.getFullYear() === year) {
-          result.push({ teacher: t, type: 'resign', date: d, monthIdx: d.getMonth() });
+          result.push({
+            kind: 'resign',
+            date: d,
+            monthIdx: d.getMonth(),
+            teacherId: t.id,
+            teacherName: t.name,
+            teacherColor: t.color ?? '#94a3b8',
+          });
         }
       }
     }
-    // Filter to selected months if applicable
+    for (const ce of careerEvents) {
+      const d = new Date(ce.effectiveDate);
+      // The backend already filters to the requested year, but guard anyway
+      if (d.getFullYear() !== year) continue;
+      result.push({
+        kind: ce.eventType,
+        date: d,
+        monthIdx: d.getMonth(),
+        teacherId: ce.teacherId,
+        teacherName: ce.teacherName,
+        teacherColor: ce.teacherColor,
+        career: ce,
+      });
+    }
     const filtered = selectedMonths
       ? result.filter(e => selectedMonths.includes(e.monthIdx))
       : result;
     return filtered.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [teachers, year, selectedMonths]);
+  }, [teachers, careerEvents, year, selectedMonths]);
 
-  const joins = events.filter(e => e.type === 'join');
-  const resigns = events.filter(e => e.type === 'resign');
+  const joins = events.filter(e => e.kind === 'join');
+  const resigns = events.filter(e => e.kind === 'resign');
+  const promos = events.filter(e => e.kind === 'promotion');
+  const demos = events.filter(e => e.kind === 'demotion');
 
   const title = (() => {
     if (period === 'all') return `Staff Changes — ${year}`;
@@ -823,8 +901,27 @@ function StaffChangesList({
     return map;
   }, [events]);
 
+  function eventTag(kind: StaffEventKind): { label: string; fg: string; bg: string } {
+    switch (kind) {
+      case 'join':            return { label: 'Joined',   fg: C.green, bg: '#dcfce7' };
+      case 'resign':          return { label: 'Resigned', fg: C.red,   bg: '#fee2e2' };
+      case 'promotion':       return { label: 'Promoted', fg: '#0891b2', bg: '#cffafe' };
+      case 'demotion':        return { label: 'Demoted',  fg: '#b45309', bg: '#fef3c7' };
+      case 'position_change': return { label: 'Moved',    fg: '#4338ca', bg: '#e0e7ff' };
+      case 'assignment':      return { label: 'Assigned', fg: '#4338ca', bg: '#e0e7ff' };
+    }
+  }
+
+  function careerDescription(ce: CareerEvent): string {
+    const to = `${ce.positionName} L${ce.level}`;
+    if (!ce.prevPositionId) return `Assigned ${to}`;
+    const from = `${ce.prevPositionName ?? ce.prevPositionId} L${ce.prevLevel ?? 0}`;
+    return `${from} → ${to}`;
+  }
+
   const EventRow = ({ e }: { e: StaffEvent }) => {
-    const isJoin = e.type === 'join';
+    const tag = eventTag(e.kind);
+    const rightText = e.career ? careerDescription(e.career) : fmtDate(e.date.toISOString());
     return (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
@@ -833,37 +930,42 @@ function StaffChangesList({
       }}>
         <span style={{
           width: 8, height: 8, borderRadius: '50%',
-          background: e.teacher.color, flexShrink: 0,
+          background: e.teacherColor, flexShrink: 0,
         }} />
         <span style={{ fontWeight: 600, fontSize: 13, color: C.text, flex: 1, minWidth: 0 }}>
-          {e.teacher.name}
+          {e.teacherName}
         </span>
         <span style={{
           fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
           padding: '2px 7px', borderRadius: 4,
-          color: isJoin ? C.green : C.red,
-          background: isJoin ? '#dcfce7' : '#fee2e2',
+          color: tag.fg,
+          background: tag.bg,
         }}>
-          {isJoin ? 'Joined' : 'Resigned'}
+          {tag.label}
         </span>
-        <span style={{ fontSize: 12, color: C.muted, minWidth: 90, textAlign: 'right' }}>
-          {fmtDate(isJoin ? e.teacher.createdAt : e.teacher.resignedAt)}
+        <span style={{ fontSize: 12, color: C.muted, minWidth: 160, textAlign: 'right' }}>
+          {e.career && <span style={{ marginRight: 8 }}>{rightText}</span>}
+          <span style={{ color: '#cbd5e1' }}>{fmtDate(e.date.toISOString())}</span>
         </span>
       </div>
     );
   };
 
   return (
-    <div style={{ background: C.card, borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 20 }}>
+    <div style={{ background: C.card, border: '1px solid #e5e7eb', borderRadius: 14, padding: '20px 24px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06)', marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 2px' }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: C.text, margin: '0 0 4px', letterSpacing: '-0.01em' }}>
             {title}
             <span style={{ fontSize: 12, fontWeight: 500, color: C.muted, marginLeft: 8 }}>
               {joins.length > 0 && <span style={{ color: C.green }}>+{joins.length} joined</span>}
-              {joins.length > 0 && resigns.length > 0 && <span style={{ margin: '0 4px', color: '#cbd5e1' }}>·</span>}
+              {(joins.length > 0 && (resigns.length + promos.length + demos.length) > 0) && <span style={{ margin: '0 4px', color: '#cbd5e1' }}>·</span>}
               {resigns.length > 0 && <span style={{ color: C.red }}>{resigns.length} resigned</span>}
-              {joins.length === 0 && resigns.length === 0 && 'No changes'}
+              {((joins.length + resigns.length) > 0 && (promos.length + demos.length) > 0) && <span style={{ margin: '0 4px', color: '#cbd5e1' }}>·</span>}
+              {promos.length > 0 && <span style={{ color: '#0891b2' }}>{promos.length} promoted</span>}
+              {(promos.length > 0 && demos.length > 0) && <span style={{ margin: '0 4px', color: '#cbd5e1' }}>·</span>}
+              {demos.length > 0 && <span style={{ color: '#b45309' }}>{demos.length} demoted</span>}
+              {events.length === 0 && 'No changes'}
             </span>
           </h2>
         </div>

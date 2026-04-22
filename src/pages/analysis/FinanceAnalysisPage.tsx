@@ -245,7 +245,7 @@ export default function FinanceAnalysisPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <header style={s.header}>
         <div>
-          <h1 style={s.title}>Finance Analysis</h1>
+          <h1 style={s.title}>Financial Analysis</h1>
         </div>
         <div style={s.filterGroup}>
           <PillSelect
@@ -399,13 +399,16 @@ export default function FinanceAnalysisPage() {
               )}
               <ReferenceLine y={0} stroke={C.cardBorder} strokeWidth={1} />
 
-              {/* Current / selected period band — refined, not heavy */}
+              {/* Current / selected period band — strong enough to read at a
+                  glance but not enough to upstage the bars/line. */}
               {selectedEntry && (
                 <ReferenceArea
                   x1={selectedEntry.label}
                   x2={selectedEntry.label}
-                  fill={C.highlight}
-                  fillOpacity={0.5}
+                  fill="#6366f1"
+                  fillOpacity={0.12}
+                  stroke="#6366f1"
+                  strokeOpacity={0.5}
                   ifOverflow="extendDomain"
                 />
               )}
@@ -582,7 +585,6 @@ export default function FinanceAnalysisPage() {
                         staff={e.staffCost}
                         operating={e.operatingCost}
                         muted={e.isForecast}
-                        projected={e.operatingIsProjected}
                       />
                     </td>
                     <td style={{ ...s.tdProfit, color: profitColor }}>{fmtRM(e.profit)}</td>
@@ -772,12 +774,10 @@ function TooltipRow({ color, label, value, strong }: { color: string; label: str
 
 // Total expenses + a mini stacked proportion bar (staff : operating). Mirrors
 // the chart's stacked expense bar so staff-vs-operating reads at a glance.
-// When `projected` is true, the operating portion was substituted with a
-// forecast value (month had no saved entries). The total number renders in
-// italic with a '~' prefix, and the operating segment of the mini bar gets a
-// diagonal-stripe pattern so the projection is visually obvious.
-function ExpenseCell({ staff, operating, muted, strong, projected }: {
-  staff: number; operating: number; muted?: boolean; strong?: boolean; projected?: boolean;
+// `projected` status is carried by the row's muted/forecast styling and the
+// hover tooltip — no extra prefix or stripe here.
+function ExpenseCell({ staff, operating, muted, strong }: {
+  staff: number; operating: number; muted?: boolean; strong?: boolean;
 }) {
   const total = staff + operating;
   const staffPct = total > 0 ? (staff / total) * 100 : 0;
@@ -785,16 +785,8 @@ function ExpenseCell({ staff, operating, muted, strong, projected }: {
   const color = muted ? C.mutedSoft : C.textSub;
   return (
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-      <span
-        style={{
-          color,
-          fontWeight: strong ? 700 : 500,
-          fontStyle: projected ? 'italic' : 'normal',
-        }}
-      >
-        {total > 0
-          ? `${projected ? '~' : ''}−${fmtRM(total).replace('RM ', 'RM ')}`
-          : '—'}
+      <span style={{ color, fontWeight: strong ? 700 : 500 }}>
+        {total > 0 ? `−${fmtRM(total).replace('RM ', 'RM ')}` : '—'}
       </span>
       {total > 0 && (
         <span
@@ -810,15 +802,7 @@ function ExpenseCell({ staff, operating, muted, strong, projected }: {
           }}
         >
           <span style={{ width: `${staffPct}%`, background: C.expenseDark, display: 'block' }} />
-          <span
-            style={{
-              width: `${opPct}%`,
-              display: 'block',
-              background: projected
-                ? `repeating-linear-gradient(45deg, ${C.expenseLight} 0, ${C.expenseLight} 2px, ${C.divider} 2px, ${C.divider} 4px)`
-                : C.expenseLight,
-            }}
-          />
+          <span style={{ width: `${opPct}%`, background: C.expenseLight, display: 'block' }} />
         </span>
       )}
     </div>

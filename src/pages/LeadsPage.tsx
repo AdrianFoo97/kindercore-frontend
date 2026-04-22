@@ -1367,10 +1367,15 @@ function RejectModal({ lead, lostReasons, onClose, onRejected }: {
         {error && <p style={{ color: '#e53e3e', fontSize: 13, marginTop: 6 }}>{error}</p>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
           <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#f7fafc', color: '#4a5568', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Cancel</button>
-          <button onClick={handleConfirm} disabled={saving}
-            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#92400e', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14, opacity: saving ? 0.7 : 1 }}>
-            {saving ? 'Saving…' : 'Reject'}
-          </button>
+          {(() => {
+            const canReject = !!finalReason && !saving;
+            return (
+              <button onClick={handleConfirm} disabled={!canReject}
+                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#92400e', color: '#fff', cursor: canReject ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: 14, opacity: canReject ? 1 : 0.5 }}>
+                {saving ? 'Saving…' : 'Reject'}
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>
@@ -1379,11 +1384,9 @@ function RejectModal({ lead, lostReasons, onClose, onRejected }: {
 
 // ── Edit Modal ─────────────────────────────────────────────────────────────────
 
-const PINNED_LOST_REASON = "Didn't attend the enquiry";
-const DEFAULT_LOST_REASONS = [
-  PINNED_LOST_REASON, 'Transportation', 'Operating Hours', 'Distance', 'Enrolled other school',
-  'Fee too expensive', 'Special Need', 'Class Full', "Didn't reply", 'Under Age',
-];
+// The lost-reason list is owned by the backend settings API — system-pinned
+// labels are always prepended server-side via normalizeLostReasons(), so the
+// frontend just consumes the list verbatim.
 
 function NotesModal({ lead, onClose, onSaved }: {
   lead: Lead; onClose: () => void; onSaved: (updated: Lead) => void;
@@ -1995,10 +1998,9 @@ export default function LeadsPage() {
         }))
       : []),
   ];
-  const lostReasons: string[] = (() => {
-    const raw = Array.isArray(settings?.lost_reasons) ? settings.lost_reasons as string[] : DEFAULT_LOST_REASONS;
-    return [PINNED_LOST_REASON, ...raw.filter(r => r !== PINNED_LOST_REASON)];
-  })();
+  const lostReasons: string[] = Array.isArray(settings?.lost_reasons)
+    ? (settings.lost_reasons as string[])
+    : [];
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 1;
 

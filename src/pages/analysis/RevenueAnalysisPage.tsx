@@ -443,54 +443,113 @@ function MonthlyBreakdownTable({ data }: { data: import('../../api/students.js')
     }
   }
 
-  const baseCell: React.CSSProperties = {
-    padding: '8px 10px', fontSize: 12, textAlign: 'center',
-    borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
-    fontVariantNumeric: 'tabular-nums',
+  // Design tokens — match the Finance / other analysis pages
+  const MUTED = '#64748b';
+  const MUTED_SOFT = '#94a3b8';
+  const TEXT = '#0f172a';
+  const TEXT_SUB = '#475569';
+  const DIVIDER = '#f1f5f9';
+  const CARD_BORDER = '#e5e7eb';
+  const HEADER_BG = '#fafbfc';
+  const NOW_BG = '#eef2ff';
+  const NOW_ACCENT = '#6366f1';
+  const ANNUAL_BG = '#f8fafc';
+
+  const thBase: React.CSSProperties = {
+    padding: '12px 10px',
+    fontSize: 11,
+    fontWeight: 600,
+    color: MUTED,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    background: HEADER_BG,
+    verticalAlign: 'middle',
+    whiteSpace: 'nowrap',
   };
-  const ageBandBorder = '2px solid #cbd5e1';
+  const tdBase: React.CSSProperties = {
+    padding: '10px 10px',
+    fontSize: 13,
+    textAlign: 'center',
+    borderBottom: `1px solid ${DIVIDER}`,
+    fontVariantNumeric: 'tabular-nums',
+    verticalAlign: 'middle',
+  };
 
   return (
     <div style={s.chartCard}>
-      <h3 style={s.chartTitle}>Monthly Breakdown</h3>
-      <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-        <table style={{ borderCollapse: 'separate', borderSpacing: 0, width: '100%', minWidth: 720, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <h3 style={{ ...s.chartTitle, marginBottom: 14 }}>Monthly Breakdown</h3>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 720 }}>
           <thead>
             <tr>
-              <th style={{
-                ...baseCell, background: '#f1f5f9', fontWeight: 700, color: '#334155',
-                textAlign: 'left', paddingLeft: 14, position: 'sticky', left: 0, zIndex: 2,
-                borderBottom: '2px solid #cbd5e1',
-              }} rowSpan={2}>Month</th>
-              {ages.map((age, i) => (
-                <th key={age} style={{
-                  ...baseCell, background: AGE_BAND_COLORS[i % AGE_BAND_COLORS.length],
-                  fontWeight: 700, color: '#1e293b', fontSize: 12.5, letterSpacing: '0.02em',
-                  borderRight: ageBandBorder, borderBottom: '1px solid #cbd5e1',
-                  padding: '10px 6px',
-                }} colSpan={progs.length}>
+              <th
+                rowSpan={2}
+                style={{
+                  ...thBase,
+                  textAlign: 'left',
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 2,
+                  borderBottom: `1px solid ${CARD_BORDER}`,
+                }}
+              >
+                Month
+              </th>
+              {ages.map((age, ai) => (
+                <th
+                  key={age}
+                  colSpan={progs.length}
+                  style={{
+                    ...thBase,
+                    fontSize: 12,
+                    textTransform: 'none',
+                    letterSpacing: '-0.005em',
+                    color: TEXT_SUB,
+                    borderBottom: `1px solid ${CARD_BORDER}`,
+                    borderRight: ai < ages.length - 1 ? `1px solid ${DIVIDER}` : 'none',
+                  }}
+                >
                   {AGE_TO_CLASS[age] ?? `Age ${age}`}
-                  <span style={{ marginLeft: 4, fontSize: 10, color: '#64748b', fontWeight: 500 }}>· {age}y</span>
+                  <span style={{ marginLeft: 6, fontSize: 10, color: MUTED_SOFT, fontWeight: 500 }}>{age}y</span>
                 </th>
               ))}
-              <th style={{
-                ...baseCell, background: '#dcfce7', fontWeight: 700, color: '#065f46',
-                borderBottom: '2px solid #cbd5e1', borderLeft: '2px solid #cbd5e1',
-              }} rowSpan={2}>Students</th>
-              <th style={{
-                ...baseCell, background: '#ede9fe', fontWeight: 700, color: '#5b21b6',
-                borderBottom: '2px solid #cbd5e1', borderRight: 'none',
-              }} rowSpan={2}>Revenue</th>
+              <th
+                rowSpan={2}
+                style={{
+                  ...thBase,
+                  borderBottom: `1px solid ${CARD_BORDER}`,
+                  borderLeft: `1px solid ${CARD_BORDER}`,
+                }}
+              >
+                Students
+              </th>
+              <th
+                rowSpan={2}
+                style={{
+                  ...thBase,
+                  textAlign: 'right',
+                  borderBottom: `1px solid ${CARD_BORDER}`,
+                }}
+              >
+                Revenue
+              </th>
             </tr>
             <tr>
               {ages.flatMap((age, ai) =>
                 progs.map((prog, pi) => (
-                  <th key={`${age}-${prog}`} style={{
-                    ...baseCell, background: '#f8fafc', fontWeight: 600, color: '#64748b',
-                    fontSize: 11,
-                    borderRight: pi === progs.length - 1 ? ageBandBorder : '1px solid #f1f5f9',
-                    borderBottom: '2px solid #cbd5e1',
-                  }}>{PROG_SHORT[prog] ?? prog}</th>
+                  <th
+                    key={`${age}-${prog}`}
+                    style={{
+                      ...thBase,
+                      fontSize: 10,
+                      padding: '8px 6px',
+                      color: MUTED_SOFT,
+                      borderBottom: `1px solid ${CARD_BORDER}`,
+                      borderRight: pi === progs.length - 1 && ai < ages.length - 1 ? `1px solid ${DIVIDER}` : 'none',
+                    }}
+                  >
+                    {PROG_SHORT[prog] ?? prog}
+                  </th>
                 ))
               )}
             </tr>
@@ -499,91 +558,195 @@ function MonthlyBreakdownTable({ data }: { data: import('../../api/students.js')
             {data.monthlyRevenue.map((m, i) => {
               const isCurrent = i === data.currentMonthIdx;
               const isForecast = m.isForecast;
-              const rowBg = isCurrent ? '#fef08a' : (isForecast ? '#fafafa' : (i % 2 === 0 ? '#fff' : '#fbfcfd'));
-              const fw = isCurrent ? 800 : 500;
-              const textColor = isForecast ? '#94a3b8' : '#0f172a';
+              const rowBg = isCurrent ? NOW_BG : '#fff';
+              const textColor = isForecast ? MUTED_SOFT : TEXT;
               return (
                 <tr key={m.month} className="mb-row" style={{ background: rowBg }}>
-                  <td style={{
-                    ...baseCell, background: rowBg, fontWeight: isCurrent ? 800 : 600,
-                    textAlign: 'left', paddingLeft: 14, color: isForecast ? '#94a3b8' : '#334155',
-                    position: 'sticky', left: 0, zIndex: 1,
-                    borderRight: '2px solid #e2e8f0',
-                  }}>
-                    {m.month}
-                    {isForecast && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 500, color: '#cbd5e1' }}>fcst</span>}
-                    {isCurrent && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#a16207' }}>● now</span>}
+                  <td
+                    style={{
+                      ...tdBase,
+                      padding: '10px 12px',
+                      textAlign: 'left',
+                      background: rowBg,
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 1,
+                      color: isForecast ? MUTED_SOFT : TEXT,
+                      fontWeight: 600,
+                      boxShadow: isCurrent ? `inset 3px 0 0 ${NOW_ACCENT}` : 'none',
+                    }}
+                  >
+                    <span>{m.month}</span>
+                    {isCurrent && (
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: '#4338ca',
+                          background: '#c7d2fe',
+                          padding: '1px 7px',
+                          borderRadius: 999,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        Now
+                      </span>
+                    )}
+                    {isForecast && (
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: MUTED_SOFT,
+                          border: `1px solid ${CARD_BORDER}`,
+                          padding: '1px 7px',
+                          borderRadius: 999,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        Forecast
+                      </span>
+                    )}
                   </td>
                   {ages.flatMap((age, ai) =>
                     progs.map((prog, pi) => {
                       const v = m.breakdown?.[age]?.[prog]?.count ?? 0;
                       return (
-                        <td key={`${m.month}-${age}-${prog}`} style={{
-                          ...baseCell, fontWeight: fw,
-                          color: v === 0 ? (isCurrent ? '#a3a3a3' : '#e2e8f0') : textColor,
-                          borderRight: pi === progs.length - 1 ? ageBandBorder : '1px solid #f1f5f9',
-                        }}>{v || '·'}</td>
+                        <td
+                          key={`${m.month}-${age}-${prog}`}
+                          style={{
+                            ...tdBase,
+                            fontWeight: v ? (isCurrent ? 700 : 500) : 400,
+                            color: v === 0 ? (isForecast ? '#e2e8f0' : '#cbd5e1') : textColor,
+                            borderRight: pi === progs.length - 1 && ai < ages.length - 1 ? `1px solid ${DIVIDER}` : 'none',
+                          }}
+                        >
+                          {v || '—'}
+                        </td>
                       );
                     })
                   )}
-                  <td style={{
-                    ...baseCell, fontWeight: isCurrent ? 800 : 700,
-                    color: isForecast ? '#94a3b8' : '#065f46',
-                    background: isCurrent ? '#fef08a' : (isForecast ? '#fafafa' : '#f0fdf4'),
-                    borderLeft: '2px solid #e2e8f0',
-                  }}>{m.studentCount}</td>
-                  <td style={{
-                    ...baseCell, fontWeight: isCurrent ? 800 : 700,
-                    color: isForecast ? '#94a3b8' : '#5b21b6',
-                    background: isCurrent ? '#fef08a' : (isForecast ? '#fafafa' : '#faf5ff'),
-                    borderRight: 'none',
-                  }}>{fmtCurrency(m.revenue)}</td>
+                  <td
+                    style={{
+                      ...tdBase,
+                      fontWeight: isCurrent ? 700 : 600,
+                      color: isForecast ? MUTED_SOFT : TEXT,
+                      borderLeft: `1px solid ${DIVIDER}`,
+                    }}
+                  >
+                    {m.studentCount}
+                  </td>
+                  <td
+                    style={{
+                      ...tdBase,
+                      textAlign: 'right',
+                      padding: '10px 12px',
+                      fontWeight: isCurrent ? 800 : 700,
+                      color: isForecast ? MUTED_SOFT : '#059669',
+                    }}
+                  >
+                    {fmtCurrency(m.revenue)}
+                  </td>
                 </tr>
               );
             })}
-            {/* Annual summary row: peak headcount + total revenue */}
-            <tr style={{ background: '#1e293b' }}>
-              <td style={{
-                ...baseCell, background: '#1e293b', color: '#f8fafc',
-                fontWeight: 800, textAlign: 'left', paddingLeft: 14,
-                position: 'sticky', left: 0, zIndex: 1,
-                borderRight: '2px solid #475569', borderBottom: 'none',
-                fontSize: 12.5,
-              }}>
-                Annual <span style={{ fontSize: 10, fontWeight: 500, color: '#94a3b8', marginLeft: 4 }}>peak / total</span>
+            {/* Annual summary row — light, in-palette, matches Finance's total row */}
+            <tr style={{ background: ANNUAL_BG }}>
+              <td
+                style={{
+                  ...tdBase,
+                  padding: '12px',
+                  textAlign: 'left',
+                  background: ANNUAL_BG,
+                  position: 'sticky',
+                  left: 0,
+                  zIndex: 1,
+                  borderTop: `2px solid ${TEXT_SUB}`,
+                  borderBottom: 'none',
+                  color: MUTED,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                }}
+              >
+                Annual
+                <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 500, color: MUTED_SOFT, textTransform: 'none', letterSpacing: 0 }}>
+                  peak · total
+                </span>
               </td>
               {ages.flatMap((age, ai) =>
                 progs.map((prog, pi) => {
                   const v = peakBreakdown[age]?.[prog] ?? 0;
                   return (
-                    <td key={`total-${age}-${prog}`} style={{
-                      ...baseCell, background: '#1e293b', color: v === 0 ? '#475569' : '#f1f5f9',
-                      fontWeight: 700, fontSize: 11,
-                      borderRight: pi === progs.length - 1 ? '2px solid #475569' : '1px solid #334155',
-                      borderBottom: 'none',
-                    }}>{v || '·'}</td>
+                    <td
+                      key={`total-${age}-${prog}`}
+                      style={{
+                        ...tdBase,
+                        borderTop: `2px solid ${TEXT_SUB}`,
+                        borderBottom: 'none',
+                        fontWeight: 700,
+                        color: v === 0 ? '#cbd5e1' : TEXT_SUB,
+                        borderRight: pi === progs.length - 1 && ai < ages.length - 1 ? `1px solid ${DIVIDER}` : 'none',
+                      }}
+                    >
+                      {v || '—'}
+                    </td>
                   );
                 })
               )}
-              <td style={{
-                ...baseCell, background: '#065f46', color: '#fff',
-                fontWeight: 800, borderLeft: '2px solid #475569', borderBottom: 'none',
-              }}>{peakStudents}</td>
-              <td style={{
-                ...baseCell, background: '#5b21b6', color: '#fff',
-                fontWeight: 800, borderRight: 'none', borderBottom: 'none',
-              }}>{fmtCurrency(annualTotalRevenue)}</td>
+              <td
+                style={{
+                  ...tdBase,
+                  borderTop: `2px solid ${TEXT_SUB}`,
+                  borderLeft: `1px solid ${DIVIDER}`,
+                  borderBottom: 'none',
+                  fontWeight: 800,
+                  color: TEXT,
+                }}
+              >
+                {peakStudents}
+              </td>
+              <td
+                style={{
+                  ...tdBase,
+                  textAlign: 'right',
+                  padding: '12px',
+                  borderTop: `2px solid ${TEXT_SUB}`,
+                  borderBottom: 'none',
+                  fontWeight: 800,
+                  fontSize: 14,
+                  color: '#059669',
+                }}
+              >
+                {fmtCurrency(annualTotalRevenue)}
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <span><strong style={{ color: '#475569' }}>4H</strong> Half Day</span>
-        <span><strong style={{ color: '#475569' }}>HD</strong> Half Day + Enrichment</span>
-        <span><strong style={{ color: '#475569' }}>FD</strong> Full Day</span>
-        <span style={{ marginLeft: 'auto' }}>Annual row: per-class cells & students show <strong>peak</strong> across the year; revenue is the <strong>sum</strong> of all 12 months</span>
+      <div
+        style={{
+          marginTop: 12,
+          fontSize: 11,
+          color: MUTED_SOFT,
+          display: 'flex',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span><strong style={{ color: TEXT_SUB }}>4H</strong> Half Day</span>
+        <span><strong style={{ color: TEXT_SUB }}>HD</strong> Half Day + Enrichment</span>
+        <span><strong style={{ color: TEXT_SUB }}>FD</strong> Full Day</span>
+        <span style={{ marginLeft: 'auto' }}>
+          Annual row: per-class cells & students show <strong>peak</strong> across the year; revenue is the <strong>sum</strong> of all 12 months
+        </span>
       </div>
-      <style>{`.mb-row:hover td { background: #fef9c3 !important; transition: background 0.1s; }`}</style>
+      <style>{`.mb-row { transition: background 120ms ease; } .mb-row:hover td { background: ${NOW_BG} !important; }`}</style>
     </div>
   );
 }

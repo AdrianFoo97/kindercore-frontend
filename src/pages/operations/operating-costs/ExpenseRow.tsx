@@ -80,7 +80,7 @@ export function ExpenseRow({
         }}>
           {category.name}
         </div>
-        {hasBudget && (
+        {hasBudget && hasValue && (
           <BudgetIndicator
             pct={budgetPct}
             status={state.budget}
