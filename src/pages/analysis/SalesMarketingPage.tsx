@@ -347,17 +347,21 @@ export default function SalesMarketingPage() {
             <KpiCard
               label="Appointment Rate"
               value={`${appointmentPct}%`}
-              accent={C.indigo}
-              bar={{ fill: appointmentPct, color: C.indigo, title: `${data.attendedAppointments} attended out of ${completedWithAppt} with appointments` }}
+              accent={C.blue}
+              bar={{ fill: appointmentPct, color: C.blue, title: `${data.attendedAppointments} attended out of ${completedWithAppt} with appointments` }}
               breakdown={`${data.attendedAppointments} attended out of ${completedWithAppt} with appointments`}
             />
             <KpiCard
               label="Leads Received"
               value={data.totalLeads}
-              accent={C.indigo}
+              accent={C.slate}
               trend={leadsTrend}
-              bar={hasYoy ? { fill: yoyRatioPct, color: C.indigo, title: `${yoyRatioPct}% of ${data.prevYear} volume` } : undefined}
-              breakdown={hasYoy ? `${yoyRatioPct}% of ${data.prevYear} volume` : undefined}
+              bar={{
+                fill: hasYoy ? yoyRatioPct : 0,
+                color: C.slate,
+                title: hasYoy ? `${yoyRatioPct}% of ${data.prevYear} volume` : `No ${data.prevYear} leads to compare`,
+              }}
+              breakdown={hasYoy ? `${yoyRatioPct}% of ${data.prevYear} volume` : `No ${data.prevYear} leads to compare`}
             />
           </div>
         );

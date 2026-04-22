@@ -165,6 +165,14 @@ const STATUS_CFG: Record<LeadStatus, { label: string; color: string; dot: string
   REJECTED:           { label: 'Rejected',    color: '#92400e', dot: '#d97706', bg: '#fffbeb' },
 };
 
+// Safe accessor — returns a neutral slate fallback for any status we don't
+// recognize (legacy rows, corrupted data, or enum drift between backend &
+// frontend) so renders degrade gracefully instead of crashing the whole page.
+const UNKNOWN_STATUS_CFG = { label: 'Unknown', color: '#64748b', dot: '#94a3b8', bg: '#f1f5f9' };
+function statusCfgOf(status: string | null | undefined) {
+  return (status && STATUS_CFG[status as LeadStatus]) || UNKNOWN_STATUS_CFG;
+}
+
 type StatsData = {
   NEW?: number; CONTACTED?: number; APPOINTMENT_BOOKED?: number;
   FOLLOW_UP?: number; ENROLLED?: number; LOST?: number; REJECTED?: number; TRASH?: number;
@@ -1079,7 +1087,7 @@ function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, 
   };
 
   // Lead context info
-  const statusCfg = contact.status ? STATUS_CFG[contact.status] : null;
+  const statusCfg = contact.status ? statusCfgOf(contact.status) : null;
   const apptInfo = contact.appointmentStart ? (() => {
     const d = new Date(contact.appointmentStart);
     const { text: rel } = relDays(contact.appointmentStart);
@@ -1485,7 +1493,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
 
   const childAge = lead.enrolmentYear - new Date(lead.childDob).getFullYear();
-  const statusCfg = STATUS_CFG[lead.status];
+  const statusCfg = statusCfgOf(lead.status);
   const statusDate = lead.statusChangedAt || lead.submittedAt;
   const statusDaysAgo = Math.floor((Date.now() - new Date(statusDate).getTime()) / 86400000);
   const statusAction: Record<string, string> = { NEW: 'Submitted', CONTACTED: 'Contacted', APPOINTMENT_BOOKED: 'Booked', FOLLOW_UP: 'Attended', ENROLLED: 'Enrolled', LOST: 'Lost', REJECTED: 'Rejected' };
@@ -2611,10 +2619,12 @@ export default function LeadsPage() {
                           </td>
                           <td style={{ ...tD, fontSize: 13, color: '#4a5568' }}>{lead.parentPhone}</td>
                           <td style={tD}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, color: STATUS_CFG[lead.status].color }}>
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_CFG[lead.status].dot }} />
-                              {STATUS_CFG[lead.status].label}
-                            </span>
+                            {(() => { const cfg = statusCfgOf(lead.status); return (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, color: cfg.color }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot }} />
+                                {cfg.label}
+                              </span>
+                            ); })()}
                           </td>
                           <td style={{ ...tD, fontSize: 13, color: '#718096' }}>
                             {lead.deletedAt ? new Date(lead.deletedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
@@ -2697,7 +2707,7 @@ export default function LeadsPage() {
                 const urgency = isClosed ? 'transparent' : urgencyBorder(lead, urgencyOrangeDays, urgencyRedDays);
                 const urgencyTip = urgency !== 'transparent' ? urgencyTooltip(lead, urgencyOrangeDays, urgencyRedDays) : null;
                 const primaryAction = getPrimaryAction(lead);
-                const cfg = STATUS_CFG[lead.status];
+                const cfg = statusCfgOf(lead.status);
                 const rt = lead.status === 'FOLLOW_UP' && lead.statusChangedAt
                   ? relDays(lead.statusChangedAt)
                   : relTime(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt);
@@ -2857,7 +2867,7 @@ export default function LeadsPage() {
                     const urgency = isClosed ? 'transparent' : urgencyBorder(lead, urgencyOrangeDays, urgencyRedDays);
                     const urgencyTip = urgency !== 'transparent' ? urgencyTooltip(lead, urgencyOrangeDays, urgencyRedDays) : null;
                     const primaryAction = getPrimaryAction(lead);
-                    const cfg = STATUS_CFG[lead.status];
+                    const cfg = statusCfgOf(lead.status);
                     const isMenuOpen = menuOpenId === lead.id;
                     const rt = lead.status === 'FOLLOW_UP' && lead.statusChangedAt
                       ? relDays(lead.statusChangedAt)
