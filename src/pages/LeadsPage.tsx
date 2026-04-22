@@ -169,8 +169,18 @@ const STATUS_CFG: Record<LeadStatus, { label: string; color: string; dot: string
 // recognize (legacy rows, corrupted data, or enum drift between backend &
 // frontend) so renders degrade gracefully instead of crashing the whole page.
 const UNKNOWN_STATUS_CFG = { label: 'Unknown', color: '#64748b', dot: '#94a3b8', bg: '#f1f5f9' };
+const reportedUnknownStatuses = new Set<string>();
 function statusCfgOf(status: string | null | undefined) {
-  return (status && STATUS_CFG[status as LeadStatus]) || UNKNOWN_STATUS_CFG;
+  const hit = status ? STATUS_CFG[status as LeadStatus] : null;
+  if (hit) return hit;
+  const key = status == null ? `[${typeof status}]` : `"${status}"`;
+  if (!reportedUnknownStatuses.has(key)) {
+    reportedUnknownStatuses.add(key);
+    // Log once per unknown value so it's visible in DevTools without
+    // spamming. Helps diagnose enum-drift or corrupted-row issues.
+    console.warn('[LeadsPage] Unrecognized lead status:', key);
+  }
+  return UNKNOWN_STATUS_CFG;
 }
 
 type StatsData = {
@@ -2969,15 +2979,17 @@ export default function LeadsPage() {
                                 </div>
                               );
                             })() : (
-                              <span style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                color: cfg.color,
-                                background: cfg.bg,
-                                padding: '3px 9px',
-                                borderRadius: 8,
-                                border: `1px solid ${cfg.dot}20`,
-                              }}>
+                              <span
+                                title={cfg === UNKNOWN_STATUS_CFG ? `Raw status: ${JSON.stringify(lead.status)}` : undefined}
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  color: cfg.color,
+                                  background: cfg.bg,
+                                  padding: '3px 9px',
+                                  borderRadius: 8,
+                                  border: `1px solid ${cfg.dot}20`,
+                                }}>
                                 {cfg.label}
                               </span>
                             )}
