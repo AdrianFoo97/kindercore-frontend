@@ -594,23 +594,9 @@ function MonthlyBreakdownTable({ data }: { data: import('../../api/students.js')
                         Now
                       </span>
                     )}
-                    {isForecast && (
-                      <span
-                        style={{
-                          marginLeft: 8,
-                          fontSize: 10,
-                          fontWeight: 600,
-                          color: MUTED_SOFT,
-                          border: `1px solid ${CARD_BORDER}`,
-                          padding: '1px 7px',
-                          borderRadius: 999,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                        }}
-                      >
-                        Forecast
-                      </span>
-                    )}
+                    {/* Forecast badge removed — the muted row color + the
+                        "Forecast" legend above the table already communicate
+                        this. Per-row badge was visual noise. */}
                   </td>
                   {ages.flatMap((age, ai) =>
                     progs.map((prog, pi) => {

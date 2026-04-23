@@ -82,6 +82,19 @@ export default function LeadQuickViewModal({ lead, pill, onClose }: { lead: Lead
               borderRadius: 999, background: pill.bg, color: pill.color,
               textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
             }}>{pill.label}</span>
+            {lead.status === 'ENROLLED' && (
+              <span
+                title="This lead converted to a student"
+                style={{
+                  display: 'inline-block',
+                  padding: '3px 10px', fontSize: 10, fontWeight: 700,
+                  borderRadius: 999, background: '#e0e7ff', color: '#4338ca',
+                  textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                }}
+              >
+                Enrolled
+              </span>
+            )}
             {heat && (
               <span
                 title={`${heat.label} lead`}

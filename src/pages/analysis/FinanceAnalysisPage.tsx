@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ComposedChart, Bar, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Cell, ReferenceArea, ReferenceLine } from 'recharts';
-import { faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { faCalendar, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { fetchFinanceSummary, FinanceMonth } from '../../api/finance.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
@@ -573,7 +574,9 @@ export default function FinanceAnalysisPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm }}>
                         <span style={{ fontWeight: 600, color: labelColor }}>{e.label}</span>
                         {e.containsCurrent && <Badge tone="indigo">Now</Badge>}
-                        {e.isForecast && <Badge tone="ghost">Forecast</Badge>}
+                        {/* Forecast badge removed — the muted row color plus
+                            the "4 actual · 8 forecast" summary above the
+                            table already convey projection state. */}
                       </div>
                     </td>
                     <td style={{ ...s.tdNum, color: revenueColor, fontWeight: 600 }}>{fmtRM(e.revenue)}</td>
@@ -585,6 +588,7 @@ export default function FinanceAnalysisPage() {
                         staff={e.staffCost}
                         operating={e.operatingCost}
                         muted={e.isForecast}
+                        projected={e.operatingIsProjected}
                       />
                     </td>
                     <td style={{ ...s.tdProfit, color: profitColor }}>{fmtRM(e.profit)}</td>
@@ -776,8 +780,8 @@ function TooltipRow({ color, label, value, strong }: { color: string; label: str
 // the chart's stacked expense bar so staff-vs-operating reads at a glance.
 // `projected` status is carried by the row's muted/forecast styling and the
 // hover tooltip — no extra prefix or stripe here.
-function ExpenseCell({ staff, operating, muted, strong }: {
-  staff: number; operating: number; muted?: boolean; strong?: boolean;
+function ExpenseCell({ staff, operating, muted, strong, projected }: {
+  staff: number; operating: number; muted?: boolean; strong?: boolean; projected?: boolean;
 }) {
   const total = staff + operating;
   const staffPct = total > 0 ? (staff / total) * 100 : 0;
@@ -785,15 +789,37 @@ function ExpenseCell({ staff, operating, muted, strong }: {
   const color = muted ? C.mutedSoft : C.textSub;
   return (
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-      <span style={{ color, fontWeight: strong ? 700 : 500 }}>
-        {total > 0 ? `−${fmtRM(total).replace('RM ', 'RM ')}` : '—'}
+      {/* Row width matches the composition bar below (both 90px now) so
+          the amount hugs the bar's left edge and the wand hugs its right
+          edge with comfortable breathing room between them. */}
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', width: 90, gap: 8, color, fontWeight: strong ? 700 : 500 }}>
+        <span>{total > 0 ? `−${fmtRM(total).replace('RM ', 'RM ')}` : '—'}</span>
+        <span
+          aria-hidden={!projected}
+          title={projected ? 'Operating cost projected from rolling average' : undefined}
+          style={{
+            width: 10,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: projected ? 'help' : 'default',
+            flexShrink: 0,
+          }}
+        >
+          {projected && (
+            <FontAwesomeIcon
+              icon={faWandMagicSparkles}
+              style={{ fontSize: 9, color: '#a5b4cb', opacity: 0.8 }}
+            />
+          )}
+        </span>
       </span>
       {total > 0 && (
         <span
           aria-hidden="true"
           style={{
             display: 'inline-flex',
-            width: 72,
+            width: 90,
             height: 3,
             borderRadius: 2,
             overflow: 'hidden',

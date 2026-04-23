@@ -5,7 +5,7 @@ import {
   CartesianGrid, BarChart, Cell, PieChart, Pie, Legend, Sector, LabelList,
 } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCalendar, faGraduationCap } from '@fortawesome/free-solid-svg-icons';
 import { fetchAnalytics, fetchLeadById } from '../../api/leads.js';
 import { Lead } from '../../types/index.js';
 import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
@@ -788,6 +788,7 @@ export default function SalesMarketingPage() {
                     );
                   }
                   const meta = OUTCOME_META[row.outcome] ?? OUTCOME_META.pending;
+                  const isEnrolled = row.status === 'ENROLLED';
                   // Tooltip reflects the lead's *real* reason when one is
                   // stored (lostReason, or free-text notes). For leads with
                   // nothing recorded — e.g. legacy REJECTED rows — we skip
@@ -800,19 +801,41 @@ export default function SalesMarketingPage() {
                       onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead({ lead, outcome: row.outcome }); } catch { /* ignore */ } }}>
                       <td style={s.td}><span style={{ fontWeight: 600, color: C.text }}>{row.childName}</span></td>
                       <td style={s.td}>
-                        <span title={pillTooltip} style={{
-                          display: 'inline-block',
-                          padding: '2px 8px',
-                          fontSize: 10,
-                          fontWeight: 700,
-                          borderRadius: 999,
-                          background: meta.bg,
-                          color: meta.fg,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                          whiteSpace: 'nowrap',
-                          cursor: pillTooltip ? 'help' : 'default',
-                        }}>{meta.label}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' as const }}>
+                          <span title={pillTooltip} style={{
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            fontSize: 10,
+                            fontWeight: 700,
+                            borderRadius: 999,
+                            background: meta.bg,
+                            color: meta.fg,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            whiteSpace: 'nowrap',
+                            cursor: pillTooltip ? 'help' : 'default',
+                          }}>{meta.label}</span>
+                          {isEnrolled && (
+                            <span
+                              title="Enrolled as a student"
+                              aria-label="Enrolled"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 18,
+                                height: 18,
+                                borderRadius: '50%',
+                                background: '#e0e7ff',
+                                color: '#4338ca',
+                                fontSize: 10,
+                                cursor: 'help',
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faGraduationCap} />
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>
                         <span style={{ display: 'inline-block', minWidth: 24, padding: '2px 8px', fontSize: 11, fontWeight: 700, borderRadius: 10, background: AGE_PALETTE[String(row.age)] ? `${AGE_PALETTE[String(row.age)]}18` : '#f1f5f9', color: AGE_PALETTE[String(row.age)] ?? C.muted, textAlign: 'center' }}>{row.age}</span>
