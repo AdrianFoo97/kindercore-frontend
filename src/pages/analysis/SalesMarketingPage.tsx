@@ -273,6 +273,13 @@ export default function SalesMarketingPage() {
     if (!chartData?.activeLabel) return;
     const idx = MONTH_LABELS.indexOf(chartData.activeLabel);
     if (idx === -1) return;
+    // Skip selecting months with no current-year data. Source-of-truth is
+    // the monthlyComparison array — reading from chartData.activePayload is
+    // unreliable because its shape depends on which element got clicked
+    // (bar, line, or background) and sometimes comes back empty.
+    const row = data.monthlyComparison[idx];
+    const total = (row?.attended ?? 0) + (row?.noShow ?? 0) + (row?.unqualified ?? 0) + (row?.pending ?? 0);
+    if (total === 0) return;
     setSelectedMonth(prev => prev === idx ? null : idx);
     setActiveFilter(null);
     setPage(1);

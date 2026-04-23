@@ -12,6 +12,7 @@ import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 const SYSTEM_LOST_REASONS = [
   'Missed appointment',
   'No response or declined appointment',
+  'Special Need',
 ] as const;
 const SYSTEM_LOST_REASONS_SET = new Set<string>(SYSTEM_LOST_REASONS);
 
