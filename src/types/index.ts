@@ -39,6 +39,7 @@ export interface Lead {
   howDidYouKnow: string | null;
   ctaSource: string | null;
   utmSource: string | null;
+  leadTemperature: 'COOL' | 'WARM' | 'HOT' | null;
   deletedAt: string | null;
 }
 

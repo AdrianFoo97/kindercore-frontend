@@ -76,6 +76,7 @@ describe('LeadsPage', () => {
           statusChangedAt: null,
           ctaSource: null,
           utmSource: null,
+          leadTemperature: null,
           deletedAt: null,
         },
       ],

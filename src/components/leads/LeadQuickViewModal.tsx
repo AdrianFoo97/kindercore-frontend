@@ -27,25 +27,35 @@ function normalizeWaPhone(phone: string): string {
   return '60' + cleaned;
 }
 
-// Lead temperature derived from ctaSource — mirrors LeadsPage.getLeadHeat.
-// Returns null when no signal is present (older leads, imports).
-function leadHeatFromCta(ctaSource: string | null | undefined): { label: string; color: string; bg: string; icon: any } | null {
+// Lead temperature — prefer the stored leadTemperature enum (COOL/WARM/HOT),
+// which the backend derives at create time and stores on every row. Fall
+// back to ctaSource for historical rows that predate the enum. Returns null
+// only when neither signal exists (rare — usually means the lead was
+// imported without any temperature data).
+function leadHeat(lead: { leadTemperature?: string | null; ctaSource?: string | null }):
+  { label: string; color: string; bg: string; icon: any } | null {
+  const temp = lead.leadTemperature;
+  if (temp === 'HOT')  return { label: 'Hot',  color: '#ef4444', bg: '#fef2f2', icon: faFire };
+  if (temp === 'WARM') return { label: 'Warm', color: '#f59e0b', bg: '#fffbeb', icon: faSun };
+  if (temp === 'COOL') return { label: 'Cool', color: '#60a5fa', bg: '#eff6ff', icon: faSnowflake };
+  // Legacy fallback — map ctaSource the way the backend does at ingest time.
   const sourceOrder: Record<string, number> = { hero: 1, story: 2, methods: 3, courses: 4, final: 5 };
-  const score = sourceOrder[ctaSource || ''] || 0;
+  const score = sourceOrder[lead.ctaSource || ''] || 0;
   if (score >= 4) return { label: 'Hot',  color: '#ef4444', bg: '#fef2f2', icon: faFire };
   if (score >= 2) return { label: 'Warm', color: '#f59e0b', bg: '#fffbeb', icon: faSun };
-  if (score >= 1) return { label: 'Cold', color: '#60a5fa', bg: '#eff6ff', icon: faSnowflake };
+  if (score >= 1) return { label: 'Cool', color: '#60a5fa', bg: '#eff6ff', icon: faSnowflake };
   return null;
 }
 
 export default function LeadQuickViewModal({ lead, pill, onClose }: { lead: Lead; pill: LeadQuickViewPill; onClose: () => void }) {
-  const heat = leadHeatFromCta(lead.ctaSource);
+  const heat = leadHeat(lead);
   const reasonLabel = lead.status === 'REJECTED' ? 'Reject Reason' : lead.status === 'LOST' ? 'Lost Reason' : null;
   const reason = reasonLabel ? lead.lostReason : null;
   // Hide Notes when the text duplicates the reason — common in legacy data
   // where users typed the same string into both fields.
   const notes = lead.notes && lead.notes.trim() !== (lead.lostReason ?? '').trim() ? lead.notes : null;
-  const waLink = `https://wa.me/${normalizeWaPhone(lead.parentPhone)}`;
+  // Use WhatsApp Web directly (matches the LeadsPage whatsappUrl helper).
+  const waLink = `https://web.whatsapp.com/send?phone=${normalizeWaPhone(lead.parentPhone)}`;
 
   return (
     <div
