@@ -2106,8 +2106,8 @@ export default function LeadsPage() {
   async function markAttendance(lead: Lead, attended: boolean, notes?: string, attendedDateStr?: string) {
     try {
       await updateLead(lead.id, attended
-        ? { status: 'FOLLOW_UP', ...(notes ? { notes } : {}), ...(attendedDateStr ? { statusChangedAt: new Date(attendedDateStr).toISOString() } : {}) }
-        : { status: 'LOST', lostReason: 'No show' },
+        ? { status: 'FOLLOW_UP', attended: true, ...(notes ? { notes } : {}), ...(attendedDateStr ? { statusChangedAt: new Date(attendedDateStr).toISOString() } : {}) }
+        : { status: 'LOST', lostReason: 'Missed appointment', attended: false },
       );
       invalidateAll();
       if (attended) {
