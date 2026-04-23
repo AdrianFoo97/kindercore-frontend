@@ -10,6 +10,8 @@ import { fetchAnalytics, fetchLeadById } from '../../api/leads.js';
 import { Lead } from '../../types/index.js';
 import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
 import LeadQuickViewModal from '../../components/leads/LeadQuickViewModal.js';
+import { computeOutcomeCounts, OutcomeKey } from '../../components/analysis/OutcomeFilterBar.js';
+import LeadsFilterStrip from '../../components/analysis/LeadsFilterStrip.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect } from '../../components/common/FilterPill.js';
 
@@ -244,6 +246,7 @@ export default function SalesMarketingPage() {
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterState>(null);
+  const [outcomeFilter, setOutcomeFilter] = useState<OutcomeKey | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
@@ -279,6 +282,10 @@ export default function SalesMarketingPage() {
   const channelData = deriveDonut('channel');
 
   // ── Filtered + paginated leads for table ──
+  // `filteredLeads` applies only the address/channel/month slice. The
+  // outcome-pill breakdown shows this set so every bucket stays visible
+  // even when an outcome is clicked. `tableLeads` layers the outcome
+  // filter on top — that's what actually drives the rendered rows.
   const filteredLeads = activeFilter
     ? monthLeads.filter(r =>
         activeFilter.type === 'address'
@@ -286,11 +293,14 @@ export default function SalesMarketingPage() {
           : r.channel === activeFilter.value
       )
     : monthLeads;
+  const tableLeads = outcomeFilter
+    ? filteredLeads.filter((r: any) => r.outcome === outcomeFilter)
+    : filteredLeads;
 
   // Sort order: enrolment year ↑, then outcome bucket (matches the bar stack:
   // attended → didn't attend → unqualified → pending), then submittedAt desc.
   const OUTCOME_ORDER: Record<string, number> = { attended: 0, noShow: 1, unqualified: 2, pending: 3 };
-  const sortedLeads = [...filteredLeads].sort((a: any, b: any) => {
+  const sortedLeads = [...tableLeads].sort((a: any, b: any) => {
     if (a.enrolmentYear !== b.enrolmentYear) return a.enrolmentYear - b.enrolmentYear;
     const ao = OUTCOME_ORDER[a.outcome] ?? 99;
     const bo = OUTCOME_ORDER[b.outcome] ?? 99;
@@ -716,56 +726,18 @@ export default function SalesMarketingPage() {
 
       {/* ── Leads table ── */}
       <div style={s.card}>
-        <div style={{ ...s.cardHeader, marginBottom: 14 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h2 style={s.cardTitle}>Leads Detail</h2>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' as const, marginTop: 2 }}>
-              <p style={{ margin: 0, fontSize: 12, color: C.muted }}>
-                {activeFilter
-                  ? <>Filtered by <strong>{activeFilter.value}</strong> · {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
-                  : <>All leads · {selectedMonth !== null ? MONTH_LABELS[selectedMonth] + ' ' : ''}{data.selectedYear} — {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
-                }
-              </p>
-              {/* Outcome breakdown aligned to the right of the subtitle — at
-                  a glance: how does this slice of leads actually perform? */}
-              {filteredLeads.length > 0 && (() => {
-                const counts: Record<'attended' | 'noShow' | 'unqualified' | 'pending', number> = {
-                  attended: 0, noShow: 0, unqualified: 0, pending: 0,
-                };
-                for (const r of filteredLeads as any[]) {
-                  if (counts[r.outcome as keyof typeof counts] !== undefined) counts[r.outcome as keyof typeof counts]++;
-                }
-                const total = filteredLeads.length;
-                const pct = (n: number) => Math.round((n / total) * 100);
-                const items: { key: keyof typeof counts; label: string; color: string; bg: string }[] = [
-                  { key: 'attended',    label: 'Attended',    color: '#15803d', bg: '#dcfce7' },
-                  { key: 'noShow',      label: 'No show',     color: '#991b1b', bg: '#fee2e2' },
-                  { key: 'unqualified', label: 'Unqualified', color: '#92400e', bg: '#fef3c7' },
-                  { key: 'pending',     label: 'Pending',     color: '#475569', bg: '#f1f5f9' },
-                ];
-                return (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
-                    {items.map(it => counts[it.key] > 0 && (
-                      <span key={it.key} style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '2px 8px', fontSize: 11, fontWeight: 600,
-                        borderRadius: 999, background: it.bg, color: it.color,
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {it.label} <span style={{ fontWeight: 700 }}>{pct(counts[it.key])}%</span>
-                        <span style={{ opacity: 0.7, fontWeight: 500 }}>({counts[it.key]})</span>
-                      </span>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-          {activeFilter && (
-            <button onClick={() => { setActiveFilter(null); setPage(1); }} style={s.clearBtn}>
-              <FontAwesomeIcon icon={faXmark} /> Clear filter
-            </button>
-          )}
+        <div style={{ marginBottom: 14 }}>
+          <h2 style={{ ...s.cardTitle, marginBottom: 8 }}>Leads Detail</h2>
+          <LeadsFilterStrip
+            contextLabel={`All leads · ${selectedMonth !== null ? MONTH_LABELS[selectedMonth] + ' ' : ''}${data.selectedYear}`}
+            scopeLabel={activeFilter?.value}
+            onClearScope={activeFilter ? () => { setActiveFilter(null); setPage(1); } : undefined}
+            scopeTotal={filteredLeads.length}
+            displayedTotal={tableLeads.length}
+            outcomeCounts={computeOutcomeCounts(filteredLeads as any)}
+            outcomeFilter={outcomeFilter}
+            onOutcomeChange={next => { setOutcomeFilter(next); setPage(1); }}
+          />
         </div>
         {/* Reserve a fixed height for the full page + headers + a handful
             of enrolment-year dividers so navigating between pages (or to a
