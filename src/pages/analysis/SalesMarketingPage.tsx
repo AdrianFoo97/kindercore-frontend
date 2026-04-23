@@ -50,14 +50,20 @@ const RADIAN = Math.PI / 180;
 function pct(n: number) { return `${Math.round(n * 100)}%`; }
 
 function DonutLabel({ cx, cy, midAngle, outerRadius, percent, name }: any) {
-  if (percent < 0.02) return null;
+  // Suppress labels on slices smaller than 6% — adjacent tiny slices
+  // (Tampoi / Nusa Bestari / Taman Danga / …) bunch up at the bottom and
+  // collide into illegible strings. The legend table below the chart
+  // surfaces all entries, so hiding the tiny ones here loses no info.
+  if (percent < 0.06) return null;
   const r = outerRadius + 36;
   const x = cx + r * Math.cos(-midAngle * RADIAN);
   const y = cy + r * Math.sin(-midAngle * RADIAN);
+  // Truncate long names to stop long-tail labels pushing off the chart.
+  const truncated = name.length > 18 ? name.slice(0, 16) + '…' : name;
   return (
     <text x={x} y={y} textAnchor={x > cx ? 'start' : 'end'}
       dominantBaseline="central" fontSize={11} fill={C.muted}>
-      {name} <tspan fontWeight={600} fill={C.text}>{(percent * 100).toFixed(0)}%</tspan>
+      {truncated} <tspan fontWeight={600} fill={C.text}>{(percent * 100).toFixed(0)}%</tspan>
     </text>
   );
 }
@@ -711,14 +717,49 @@ export default function SalesMarketingPage() {
       {/* ── Leads table ── */}
       <div style={s.card}>
         <div style={{ ...s.cardHeader, marginBottom: 14 }}>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={s.cardTitle}>Leads Detail</h2>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: C.muted }}>
-              {activeFilter
-                ? <>Filtered by <strong>{activeFilter.value}</strong> · {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
-                : <>All leads · {selectedMonth !== null ? MONTH_LABELS[selectedMonth] + ' ' : ''}{data.selectedYear} — {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
-              }
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' as const, marginTop: 2 }}>
+              <p style={{ margin: 0, fontSize: 12, color: C.muted }}>
+                {activeFilter
+                  ? <>Filtered by <strong>{activeFilter.value}</strong> · {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
+                  : <>All leads · {selectedMonth !== null ? MONTH_LABELS[selectedMonth] + ' ' : ''}{data.selectedYear} — {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
+                }
+              </p>
+              {/* Outcome breakdown aligned to the right of the subtitle — at
+                  a glance: how does this slice of leads actually perform? */}
+              {filteredLeads.length > 0 && (() => {
+                const counts: Record<'attended' | 'noShow' | 'unqualified' | 'pending', number> = {
+                  attended: 0, noShow: 0, unqualified: 0, pending: 0,
+                };
+                for (const r of filteredLeads as any[]) {
+                  if (counts[r.outcome as keyof typeof counts] !== undefined) counts[r.outcome as keyof typeof counts]++;
+                }
+                const total = filteredLeads.length;
+                const pct = (n: number) => Math.round((n / total) * 100);
+                const items: { key: keyof typeof counts; label: string; color: string; bg: string }[] = [
+                  { key: 'attended',    label: 'Attended',    color: '#15803d', bg: '#dcfce7' },
+                  { key: 'noShow',      label: 'No show',     color: '#991b1b', bg: '#fee2e2' },
+                  { key: 'unqualified', label: 'Unqualified', color: '#92400e', bg: '#fef3c7' },
+                  { key: 'pending',     label: 'Pending',     color: '#475569', bg: '#f1f5f9' },
+                ];
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+                    {items.map(it => counts[it.key] > 0 && (
+                      <span key={it.key} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '2px 8px', fontSize: 11, fontWeight: 600,
+                        borderRadius: 999, background: it.bg, color: it.color,
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {it.label} <span style={{ fontWeight: 700 }}>{pct(counts[it.key])}%</span>
+                        <span style={{ opacity: 0.7, fontWeight: 500 }}>({counts[it.key]})</span>
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
           {activeFilter && (
             <button onClick={() => { setActiveFilter(null); setPage(1); }} style={s.clearBtn}>
@@ -941,7 +982,8 @@ function DonutCard({ title, sub, data, topN, colorFn, filterType, activeValue, o
                 {/* Main pie — labels always visible, never changes */}
                 <Pie data={pieData} dataKey="value" nameKey="name"
                   cx="50%" cy="50%" innerRadius={60} outerRadius={88}
-                  labelLine label={(props: any) => <DonutLabel {...props} />}
+                  labelLine={(props: any) => props.percent >= 0.06 ? <polyline stroke={C.border} strokeWidth={1} fill="none" points={props.points?.map((p: any) => `${p.x},${p.y}`).join(' ')} /> : null as any}
+                  label={(props: any) => <DonutLabel {...props} />}
                   isAnimationActive={false} style={{ outline: 'none' }}
                   onClick={handlePieClick}>
                   {pieData.map((entry, i) => (
