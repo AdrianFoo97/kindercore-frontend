@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, BarChart, Cell, PieChart, Pie, Legend, Sector, LabelList,
@@ -9,7 +9,7 @@ import { faXmark, faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { fetchAnalytics, fetchLeadById } from '../../api/leads.js';
 import { Lead } from '../../types/index.js';
 import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
-import EditLeadModal from '../../components/leads/EditLeadModal.js';
+import LeadQuickViewModal from '../../components/leads/LeadQuickViewModal.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect } from '../../components/common/FilterPill.js';
 
@@ -110,11 +110,12 @@ interface KpiCardProps {
     dir: 'up' | 'down' | 'flat';
     semantic?: 'positive' | 'negative' | 'neutral';
   };
-  bar?: { fill: number; color: string; title?: string };   // fill 0..100
+  bar?: { fill: number; color: string; title?: string };   // fill 0..100 (single-segment)
+  segments?: { value: number; color: string; label: string }[]; // multi-segment composition bar
   breakdown?: string;
 }
 
-function KpiCard({ label, value, accent, valueColor, trend, bar, breakdown }: KpiCardProps) {
+function KpiCard({ label, value, accent, valueColor, trend, bar, segments, breakdown }: KpiCardProps) {
   const trendColor = !trend ? undefined
     : trend.semantic === 'negative' ? C.red
     : trend.semantic === 'neutral'  ? C.muted
@@ -150,7 +151,30 @@ function KpiCard({ label, value, accent, valueColor, trend, bar, breakdown }: Kp
       <div style={{ fontSize: 22, fontWeight: 700, color: resolvedValueColor, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>
         {value}
       </div>
-      {bar && (
+      {segments && segments.length > 0 && (() => {
+        const segTotal = segments.reduce((a, s) => a + s.value, 0);
+        if (segTotal <= 0) {
+          return (
+            <div style={{ width: '100%', height: 6, background: '#e2e8f0', borderRadius: 3, marginTop: 8 }} />
+          );
+        }
+        return (
+          <div style={{ display: 'flex', width: '100%', height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden', marginTop: 8 }}>
+            {segments.map((s, i) => {
+              const pct = (s.value / segTotal) * 100;
+              if (pct <= 0) return null;
+              return (
+                <div
+                  key={`${s.label}-${i}`}
+                  title={`${s.label}: ${s.value} (${Math.round(pct)}%)`}
+                  style={{ width: `${pct}%`, height: '100%', background: s.color, transition: 'width 240ms ease, background 240ms ease' }}
+                />
+              );
+            })}
+          </div>
+        );
+      })()}
+      {!segments && bar && (
         <div
           title={bar.title}
           style={{
@@ -181,6 +205,14 @@ function KpiCard({ label, value, accent, valueColor, trend, bar, breakdown }: Kp
   );
 }
 
+// Outcome → pill config. The Leads Detail table uses this; the quick-view
+// modal just reuses whichever pill the row showed so the header matches.
+const OUTCOME_PILL: Record<string, { label: string; bg: string; color: string }> = {
+  attended:    { label: 'Attended',    bg: '#dcfce7', color: '#15803d' },
+  noShow:      { label: 'No show',     bg: '#fee2e2', color: '#991b1b' },
+  unqualified: { label: 'Unqualified', bg: '#fef3c7', color: '#92400e' },
+  pending:     { label: 'Pending',     bg: '#f1f5f9', color: '#475569' },
+};
 // ── Page ──────────────────────────────────────────────────────────
 const STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
   NEW:                { label: 'New',         bg: '#dbeafe', color: '#1e40af' },
@@ -192,18 +224,22 @@ const STATUS_META: Record<string, { label: string; bg: string; color: string }> 
   REJECTED:           { label: 'Rejected',    bg: '#f1f5f9', color: '#64748b' },
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [15, 25, 50, 100];
+const DEFAULT_PAGE_SIZE = 15;
 
 type FilterState = { type: 'address' | 'channel'; value: string } | null;
 
+type QuickViewOutcome = 'attended' | 'noShow' | 'unqualified' | 'pending';
+type QuickViewTarget = { lead: Lead; outcome: QuickViewOutcome };
+
 export default function SalesMarketingPage() {
   const { isMobile } = useIsMobile();
-  const queryClient = useQueryClient();
-  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editingLead, setEditingLead] = useState<QuickViewTarget | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterState>(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['analytics', selectedYear],
@@ -255,9 +291,9 @@ export default function SalesMarketingPage() {
     if (ao !== bo) return ao - bo;
     return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
   });
-  const pageCount = Math.max(1, Math.ceil(sortedLeads.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(sortedLeads.length / pageSize));
   const safePage = Math.min(page, pageCount);
-  const pagedLeads = sortedLeads.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedLeads = sortedLeads.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const handleSegmentClick = (type: 'address' | 'channel', value: string) => {
     setActiveFilter(prev => (prev?.type === type && prev?.value === value) ? null : { type, value });
@@ -329,12 +365,11 @@ export default function SalesMarketingPage() {
         // distance). Unqualified = rejected or lost as "cold" (didn't reply).
         const leadQualityPct = Math.round(data.leadQualityRate * 100);
 
-        // YoY comparison — the only trend we can compute from existing data.
+        // YoY trend — surfaces only as a pill in the top-right of Leads
+        // Received. The bar itself now shows outcome composition, not YoY.
         const prevYearTotal = data.monthlyComparison.reduce((s, m) => s + (m.previous ?? 0), 0);
         const leadsDelta = data.totalLeads - prevYearTotal;
-        const hasYoy = prevYearTotal > 0;
-        const yoyRatioPct = hasYoy ? Math.min(100, Math.round((data.totalLeads / prevYearTotal) * 100)) : 0;
-        const leadsTrend = hasYoy
+        const leadsTrend = prevYearTotal > 0
           ? {
               delta: `${leadsDelta >= 0 ? '+' : '−'}${Math.abs(leadsDelta)} vs ${data.prevYear}`,
               dir: (leadsDelta > 0 ? 'up' : leadsDelta < 0 ? 'down' : 'flat') as 'up' | 'down' | 'flat',
@@ -363,12 +398,20 @@ export default function SalesMarketingPage() {
               value={data.totalLeads}
               accent={C.slate}
               trend={leadsTrend}
-              bar={{
-                fill: hasYoy ? yoyRatioPct : 0,
-                color: C.slate,
-                title: hasYoy ? `${yoyRatioPct}% of ${data.prevYear} volume` : `No ${data.prevYear} leads to compare`,
-              }}
-              breakdown={hasYoy ? `${yoyRatioPct}% of ${data.prevYear} volume` : `No ${data.prevYear} leads to compare`}
+              segments={[
+                { value: data.attendedAppointments, color: C.green,   label: 'Attended' },
+                { value: data.noShowLeads,          color: C.red,     label: 'No show' },
+                { value: data.unqualifiedLeads,     color: C.amber,   label: 'Unqualified' },
+                // Pending uses the same slate-200 as the unfilled track on
+                // Lead Quality / Appointment Rate — visually reads as "not
+                // yet decided" rather than a distinct negative outcome.
+                { value: data.pendingLeads,         color: '#e2e8f0', label: 'Pending' },
+              ]}
+              breakdown={(() => {
+                if (data.totalLeads === 0) return undefined;
+                const pct = (n: number) => Math.round((n / data.totalLeads) * 100);
+                return `${pct(data.attendedAppointments)}% attended · ${pct(data.noShowLeads)}% no show · ${pct(data.unqualifiedLeads)}% unqualified · ${pct(data.pendingLeads)}% pending`;
+              })()}
             />
           </div>
         );
@@ -393,28 +436,28 @@ export default function SalesMarketingPage() {
               )}
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12, color: C.muted, flexWrap: 'wrap' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: C.green }} />
-              Attended
+          <div style={{ ...s.legendInline, fontSize: 12, color: C.muted }}>
+            <span style={s.legendInlineItem}>
+              <span style={s.legendDot(C.green)} />
+              <span style={s.legendText}>Attended</span>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: C.red }} />
-              Didn't attend
+            <span style={s.legendInlineItem}>
+              <span style={s.legendDot(C.red)} />
+              <span style={s.legendText}>Didn't attend</span>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: C.amber }} />
-              Unqualified
+            <span style={s.legendInlineItem}>
+              <span style={s.legendDot(C.amber)} />
+              <span style={s.legendText}>Unqualified</span>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: C.slate }} />
-              Pending
+            <span style={s.legendInlineItem}>
+              <span style={s.legendDot(C.slate)} />
+              <span style={s.legendText}>Pending</span>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={s.legendInlineItem}>
               <svg width="20" height="10">
                 <line x1="0" y1="5" x2="20" y2="5" stroke={C.slate} strokeWidth="2" strokeDasharray="4 3" />
               </svg>
-              {data.prevYear}
+              <span style={s.legendText}>{data.prevYear}</span>
             </span>
           </div>
         </div>
@@ -466,7 +509,7 @@ export default function SalesMarketingPage() {
                     {total > 0 && (
                       <>
                         {row1(C.green, 'Attended', row.attended ?? 0)}
-                        {row1(C.red, "Didn't attend", row.noShow ?? 0)}
+                        {row1(C.red, 'No show', row.noShow ?? 0)}
                         {row1(C.amber, 'Unqualified', row.unqualified ?? 0)}
                         {row1(C.slate, 'Pending', row.pending ?? 0)}
                         <div style={{ height: 1, background: '#f1f5f9', margin: '8px 0' }} />
@@ -557,7 +600,7 @@ export default function SalesMarketingPage() {
                       x={x}
                       y={y - 8}
                       textAnchor="middle"
-                      fill={C.text}
+                      fill={C.muted}
                       fontSize={11}
                       fontWeight={700}
                       style={{ fontVariantNumeric: 'tabular-nums' as any }}
@@ -683,8 +726,20 @@ export default function SalesMarketingPage() {
             </button>
           )}
         </div>
-        <div style={{ overflowX: 'auto', minHeight: 448 }}>
-          <table style={s.table}>
+        {/* Reserve a fixed height for the full page + headers + a handful
+            of enrolment-year dividers so navigating between pages (or to a
+            short tail) doesn't shift the pagination bar vertically. If a
+            page is taller than this (unusual divider density), the wrapper
+            grows — minor flex, not a full jump. */}
+        <div style={{ overflowX: 'auto', minHeight: 40 + pageSize * 40 + 120 }}>
+          <table style={{ ...s.table, tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '26%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '26%' }} />
+              <col style={{ width: '26%' }} />
+            </colgroup>
             <thead>
               <tr>
                 {['Name', 'Status', 'Age', 'Address', 'Marketing Channel'].map(h => (
@@ -702,7 +757,7 @@ export default function SalesMarketingPage() {
               ) : (() => {
                 const OUTCOME_META: Record<string, { label: string; fg: string; bg: string }> = {
                   attended:    { label: 'Attended', fg: C.green, bg: '#dcfce7' },
-                  noShow:      { label: "Didn't attend", fg: C.red, bg: '#fee2e2' },
+                  noShow:      { label: 'No show', fg: C.red, bg: '#fee2e2' },
                   unqualified: { label: 'Unqualified', fg: C.amber, bg: '#fef3c7' },
                   pending:     { label: 'Pending', fg: C.slate, bg: '#f1f5f9' },
                 };
@@ -729,7 +784,7 @@ export default function SalesMarketingPage() {
                   const pillTooltip: string | undefined = row.lostReason ?? reasonNote ?? undefined;
                   rows.push(
                     <tr key={row.id} className="mk-row" style={{ cursor: 'pointer', transition: 'background 0.1s' }}
-                      onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead(lead); } catch { /* ignore */ } }}>
+                      onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead({ lead, outcome: row.outcome }); } catch { /* ignore */ } }}>
                       <td style={s.td}><span style={{ fontWeight: 600, color: C.text }}>{row.childName}</span></td>
                       <td style={s.td}>
                         <span title={pillTooltip} style={{
@@ -754,6 +809,17 @@ export default function SalesMarketingPage() {
                     </tr>
                   );
                 });
+                // Pad out the last page so the table's height matches a full
+                // page. Prevents the whole viewport from jumping when you
+                // navigate to a short tail.
+                const padRows = pageSize - pagedLeads.length;
+                for (let i = 0; i < padRows; i++) {
+                  rows.push(
+                    <tr key={`pad-${i}`} aria-hidden="true">
+                      <td colSpan={5} style={{ ...s.td, height: 37, padding: '10px 12px', color: 'transparent', pointerEvents: 'none' }}>&nbsp;</td>
+                    </tr>
+                  );
+                }
                 return rows;
               })()}
             </tbody>
@@ -761,8 +827,28 @@ export default function SalesMarketingPage() {
         </div>
 
         {/* Pagination */}
-        {pageCount > 1 && (
+        {filteredLeads.length > 0 && (
           <div style={s.pagination}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.muted }}>
+              <span>Rows</span>
+              <select
+                value={pageSize}
+                onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                style={{
+                  padding: '4px 8px',
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: C.text,
+                  background: '#fff',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <PagBtn label="‹" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} />
               {Array.from({ length: pageCount }, (_, i) => i + 1)
@@ -780,19 +866,18 @@ export default function SalesMarketingPage() {
               }
               <PagBtn label="›" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage === pageCount} />
             </div>
-            <div style={{ fontSize: 11, color: C.muted, textAlign: 'center', marginTop: 6 }}>
-              {Math.min((safePage - 1) * PAGE_SIZE + 1, filteredLeads.length)}–{Math.min(safePage * PAGE_SIZE, filteredLeads.length)} of {filteredLeads.length}
+            <div style={{ fontSize: 12, color: C.muted }}>
+              {Math.min((safePage - 1) * pageSize + 1, filteredLeads.length)}–{Math.min(safePage * pageSize, filteredLeads.length)} of {filteredLeads.length}
             </div>
           </div>
         )}
       </div>
 
       {editingLead && (
-        <EditLeadModal
-          lead={editingLead}
-          lostReasons={[]}
+        <LeadQuickViewModal
+          lead={editingLead.lead}
+          pill={OUTCOME_PILL[editingLead.outcome] ?? OUTCOME_PILL.pending}
           onClose={() => setEditingLead(null)}
-          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['analytics'] }); setEditingLead(null); }}
         />
       )}
     </div>
@@ -966,5 +1051,5 @@ const s: Record<string, any> = {
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: { textAlign: 'left', padding: '12px 12px', fontWeight: 600, fontSize: 11, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap', background: '#fafbfc', verticalAlign: 'middle' },
   td: { padding: '10px 12px', borderBottom: `1px solid #f1f5f9`, fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle' },
-  pagination: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTop: `1px solid #f1f5f9` },
+  pagination: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' as const, marginTop: 14, paddingTop: 14, borderTop: `1px solid #f1f5f9` },
 };

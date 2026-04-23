@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, PieChart, Pie, Cell,
@@ -9,7 +9,7 @@ import { faXmark, faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { fetchSalesAnalytics, fetchLeadById } from '../../api/leads.js';
 import { Lead } from '../../types/index.js';
 import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
-import EditLeadModal from '../../components/leads/EditLeadModal.js';
+import LeadQuickViewModal from '../../components/leads/LeadQuickViewModal.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect } from '../../components/common/FilterPill.js';
 
@@ -28,22 +28,25 @@ const STATUS_META: Record<string, { label: string; bg: string; color: string }> 
   LOST:     { label: 'Lost',     bg: '#fee2e2', color: '#991b1b' },
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [5, 15, 25, 50, 100];
+const DEFAULT_PAGE_SIZE = 5;
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 type FilterState = { type: 'address' | 'channel'; value: string } | null;
 
 // ── Page ──────────────────────────────────────────────────────────
+type SalesQuickViewTarget = { lead: Lead; status: 'ENROLLED' | 'LOST' };
+
 export default function SalesAnalysisPage() {
   const { isMobile } = useIsMobile();
-  const queryClient = useQueryClient();
-  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editingLead, setEditingLead] = useState<SalesQuickViewTarget | null>(null);
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterState>(null);
   const [statusTab, setStatusTab] = useState<'ALL' | 'ENROLLED' | 'LOST'>('ALL');
   const [chartMode, setChartMode] = useState<'talks' | 'closed'>('talks');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['sales-analytics', selectedYear],
@@ -85,9 +88,9 @@ export default function SalesAnalysisPage() {
     const statusOrder = (s: string) => s === 'ENROLLED' ? 0 : 1;
     return statusOrder(a.status) - statusOrder(b.status);
   });
-  const pageCount = Math.max(1, Math.ceil(sortedLeads.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(sortedLeads.length / pageSize));
   const safePage  = Math.min(page, pageCount);
-  const pagedLeads = sortedLeads.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedLeads = sortedLeads.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const handleSegmentClick = (type: 'address' | 'channel', value: string) => {
     setActiveFilter(prev => (prev?.type === type && prev?.value === value) ? null : { type, value });
@@ -165,20 +168,16 @@ export default function SalesAnalysisPage() {
 
       {/* ── KPI strip ── */}
       {(() => {
-        const prevYearTotal = data.monthlyComparison.reduce((acc, m) => acc + (m.previous ?? 0), 0);
-        const talksDelta = data.totalLeads - prevYearTotal;
-        const hasYoy = prevYearTotal > 0;
-        const yoyRatioPct = hasYoy ? Math.min(100, Math.round((data.totalLeads / prevYearTotal) * 100)) : 0;
-        const talksTrend = hasYoy
-          ? {
-              delta: `${talksDelta >= 0 ? '+' : '−'}${Math.abs(talksDelta)} vs ${data.prevYear}`,
-              dir: (talksDelta > 0 ? 'up' : talksDelta < 0 ? 'down' : 'flat') as 'up' | 'down' | 'flat',
-              semantic: (talksDelta >= 0 ? 'positive' : 'negative') as 'positive' | 'negative' | 'neutral',
-            }
-          : undefined;
-        const lostPct = data.totalLeads > 0 ? Math.round((data.lostLeads / data.totalLeads) * 100) : 0;
+        const topChannel = data.marketingChannelBreakdown[0];
+        const topLocation = data.addressBreakdown[0];
+        const channelShare = topChannel && data.totalLeads > 0
+          ? Math.round((topChannel.count / data.totalLeads) * 100) : 0;
+        const locationShare = topLocation && data.totalLeads > 0
+          ? Math.round((topLocation.count / data.totalLeads) * 100) : 0;
+        const channelColor = topChannel ? getChannelColor(topChannel.channel, 0) : C.blue;
+        const locationColor = topLocation ? getAddressColor(topLocation.location, 0) : C.blue;
         return (
-          <div style={{ ...s.kpiStrip, ...(isMobile ? { gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 } : {}) }}>
+          <div style={{ ...s.kpiStrip, gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? 10 : 16 }}>
             <KpiCard
               label="Closing Rate"
               value={`${closingPct}%`}
@@ -187,26 +186,20 @@ export default function SalesAnalysisPage() {
               breakdown={`${data.enrolledLeads} closed out of ${data.totalLeads} sales talks`}
             />
             <KpiCard
-              label="Total Sales Talks"
-              value={data.totalLeads}
-              accent={C.blue}
-              trend={talksTrend}
-              bar={hasYoy ? { fill: yoyRatioPct, color: C.blue, title: `${yoyRatioPct}% of ${data.prevYear} volume` } : undefined}
-              breakdown={hasYoy ? `${yoyRatioPct}% of ${data.prevYear} volume` : 'enrolled + lost sales'}
+              label="Top Marketing Channel"
+              value={topChannel ? topChannel.channel : '—'}
+              accent={channelColor}
+              valueColor={topChannel ? channelColor : C.muted}
+              bar={topChannel ? { fill: channelShare, color: channelColor, title: `${channelShare}% of sales talks` } : undefined}
+              breakdown={topChannel ? `${topChannel.count} sales talks · ${channelShare}% share` : 'No sales talks yet'}
             />
             <KpiCard
-              label="Closed Sales"
-              value={data.enrolledLeads}
-              accent={C.green}
-              bar={{ fill: closingPct, color: C.green, title: `${closingPct}% closing rate` }}
-              breakdown={`${closingPct}% closing rate`}
-            />
-            <KpiCard
-              label="Lost Sales"
-              value={data.lostLeads}
-              accent={C.red}
-              bar={{ fill: lostPct, color: C.red, title: `${lostPct}% of sales talks lost` }}
-              breakdown="attended but didn't enrol"
+              label="Top Location"
+              value={topLocation ? topLocation.location : '—'}
+              accent={locationColor}
+              valueColor={topLocation ? locationColor : C.muted}
+              bar={topLocation ? { fill: locationShare, color: locationColor, title: `${locationShare}% of sales talks` } : undefined}
+              breakdown={topLocation ? `${topLocation.count} sales talks · ${locationShare}% share` : 'No sales talks yet'}
             />
           </div>
         );
@@ -392,8 +385,18 @@ export default function SalesAnalysisPage() {
             )}
           </div>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={s.table}>
+        {/* Reserve height for a full page so navigating doesn't shift the
+            pagination bar. Per-row ~40px, header 40px, dividers ~40 each. */}
+        <div style={{ overflowX: 'auto', minHeight: 40 + pageSize * 40 + 120 }}>
+          <table style={{ ...s.table, tableLayout: 'fixed' as const }}>
+            <colgroup>
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '6%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '24%' }} />
+            </colgroup>
             <thead>
               <tr>
                 {['Name', 'Status', 'Age', 'Address', 'Marketing Channel', 'Remarks'].map(h => (
@@ -424,7 +427,7 @@ export default function SalesAnalysisPage() {
                   }
                   const sm = STATUS_META[row.status] ?? { label: row.status, bg: '#f1f5f9', color: C.muted };
                   rows.push(
-                    <tr key={row.id} className="sa-row" style={{ cursor: 'pointer', transition: 'background 0.1s' }} onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead(lead); } catch { /* ignore */ } }}>
+                    <tr key={row.id} className="sa-row" style={{ cursor: 'pointer', transition: 'background 0.1s' }} onClick={async () => { try { const lead = await fetchLeadById(row.id); setEditingLead({ lead, status: row.status as 'ENROLLED' | 'LOST' }); } catch { /* ignore */ } }}>
                       <td style={s.td}><span style={s.name}>{row.childName}</span></td>
                       <td style={s.td}>
                         <span style={{ ...s.badge, background: sm.bg, color: sm.color }}>{sm.label}</span>
@@ -438,6 +441,16 @@ export default function SalesAnalysisPage() {
                     </tr>
                   );
                 });
+                // Pad so the table height matches pageSize regardless of
+                // how many real rows / dividers sit on the current page.
+                const padRows = pageSize - pagedLeads.length;
+                for (let i = 0; i < padRows; i++) {
+                  rows.push(
+                    <tr key={`pad-${i}`} aria-hidden="true">
+                      <td colSpan={6} style={{ ...s.td, height: 37, padding: '10px 12px', color: 'transparent', pointerEvents: 'none' }}>&nbsp;</td>
+                    </tr>
+                  );
+                }
                 return rows;
               })()}
             </tbody>
@@ -445,8 +458,28 @@ export default function SalesAnalysisPage() {
         </div>
 
         {/* Pagination */}
-        {pageCount > 1 && (
+        {filteredLeads.length > 0 && (
           <div style={s.pagination}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: C.muted }}>
+              <span>Rows</span>
+              <select
+                value={pageSize}
+                onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                style={{
+                  padding: '4px 8px',
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: C.text,
+                  background: '#fff',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <PagBtn label="‹" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1} />
               {Array.from({ length: pageCount }, (_, i) => i + 1)
@@ -464,17 +497,18 @@ export default function SalesAnalysisPage() {
               }
               <PagBtn label="›" onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={safePage === pageCount} />
             </div>
-            <span style={{ fontSize: 11, color: C.muted }}>{filteredLeads.length} leads</span>
+            <div style={{ fontSize: 12, color: C.muted }}>
+              {Math.min((safePage - 1) * pageSize + 1, filteredLeads.length)}–{Math.min(safePage * pageSize, filteredLeads.length)} of {filteredLeads.length}
+            </div>
           </div>
         )}
       </div>
 
       {editingLead && (
-        <EditLeadModal
-          lead={editingLead}
-          lostReasons={[]}
+        <LeadQuickViewModal
+          lead={editingLead.lead}
+          pill={STATUS_META[editingLead.status] ?? { label: editingLead.status, bg: '#f1f5f9', color: C.muted }}
           onClose={() => setEditingLead(null)}
-          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['sales-analytics'] }); setEditingLead(null); }}
         />
       )}
     </div>
@@ -524,7 +558,7 @@ function KpiCard({ label, value, accent, valueColor, trend, bar, breakdown }: Kp
           </span>
         )}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: resolvedValueColor, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: resolvedValueColor, letterSpacing: '-0.01em', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' as any, wordBreak: 'break-word' as const }}>
         {value}
       </div>
       {bar && (
@@ -701,7 +735,7 @@ const s: Record<string, any> = {
 
   clearBtn: { padding: '6px 14px', fontSize: 12, fontWeight: 600, background: '#fee2e2', color: C.red, border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 },
 
-  pagination: { display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}`, gap: 8 },
+  pagination: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' as const, marginTop: 16, paddingTop: 14, borderTop: `1px solid ${C.border}` },
 
   table:  { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th:     { padding: '12px 12px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap', background: '#fafbfc', verticalAlign: 'middle' },
