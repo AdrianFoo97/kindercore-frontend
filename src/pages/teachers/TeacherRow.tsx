@@ -49,7 +49,15 @@ export const TeacherRow = memo(function TeacherRow({
 }: TeacherRowProps) {
   const initial = (t.name ?? '?').trim().charAt(0).toUpperCase();
   const hasSalary = !!sal && sal.calculatedSalary > 0;
-  const incomplete = t.isActive && (!pos || !hasSalary);
+  // Currently active = no resignedAt, or resignedAt is still in the future.
+  // A teacher with isActive=false but a future resignedAt is "scheduled to
+  // resign" and should still render as active until that date arrives.
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const resignedDate = t.resignedAt ? new Date(t.resignedAt) : null;
+  const isFutureResign = !!resignedDate && resignedDate > todayStart;
+  const isCurrentlyActive = !resignedDate || isFutureResign;
+  const incomplete = isCurrentlyActive && (!pos || !hasSalary);
   const workDaysCount = Array.isArray(t.workDays) ? t.workDays.length : 0;
   const dailyHours = (t.workStartMinute != null && t.workEndMinute != null)
     ? computeDailyHours(t.workStartMinute, t.workEndMinute)
@@ -62,15 +70,15 @@ export const TeacherRow = memo(function TeacherRow({
       {/* Teacher */}
       <td style={styles.td}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-          <Avatar color={t.color} initial={initial} muted={!t.isActive} />
+          <Avatar color={t.color} initial={initial} muted={!isCurrentlyActive} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
               <div style={{
                 ...styles.name,
-                color: t.isActive ? TP_C.text : TP_C.muted,
+                color: isCurrentlyActive ? TP_C.text : TP_C.muted,
               }}>{t.name}</div>
               {incomplete && <IncompleteChip />}
-              {!t.isActive && t.resignedAt && <ResignedChip date={t.resignedAt} />}
+              {resignedDate && <ResignedChip date={t.resignedAt!} isFuture={isFutureResign} />}
             </div>
           </div>
         </div>
@@ -129,7 +137,7 @@ export const TeacherRow = memo(function TeacherRow({
             transition: `opacity ${TP_MOTION.fast}`,
           }}
         >
-          {t.isActive && <ActionMenu onResign={onResign} />}
+          {isCurrentlyActive && <ActionMenu onResign={onResign} />}
         </div>
       </td>
     </tr>
@@ -189,7 +197,7 @@ function IncompleteChip() {
   );
 }
 
-function ResignedChip({ date }: { date: string }) {
+function ResignedChip({ date, isFuture }: { date: string; isFuture: boolean }) {
   return (
     <span style={{
       display: 'inline-flex',
@@ -199,13 +207,13 @@ function ResignedChip({ date }: { date: string }) {
       fontSize: 10,
       fontWeight: 700,
       borderRadius: TP_RADIUS.chip,
-      background: TP_C.subtle,
-      color: TP_C.muted,
+      background: isFuture ? TP_C.amberBg : TP_C.subtle,
+      color: isFuture ? TP_C.amber : TP_C.muted,
       textTransform: 'uppercase' as const,
       letterSpacing: '0.04em',
       whiteSpace: 'nowrap',
     }}>
-      Resigned · {formatResignedDate(date)}
+      {isFuture ? 'Resigning' : 'Resigned'} · {formatResignedDate(date)}
     </span>
   );
 }

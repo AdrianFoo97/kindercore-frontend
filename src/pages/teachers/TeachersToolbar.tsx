@@ -4,12 +4,12 @@ import { faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { TP_C, TP_MOTION } from './tokens.js';
 import { SearchBar, SearchBarHandle } from '../../components/common/SearchBar.js';
 
-export type TeachersTabKey = 'active' | 'resigned' | 'all';
+export type TeachersTabKey = 'active' | 'inactive' | 'all';
 
 interface TeachersToolbarProps {
   tab: TeachersTabKey;
   onTabChange: (t: TeachersTabKey) => void;
-  counts: { active: number; resigned: number; all: number };
+  counts: { active: number; inactive: number; all: number };
   search: string;
   onSearchChange: (s: string) => void;
   rightActions?: React.ReactNode;
@@ -33,8 +33,8 @@ export function TeachersToolbar({
 
   const tabs: Array<{ key: TeachersTabKey; label: string; count: number }> = [
     { key: 'active', label: 'Active', count: counts.active },
-    { key: 'resigned', label: 'Resigned', count: counts.resigned },
-    { key: 'all', label: 'All', count: counts.all },
+    { key: 'inactive', label: 'Inactive', count: counts.inactive },
+    { key: 'all', label: 'All teachers', count: counts.all },
   ];
 
   return (

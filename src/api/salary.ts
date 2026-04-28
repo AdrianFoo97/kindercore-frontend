@@ -49,7 +49,13 @@ export interface TeacherWeightMonth {
   level: number;
   baseWeight: number;
   levelWeight: number;
+  /** Weight before active-days proration (full-month equivalent). */
+  fullWeight: number;
+  /** Final weight for the month = fullWeight × (activeDays / daysInMonth). */
   weight: number;
+  activeDays: number;
+  daysInMonth: number;
+  activeDayRatio: number;
   isPartTime: boolean;
   isActive: boolean;
 }

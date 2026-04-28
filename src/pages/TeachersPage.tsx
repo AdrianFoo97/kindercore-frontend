@@ -55,32 +55,55 @@ export default function TeachersPage() {
     [positions],
   );
 
+  // Today, normalized to start-of-day for stable date comparisons.
+  // Soft-deleted teachers (isActive=false AND resignedAt=null) are hidden
+  // from every filter — they're "never should have existed" rows.
+  // Active = visible AND (no resignedAt OR resignedAt is in the future) —
+  //         this includes teachers scheduled to resign on a future date.
+  // Inactive = visible AND resignedAt is in the past or today.
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
   const counts = useMemo(() => {
     let active = 0;
-    let resigned = 0;
+    let inactive = 0;
+    let all = 0;
     for (const t of teachers as any[]) {
-      if (t.isActive) active++;
-      else resigned++;
+      const visible = t.isActive || !!t.resignedAt;
+      if (!visible) continue;
+      all++;
+      const stillActive = !t.resignedAt || new Date(t.resignedAt) > today;
+      if (stillActive) active++;
+      else inactive++;
     }
-    return { active, resigned, all: teachers.length };
-  }, [teachers]);
+    return { active, inactive, all };
+  }, [teachers, today]);
 
   const incompleteCount = useMemo(() => {
     let n = 0;
     for (const t of teachers as any[]) {
-      if (!t.isActive) continue;
+      const visible = t.isActive || !!t.resignedAt;
+      if (!visible) continue;
+      const stillActive = !t.resignedAt || new Date(t.resignedAt) > today;
+      if (!stillActive) continue;
       const pos = t.positionId ? posMap.get(t.positionId) : null;
       const sal = salaryMap.get(t.id);
       if (!pos || !sal || sal.calculatedSalary <= 0) n++;
     }
     return n;
-  }, [teachers, posMap, salaryMap]);
+  }, [teachers, posMap, salaryMap, today]);
 
   const headerStats = useMemo(() => {
     let partTime = 0;
     let fullTime = 0;
     for (const t of teachers as any[]) {
-      if (!t.isActive) continue;
+      const visible = t.isActive || !!t.resignedAt;
+      if (!visible) continue;
+      const stillActive = !t.resignedAt || new Date(t.resignedAt) > today;
+      if (!stillActive) continue;
       const days = Array.isArray(t.workDays) ? t.workDays.length : 0;
       if (t.workStartMinute == null || t.workEndMinute == null || days <= 0) continue;
       const rawHours = (t.workEndMinute - t.workStartMinute) / 60;
@@ -95,23 +118,29 @@ export default function TeachersPage() {
       fullTime,
       partTime,
     };
-  }, [teachers, counts.active]);
+  }, [teachers, counts.active, today]);
 
   const filteredTeachers = useMemo(() => {
-    let list = teachers as any[];
-    if (tab === 'active') list = list.filter(t => t.isActive);
-    else if (tab === 'resigned') list = list.filter(t => !t.isActive);
+    let list = (teachers as any[]).filter(t => t.isActive || !!t.resignedAt);
+    if (tab === 'active') {
+      list = list.filter(t => !t.resignedAt || new Date(t.resignedAt) > today);
+    } else if (tab === 'inactive') {
+      list = list.filter(t => !!t.resignedAt && new Date(t.resignedAt) <= today);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(t => t.name.toLowerCase().includes(q));
     }
     return list;
-  }, [teachers, search, tab]);
+  }, [teachers, search, tab, today]);
 
   const handleResignConfirm = async (date: string) => {
     if (!resignTarget) return;
     try {
-      await updateTeacher(resignTarget.id, { isActive: false, resignedAt: date });
+      // Only set resignedAt — isActive is reserved for soft-delete and
+      // shouldn't be flipped on resign. Active/inactive is derived from
+      // resignedAt against today (see filter logic above).
+      await updateTeacher(resignTarget.id, { resignedAt: date });
       qc.invalidateQueries({ queryKey: ['planner-teachers'] });
       qc.invalidateQueries({ queryKey: ['salary-teachers'] });
       showToast(`${resignTarget.name} marked as resigned`);

@@ -4,8 +4,10 @@ import { ComposedChart, Bar, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, C
 import { faCalendar, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { fetchFinanceSummary, FinanceMonth } from '../../api/finance.js';
+import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
+import { DEFAULT_EXPENSE_RATIO_TARGET } from '../FinanceSettingsPage.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────
 // Semantic palette, kept small and disciplined.
@@ -134,6 +136,13 @@ export default function FinanceAnalysisPage() {
     staleTime: 0,
   });
 
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  const expenseTarget = (() => {
+    const v = settings?.expense_ratio_target;
+    const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
+    return Number.isFinite(n) && n > 0 && n <= 2 ? n : DEFAULT_EXPENSE_RATIO_TARGET;
+  })();
+
   const entries = useMemo<PeriodEntry[]>(
     () => data ? buildEntries(data.months, data.currentMonthIdx, groupBy) : [],
     [data, groupBy],
@@ -176,15 +185,23 @@ export default function FinanceAnalysisPage() {
   // cost was substituted with the forecast value (no saved entries). That way
   // the line goes dashed from the *last fully-actual* month, not at the naive
   // past/future boundary.
+  //
+  // Bridging: an actual point adjacent to a projection on either side also
+  // emits into the forecast series, so the dashed line spans the boundary
+  // without leaving an isolated forecast dot. The solid actual line still
+  // covers the actual run on top.
   const chartData = useMemo(() => {
     const isProjection = (e: PeriodEntry) => e.isForecast || e.operatingIsProjected;
     return entries.map((e, i) => {
       const next = entries[i + 1];
-      const isLastActual = !isProjection(e) && !!next && isProjection(next);
+      const prev = entries[i - 1];
+      const proj = isProjection(e);
+      const bridgesForward = !proj && !!next && isProjection(next);
+      const bridgesBackward = !proj && !!prev && isProjection(prev);
       return {
         ...e,
-        actualProfit: isProjection(e) ? null : e.profit,
-        forecastProfit: isProjection(e) || isLastActual ? e.profit : null,
+        actualProfit: proj ? null : e.profit,
+        forecastProfit: proj || bridgesForward || bridgesBackward ? e.profit : null,
       };
     });
   }, [entries]);
@@ -285,38 +302,31 @@ export default function FinanceAnalysisPage() {
         </div>
       </header>
 
-      {/* ── KPI strip: 4 supporting + 1 hero ────────────────────────────── */}
+      {/* ── KPI strip: 3 supporting + 1 hero ────────────────────────────── */}
       <section
         style={{
           display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr 1fr 1.3fr',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr 1fr 1.3fr',
           gap: SP.lg,
           marginBottom: SP.xxl,
         }}
       >
-        <KpiCard
+        <RevenueKpiCard
           label={`${selected.label} Revenue`}
-          value={fmtRM(selected.revenue)}
-          accent={C.positiveSoft}
-          valueColor={C.positive}
+          revenue={selected.revenue}
+          expenses={selected.staffCost + selected.operatingCost}
+          target={expenseTarget}
         />
-        <KpiCard
-          label="Staff Cost"
-          value={fmtRM(selected.staffCost)}
-          accent={C.expenseDark}
-          valueColor={C.textSub}
-        />
-        <KpiCard
-          label="Operating Cost"
-          value={fmtRM(selected.operatingCost)}
-          accent={C.expenseLight}
-          valueColor={C.textSub}
+        <ExpenseKpiCard
+          staff={selected.staffCost}
+          operating={selected.operatingCost}
         />
         <KpiCard
           label="Expense Ratio"
           value={expenseRatio == null ? '—' : fmtPct(expenseRatio)}
-          accent={expenseRatio != null && expenseRatio >= 1 ? C.negative : C.expenseDark}
-          valueColor={expenseRatio != null && expenseRatio >= 1 ? C.negative : C.textSub}
+          accent={expenseRatio != null && expenseRatio > expenseTarget ? C.negative : C.expenseDark}
+          valueColor={expenseRatio != null && expenseRatio > expenseTarget ? C.negative : C.textSub}
+          subline={`Target ≤ ${(expenseTarget * 100).toFixed(0)}%`}
         />
         <HeroKpiCard
           label={isProfit ? 'Profit' : 'Loss'}
@@ -582,7 +592,7 @@ export default function FinanceAnalysisPage() {
                     <td style={{ ...s.tdNum, color: revenueColor, fontWeight: 600 }}>{fmtRM(e.revenue)}</td>
                     <td
                       style={s.tdNum}
-                      title={`Staff ${fmtRM(e.staffCost)}  ·  Operating ${fmtRM(e.operatingCost)}${e.operatingIsProjected ? '  (projected — no entries recorded)' : ''}`}
+                      title={`Staff ${fmtRM(e.staffCost)}  ·  Operating ${fmtRM(e.operatingCost)}${e.operatingIsProjected ? '  (projected from rolling average)' : ''}`}
                     >
                       <ExpenseCell
                         staff={e.staffCost}
@@ -622,8 +632,8 @@ export default function FinanceAnalysisPage() {
 
 // ── KPI cards ─────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, accent, valueColor }: {
-  label: string; value: string; accent: string; valueColor: string;
+function KpiCard({ label, value, accent, valueColor, subline }: {
+  label: string; value: string; accent: string; valueColor: string; subline?: string;
 }) {
   return (
     <div style={s.kpi}>
@@ -633,6 +643,104 @@ function KpiCard({ label, value, accent, valueColor }: {
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color: valueColor, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>
         {value}
+      </div>
+      {subline && (
+        <div style={{ marginTop: SP.sm, fontSize: 11, color: C.muted }}>{subline}</div>
+      )}
+    </div>
+  );
+}
+
+function RevenueKpiCard({ label, revenue, expenses, target }: {
+  label: string; revenue: number; expenses: number; target: number;
+}) {
+  const ratio = revenue > 0 ? expenses / revenue : 0;
+  const overTarget = ratio > target;
+  // Bar width represents revenue. Fill represents actual expenses against revenue.
+  // Fill is capped at 100% visually; overflow is communicated via color + sub-line.
+  const fillPct = Math.min(100, ratio * 100);
+  const targetPct = Math.min(100, target * 100);
+  const fillColor = overTarget ? C.negative : C.positive;
+  const targetPctLabel = `${(target * 100).toFixed(0)}%`;
+  const ratioPctLabel = revenue > 0 ? `${(ratio * 100).toFixed(0)}%` : '—';
+  return (
+    <div style={s.kpi}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, marginBottom: SP.sm }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: C.positiveSoft, display: 'inline-block' }} />
+        <span style={s.kpiLabel}>{label}</span>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: C.positive, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>
+        {fmtRM(revenue)}
+      </div>
+      {revenue > 0 && (
+        <>
+          <div
+            title={`Expenses ${fmtRM(expenses)} = ${ratioPctLabel} of revenue (target ≤ ${targetPctLabel})`}
+            style={{ position: 'relative', width: '100%', height: 6, borderRadius: 3, marginTop: SP.sm, background: C.divider, overflow: 'visible' }}
+          >
+            <div style={{ width: `${fillPct}%`, height: '100%', borderRadius: 3, background: fillColor }} />
+            {/* Target tick — vertical line that extends slightly above and below the bar */}
+            <div
+              style={{
+                position: 'absolute',
+                left: `${targetPct}%`,
+                top: -3,
+                bottom: -3,
+                width: 2,
+                marginLeft: -1,
+                background: C.text,
+                borderRadius: 1,
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: SP.md, marginTop: SP.sm, fontSize: 11, color: C.muted, alignItems: 'baseline', flexWrap: 'wrap' as const }}>
+            <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
+              <span>Expenses</span>
+              <span style={{ fontWeight: 700, color: overTarget ? C.negative : C.text, fontVariantNumeric: 'tabular-nums' as any }}>{ratioPctLabel}</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
+              <span>Target</span>
+              <span style={{ fontWeight: 600, color: C.text, fontVariantNumeric: 'tabular-nums' as any }}>≤ {targetPctLabel}</span>
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ExpenseKpiCard({ staff, operating }: { staff: number; operating: number }) {
+  const total = staff + operating;
+  const staffPct = total > 0 ? (staff / total) * 100 : 0;
+  const opPct = total > 0 ? (operating / total) * 100 : 0;
+  return (
+    <div style={s.kpi}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: SP.sm, marginBottom: SP.sm }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: C.expenseDark, display: 'inline-block' }} />
+        <span style={s.kpiLabel}>Total Expense</span>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: C.textSub, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>
+        {fmtRM(total)}
+      </div>
+      {/* Composition bar: staff vs operating */}
+      {total > 0 && (
+        <div style={{ display: 'flex', width: '100%', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: SP.sm, background: C.divider }}>
+          <div title={`Staff ${fmtRM(staff)}`} style={{ width: `${staffPct}%`, background: C.expenseDark }} />
+          <div title={`Operating ${fmtRM(operating)}`} style={{ width: `${opPct}%`, background: C.expenseLight }} />
+        </div>
+      )}
+      {/* Breakdown sub-line */}
+      <div style={{ display: 'flex', gap: SP.md, marginTop: SP.sm, fontSize: 11, color: C.muted, flexWrap: 'wrap' as const }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.expenseDark }} />
+          <span>Staff</span>
+          <span style={{ fontWeight: 600, color: C.text, fontVariantNumeric: 'tabular-nums' as any }}>{fmtRM(staff)}</span>
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.expenseLight }} />
+          <span>Operating</span>
+          <span style={{ fontWeight: 600, color: C.text, fontVariantNumeric: 'tabular-nums' as any }}>{fmtRM(operating)}</span>
+        </span>
       </div>
     </div>
   );
@@ -796,7 +904,7 @@ function ExpenseCell({ staff, operating, muted, strong, projected }: {
         <span>{total > 0 ? `−${fmtRM(total).replace('RM ', 'RM ')}` : '—'}</span>
         <span
           aria-hidden={!projected}
-          title={projected ? 'Operating cost projected from rolling average' : undefined}
+          title={projected ? `Projected operating cost: ${fmtRM(operating)}` : undefined}
           style={{
             width: 10,
             display: 'inline-flex',

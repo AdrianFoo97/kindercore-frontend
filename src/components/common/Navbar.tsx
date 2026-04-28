@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { NavLink, useNavigate, useMatch } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function Navbar() {
@@ -183,6 +183,18 @@ export default function Navbar() {
                 <FontAwesomeIcon icon={faMoneyBillTrendUp} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
                 Finance
               </NavLink>
+              <NavLink to="/analysis/profit-sharing" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faChartPie} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Profit Sharing
+              </NavLink>
+              <NavLink to="/analysis/annual-bonus" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faGift} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Annual Bonus
+              </NavLink>
             </div>
           )}
         </div>
@@ -273,40 +285,54 @@ export default function Navbar() {
                   })}
                   onClick={close}>{label}</NavLink>
               );
+
+              // Section blocks — each is a header + its links. Order matters
+              // because we slice this list to feed left/right columns on desktop.
+              const groups: Array<{ key: string; node: React.ReactNode }> = [
+                { key: 'crm',          node: <>{section(faUsers, 'CRM')}{link('/settings/leads', 'Leads')}</> },
+                { key: 'students',     node: <>{section(faGraduationCap, 'Students')}{link('/settings/onboarding', 'Onboarding Tasks')}</> },
+                { key: 'packages',     node: <>{section(faBoxesStacked, 'Packages & Pricing')}{link('/settings/packages/programmes', 'Programmes')}{link('/settings/packages/age-groups', 'Age Groups')}{link('/packages', 'Packages & Pricing')}</> },
+                { key: 'timetable',    node: <>{section(faCalendarDays, 'Timetable')}{link('/settings/timetable/classes', 'Classes')}{link('/settings/timetable/subjects', 'Subjects')}{link('/settings/timetable/tasks', 'Tasks')}</> },
+                { key: 'hr',           node: <>{section(faCoins, 'HR & Payroll')}{link('/settings/employee-salary', 'Employee Salary')}</> },
+                { key: 'opCost',       node: <>{section(faReceipt, 'Operating Cost')}{link('/settings/operating-cost-main-categories', 'Main Categories')}{link('/settings/operating-cost-categories', 'Categories')}</> },
+                { key: 'finance',      node: <>{section(faMoneyBillTrendUp, 'Finance')}{link('/settings/finance', 'Targets & Thresholds')}</> },
+                { key: 'comm',         node: <>{section(faMessage, 'Communication')}{link('/settings/whatsapp-templates', 'Message Templates')}</> },
+                { key: 'integrations', node: <>{section(faPlug, 'Integrations')}{link('/settings/calendar', 'Google Calendar')}</> },
+                { key: 'data',         node: <>{section(faFileImport, 'Data')}{link('/leads/import', 'Import Leads')}{link('/students/import', 'Import Students')}</> },
+              ];
+
+              const renderGroups = (gs: typeof groups) => gs.map((g, i) => (
+                <Fragment key={g.key}>
+                  {g.node}
+                  {i < gs.length - 1 && sep}
+                </Fragment>
+              ));
+
+              if (mobile) {
+                return (
+                  <div style={{ ...mPanel }}>
+                    {renderGroups(groups)}
+                  </div>
+                );
+              }
+
+              // Desktop: split into two columns. Counts roughly balance link
+              // density (left ≈ 9 links, right ≈ 8 links).
+              const leftGroups = groups.slice(0, 4);   // CRM, Students, Packages, Timetable
+              const rightGroups = groups.slice(4);     // HR, OpCost, Finance, Comm, Integrations, Data
+
               return (
-                <div style={mobile ? { ...mPanel } : { position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#fff', borderRadius: 10, boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)', minWidth: 240, zIndex: 100, padding: '6px', border: '1px solid #e8eaed', maxHeight: '80vh', overflowY: 'auto' }}>
-                  {section(faUsers, 'CRM')}
-                  {link('/settings/leads', 'Leads')}
-                  {sep}
-                  {section(faGraduationCap, 'Students')}
-                  {link('/settings/onboarding', 'Onboarding Tasks')}
-                  {sep}
-                  {section(faBoxesStacked, 'Packages & Pricing')}
-                  {link('/settings/packages/programmes', 'Programmes')}
-                  {link('/settings/packages/age-groups', 'Age Groups')}
-                  {link('/packages', 'Packages & Pricing')}
-                  {sep}
-                  {section(faCalendarDays, 'Timetable')}
-                  {link('/settings/timetable/classes', 'Classes')}
-                  {link('/settings/timetable/subjects', 'Subjects')}
-                  {link('/settings/timetable/tasks', 'Tasks')}
-                  {sep}
-                  {section(faCoins, 'HR & Payroll')}
-                  {link('/settings/employee-salary', 'Employee Salary')}
-                  {sep}
-                  {section(faReceipt, 'Operating Cost')}
-                  {link('/settings/operating-cost-main-categories', 'Main Categories')}
-                  {link('/settings/operating-cost-categories', 'Categories')}
-                  {sep}
-                  {section(faMessage, 'Communication')}
-                  {link('/settings/whatsapp-templates', 'Message Templates')}
-                  {sep}
-                  {section(faPlug, 'Integrations')}
-                  {link('/settings/calendar', 'Google Calendar')}
-                  {sep}
-                  {section(faFileImport, 'Data')}
-                  {link('/leads/import', 'Import Leads')}
-                  {link('/students/import', 'Import Students')}
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', left: 0,
+                  background: '#fff', borderRadius: 10,
+                  boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+                  minWidth: 480, zIndex: 100, padding: '6px',
+                  border: '1px solid #e8eaed', maxHeight: '80vh', overflowY: 'auto',
+                  display: 'flex',
+                }}>
+                  <div style={{ flex: 1, minWidth: 220 }}>{renderGroups(leftGroups)}</div>
+                  <div style={{ width: 1, background: '#f0f0f0', margin: '6px 4px' }} />
+                  <div style={{ flex: 1, minWidth: 220 }}>{renderGroups(rightGroups)}</div>
                 </div>
               );
             })()}

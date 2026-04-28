@@ -569,11 +569,14 @@ function buildWeightCells(
     return row.months.map((m, i) => {
       const prev = i > 0 ? row.months[i - 1] : null;
       const changed = !!(prev && prev.isActive && m.isActive && Math.abs(prev.weight - m.weight) > 0.001);
-      const tooltip = m.isActive
-        ? row.isOverride
-          ? `Override: ${m.weight.toFixed(2)}`
-          : `${m.positionName ?? 'Unassigned'}${m.level > 0 ? ` · L${m.level}` : ''}\nBase: ${m.baseWeight}${m.levelWeight > 0 ? ` + ${m.levelWeight.toFixed(2)}` : ''}${m.isPartTime ? ' ÷ 2 (part-time)' : ''} = ${m.weight.toFixed(2)}`
-        : 'Inactive';
+      const partial = m.isActive && m.activeDayRatio > 0 && m.activeDayRatio < 1;
+      const baseLine = row.isOverride
+        ? `Override: ${m.fullWeight.toFixed(2)}`
+        : `${m.positionName ?? 'Unassigned'}${m.level > 0 ? ` · L${m.level}` : ''}\nBase: ${m.baseWeight}${m.levelWeight > 0 ? ` + ${m.levelWeight.toFixed(2)}` : ''}${m.isPartTime ? ' ÷ 2 (part-time)' : ''} = ${m.fullWeight.toFixed(2)}`;
+      const prorationLine = partial
+        ? `\nActive ${m.activeDays}/${m.daysInMonth} days → ${m.fullWeight.toFixed(2)} × ${m.activeDayRatio.toFixed(3)} = ${m.weight.toFixed(2)}`
+        : '';
+      const tooltip = m.isActive ? `${baseLine}${prorationLine}` : 'Inactive';
       return {
         label: MONTH_LABELS[i],
         value: m.isActive ? m.weight : 0,

@@ -89,7 +89,6 @@ export default function EditTeacherPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [color, setColor] = useState(PRESET_COLORS[0]);
-  const [isActive, setIsActive] = useState(true);
   const [resignedAt, setResignedAt] = useState('');
   const [joinedAt, setJoinedAt] = useState('');
   const [employmentType, setEmploymentType] = useState('full-time');
@@ -138,7 +137,6 @@ export default function EditTeacherPage() {
       setName(teacher.name);
       setPhone(teacher.phone ?? '');
       setColor(teacher.color || PRESET_COLORS[0]);
-      setIsActive(teacher.isActive ?? true);
       setResignedAt(teacher.resignedAt ? teacher.resignedAt.slice(0, 10) : '');
       setJoinedAt(teacher.createdAt ? teacher.createdAt.slice(0, 10) : '');
       setEmploymentType(teacher.employmentType ?? 'full-time');
@@ -225,7 +223,9 @@ export default function EditTeacherPage() {
     const d = {
       name: name.trim(), color, phone: phone.trim() || null,
       employmentType,
-      isActive, resignedAt: !isActive && resignedAt ? resignedAt : null,
+      // isActive is reserved for soft-delete. Active/inactive status is
+      // derived from resignedAt vs today.
+      resignedAt: resignedAt || null,
       createdAt: joinedAt || null,
       allowedSubjectIds: allowedSubjectIds.length > 0 ? allowedSubjectIds : undefined,
       allowedClassroomIds: allowedClassroomIds.length > 0 ? allowedClassroomIds : undefined,
@@ -451,18 +451,57 @@ export default function EditTeacherPage() {
                 <div style={s.card}>
                   <h2 style={s.sectionTitle}>Employment</h2>
                   <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 16 }}>
-                    <div style={{ width: 130 }}>
-                      <label style={s.label}>Status</label>
-                      <select style={s.input} value={isActive ? 'active' : 'resigned'} onChange={e => {
-                        const active = e.target.value === 'active';
-                        setIsActive(active);
-                        if (active) setResignedAt('');
-                        else if (!resignedAt) setResignedAt(new Date().toISOString().slice(0, 10));
-                      }}>
-                        <option value="active">Active</option>
-                        <option value="resigned">Resigned</option>
-                      </select>
-                    </div>
+                    {(() => {
+                      // Status is derived from Last Working Day, not set by the
+                      // user. Empty / future date = Active or Resigning;
+                      // past / today = Resigned.
+                      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+                      const d = resignedAt ? new Date(resignedAt) : null;
+                      const status: 'active' | 'resigning' | 'resigned' = !d
+                        ? 'active'
+                        : d > todayStart ? 'resigning' : 'resigned';
+                      const palette = status === 'active'
+                        ? { bg: '#ecfdf5', fg: '#059669', dot: '#10b981', border: '#a7f3d0', label: 'Active' }
+                        : status === 'resigning'
+                          ? { bg: '#fffbeb', fg: '#b45309', dot: '#d97706', border: '#fde68a', label: 'Resigning' }
+                          : { bg: '#f1f5f9', fg: '#64748b', dot: '#94a3b8', border: '#e2e8f0', label: 'Resigned' };
+                      return (
+                        <div style={{ width: 130 }}>
+                          <label style={s.label}>Status</label>
+                          <div
+                            title={
+                              status === 'active' ? 'Currently working — no resignation set'
+                                : status === 'resigning' ? `Scheduled to resign on ${resignedAt}`
+                                : `Resigned on ${resignedAt}`
+                            }
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              height: 38,
+                              padding: '0 14px',
+                              borderRadius: 999,
+                              background: palette.bg,
+                              color: palette.fg,
+                              border: `1px solid ${palette.border}`,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.06em',
+                              cursor: 'default',
+                              boxSizing: 'border-box' as const,
+                            }}
+                          >
+                            <span style={{
+                              width: 7, height: 7, borderRadius: '50%',
+                              background: palette.dot,
+                              flexShrink: 0,
+                            }} />
+                            {palette.label}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div style={{ width: 130 }}>
                       <label style={s.label}>Type</label>
                       <select style={s.input} value={employmentType} onChange={e => setEmploymentType(e.target.value)}>
@@ -475,8 +514,8 @@ export default function EditTeacherPage() {
                       <input style={s.input} type="date" value={joinedAt} onChange={e => setJoinedAt(e.target.value)} />
                     </div>
                     <div style={{ width: 150 }}>
-                      <label style={{ ...s.label, color: isActive ? '#cbd5e1' : C.muted }}>Last Working Day</label>
-                      <input style={{ ...s.input, ...(isActive ? { color: '#cbd5e1', background: '#fafafa' } : {}) }} type="date" value={resignedAt} onChange={e => setResignedAt(e.target.value)} disabled={isActive} />
+                      <label style={s.label}>Last Working Day</label>
+                      <input style={s.input} type="date" value={resignedAt} onChange={e => setResignedAt(e.target.value)} />
                     </div>
                   </div>
 

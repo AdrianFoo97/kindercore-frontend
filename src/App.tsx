@@ -26,6 +26,8 @@ import TestToolsPage from './pages/TestToolsPage.js';
 import GoogleCalendarSettingsPage from './pages/GoogleCalendarSettingsPage.js';
 import ImportStudentsPage from './pages/ImportStudentsPage.js';
 import OperationsPlannerPage from './pages/OperationsPlannerPage.js';
+import ProfitSharingPage from './pages/ProfitSharingPage.js';
+import AnnualBonusPage from './pages/AnnualBonusPage.js';
 import OperatingCostsPage from './pages/operations/OperatingCostsPage.js';
 import OperatingCostCategoriesPage from './pages/settings/OperatingCostCategoriesPage.js';
 import OperatingCostMainCategoriesPage from './pages/settings/OperatingCostMainCategoriesPage.js';
@@ -34,6 +36,7 @@ import EditTeacherPage from './pages/settings/EditTeacherPage.js';
 import EmployeeSalaryPage from './pages/settings/EmployeeSalaryPage.js';
 import TeachersPage from './pages/TeachersPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
+import FinanceSettingsPage from './pages/FinanceSettingsPage.js';
 import SetupAccountPage from './pages/SetupAccountPage.js';
 import { APP_VERSION, LAST_UPDATED } from './version.js';
 
@@ -117,14 +120,18 @@ export default function App() {
           <Route path="/settings/test/seed-dummy" element={<ErrorBoundary><TestToolsPage key="seed-dummy" tool="seed-dummy" /></ErrorBoundary>} />
           <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<ErrorBoundary><OperationsPlannerPage /></ErrorBoundary>} />
+          <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<ErrorBoundary><OperatingCostsPage /></ErrorBoundary>} />
           <Route path="/settings/operating-cost-main-categories" element={<ErrorBoundary><OperatingCostMainCategoriesPage /></ErrorBoundary>} />
           <Route path="/settings/operating-cost-categories" element={<ErrorBoundary><OperatingCostCategoriesPage /></ErrorBoundary>} />
+          <Route path="/settings/finance" element={<ErrorBoundary><FinanceSettingsPage /></ErrorBoundary>} />
           <Route path="/analysis/sales-marketing" element={<ErrorBoundary><SalesMarketingPage /></ErrorBoundary>} />
           <Route path="/analysis/sales" element={<ErrorBoundary><SalesAnalysisPage /></ErrorBoundary>} />
           <Route path="/analysis/revenue" element={<ErrorBoundary><RevenueAnalysisPage /></ErrorBoundary>} />
           <Route path="/analysis/employee-cost" element={<ErrorBoundary><EmployeeCostPage /></ErrorBoundary>} />
           <Route path="/analysis/finance" element={<ErrorBoundary><FinanceAnalysisPage /></ErrorBoundary>} />
+          <Route path="/analysis/profit-sharing" element={<ErrorBoundary><ProfitSharingPage /></ErrorBoundary>} />
+          <Route path="/analysis/annual-bonus" element={<ErrorBoundary><AnnualBonusPage /></ErrorBoundary>} />
         </Route>
         <Route path="/enquiry" element={<LandingPage />} />
         <Route path="/enquiry/form" element={<EnquiryFormPage />} />
