@@ -169,7 +169,7 @@ export default function ProfitSharingPage() {
           const isActive = !!(m && m.isActive && m.weight > 0);
           if (isActive && m) {
             weight += m.weight;
-            fullWeight += m.fullWeight;
+            fullWeight += m.fullWeight ?? m.weight ?? 0;
             activeMonths++;
           }
           const partial = isActive && !!m && m.activeDayRatio > 0 && m.activeDayRatio < 1;
@@ -178,14 +178,14 @@ export default function ProfitSharingPage() {
             tooltip = `${MONTH_LABELS[mi]} · Inactive`;
           } else if (t.isOverride) {
             const prorationLine = partial
-              ? `\nActive ${m.activeDays}/${m.daysInMonth} days → ${m.fullWeight.toFixed(2)} × ${m.activeDayRatio.toFixed(3)} = ${m.weight.toFixed(2)}`
+              ? `\nActive ${m.activeDays}/${m.daysInMonth} days → ${(m.fullWeight ?? m.weight ?? 0).toFixed(2)} × ${(m.activeDayRatio ?? 1).toFixed(3)} = ${m.weight.toFixed(2)}`
               : '';
-            tooltip = `${MONTH_LABELS[mi]}\nOverride: ${m.fullWeight.toFixed(2)}${prorationLine}`;
+            tooltip = `${MONTH_LABELS[mi]}\nOverride: ${(m.fullWeight ?? m.weight ?? 0).toFixed(2)}${prorationLine}`;
           } else {
             const header = `${MONTH_LABELS[mi]} · ${m.positionName ?? 'Unassigned'}${m.level > 0 ? ` · L${m.level}` : ''}`;
-            const baseLine = `Base: ${m.baseWeight}${m.levelWeight > 0 ? ` + ${m.levelWeight.toFixed(2)}` : ''}${m.isPartTime ? ' ÷ 2 (part-time)' : ''} = ${m.fullWeight.toFixed(2)}`;
+            const baseLine = `Base: ${m.baseWeight}${m.levelWeight > 0 ? ` + ${(m.levelWeight ?? 0).toFixed(2)}` : ''}${m.isPartTime ? ' ÷ 2 (part-time)' : ''} = ${(m.fullWeight ?? m.weight ?? 0).toFixed(2)}`;
             const prorationLine = partial
-              ? `\nActive ${m.activeDays}/${m.daysInMonth} days → ${m.fullWeight.toFixed(2)} × ${m.activeDayRatio.toFixed(3)} = ${m.weight.toFixed(2)}`
+              ? `\nActive ${m.activeDays}/${m.daysInMonth} days → ${(m.fullWeight ?? m.weight ?? 0).toFixed(2)} × ${(m.activeDayRatio ?? 1).toFixed(3)} = ${m.weight.toFixed(2)}`
               : '';
             tooltip = `${header}\n${baseLine}${prorationLine}`;
           }

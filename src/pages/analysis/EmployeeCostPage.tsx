@@ -571,10 +571,10 @@ function buildWeightCells(
       const changed = !!(prev && prev.isActive && m.isActive && Math.abs(prev.weight - m.weight) > 0.001);
       const partial = m.isActive && m.activeDayRatio > 0 && m.activeDayRatio < 1;
       const baseLine = row.isOverride
-        ? `Override: ${m.fullWeight.toFixed(2)}`
-        : `${m.positionName ?? 'Unassigned'}${m.level > 0 ? ` · L${m.level}` : ''}\nBase: ${m.baseWeight}${m.levelWeight > 0 ? ` + ${m.levelWeight.toFixed(2)}` : ''}${m.isPartTime ? ' ÷ 2 (part-time)' : ''} = ${m.fullWeight.toFixed(2)}`;
+        ? `Override: ${(m.fullWeight ?? m.weight ?? 0).toFixed(2)}`
+        : `${m.positionName ?? 'Unassigned'}${m.level > 0 ? ` · L${m.level}` : ''}\nBase: ${m.baseWeight}${m.levelWeight > 0 ? ` + ${(m.levelWeight ?? 0).toFixed(2)}` : ''}${m.isPartTime ? ' ÷ 2 (part-time)' : ''} = ${(m.fullWeight ?? m.weight ?? 0).toFixed(2)}`;
       const prorationLine = partial
-        ? `\nActive ${m.activeDays}/${m.daysInMonth} days → ${m.fullWeight.toFixed(2)} × ${m.activeDayRatio.toFixed(3)} = ${m.weight.toFixed(2)}`
+        ? `\nActive ${m.activeDays}/${m.daysInMonth} days → ${(m.fullWeight ?? m.weight ?? 0).toFixed(2)} × ${(m.activeDayRatio ?? 1).toFixed(3)} = ${m.weight.toFixed(2)}`
         : '';
       const tooltip = m.isActive ? `${baseLine}${prorationLine}` : 'Inactive';
       return {
