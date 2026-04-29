@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchStudents, patchOnboardingProgress, completeOnboarding } from '../api/students.js';
 import { fetchSettings } from '../api/settings.js';
 import { Student, OnboardingTask } from '../types/index.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
-import EditStudentModal from '../components/students/EditStudentModal.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faXmark, faGraduationCap, faTriangleExclamation, faPen, faListCheck, faCircleCheck, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
@@ -693,12 +693,12 @@ function OnboardingWhatsAppModal({ phone, childName, templates, onClose }: {
 export default function OnboardingPage() {
   const { isMobile, isTablet } = useIsMobile();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [checklistStudent, setChecklistStudent] = useState<Student | null>(null);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [confirmStudent, setConfirmStudent] = useState<Student | null>(null);
   const [completing, setCompleting] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -741,11 +741,6 @@ export default function OnboardingPage() {
   const handleSaved = (_updated: Student) => {
     invalidateStudents();
     setChecklistStudent(null);
-  };
-
-  const handleEditSaved = (_updated: Student) => {
-    invalidateStudents();
-    setEditingStudent(null);
   };
 
   const handleComplete = async (s: Student) => {
@@ -894,7 +889,7 @@ export default function OnboardingPage() {
                 key={s.id}
                 student={s}
                 onViewTasks={() => setChecklistStudent(s)}
-                onEdit={() => setEditingStudent(s)}
+                onEdit={() => navigate(`/students/${s.id}`)}
                 onWhatsApp={() => setWaStudent(s)}
                 onConfirmComplete={() => setConfirmStudent(s)}
                 onCompleteAll={async () => {
@@ -945,14 +940,6 @@ export default function OnboardingPage() {
           student={checklistStudent}
           onClose={() => setChecklistStudent(null)}
           onSaved={handleSaved}
-        />
-      )}
-
-      {editingStudent && (
-        <EditStudentModal
-          student={editingStudent}
-          onClose={() => setEditingStudent(null)}
-          onSaved={handleEditSaved}
         />
       )}
 

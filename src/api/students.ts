@@ -1,5 +1,5 @@
 import { apiFetch } from './client.js';
-import { Student, StudentsResponse, OnboardingTask } from '../types/index.js';
+import { Student, StudentsResponse, OnboardingTask, Enrollment } from '../types/index.js';
 
 export interface FetchStudentsParams {
   status?: string;
@@ -100,6 +100,51 @@ export function updateStudent(id: string, payload: {
   });
 }
 
+// ── Enrollment history ────────────────────────────────────────────────
+// Each enrollment row owns the package + fee for a contiguous period.
+// Multiple rows form a non-overlapping timeline; the row with endDate=null
+// is "current".
+
+export function fetchEnrollments(studentId: string) {
+  return apiFetch<Enrollment[]>(`/api/students/${studentId}/enrollments`);
+}
+
+export interface CreateEnrollmentPayload {
+  packageId: string;
+  monthlyFee: number;
+  feeOverridden: boolean;
+  /** Effective start date (ISO YYYY-MM-DD). The current row's endDate is set to this date. */
+  startDate: string;
+  reason?: string | null;
+}
+
+export function createEnrollment(studentId: string, payload: CreateEnrollmentPayload) {
+  return apiFetch<Enrollment>(`/api/students/${studentId}/enrollments`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface UpdateEnrollmentPayload {
+  packageId?: string;
+  monthlyFee?: number;
+  feeOverridden?: boolean;
+  startDate?: string;
+  endDate?: string | null;
+  reason?: string | null;
+}
+
+export function updateEnrollment(enrollmentId: string, payload: UpdateEnrollmentPayload) {
+  return apiFetch<Enrollment>(`/api/enrollments/${enrollmentId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteEnrollment(enrollmentId: string) {
+  return apiFetch<void>(`/api/enrollments/${enrollmentId}`, { method: 'DELETE' });
+}
+
 export function patchOnboardingProgress(id: string, progress: OnboardingTask[]) {
   return apiFetch<Student>(`/api/students/${id}/onboarding`, {
     method: 'PATCH',
@@ -142,6 +187,19 @@ export interface RevenueAnalyticsData {
     previous: number;
     isForecast: boolean;
     breakdown: Record<string, Record<string, { count: number; revenue: number }>>;
+    events: Array<{
+      studentId: string;
+      studentName: string;
+      effectiveDate: string;
+      type: 'new' | 'change';
+      packageName: string | null;
+      programme: string | null;
+      packageAge: number | null;
+      monthlyFee: number;
+      prevPackageName: string | null;
+      prevProgramme: string | null;
+      prevMonthlyFee: number | null;
+    }>;
   }>;
   revenueByProgramme: Array<{ programme: string; revenue: number; studentCount: number }>;
   revenueByAge: Array<{ age: string; revenue: number; studentCount: number }>;

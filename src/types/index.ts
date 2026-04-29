@@ -82,6 +82,34 @@ export interface OnboardingTask {
   done: boolean;
 }
 
+/**
+ * One package-enrollment period for a student. A student can have many of
+ * these — they form a non-overlapping timeline. The row with `endDate=null`
+ * is the current enrollment. Past rows are immutable history; revenue for
+ * past months reads from whichever row covered the month-end cutoff.
+ */
+export interface Enrollment {
+  id: string;
+  studentId: string;
+  packageId: string;
+  package?: {
+    id: string;
+    name: string;
+    programme: string;
+    age: number;
+    year: number;
+    price: number | null;
+  };
+  monthlyFee: number;
+  feeOverridden: boolean;
+  /** Inclusive start date (ISO). */
+  startDate: string;
+  /** Exclusive end date (ISO). null = currently active. */
+  endDate: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
 export interface Student {
   id: string;
   leadId: string;

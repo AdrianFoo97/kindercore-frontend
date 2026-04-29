@@ -38,7 +38,7 @@ export default function Navbar() {
   const onOperatingCostsRoute = !!useMatch('/operations/operating-costs');
   const onOpsRoute = onOpsPlannerRoute || onOperatingCostsRoute;
   const onToolsRoute = !!useMatch('/tools/*');
-  const onAdminRoute = !!useMatch('/settings/users');
+  const onAdminRoute = !!useMatch('/settings/users') || !!useMatch('/admin/*');
   const onDevRoute = !!useMatch('/settings/test/*');
   const onAnalysisRoute = !!useMatch('/analysis/*');
   const onSettingsRoute = !!useMatch('/settings/*') && !onAdminRoute && !onDevRoute;
@@ -356,6 +356,15 @@ export default function Navbar() {
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
                   <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8' }} /> Manage Users
+                </NavLink>
+                <NavLink to="/admin/year-rollover" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
+                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
+                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
+                  })}>
+                  <FontAwesomeIcon icon={faCalendarDays} style={{ fontSize: 12, color: '#94a3b8' }} /> Year Rollover
                 </NavLink>
               </div>
             )}

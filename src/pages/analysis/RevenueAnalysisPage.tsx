@@ -5,8 +5,7 @@ import {
   CartesianGrid, BarChart, Cell, LabelList, ReferenceArea,
 } from 'recharts';
 import { faCalendar } from '@fortawesome/free-solid-svg-icons';
-import { fetchRevenueAnalytics, fetchStudents } from '../../api/students.js';
-import { Student } from '../../types/index.js';
+import { fetchRevenueAnalytics } from '../../api/students.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
 
@@ -94,12 +93,6 @@ export default function RevenueAnalysisPage() {
     queryFn: () => fetchRevenueAnalytics(selectedYear),
   });
 
-  const { data: studentsData } = useQuery({
-    queryKey: ['students', { pageSize: 1000 }],
-    queryFn: () => fetchStudents({ pageSize: 1000 }),
-  });
-  const allStudents: Student[] = studentsData?.items ?? [];
-
   // Build chart entries (12 months or 4 quarters)
   const entries = useMemo<RevenueEntry[]>(
     () => data ? buildRevenueEntries(data.monthlyRevenue, data.currentMonthIdx, groupBy) : [],
@@ -117,11 +110,13 @@ export default function RevenueAnalysisPage() {
     setPeriod(groupBy === 'quarter' ? `q${Math.floor(m / 3) + 1}` : String(m));
   }, [selectedYear, groupBy]);
 
-  // If the selected period becomes entirely forecast, reset to "all"
+  // Reset to "all" only if the selected period no longer exists.
+  // Forecast months are selectable so users can see scheduled package
+  // changes and future joins.
   useEffect(() => {
     if (entries.length === 0 || period === 'all') return;
     const entry = entries.find(e => e.key === period);
-    if (!entry || entry.isForecast) setPeriod('all');
+    if (!entry) setPeriod('all');
   }, [entries, period]);
 
   if (isLoading) return <div style={s.page}><p style={{ padding: 40, color: '#94a3b8' }}>Loading...</p></div>;
@@ -165,12 +160,12 @@ export default function RevenueAnalysisPage() {
               onChange={setPeriod}
               options={[
                 { value: 'all', label: groupBy === 'quarter' ? 'All quarters' : 'All months' },
-                ...entries
-                  .filter(e => !e.isForecast)
-                  .map(e => ({
-                    value: e.key,
-                    label: e.containsCurrent ? `${e.label} (current)` : e.label,
-                  })),
+                ...entries.map(e => ({
+                  value: e.key,
+                  label: e.containsCurrent
+                    ? `${e.label} (current)`
+                    : e.isForecast ? `${e.label} (forecast)` : e.label,
+                })),
               ]}
             />
           </div>
@@ -288,10 +283,9 @@ export default function RevenueAnalysisPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* New students joined list */}
-        <NewStudentsList
-          students={allStudents}
-          selectedYear={selectedYear}
+        {/* Enrollment events: new joins + package changes (incl. scheduled future ones) */}
+        <EnrollmentEventsList
+          data={data}
           selectedMonth={selectedMonth}
           onClearMonth={() => setPeriod('all')}
         />
@@ -737,45 +731,60 @@ function MonthlyBreakdownTable({ data }: { data: import('../../api/students.js')
   );
 }
 
-// ── New students joined list ──────────────────────────────────────────────────
+// ── Enrollment events list (joins + package changes, incl. scheduled) ────────
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function NewStudentsList({
-  students,
-  selectedYear,
+type EventRow = import('../../api/students.js').RevenueAnalyticsData['monthlyRevenue'][number]['events'][number] & { monthIdx: number };
+
+function EnrollmentEventsList({
+  data,
   selectedMonth,
   onClearMonth,
 }: {
-  students: Student[];
-  selectedYear: number;
+  data: import('../../api/students.js').RevenueAnalyticsData;
   selectedMonth: number | null;
   onClearMonth: () => void;
 }) {
-  // "New" = students whose startDate (first day of school) is in the selected year/month
-  const filtered = students.filter(st => {
-    if (!st.startDate) return false;
-    const d = new Date(st.startDate);
-    if (d.getFullYear() !== selectedYear) return false;
-    if (selectedMonth !== null && d.getMonth() !== selectedMonth) return false;
-    return true;
-  }).sort((a, b) => {
-    const ad = a.startDate ? new Date(a.startDate).getTime() : 0;
-    const bd = b.startDate ? new Date(b.startDate).getTime() : 0;
-    return ad - bd;
-  });
-
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 
+  // Flatten events with their month index attached
+  const allEvents: EventRow[] = data.monthlyRevenue.flatMap((m, i) =>
+    m.events.map(e => ({ ...e, monthIdx: i }))
+  );
+
+  const filtered = selectedMonth !== null
+    ? allEvents.filter(e => e.monthIdx === selectedMonth)
+    : allEvents;
+
+  const monthEntry = selectedMonth !== null ? data.monthlyRevenue[selectedMonth] : null;
+  const isForecast = monthEntry?.isForecast ?? false;
+
+  const newCount = filtered.filter(e => e.type === 'new').length;
+  const changeCount = filtered.filter(e => e.type === 'change').length;
+
   const title = selectedMonth !== null
-    ? `New Students — ${MONTH_NAMES[selectedMonth]} ${selectedYear}`
-    : `New Students — ${selectedYear}`;
+    ? `Enrolment Events — ${MONTH_NAMES[selectedMonth]} ${data.selectedYear}`
+    : `Enrolment Events — ${data.selectedYear}`;
 
   return (
     <div style={s.chartCard}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <h3 style={{ ...s.chartTitle, marginBottom: 0 }}>{title} <span style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>· {filtered.length}</span></h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h3 style={{ ...s.chartTitle, marginBottom: 0 }}>{title}</h3>
+          {isForecast && (
+            <span style={{
+              padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+              background: '#dbeafe', color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.05em',
+            }}>
+              Forecast
+            </span>
+          )}
+          <span style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>
+            {newCount} new · {changeCount} change{changeCount === 1 ? '' : 's'}
+          </span>
+        </div>
         <div style={{ fontSize: 11, color: '#94a3b8' }}>
           {selectedMonth !== null ? (
             <button
@@ -795,17 +804,16 @@ function NewStudentsList({
 
       {filtered.length === 0 ? (
         <p style={{ margin: 0, padding: '20px 0', textAlign: 'center', fontSize: 13, color: '#94a3b8' }}>
-          No new students {selectedMonth !== null ? `in ${MONTH_NAMES[selectedMonth]} ${selectedYear}` : `in ${selectedYear}`}
+          No enrolment events {selectedMonth !== null ? `in ${MONTH_NAMES[selectedMonth]} ${data.selectedYear}` : `in ${data.selectedYear}`}
         </p>
       ) : (() => {
-        // Group by month when showing the whole year; flat list when a month is selected
+        // Group by month when "all" selected; flat list when a single month is selected
         const groupByMonth = selectedMonth === null;
-        const groups = new Map<number, Student[]>();
+        const groups = new Map<number, EventRow[]>();
         if (groupByMonth) {
-          for (const st of filtered) {
-            const m = new Date(st.startDate!).getMonth();
-            if (!groups.has(m)) groups.set(m, []);
-            groups.get(m)!.push(st);
+          for (const ev of filtered) {
+            if (!groups.has(ev.monthIdx)) groups.set(ev.monthIdx, []);
+            groups.get(ev.monthIdx)!.push(ev);
           }
         } else {
           groups.set(selectedMonth!, filtered);
@@ -817,51 +825,82 @@ function NewStudentsList({
             <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
-                  <th style={nsTh}>First Day</th>
-                  <th style={nsTh}>Name</th>
-                  <th style={nsTh}>Programme</th>
-                  <th style={{ ...nsTh, textAlign: 'right' }}>Monthly Fee</th>
+                  <th style={evTh}>Effective</th>
+                  <th style={evTh}>Type</th>
+                  <th style={evTh}>Name</th>
+                  <th style={evTh}>Programme</th>
+                  <th style={{ ...evTh, textAlign: 'right' }}>Monthly Fee</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedKeys.map(monthIdx => {
                   const rows = groups.get(monthIdx)!;
+                  const monthForecast = data.monthlyRevenue[monthIdx]?.isForecast ?? false;
                   return (
                     <React.Fragment key={monthIdx}>
                       {groupByMonth && (
-                        <tr style={{ background: '#eff6ff' }}>
-                          <td colSpan={4} style={{
+                        <tr style={{ background: monthForecast ? '#eff6ff' : '#eff6ff' }}>
+                          <td colSpan={5} style={{
                             padding: '7px 12px', fontSize: 11, fontWeight: 700,
                             color: '#1e3a8a', textTransform: 'uppercase', letterSpacing: '0.06em',
                             borderBottom: '1px solid #dbeafe',
                           }}>
-                            {MONTH_NAMES[monthIdx]} {selectedYear}
+                            {MONTH_NAMES[monthIdx]} {data.selectedYear}
+                            {monthForecast && (
+                              <span style={{ marginLeft: 8, fontSize: 10, color: '#1e40af', fontWeight: 600 }}>
+                                · Forecast
+                              </span>
+                            )}
                             <span style={{ marginLeft: 8, color: '#64748b', fontWeight: 500 }}>· {rows.length}</span>
                           </td>
                         </tr>
                       )}
-                      {rows.map(st => {
-                        const withdrawn = st.status === 'withdrawn';
+                      {rows.map(ev => {
+                        const isChange = ev.type === 'change';
+                        const feeDelta = isChange && ev.prevMonthlyFee != null
+                          ? ev.monthlyFee - ev.prevMonthlyFee : null;
                         return (
-                          <tr key={st.id} className="ns-row" style={{ opacity: withdrawn ? 0.6 : 1 }}>
-                            <td style={{ ...nsTd, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                              {st.startDate ? fmtDate(st.startDate) : '—'}
+                          <tr key={`${ev.studentId}-${ev.effectiveDate}`} className="ev-row">
+                            <td style={{ ...evTd, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                              {fmtDate(ev.effectiveDate)}
                             </td>
-                            <td style={{ ...nsTd, fontWeight: 600, color: '#0f172a' }}>
-                              {st.lead.childName}
-                              {withdrawn && (
-                                <span style={{
-                                  marginLeft: 8, padding: '1px 6px', borderRadius: 4,
-                                  background: '#fee2e2', color: '#991b1b', fontSize: 10, fontWeight: 700,
-                                  textTransform: 'uppercase', letterSpacing: '0.04em',
-                                }}>
-                                  Withdrawn{st.withdrawnAt ? ` · ${fmtDate(st.withdrawnAt)}` : ''}
-                                </span>
+                            <td style={evTd}>
+                              <span style={{
+                                padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+                                background: isChange ? '#fef3c7' : '#dcfce7',
+                                color: isChange ? '#92400e' : '#14532d',
+                                textTransform: 'uppercase', letterSpacing: '0.04em',
+                              }}>
+                                {isChange ? 'Change' : 'New'}
+                              </span>
+                            </td>
+                            <td style={{ ...evTd, fontWeight: 600, color: '#0f172a' }}>
+                              {ev.studentName}
+                            </td>
+                            <td style={evTd}>
+                              {isChange && ev.prevProgramme && ev.prevProgramme !== ev.programme && (
+                                <>
+                                  <span style={{ color: '#94a3b8' }}>{ev.prevProgramme}</span>
+                                  <span style={{ color: '#cbd5e1', margin: '0 6px', fontWeight: 500 }}>→</span>
+                                </>
+                              )}
+                              <span style={{ color: '#0f172a', fontWeight: isChange ? 600 : 400 }}>
+                                {ev.programme ?? '—'}
+                              </span>
+                              {ev.packageAge != null && (
+                                <span style={{ color: '#94a3b8', marginLeft: 4 }}>· {ev.packageAge}y</span>
                               )}
                             </td>
-                            <td style={nsTd}>{st.package.programme} <span style={{ color: '#94a3b8' }}>· {st.package.age}y</span></td>
-                            <td style={{ ...nsTd, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#5b21b6', fontWeight: 600 }}>
-                              {st.monthlyFee != null ? fmtCurrency(st.monthlyFee) : '—'}
+                            <td style={{ ...evTd, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#5b21b6', fontWeight: 600 }}>
+                              {fmtCurrency(ev.monthlyFee)}
+                              {feeDelta != null && feeDelta !== 0 && (
+                                <span style={{
+                                  marginLeft: 6, fontSize: 11, fontWeight: 600,
+                                  color: feeDelta > 0 ? '#059669' : '#dc2626',
+                                }}>
+                                  {feeDelta > 0 ? '+' : ''}{fmtCurrency(feeDelta)}
+                                </span>
+                              )}
                             </td>
                           </tr>
                         );
@@ -874,17 +913,17 @@ function NewStudentsList({
           </div>
         );
       })()}
-      <style>{`.ns-row:hover td { background: #f8fafc; }`}</style>
+      <style>{`.ev-row:hover td { background: #f8fafc; }`}</style>
     </div>
   );
 }
 
-const nsTh: React.CSSProperties = {
+const evTh: React.CSSProperties = {
   padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700,
   color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em',
   borderBottom: '1px solid #e2e8f0',
 };
-const nsTd: React.CSSProperties = {
+const evTd: React.CSSProperties = {
   padding: '10px 12px', borderBottom: '1px solid #f1f5f9', fontSize: 12,
 };
 

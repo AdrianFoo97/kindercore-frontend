@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisVertical, faPen, faArrowRotateLeft, faCircleInfo, faRightFromBracket, faTrash, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
+import { faEllipsisVertical, faArrowRotateLeft, faCircleInfo, faRightFromBracket, faTrash, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
 import { fetchStudents, updateStudent, completeOnboarding, withdrawStudent, reactivateStudent, deleteStudent } from '../api/students.js';
 import { Student } from '../types/index.js';
-import EditStudentModal from '../components/students/EditStudentModal.js';
 import AddStudentModal from '../components/students/AddStudentModal.js';
-import AddSiblingModal from '../components/students/AddSiblingModal.js';
+import WithdrawDialog from '../components/students/WithdrawDialog.js';
 import { faChildren } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useToast } from '../components/common/Toast.js';
@@ -108,16 +108,13 @@ function actionBtn(variant: 'neutral' | 'red' | 'green'): React.CSSProperties {
 export default function StudentsPage() {
   const { isMobile, isTablet } = useIsMobile();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const [tab,              setTab]              = useState<FilterTab>('active');
   const [search,           setSearch]           = useState('');
-  const [editingStudent,   setEditingStudent]   = useState<Student | null>(null);
   const [addingStudent,    setAddingStudent]    = useState(false);
-  const [addingSiblingOf,  setAddingSiblingOf]  = useState<Student | null>(null);
-  const [withdrawingStudent, setWithdrawingStudent] = useState<Student | null>(null);
-  const [withdrawDate,     setWithdrawDate]     = useState('');
-  const [withdrawReason,   setWithdrawReason]   = useState('');
   const [reactivatingStudent, setReactivatingStudent] = useState<Student | null>(null);
+  const [withdrawingStudent, setWithdrawingStudent] = useState<Student | null>(null);
   const [viewingReasonStudent, setViewingReasonStudent] = useState<Student | null>(null);
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
   const [groupBy,          setGroupBy]          = useState<'none' | 'programme' | 'age'>('age');
@@ -160,19 +157,27 @@ export default function StudentsPage() {
   });
   const students = studentsData?.items ?? [];
 
+  // Refresh every query that depends on student/enrollment state, including
+  // the finance summary that powers the Revenue chart.
+  const invalidateStudentDerived = () => {
+    queryClient.invalidateQueries({ queryKey: ['students'] });
+    queryClient.invalidateQueries({ queryKey: ['leads'] });
+    queryClient.invalidateQueries({ queryKey: ['finance-summary'] });
+  };
+
   const withdrawMutation = useMutation({
     mutationFn: ({ id, date, reason }: { id: string; date: string; reason: string }) =>
       withdrawStudent(id, { withdrawnAt: new Date(date).toISOString(), withdrawReason: reason || undefined }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-      setWithdrawingStudent(null); setWithdrawDate(''); setWithdrawReason('');
+      invalidateStudentDerived();
+      setWithdrawingStudent(null);
     },
   });
 
   const reactivateMutation = useMutation({
     mutationFn: (id: string) => reactivateStudent(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students'] });
+      invalidateStudentDerived();
       setReactivatingStudent(null);
     },
   });
@@ -180,7 +185,7 @@ export default function StudentsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteStudent(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students'] });
+      invalidateStudentDerived();
       setDeletingStudent(null);
     },
   });
@@ -237,11 +242,6 @@ export default function StudentsPage() {
       .map(([label, rows]) => ({ label, rows }));
   })();
 
-  const handleSaved   = (_updated: Student) => {
-    queryClient.invalidateQueries({ queryKey: ['students'] });
-    setEditingStudent(null);
-    showToast('Student updated successfully');
-  };
   const handleTabSelect = (t: FilterTab) => {
     setTab(t); setFilterAge('all'); setFilterProgramme('all'); setSearch(''); setPage(1);
   };
@@ -271,9 +271,8 @@ export default function StudentsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#f7f8fa', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif' }}>
       <style>{`
-        .sp-row:hover td        { background: #f8fafc !important; }
-        .sp-edit-btn            { opacity: 0; transition: opacity 0.12s; pointer-events: none; }
-        .sp-row:hover .sp-edit-btn { opacity: 1; pointer-events: auto; }
+        .sp-row td              { transition: background 120ms ease; }
+        .sp-row:hover td        { background: #eef2f7 !important; }
         .sp-dots-btn            { opacity: 0.35; transition: opacity 0.12s; }
         .sp-row:hover .sp-dots-btn { opacity: 0.7; }
         .sp-dots-btn:hover      { opacity: 1 !important; }
@@ -685,7 +684,7 @@ export default function StudentsPage() {
                         const age = studentAge(s);
                         const av  = avatarColor(s.lead.childName);
                         return (
-                          <tr key={s.id} className="sp-row">
+                          <tr key={s.id} className="sp-row" onClick={() => navigate(`/students/${s.id}`)} style={{ cursor: 'pointer' }}>
                             {/* Name + avatar */}
                             <td style={{ ...td, paddingLeft: 20 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -734,19 +733,7 @@ export default function StudentsPage() {
                             {/* Actions */}
                             <td style={{ ...td, paddingRight: 20 }}>
                               <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
-                                {/* Edit — visible on row hover only (not for withdrawn) */}
-                                {s.status !== 'withdrawn' && (
-                                  <button
-                                    className="sp-edit-btn"
-                                    onClick={() => setEditingStudent(s)}
-                                    style={actionBtn('neutral')}
-                                  >
-                                    <FontAwesomeIcon icon={faPen} style={{ fontSize: 10, marginRight: 4 }} />
-                                    Edit
-                                  </button>
-                                )}
-
-                                {/* Three-dot overflow menu — always visible */}
+                                {/* Three-dot overflow menu — always visible. Row click navigates to /students/:id, so Edit doesn't need a button. */}
                                 <button
                                   className="sp-dots-btn"
                                   onClick={(e) => { e.stopPropagation(); openMenu(s.id, e.currentTarget); }}
@@ -788,69 +775,26 @@ export default function StudentsPage() {
 
       {/* ══ Modals ══════════════════════════════════════════════════════════ */}
 
-      {editingStudent && (
-        <EditStudentModal
-          student={editingStudent}
-          onClose={() => setEditingStudent(null)}
-          onSaved={handleSaved}
-        />
-      )}
-
       {addingStudent && (
         <AddStudentModal
           onClose={() => setAddingStudent(false)}
           onCreated={() => {
-            queryClient.invalidateQueries({ queryKey: ['students'] });
-            queryClient.invalidateQueries({ queryKey: ['leads'] });
+            invalidateStudentDerived();
             setAddingStudent(false);
             showToast('Student created successfully');
           }}
         />
       )}
 
-      {addingSiblingOf && (
-        <AddSiblingModal
-          sourceStudent={addingSiblingOf}
-          onClose={() => setAddingSiblingOf(null)}
-          onCreated={() => {
-            queryClient.invalidateQueries({ queryKey: ['students'] });
-            setAddingSiblingOf(null);
-            showToast('Sibling created successfully');
-          }}
-        />
-      )}
-
       {withdrawingStudent && (
-        <div style={overlayStyle}>
-          <div style={modalStyle}>
-            <h3 style={mTitle}>Withdraw Student</h3>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: '#4b5563' }}>
-              <strong>{withdrawingStudent.lead.childName}</strong> · {withdrawingStudent.package.name}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <label style={mLabel}>
-                Withdrawal Date
-                <input type="date" value={withdrawDate} onChange={e => setWithdrawDate(e.target.value)} style={mInput} required />
-              </label>
-              <label style={mLabel}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  Reason <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span>
-                </span>
-                <textarea value={withdrawReason} onChange={e => setWithdrawReason(e.target.value)} style={{ ...mInput, height: 72, resize: 'vertical' }} placeholder="e.g. moving overseas, financial reasons…" />
-              </label>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-              <button onClick={() => { setWithdrawingStudent(null); setWithdrawDate(''); setWithdrawReason(''); }} style={mCancel} disabled={withdrawMutation.isPending}>Cancel</button>
-              <button
-                onClick={() => { if (!withdrawDate) return; withdrawMutation.mutate({ id: withdrawingStudent.id, date: withdrawDate, reason: withdrawReason }); }}
-                style={{ ...mAction, background: '#dc2626' }}
-                disabled={withdrawMutation.isPending || !withdrawDate}
-              >
-                {withdrawMutation.isPending ? 'Withdrawing…' : 'Confirm Withdraw'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <WithdrawDialog
+          studentName={withdrawingStudent.lead.childName}
+          context={withdrawingStudent.package?.name ?? null}
+          submitting={withdrawMutation.isPending}
+          onCancel={() => setWithdrawingStudent(null)}
+          onConfirm={({ date, reason }) =>
+            withdrawMutation.mutate({ id: withdrawingStudent.id, date, reason })}
+        />
       )}
 
       {viewingReasonStudent && (
@@ -952,7 +896,7 @@ export default function StudentsPage() {
                       try {
                         await completeOnboarding(s.id, true);
                         await updateStudent(s.id, { startDate: new Date().toISOString().split('T')[0] });
-                        queryClient.invalidateQueries({ queryKey: ['students'] });
+                        invalidateStudentDerived();
                         showToast(`${s.lead.childName} marked as active`);
                       } catch (e) {
                         setConfirmModal({ message: e instanceof Error ? e.message : 'Failed to mark active', onConfirm: () => {} });
@@ -970,14 +914,7 @@ export default function StudentsPage() {
                     <FontAwesomeIcon icon={faCircleCheck} style={{ width: 14 }} /> Mark Active
                   </button>
                 )}
-                <button className="sp-menu-item" onClick={() => { setEditingStudent(s); setOpenMenuId(null); }} style={menuItemStyle}>
-                  <FontAwesomeIcon icon={faPen} style={{ width: 14, color: '#64748b' }} /> Edit Student
-                </button>
-                <button className="sp-menu-item" onClick={() => { setAddingSiblingOf(s); setOpenMenuId(null); }} style={menuItemStyle}>
-                  <FontAwesomeIcon icon={faChildren} style={{ width: 14, color: '#64748b' }} /> Add Sibling
-                </button>
-                <div style={{ height: 1, background: '#f3f4f6', margin: '4px 0' }} />
-                <button className="sp-menu-item" onClick={() => { setWithdrawingStudent(s); setWithdrawDate(new Date().toISOString().split('T')[0]); setWithdrawReason(''); setOpenMenuId(null); }} style={{ ...menuItemStyle, color: '#dc2626' }}>
+                <button className="sp-menu-item" onClick={() => { setWithdrawingStudent(s); setOpenMenuId(null); }} style={{ ...menuItemStyle, color: '#dc2626' }}>
                   <FontAwesomeIcon icon={faRightFromBracket} style={{ width: 14 }} /> Withdraw
                 </button>
               </>

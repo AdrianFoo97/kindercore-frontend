@@ -18,6 +18,7 @@ import PackagesPage from './pages/PackagesPage.js';
 import ProgrammesSettingsPage from './pages/ProgrammesSettingsPage.js';
 import AgeGroupsSettingsPage from './pages/AgeGroupsSettingsPage.js';
 import StudentsPage from './pages/StudentsPage.js';
+import EditStudentPage from './pages/EditStudentPage.js';
 import OnboardingSettingsPage from './pages/OnboardingSettingsPage.js';
 import OnboardingPage from './pages/OnboardingPage.js';
 import WhatsAppTemplatesPage from './pages/WhatsAppTemplatesPage.js';
@@ -36,6 +37,7 @@ import EditTeacherPage from './pages/settings/EditTeacherPage.js';
 import EmployeeSalaryPage from './pages/settings/EmployeeSalaryPage.js';
 import TeachersPage from './pages/TeachersPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
+import YearRolloverPage from './pages/settings/YearRolloverPage.js';
 import FinanceSettingsPage from './pages/FinanceSettingsPage.js';
 import SetupAccountPage from './pages/SetupAccountPage.js';
 import { APP_VERSION, LAST_UPDATED } from './version.js';
@@ -103,6 +105,7 @@ export default function App() {
           <Route path="/settings/leads/whatsapp-followup" element={<Navigate to="/settings/whatsapp-templates" replace />} />
           <Route path="/students" element={<ErrorBoundary><StudentsPage /></ErrorBoundary>} />
           <Route path="/students/import" element={<ErrorBoundary><ImportStudentsPage /></ErrorBoundary>} />
+          <Route path="/students/:id" element={<ErrorBoundary><EditStudentPage /></ErrorBoundary>} />
           <Route path="/onboarding" element={<ErrorBoundary><OnboardingPage /></ErrorBoundary>} />
           {/* Package Assignment was merged into the unified /packages page (matrix-based) */}
           <Route path="/settings/packages/assignment" element={<Navigate to="/packages" replace />} />
@@ -119,6 +122,7 @@ export default function App() {
           <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
           <Route path="/settings/test/seed-dummy" element={<ErrorBoundary><TestToolsPage key="seed-dummy" tool="seed-dummy" /></ErrorBoundary>} />
           <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
+          <Route path="/admin/year-rollover" element={<ErrorBoundary><YearRolloverPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<ErrorBoundary><OperationsPlannerPage /></ErrorBoundary>} />
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<ErrorBoundary><OperatingCostsPage /></ErrorBoundary>} />
