@@ -695,15 +695,16 @@ function MonthTile({
 
   // Delta from target — only meaningful for elapsed months. Pending months
   // hide the delta since it's based on forecast and not actionable yet.
-  const deltaPct = !isPending && hasRatio ? ((ratioPct! - targetPctNum) / targetPctNum) * 100 : null;
-  const deltaLabel = deltaPct === null ? null
-    : deltaPct > 0.5  ? `+${deltaPct.toFixed(0)}% above target`
-    : deltaPct < -0.5 ? `${Math.abs(deltaPct).toFixed(0)}% under target`
+  // Use percentage points (pp) so subtraction matches the displayed ratios.
+  const deltaPp = !isPending && hasRatio ? ratioPct! - targetPctNum : null;
+  const deltaLabel = deltaPp === null ? null
+    : deltaPp > 0.5  ? `+${deltaPp.toFixed(0)} above target`
+    : deltaPp < -0.5 ? `${Math.abs(deltaPp).toFixed(0)} under target`
     : 'At target';
-  const deltaColor = deltaPct === null
+  const deltaColor = deltaPp === null
     ? C.faint
-    : deltaPct > 0.5  ? C.danger
-    : deltaPct < -0.5 ? C.success
+    : deltaPp > 0.5  ? C.danger
+    : deltaPp < -0.5 ? C.success
     : C.muted;
 
   // Bar scale: keep target marker visible AND show overflow.
