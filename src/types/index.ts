@@ -152,6 +152,12 @@ export interface Position {
   basicSalary: number;
   maxLevel: number;
   sortOrder: number;
+  inCareerProgression: boolean;
+  badgeUrl: string | null;
+  /** Hex color (e.g. "#C0C0C0" silver, "#FFD700" gold) used when an
+   *  achievement is fully earned at this position. Each tier feels
+   *  distinct (silver → gold → blue → ...). */
+  starColor: string | null;
 }
 
 export interface LevelIncentive {

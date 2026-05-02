@@ -293,7 +293,7 @@ export default function Navbar() {
                 { key: 'students',     node: <>{section(faGraduationCap, 'Students')}{link('/settings/onboarding', 'Onboarding Tasks')}</> },
                 { key: 'packages',     node: <>{section(faBoxesStacked, 'Packages & Pricing')}{link('/settings/packages/programmes', 'Programmes')}{link('/settings/packages/age-groups', 'Age Groups')}{link('/packages', 'Packages & Pricing')}</> },
                 { key: 'timetable',    node: <>{section(faCalendarDays, 'Timetable')}{link('/settings/timetable/classes', 'Classes')}{link('/settings/timetable/subjects', 'Subjects')}{link('/settings/timetable/tasks', 'Tasks')}</> },
-                { key: 'hr',           node: <>{section(faCoins, 'HR & Payroll')}{link('/settings/employee-salary', 'Employee Salary')}</> },
+                { key: 'hr',           node: <>{section(faCoins, 'HR & Payroll')}{link('/settings/employee-salary', 'Employee Salary')}{link('/settings/career-missions', 'Career Missions')}{link('/settings/mission-categories', 'Mission Categories')}</> },
                 { key: 'opCost',       node: <>{section(faReceipt, 'Operating Cost')}{link('/settings/operating-cost-main-categories', 'Main Categories')}{link('/settings/operating-cost-categories', 'Categories')}</> },
                 { key: 'finance',      node: <>{section(faMoneyBillTrendUp, 'Finance')}{link('/settings/finance', 'Targets & Thresholds')}</> },
                 { key: 'comm',         node: <>{section(faMessage, 'Communication')}{link('/settings/whatsapp-templates', 'Message Templates')}</> },

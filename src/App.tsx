@@ -35,7 +35,11 @@ import OperatingCostMainCategoriesPage from './pages/settings/OperatingCostMainC
 import TimetableSettingsPage from './pages/settings/TimetableSettingsPage.js';
 import EditTeacherPage from './pages/settings/EditTeacherPage.js';
 import EmployeeSalaryPage from './pages/settings/EmployeeSalaryPage.js';
+import CareerMissionSettingsPage from './pages/settings/CareerMissionSettingsPage.js';
+import MissionCategoriesPage from './pages/settings/MissionCategoriesPage.js';
 import TeachersPage from './pages/TeachersPage.js';
+import TeacherCareerPage from './pages/TeacherCareerPage.js';
+import TeacherMissionBoardPage from './pages/TeacherMissionBoardPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
 import YearRolloverPage from './pages/settings/YearRolloverPage.js';
 import FinanceSettingsPage from './pages/FinanceSettingsPage.js';
@@ -116,7 +120,11 @@ export default function App() {
           <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers" element={<ErrorBoundary><TeachersPage /></ErrorBoundary>} />
           <Route path="/teachers/:id" element={<ErrorBoundary><EditTeacherPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/career" element={<ErrorBoundary><TeacherCareerPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/career/missions" element={<ErrorBoundary><TeacherMissionBoardPage /></ErrorBoundary>} />
           <Route path="/settings/employee-salary" element={<ErrorBoundary><EmployeeSalaryPage /></ErrorBoundary>} />
+          <Route path="/settings/career-missions" element={<ErrorBoundary><CareerMissionSettingsPage /></ErrorBoundary>} />
+          <Route path="/settings/mission-categories" element={<ErrorBoundary><MissionCategoriesPage /></ErrorBoundary>} />
           <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage key="reset-leads" tool="reset-leads" /></ErrorBoundary>} />
           <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
