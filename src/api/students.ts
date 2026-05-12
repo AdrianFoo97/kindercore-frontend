@@ -93,6 +93,8 @@ export function updateStudent(id: string, payload: {
   childDob?: string;
   childName?: string;
   parentPhone?: string;
+  /** Empty string clears the assignment; null also clears. */
+  rfid?: string | null;
 }) {
   return apiFetch<Student>(`/api/students/${id}`, {
     method: 'PUT',

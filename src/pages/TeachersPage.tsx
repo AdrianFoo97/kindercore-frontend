@@ -241,7 +241,10 @@ export default function TeachersPage() {
                     teacher={t}
                     position={t.positionId ? posMap.get(t.positionId) : null}
                     salary={salaryMap.get(t.id)}
-                    onClick={() => navigate(`/teachers/${t.id}`)}
+                    onEdit={() => navigate(`/teachers/${t.id}`)}
+                    onCareer={() => navigate(`/teachers/${t.id}/career`)}
+                    onAppraisal={() => navigate(`/teachers/${t.id}/appraisal`)}
+                    onCompensation={() => navigate(`/teachers/${t.id}/compensation`)}
                     onResign={() => setResignTarget(t)}
                   />
                 ))}
@@ -263,11 +266,10 @@ export default function TeachersPage() {
 }
 
 const css = `
-  .tp-row { transition: background ${TP_MOTION.fast}; cursor: pointer; }
+  .tp-row { transition: background ${TP_MOTION.fast}; }
   .tp-row > td { transition: box-shadow ${TP_MOTION.fast}; }
   .tp-row:hover { background: #f7f9fc; }
   .tp-row:hover > td:first-child { box-shadow: inset 3px 0 0 ${TP_C.primary}; }
-  .tp-row:hover .tp-actions { opacity: 1 !important; }
   .tp-more:hover { background: #e2e8f0 !important; color: ${TP_C.text} !important; }
   .tp-menu-item:hover { background: #f8fafc !important; }
   .tp-menu-danger:hover { background: ${TP_C.redBg} !important; }

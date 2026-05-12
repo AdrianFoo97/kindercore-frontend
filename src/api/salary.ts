@@ -34,7 +34,7 @@ export interface TeacherWithSalary {
   fixedSalaryAmount: number | null;
   position: Position | null;
   calculatedSalary: number;
-  breakdown: { basic: number; levelIncentive: number; allowances: { typeId: string; typeName: string; amount: number }[]; totalAllowances: number } | null;
+  breakdown: { basic: number; levelIncentive: number; allowances: { typeId: string; typeName: string; amount: number; icon?: string; isGuaranteed?: boolean; parentId?: string | null }[]; totalAllowances: number } | null;
 }
 
 export function fetchTeachersWithSalary() {

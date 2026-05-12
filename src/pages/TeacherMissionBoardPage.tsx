@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft, faChevronLeft, faChevronRight, faRoad, faTriangleExclamation,
   faCircleCheck, faCircle, faClock, faPaperPlane, faPlay, faCircleInfo,
-  faStar,
+  faStar, faThumbtack, faCheck, faTrophy,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchTeacherCareer, upsertTeacherMissionProgress,
@@ -14,6 +14,8 @@ import {
 import { useToast } from '../components/common/Toast.js';
 import { MissionDetailModal } from './TeacherCareerPage.js';
 import { useCategoryMeta } from '../utils/missionCategoryIcons.js';
+import { useMissionTargets } from '../hooks/useMissionTargets.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 
 const C = {
   bg: '#f8fafc',
@@ -54,7 +56,7 @@ const STATUS_META: Record<MissionStatus, {
   label: string; bg: string; color: string; icon: any; cta: string;
 }> = {
   PENDING:      { label: 'Not Started',     bg: C.slateSoft,    color: C.slate,   icon: faCircle,       cta: 'Start Mission' },
-  IN_PROGRESS:  { label: 'In Progress',     bg: C.primarySoft,  color: C.primary, icon: faClock,        cta: 'Update' },
+  IN_PROGRESS:  { label: 'In Progress',     bg: C.primarySoft,  color: C.primary, icon: faClock,        cta: 'Continue' },
   UNDER_REVIEW: { label: 'Awaiting Review', bg: C.warningSoft,  color: C.warning, icon: faPaperPlane,   cta: 'View' },
   COMPLETED:    { label: 'Completed',       bg: C.successSoft,  color: C.success, icon: faCircleCheck,  cta: 'View' },
 };
@@ -91,6 +93,7 @@ export default function TeacherMissionBoardPage() {
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { categories: missionCategories, getMeta } = useCategoryMeta();
+  const { isMobile } = useIsMobile();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['teacher-career', id],
@@ -99,7 +102,10 @@ export default function TeacherMissionBoardPage() {
   });
 
   const [filter, setFilter] = useState<FilterKey>('ALL');
+  type ShowMode = 'all' | 'required' | 'optional' | 'completed';
+  const [showMode, setShowMode] = useState<ShowMode>('required');
   const [editingMission, setEditingMission] = useState<MissionWithProgress | null>(null);
+  const { isTargeted, toggle: toggleTarget } = useMissionTargets(id);
 
   const currentPositionId = data?.currentPosition?.positionId ?? null;
 
@@ -185,15 +191,33 @@ export default function TeacherMissionBoardPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['teacher-career', id] });
 
-  if (isLoading) return <div style={s.page}><p style={{ padding: 40, color: C.mutedSoft }}>Loading…</p></div>;
-  if (isError || !data) return <div style={s.page}><p style={{ padding: 40, color: C.danger }}>Failed to load.</p></div>;
+  const pageStyle = { ...s.page, ...(isMobile ? sMobile.page : null) };
+  if (isLoading) return <div style={pageStyle}><p style={{ padding: 40, color: C.mutedSoft }}>Loading…</p></div>;
+  if (isError || !data) return <div style={pageStyle}><p style={{ padding: 40, color: C.danger }}>Failed to load.</p></div>;
 
   const { teacher, currentPosition, readiness } = data;
   const isCurrentInLadder = readiness.isCurrentInLadder ?? true;
 
-  // Filter row: ALL + the categories that actually have missions, in
-  // their admin-set sort order. Hides empty categories.
-  const filterKeys: FilterKey[] = ['ALL', ...missionCategories.filter(c => (counts[c.code]?.total ?? 0) > 0).map(c => c.code)];
+  // Filter row: only categories that have missions, sorted alphabetically
+  // by their displayed name (achievement name when set, else category
+  // name). The teacher always lands on a specific category — there's
+  // no "All" state.
+  const filterKeys: FilterKey[] = missionCategories
+    .filter(c => (counts[c.code]?.total ?? 0) > 0)
+    .map(c => {
+      const meta = getMeta(c.code);
+      return { code: c.code, label: meta.achievementName || meta.label };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .map(c => c.code);
+
+  // Auto-select the first available category once they've loaded so
+  // the user never sees the "all missions" state.
+  React.useEffect(() => {
+    if (filterKeys.length > 0 && !filterKeys.includes(filter)) {
+      setFilter(filterKeys[0]);
+    }
+  }, [filterKeys, filter]);
 
   const onSaveMission = async (status: MissionStatus, evidenceCount: number, evidenceTotal: number, notes: string | null) => {
     if (!editingMission) return;
@@ -207,13 +231,17 @@ export default function TeacherMissionBoardPage() {
     }
   };
 
-  const showBody = currentPosition && isCurrentInLadder && sortedMissions.length > 0;
-
   return (
-    <div style={s.page}>
+    <div style={pageStyle}>
+      <style>{`
+        .mb-filter-btn:hover { background: #f8fafc !important; }
+        .mb-filter-btn-done:hover { background: #f59e0b14 !important; }
+        .mb-chip-scroll { -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .mb-chip-scroll::-webkit-scrollbar { display: none; }
+      `}</style>
       <div style={s.inner}>
         {/* ── Top bar — back + breadcrumb ─────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: SP.lg }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: SP.lg, minWidth: 0 }}>
           <button
             onClick={() => navigate(`/teachers/${id}/career`)}
             style={s.backBtn}
@@ -221,7 +249,7 @@ export default function TeacherMissionBoardPage() {
           >
             <FontAwesomeIcon icon={faArrowLeft} />
           </button>
-          <div style={s.breadcrumb}>
+          <div style={{ ...s.breadcrumb, flexWrap: 'wrap', rowGap: 4, minWidth: 0 }}>
             <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
             <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
             <Link to={`/teachers/${id}`} style={s.crumbLink}>{teacher.name}</Link>
@@ -233,82 +261,9 @@ export default function TeacherMissionBoardPage() {
         </div>
 
         {/* ── Title block ─────────────────────────────────────────────── */}
-        <div style={{ marginBottom: SP.xl }}>
-          <h1 style={s.heading}>Mission Board</h1>
-          <p style={s.subheading}>
-            Complete missions to unlock this achievement.
-          </p>
+        <div style={{ marginBottom: isMobile ? SP.md : SP.xl }}>
+          <h1 style={{ ...s.heading, fontSize: isMobile ? 22 : 26 }}>Mission Board</h1>
         </div>
-
-        {/* ── Mission Track Summary ───────────────────────────────────── */}
-        {/* Mission-track focused — never shows promotion progress. The
-            promotion overview already lives on the career page; here we
-            only care about the selected track / achievement. */}
-        {showBody && (() => {
-          const focusedCat = filter === 'ALL'
-            ? null
-            : missionCategories.find(c => c.code === filter) ?? null;
-          const stat = filter === 'ALL'
-            ? totalStats
-            : counts[filter] ?? { completed: 0, total: 0 };
-          const trackName = focusedCat
-            ? focusedCat.achievementName || focusedCat.name
-            : 'All Missions';
-          const trackMeta = focusedCat ? getMeta(focusedCat.code) : null;
-          return (
-            <MissionTrackSummary
-              trackName={trackName}
-              trackMeta={trackMeta}
-              completed={stat.completed}
-              total={stat.total}
-              starColor={currentPosition?.starColor ?? null}
-            />
-          );
-        })()}
-
-        {/* ── Category filter ─────────────────────────────────────────── */}
-        {showBody && (
-          <div style={s.filterCard}>
-            <div style={s.filterRow}>
-              {filterKeys.map(k => {
-                const active = k === filter;
-                const meta = k === 'ALL' ? null : getMeta(k);
-                const stat = counts[k] ?? { completed: 0, total: 0 };
-                const done = stat.total > 0 && stat.completed === stat.total;
-
-                const tintColor = done ? C.success : (meta ? meta.color : C.primary);
-                const tintBg = done ? `${C.success}14` : (meta ? meta.bg : C.primarySoft);
-                const tintBorder = done ? `${C.success}55` : (meta ? `${meta.color}55` : C.primaryBorder);
-
-                return (
-                  <button
-                    key={k}
-                    onClick={() => setFilter(k)}
-                    style={{
-                      ...s.filterBtn,
-                      background: active ? tintBg : 'transparent',
-                      color: active ? tintColor : (done ? C.success : C.textSub),
-                      borderColor: active ? tintBorder : 'transparent',
-                    }}
-                  >
-                    {meta && <FontAwesomeIcon icon={meta.icon} style={{ fontSize: 11 }} />}
-                    <span>{k === 'ALL' ? 'All' : (meta!.achievementName || meta!.label)}</span>
-                    <span style={{
-                      marginLeft: 2, padding: '0 8px', height: 18,
-                      display: 'inline-flex', alignItems: 'center', borderRadius: 999,
-                      fontSize: 10, fontWeight: 700,
-                      background: active ? '#fff' : C.divider,
-                      color: active ? tintColor : (done ? C.success : C.muted),
-                      fontVariantNumeric: 'tabular-nums',
-                    }}>
-                      {stat.completed}/{stat.total}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* ── Body ─────────────────────────────────────────────────────── */}
         {!currentPosition ? (
@@ -339,69 +294,373 @@ export default function TeacherMissionBoardPage() {
               </>
             }
           />
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={faRoad}
-            title="No missions in this category"
-            hint="Switch to a different category to see other missions."
-          />
         ) : (
-          <>
-            {requiredMissions.length > 0 && (
-              <SectionBlock
-                eyebrow="Required Missions"
-                hint="Missions you need to complete for your next promotion."
-                accent={C.danger}
-                items={requiredMissions}
-                pageSize={6}
-                getKey={m => m.id}
-                renderItem={m => (
-                  <BoardMissionCard
-                    mission={m}
-                    variant="required"
-                    isFuture={false}
-                    onEdit={() => setEditingMission(m)}
+          <div style={{ ...s.layout, ...(isMobile ? sMobile.layout : null) }}>
+            {/* ── Sidebar — vertical category filter ──────────────────── */}
+            <aside style={{ ...s.sidebar, ...(isMobile ? sMobile.sidebar : null) }}>
+              {!isMobile && <div style={s.filterEyebrow}>Categories</div>}
+              <div
+                className={isMobile ? 'mb-chip-scroll' : undefined}
+                style={{ ...s.filterList, ...(isMobile ? sMobile.filterList : null) }}
+              >
+                {filterKeys.map(k => {
+                  const active = k === filter;
+                  const meta = getMeta(k);
+                  const stat = counts[k] ?? { completed: 0, total: 0 };
+                  const done = stat.total > 0 && stat.completed === stat.total;
+
+                  // Active state uses one consistent focus color across all
+                  // categories — the category's own colour stays as the icon
+                  // tile tint so the row still reads as that category.
+                  // Completed categories swap to the success palette.
+                  // Completed categories celebrate in gold (matching the
+                  // Mission Track band + trophy empty state). Active /
+                  // hover both pull in the same gold palette.
+                  const GOLD = '#f59e0b';
+                  const focusBg = done ? `${GOLD}1a` : C.primarySoft;
+                  const focusBorder = done ? `${GOLD}55` : C.primaryBorder;
+                  const focusFg = done ? GOLD : C.primary;
+
+                  const fullLabel = k === 'ALL' ? 'All' : (meta!.achievementName || meta!.label);
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => setFilter(k)}
+                      title={fullLabel}
+                      className={done ? 'mb-filter-btn mb-filter-btn-done' : 'mb-filter-btn'}
+                      style={{
+                        ...s.filterBtn,
+                        ...(isMobile ? sMobile.filterBtn : null),
+                        background: active ? focusBg : (isMobile ? '#fff' : 'transparent'),
+                        color: active ? focusFg : (done ? GOLD : C.textSub),
+                        borderColor: active ? focusBorder : (isMobile ? C.cardBorder : 'transparent'),
+                      }}
+                    >
+                      <span style={{
+                        width: 22, height: 22, borderRadius: 6,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        background: meta ? `${meta.color}1a` : 'transparent',
+                        color: meta ? meta.color : C.muted,
+                        flexShrink: 0,
+                      }}>
+                        {meta && <FontAwesomeIcon icon={meta.icon} style={{ fontSize: 11 }} />}
+                      </span>
+                      <span style={{
+                        flex: 1, minWidth: 0,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {fullLabel}
+                      </span>
+                      {/* Count badge — replaced with a gold tick when
+                          the category is fully completed. */}
+                      <span style={{
+                        padding: '0 8px', height: 18,
+                        display: 'inline-flex', alignItems: 'center', borderRadius: 999,
+                        fontSize: 10, fontWeight: 700,
+                        background: active ? '#fff' : C.divider,
+                        color: done ? GOLD : (active ? focusFg : C.muted),
+                        fontVariantNumeric: 'tabular-nums',
+                        flexShrink: 0,
+                      }}>
+                        {done
+                          ? <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10, fontWeight: 900 }} />
+                          : `${stat.completed}/${stat.total}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Show — single-select view mode. Defaults to Required
+                  so the teacher lands on must-do work. */}
+              {!isMobile && <div style={s.sidebarDivider} />}
+              {!isMobile && <div style={s.filterEyebrow}>Show</div>}
+              <div style={{
+                ...s.filterList,
+                ...(isMobile ? {
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                  gap: 0,
+                  marginTop: 10,
+                  border: `1px solid ${C.cardBorder}`,
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  background: '#fff',
+                } : null),
+              }}>
+                {([
+                  { key: 'all' as const, label: 'All', count: requiredMissions.length + optionalMissions.length + completedMissions.length },
+                  { key: 'required' as const, label: 'Required', count: requiredMissions.length },
+                  { key: 'optional' as const, label: 'Optional', count: optionalMissions.length },
+                  { key: 'completed' as const, label: 'Completed', count: completedMissions.length },
+                ]).map(vm => {
+                  const active = showMode === vm.key;
+                  if (isMobile) {
+                    // Segmented control: each button is a flush cell
+                    // separated only by a hairline border on the left.
+                    // Label sits on top of count so the label never
+                    // truncates at narrow widths (4 cells on 375px ≈ 88px each).
+                    return (
+                      <button
+                        key={vm.key}
+                        type="button"
+                        onClick={() => setShowMode(vm.key)}
+                        aria-pressed={active}
+                        style={{
+                          display: 'flex', flexDirection: 'column',
+                          alignItems: 'center', justifyContent: 'center',
+                          gap: 1, width: '100%', minWidth: 0,
+                          padding: '8px 4px',
+                          borderRadius: 0,
+                          border: 'none',
+                          borderLeft: vm.key === 'all' ? 'none' : `1px solid ${C.cardBorder}`,
+                          background: active ? C.primarySoft : '#fff',
+                          color: active ? C.primary : C.textSub,
+                          fontFamily: 'inherit',
+                          cursor: 'pointer',
+                          transition: 'background 160ms ease, color 160ms ease',
+                        }}
+                      >
+                        <span style={{
+                          fontSize: 12, fontWeight: active ? 700 : 600,
+                          lineHeight: 1.2,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          maxWidth: '100%',
+                        }}>
+                          {vm.label}
+                        </span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700,
+                          color: active ? C.primary : C.mutedSoft,
+                          fontVariantNumeric: 'tabular-nums', lineHeight: 1.2,
+                        }}>
+                          {vm.count}
+                        </span>
+                      </button>
+                    );
+                  }
+                  return (
+                    <label key={vm.key} style={s.toggleRow}>
+                      <input
+                        type="radio"
+                        name="mb-show-mode"
+                        checked={active}
+                        onChange={() => setShowMode(vm.key)}
+                        style={s.toggleCheckbox}
+                      />
+                      <span style={{
+                        flex: 1, minWidth: 0,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        fontWeight: active ? 600 : 500,
+                        color: active ? C.text : C.textSub,
+                      }}>
+                        {vm.label}
+                      </span>
+                      <span style={{
+                        padding: '0 8px', height: 18,
+                        display: 'inline-flex', alignItems: 'center', borderRadius: 999,
+                        fontSize: 10, fontWeight: 700,
+                        background: C.divider, color: C.muted,
+                        fontVariantNumeric: 'tabular-nums',
+                        flexShrink: 0,
+                      }}>
+                        {vm.count}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </aside>
+
+            {/* ── Main — track summary + mission sections ─────────────── */}
+            <main style={s.main}>
+              {(() => {
+                const focusedCat = filter === 'ALL'
+                  ? null
+                  : missionCategories.find(c => c.code === filter) ?? null;
+                const stat = filter === 'ALL'
+                  ? totalStats
+                  : counts[filter] ?? { completed: 0, total: 0 };
+                const trackName = focusedCat
+                  ? focusedCat.achievementName || focusedCat.name
+                  : 'All Missions';
+                const trackMeta = focusedCat ? getMeta(focusedCat.code) : null;
+                // Surface the most actionable mission so the band reads
+                // as "command center", not just stats. Required for the
+                // current position wins; otherwise fall back to the
+                // first non-completed mission in the category.
+                const nextMission = requiredMissions[0]?.title
+                  ?? optionalMissions.find(m => m.positionId === currentPositionId)?.title
+                  ?? optionalMissions[0]?.title
+                  ?? null;
+                return (
+                  <MissionTrackSummary
+                    trackName={trackName}
+                    trackMeta={trackMeta}
+                    completed={stat.completed}
+                    total={stat.total}
+                    starColor={currentPosition?.starColor ?? null}
+                    nextMission={nextMission}
                   />
-                )}
-              />
-            )}
-            {optionalMissions.length > 0 && (
-              <SectionBlock
-                eyebrow="Optional Missions"
-                hint="Get a head start on future promotions — completing these now counts when you reach that stage."
-                accent={C.muted}
-                items={optionalMissions}
-                pageSize={3}
-                getKey={m => m.id}
-                renderItem={m => (
-                  <BoardMissionCard
-                    mission={m}
-                    variant="optional"
-                    isFuture={m.positionId !== currentPositionId}
-                    onEdit={() => setEditingMission(m)}
-                  />
-                )}
-              />
-            )}
-            {completedMissions.length > 0 && (
-              <SectionBlock
-                eyebrow="Completed"
-                hint="Missions you've already finished, sorted alphabetically."
-                accent={C.success}
-                items={completedMissions}
-                pageSize={3}
-                getKey={m => m.id}
-                renderItem={m => (
-                  <BoardMissionCard
-                    mission={m}
-                    variant={m.required && m.positionId === currentPositionId ? 'required' : 'optional'}
-                    isFuture={m.positionId !== currentPositionId}
-                    onEdit={() => setEditingMission(m)}
-                  />
-                )}
-              />
-            )}
-          </>
+                );
+              })()}
+
+              {filtered.length === 0 ? (
+                <EmptyState
+                  icon={faRoad}
+                  title="No missions in this category"
+                  hint="Switch to a different category to see other missions."
+                />
+              ) : (() => {
+                const showRequiredSec = showMode === 'all' || showMode === 'required';
+                const showOptionalSec = showMode === 'all' || showMode === 'optional';
+                const showCompletedSec = showMode === 'all' || showMode === 'completed';
+                const visibleSections = (showRequiredSec && requiredMissions.length > 0 ? 1 : 0)
+                  + (showOptionalSec && optionalMissions.length > 0 ? 1 : 0)
+                  + (showCompletedSec && completedMissions.length > 0 ? 1 : 0);
+
+                if (visibleSections === 0) {
+                  // Track-completion celebration — when the user has
+                  // finished the whole track and the active Show filter
+                  // happens to land on an empty section, swap the dry
+                  // "No required missions" message for a gold trophy
+                  // moment. The work is done; the screen should feel
+                  // like a win, not an absent list.
+                  const trackStat = counts[filter] ?? { completed: 0, total: 0 };
+                  const trackDone = trackStat.total > 0
+                    && trackStat.completed === trackStat.total
+                    && completedMissions.length > 0;
+                  if (trackDone) {
+                    const GOLD = '#f59e0b';
+                    return (
+                      <div style={{
+                        padding: '56px 24px', textAlign: 'center',
+                        background: `linear-gradient(135deg, ${GOLD}1a, ${GOLD}08)`,
+                        border: `1px solid ${GOLD}40`,
+                        borderRadius: 14,
+                        boxShadow: `0 1px 2px ${GOLD}1f, 0 4px 12px ${GOLD}14`,
+                      }}>
+                        <div style={{
+                          width: 56, height: 56, borderRadius: '50%',
+                          margin: '0 auto 16px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: '#fff',
+                          border: `1px solid ${GOLD}40`,
+                          color: GOLD, fontSize: 22,
+                          boxShadow: `0 1px 3px ${GOLD}33`,
+                        }}>
+                          <FontAwesomeIcon icon={faTrophy} />
+                        </div>
+                        <h4 style={{
+                          margin: '0 0 4px', fontSize: 16, fontWeight: 800,
+                          color: GOLD, letterSpacing: '-0.01em',
+                        }}>
+                          Achievement earned
+                        </h4>
+                        <p style={{
+                          margin: '0 0 16px', fontSize: 13, color: C.muted, lineHeight: 1.5,
+                        }}>
+                          Every mission in this track is complete. Nice work.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowMode('completed')}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            height: 32, padding: '0 16px', borderRadius: 8,
+                            fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+                            background: GOLD, color: '#fff', border: 'none',
+                            cursor: 'pointer',
+                            boxShadow: `0 1px 2px ${GOLD}40`,
+                          }}
+                        >
+                          View completed missions
+                          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9 }} />
+                        </button>
+                      </div>
+                    );
+                  }
+                  const labels: Record<ShowMode, string> = {
+                    all: 'No missions yet',
+                    required: 'No required missions',
+                    optional: 'No optional missions',
+                    completed: 'No completed missions',
+                  };
+                  return (
+                    <EmptyState
+                      icon={faRoad}
+                      title={labels[showMode]}
+                      hint="Switch the Show filter to see other missions."
+                    />
+                  );
+                }
+                return (
+                  <>
+                    {showRequiredSec && requiredMissions.length > 0 && (
+                      <SectionBlock
+                        eyebrow="Required Missions"
+                        hint="Missions you need to complete for your next promotion."
+                        accent={C.danger}
+                        items={requiredMissions}
+                        pageSize={6}
+                        getKey={m => m.id}
+                        renderItem={m => (
+                          <BoardMissionCard
+                            mission={m}
+                            variant="required"
+                            isFuture={false}
+                            onEdit={() => setEditingMission(m)}
+                            isTargeted={isTargeted(m.id)}
+                            onToggleTarget={() => toggleTarget(m.id)}
+                          />
+                        )}
+                      />
+                    )}
+                    {showOptionalSec && optionalMissions.length > 0 && (
+                      <SectionBlock
+                        eyebrow="Optional Missions"
+                        hint="Get a head start on future promotions — completing these now counts when you reach that stage."
+                        accent={C.muted}
+                        items={optionalMissions}
+                        pageSize={3}
+                        getKey={m => m.id}
+                        renderItem={m => (
+                          <BoardMissionCard
+                            mission={m}
+                            variant="optional"
+                            isFuture={m.positionId !== currentPositionId}
+                            onEdit={() => setEditingMission(m)}
+                            isTargeted={isTargeted(m.id)}
+                            onToggleTarget={() => toggleTarget(m.id)}
+                          />
+                        )}
+                      />
+                    )}
+                    {showCompletedSec && completedMissions.length > 0 && (
+                      <SectionBlock
+                        eyebrow="Completed"
+                        hint="Missions you've already finished, sorted alphabetically."
+                        accent={C.success}
+                        items={completedMissions}
+                        pageSize={3}
+                        getKey={m => m.id}
+                        renderItem={m => (
+                          <BoardMissionCard
+                            mission={m}
+                            variant={m.required && m.positionId === currentPositionId ? 'required' : 'optional'}
+                            isFuture={m.positionId !== currentPositionId}
+                            onEdit={() => setEditingMission(m)}
+                            isTargeted={isTargeted(m.id)}
+                            onToggleTarget={() => toggleTarget(m.id)}
+                          />
+                        )}
+                      />
+                    )}
+                  </>
+                );
+              })()}
+            </main>
+          </div>
         )}
       </div>
 
@@ -426,7 +685,7 @@ export default function TeacherMissionBoardPage() {
 //   "I'm working on Classroom Leader. 1 of 6 done. 5 to go."
 
 function MissionTrackSummary({
-  trackName, trackMeta, completed, total, starColor,
+  trackName, trackMeta, completed, total, starColor, nextMission,
 }: {
   trackName: string;
   /** null when the user is on the "All" tab — we render a neutral track card. */
@@ -435,31 +694,51 @@ function MissionTrackSummary({
   total: number;
   /** Position-tier color for the earned star (silver/gold/blue/...). */
   starColor: string | null;
+  /** Title of the mission to nudge the teacher toward. Renders a small
+   *  "Next" line under the progress bar. */
+  nextMission: string | null;
 }) {
   const done = total > 0 && completed === total;
   const remaining = Math.max(0, total - completed);
-  const earnedColor = starColor || C.success;
+  // Celebratory gold for completed tracks. The position's starColor can
+  // be silver/bronze on lower tiers — using it here washed the band
+  // out to grey, which read as "stale" instead of "earned". A vibrant
+  // amber-gold consistently celebrates the achievement.
+  const GOLD = '#f59e0b';
+  const earnedColor = GOLD;
   // Track-tinted accent — when the user has selected a specific
   // achievement we use its category color; "All" view uses the primary.
   const accent = trackMeta ? trackMeta.color : C.primary;
-  // When fully earned, the whole card pivots to the position's star
-  // color so the win is visually distinct from other states.
+  // When fully earned, the whole card pivots to gold so the win is
+  // visually distinct from other states.
   const tint = done ? earnedColor : accent;
+
+  // Visual identity: a *band* tinted with the track's accent colour, not
+  // a white card — so it never feels like another mission tile but still
+  // gives the teacher the "I'm working towards something" feedback via
+  // the chunky segmented bar.
+  const bandTint = done ? earnedColor : accent;
 
   return (
     <div style={{
       ...s.summaryCard,
-      background: done ? `${earnedColor}0a` : C.card,
-      border: `1px solid ${done ? `${earnedColor}40` : C.cardBorder}`,
+      // When the track is done we lift the gold tint to a more visible
+      // celebratory level — otherwise the band still reads as a calm
+      // progress strip.
+      background: done
+        ? `linear-gradient(135deg, ${bandTint}1f, ${bandTint}0a)`
+        : `linear-gradient(135deg, ${bandTint}10, ${bandTint}05)`,
+      border: `1px solid ${done ? `${bandTint}40` : `${bandTint}26`}`,
+      boxShadow: done ? `0 1px 2px ${bandTint}1f, 0 4px 12px ${bandTint}14` : 'none',
     }}>
-      {/* Top row — track icon + track name + earned indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: SP.md, marginBottom: SP.md }}>
+      {/* Top row — track icon + name + count */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: SP.md, marginBottom: 14 }}>
         <div style={{
-          width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: done ? `${earnedColor}14` : (trackMeta ? trackMeta.bg : C.primarySoft),
-          color: tint, fontSize: 18,
-          border: `1px solid ${done ? `${earnedColor}40` : 'transparent'}`,
+          background: '#fff',
+          color: bandTint, fontSize: 16,
+          border: `1px solid ${bandTint}33`,
         }}>
           <FontAwesomeIcon
             icon={done ? faStar : (trackMeta ? trackMeta.icon : faStar)}
@@ -468,68 +747,66 @@ function MissionTrackSummary({
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: 10, fontWeight: 700, color: C.muted,
-            textTransform: 'uppercase', letterSpacing: '0.1em',
-          }}>
-            Mission Track
-          </div>
-          <div style={{
-            marginTop: 2, fontSize: 18, fontWeight: 800,
+            fontSize: 16, fontWeight: 800,
             color: done ? earnedColor : C.text,
-            letterSpacing: '-0.02em', lineHeight: 1.2,
+            letterSpacing: '-0.018em', lineHeight: 1.2,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {trackName}
           </div>
+          <div style={{
+            marginTop: 2, fontSize: 12, fontWeight: 500,
+            color: done ? earnedColor : C.muted,
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {done
+              ? 'Track completed · achievement earned'
+              : total === 0
+              ? 'No missions in this track yet'
+              : `${remaining} mission${remaining === 1 ? '' : 's'} to go`}
+          </div>
         </div>
-        {/* Big count, right-aligned. Tabular numerics so segment changes
-            don't shift width. */}
-        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{
-            fontSize: 22, fontWeight: 800,
-            color: done ? earnedColor : C.text,
-            letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-          }}>
-            {completed}<span style={{ color: C.mutedSoft, fontWeight: 600 }}> / {total}</span>
-          </div>
-          <div style={{
-            marginTop: 4, fontSize: 11, fontWeight: 600, color: C.muted,
-            textTransform: 'uppercase', letterSpacing: '0.06em',
-          }}>
-            Missions
-          </div>
+        {/* Compact count, right-aligned. */}
+        <div style={{
+          fontSize: 15, fontWeight: 700,
+          color: done ? earnedColor : C.text,
+          fontVariantNumeric: 'tabular-nums',
+          flexShrink: 0,
+        }}>
+          {completed}<span style={{ color: C.mutedSoft, fontWeight: 500 }}> / {total}</span>
         </div>
       </div>
 
-      {/* Chunky segmented bar — each segment is exactly one mission, so
-          one completion produces a clear ~1/N visual jump. Caps at 16
-          segments to stay readable on narrow widths; larger sets fall
-          back to a continuous bar. */}
-      <SegmentedProgress completed={completed} total={total} color={tint} />
+      {/* Chunky segmented bar — the motivation hero. Each segment is one
+          mission, so each completion produces a satisfying step. */}
+      <SegmentedProgress completed={completed} total={total} color={bandTint} />
 
-      {/* Supporting line — never mentions promotion, just track progress. */}
-      <div style={{
-        marginTop: SP.md, fontSize: 13, fontWeight: 600,
-        color: done ? earnedColor : C.textSub,
-        display: 'flex', alignItems: 'center', gap: 8,
-      }}>
-        {done ? (
-          <>
-            <FontAwesomeIcon icon={faCircleCheck} style={{ fontSize: 13 }} />
-            <span>This track is completed. Achievement earned.</span>
-          </>
-        ) : total === 0 ? (
-          <span style={{ color: C.muted }}>No missions in this track yet.</span>
-        ) : (
-          <>
-            <span>{completed} of {total} missions completed</span>
-            <span style={{ color: C.divider }}>·</span>
-            <span style={{ color: accent }}>
-              {remaining === 1 ? '1 mission to go' : `${remaining} missions to go`}
-            </span>
-          </>
-        )}
-      </div>
+      {/* Next-step microline — turns the band into a "what do I do
+          next" cue, not just a progress readout. Hides when the track
+          is finished or empty. */}
+      {!done && total > 0 && nextMission && (
+        <div style={{
+          marginTop: 12,
+          display: 'flex', alignItems: 'baseline', gap: 6,
+          fontSize: 12, fontWeight: 500, color: C.muted,
+          minWidth: 0,
+        }}>
+          <span style={{
+            fontSize: 9, fontWeight: 800, color: bandTint,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            flexShrink: 0,
+          }}>
+            Next
+          </span>
+          <span style={{
+            color: C.textSub, fontWeight: 600,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            minWidth: 0,
+          }}>
+            {nextMission}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -600,6 +877,7 @@ function SectionBlock<T>({
   renderItem: (item: T) => React.ReactNode;
   getKey: (item: T) => string;
 }) {
+  const { isMobile } = useIsMobile();
   const [page, setPage] = useState(0);
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -613,35 +891,37 @@ function SectionBlock<T>({
   const end = Math.min(start + pageSize, total);
   const visible = items.slice(start, end);
 
+  // Section colour-keys the eyebrow against the work's priority. The
+  // accent passed in (danger/muted/success) doubles as a small left
+  // accent bar so the section reads with visual weight matching its
+  // importance, not just its label.
   return (
-    <div style={{ marginBottom: SP.xxl }}>
-      <div style={{ marginBottom: SP.md }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <h2 style={{
-            margin: 0, fontSize: 14, fontWeight: 700, color: C.text,
-            textTransform: 'uppercase', letterSpacing: '0.06em',
-          }}>
-            {eyebrow}
-          </h2>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center',
-            padding: '0 8px', height: 18, borderRadius: 999,
-            fontSize: 10, fontWeight: 700,
-            background: `${accent}14`, color: accent,
-            fontVariantNumeric: 'tabular-nums',
-          }}>
-            {total}
-          </span>
-        </div>
-        <p style={{
-          margin: '4px 0 0', fontSize: 12, fontWeight: 500, color: C.muted, lineHeight: 1.5,
+    <div style={{ marginBottom: isMobile ? 24 : 40 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, marginBottom: SP.md,
+      }}>
+        <span style={{
+          width: 3, height: 14, borderRadius: 999, background: accent, flexShrink: 0,
+        }} />
+        <h2 style={{
+          margin: 0, fontSize: isMobile ? 12 : 14, fontWeight: 700, color: C.text,
+          textTransform: 'uppercase', letterSpacing: '0.06em',
         }}>
-          {hint}
-        </p>
+          {eyebrow}
+        </h2>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center',
+          padding: '0 8px', height: 18, borderRadius: 999,
+          fontSize: 10, fontWeight: 700,
+          background: `${accent}14`, color: accent,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {total}
+        </span>
       </div>
       <div style={{
         display: 'grid', gap: SP.md,
-        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+        gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(auto-fill, minmax(340px, 1fr))',
       }}>
         {visible.map(item => (
           <React.Fragment key={getKey(item)}>{renderItem(item)}</React.Fragment>
@@ -670,6 +950,7 @@ function Pagination({
   startIndex: number; endIndex: number; total: number;
   onChange: (next: number) => void;
 }) {
+  const { isMobile } = useIsMobile();
   const canPrev = page > 0;
   const canNext = page < totalPages - 1;
 
@@ -685,12 +966,15 @@ function Pagination({
 
   return (
     <div style={{
-      marginTop: SP.md, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+      marginTop: SP.md, display: 'flex', alignItems: 'center',
+      justifyContent: isMobile ? 'center' : 'space-between', gap: 8,
     }}>
-      <div style={{ fontSize: 11, fontWeight: 500, color: C.muted, fontVariantNumeric: 'tabular-nums' }}>
-        Showing <span style={{ color: C.text, fontWeight: 700 }}>{startIndex}</span>
-        –<span style={{ color: C.text, fontWeight: 700 }}>{endIndex}</span> of {total}
-      </div>
+      {!isMobile && (
+        <div style={{ fontSize: 11, fontWeight: 500, color: C.muted, fontVariantNumeric: 'tabular-nums' }}>
+          Showing <span style={{ color: C.text, fontWeight: 700 }}>{startIndex}</span>
+          –<span style={{ color: C.text, fontWeight: 700 }}>{endIndex}</span> of {total}
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <button
           type="button"
@@ -733,6 +1017,7 @@ function Pagination({
 
 function BoardMissionCard({
   mission, variant, isFuture, onEdit,
+  isTargeted, onToggleTarget,
 }: {
   mission: MissionWithProgress;
   variant: 'required' | 'optional';
@@ -741,7 +1026,10 @@ function BoardMissionCard({
    *  head-start work, not part of their current promotion. */
   isFuture: boolean;
   onEdit: () => void;
+  isTargeted: boolean;
+  onToggleTarget: () => void;
 }) {
+  const { isMobile } = useIsMobile();
   const { getMeta } = useCategoryMeta();
   const cat = getMeta(mission.category);
   const status: MissionStatus = mission.progress?.status ?? 'PENDING';
@@ -752,16 +1040,21 @@ function BoardMissionCard({
 
   // Card chrome — required keeps the standard white card; optional steps
   // back to a soft fill + lighter border so the eye trusts the priority order.
-  const cardBg = isCompleted ? C.successSoft : (isOptional ? C.cardSoft : C.card);
-  const cardBorder = isCompleted ? C.successBorder : (isOptional ? C.cardBorderSoft : C.cardBorder);
-  const cardShadow = isOptional
+  // Completed missions are greyed out so the eye skips past them to active work.
+  const cardBg = isCompleted ? C.cardSoft : (isOptional ? C.cardSoft : C.card);
+  const cardBorder = isCompleted ? C.cardBorderSoft : (isOptional ? C.cardBorderSoft : C.cardBorder);
+  const cardShadow = isCompleted || isOptional
     ? 'none'
     : '0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06)';
 
-  // Required pill — visible but not aggressive. We use a soft danger tint
-  // to mark "must do" without screaming. Optional pill is calm slate.
-  const requiredPill = mission.required
+  // Mission-priority pill — context-aware label so we never contradict
+  // ourselves: a mission required *for a future role* is shown as
+  // "FOR {POSITION}", not "REQUIRED" (which would only apply to the
+  // current promotion). Optional missions read as "OPTIONAL".
+  const requiredPill = mission.required && !isFuture
     ? { bg: C.dangerSoft, color: C.danger, label: 'Required' }
+    : isFuture && mission.positionName
+    ? { bg: C.primarySoft, color: C.primary, label: `For ${mission.positionName}` }
     : { bg: C.slateSoft, color: C.slate, label: 'Optional' };
 
   return (
@@ -772,9 +1065,10 @@ function BoardMissionCard({
       border: `1px solid ${cardBorder}`,
       borderRadius: 14,
       boxShadow: cardShadow,
-      transition: 'box-shadow 200ms ease, transform 200ms ease',
+      opacity: isCompleted ? 0.65 : 1,
+      transition: 'box-shadow 200ms ease, transform 200ms ease, opacity 200ms ease',
     }}>
-      {/* Header — icon + title + required/optional pill */}
+      {/* Header — icon + title + pin + required/optional pill */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{
           width: 36, height: 36, borderRadius: 10, flexShrink: 0,
@@ -792,6 +1086,63 @@ function BoardMissionCard({
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {!isMobile && mission.highPriority && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '2px 8px', height: 22, borderRadius: 999,
+              fontSize: 10, fontWeight: 700,
+              background: C.warningSoft, color: C.warning,
+              border: `1px solid ${C.warningBorder}`,
+            }}>
+              <FontAwesomeIcon icon={faStar} style={{ fontSize: 9 }} />
+              Priority
+            </span>
+          )}
+          {!isMobile && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center',
+              padding: '2px 9px', height: 22, borderRadius: 999,
+              fontSize: 10, fontWeight: 700,
+              background: requiredPill.bg, color: requiredPill.color,
+              textTransform: 'uppercase', letterSpacing: '0.05em',
+            }}>
+              {requiredPill.label}
+            </span>
+          )}
+          {/* Target pin — far-right anchor so the priority pill stays
+              the dominant header signal. Filled when targeted,
+              outlined-grey when not. */}
+          <button
+            type="button"
+            onClick={onToggleTarget}
+            title={isTargeted ? 'Remove from Current Targets' : 'Pin to Current Targets'}
+            aria-pressed={isTargeted}
+            style={{
+              width: 24, height: 24, borderRadius: 6,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: isTargeted ? C.primarySoft : 'transparent',
+              color: isTargeted ? C.primary : C.mutedSoft,
+              border: `1px solid ${isTargeted ? C.primaryBorder : 'transparent'}`,
+              cursor: 'pointer', padding: 0, fontFamily: 'inherit',
+              transition: 'background 160ms ease, color 160ms ease, border-color 160ms ease',
+            }}
+          >
+            <FontAwesomeIcon
+              icon={faThumbtack}
+              style={{
+                fontSize: 11,
+                transform: isTargeted ? 'rotate(0deg)' : 'rotate(45deg)',
+                transition: 'transform 200ms ease',
+              }}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile-only pill row — gives the title above the full row width
+          while keeping the priority + required signal visible. */}
+      {isMobile && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {mission.highPriority && (
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -814,9 +1165,11 @@ function BoardMissionCard({
             {requiredPill.label}
           </span>
         </div>
-      </div>
+      )}
 
-      {/* Metadata row — category · difficulty · duration · (future tier) */}
+      {/* Metadata row — category · difficulty · duration. The "For X"
+          context now lives in the priority pill itself, so this row is
+          purely about the mission shape. */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
         fontSize: 12, fontWeight: 500, color: C.muted,
@@ -829,35 +1182,73 @@ function BoardMissionCard({
           <FontAwesomeIcon icon={faClock} style={{ fontSize: 10 }} />
           {effort.hint}
         </span>
-        {isFuture && mission.positionName && (
-          <>
-            <span style={{ color: C.divider }}>·</span>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '1px 8px', height: 18, borderRadius: 999,
-              fontSize: 10, fontWeight: 700,
-              background: C.primarySoft, color: C.primary,
-              border: `1px solid ${C.primaryBorder}`,
-              textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>
-              For {mission.positionName}
-            </span>
-          </>
-        )}
       </div>
 
       {/* Description */}
       {mission.description && (
         <p style={{
-          margin: 0, fontSize: 13, fontWeight: 400, color: C.textSub, lineHeight: 1.55,
+          margin: '4px 0 0', fontSize: 13, fontWeight: 400, color: C.textSub,
+          lineHeight: 1.6,
         }}>
           {mission.description}
         </p>
       )}
 
-      {/* Footer — status + CTA. Pushes to bottom via flex. */}
+      {/* Footer — status on the left, action on the right. CTA visual
+          weight follows priority + status:
+            • Pending Required → solid primary (strongest)
+            • Pending Optional → outlined primary
+            • In progress      → solid primary "Continue" feel
+            • Completed        → ghost success "View"
+          For multi-evidence missions (e.g. "Conduct 2 parent meetings")
+          we surface a small "{count} / {total} logged" chip beside the
+          status pill so the teacher can see how far in they are without
+          opening the detail modal. */}
+      {(() => {
+        // Always render the segmented progress bar so every card carries
+        // the same baseline visual rhythm — empty pills for not-yet-
+        // started, filled for logged evidence, all green for completed.
+        const evidenceTotal = Math.max(1, mission.progress?.evidenceTotal ?? 1);
+        const rawCount = mission.progress?.evidenceCount ?? 0;
+        // Completed always reads as fully filled, even if the count
+        // was never logged (some missions complete without evidence).
+        const filledCount = isCompleted ? evidenceTotal : rawCount;
+        // Pinned (targeted) cards get the saturated fill so the
+        // teacher's focus list visibly carries more weight; everything
+        // else stays in the calm Border-tier palette so non-target
+        // cards don't compete for attention.
+        const fillColor = isTargeted
+          ? (isCompleted ? C.success : status === 'UNDER_REVIEW' ? C.warning : C.primary)
+          : (isCompleted ? C.successBorder : status === 'UNDER_REVIEW' ? C.warningBorder : C.primaryBorder);
+        return (
+      <>
+      <div style={{ marginTop: 'auto' }}>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {Array.from({ length: evidenceTotal }).map((_, i) => {
+            const filled = i < filledCount;
+            return (
+              <div key={i} style={{
+                flex: 1, height: 4, borderRadius: 999,
+                background: filled ? fillColor : C.divider,
+                transition: 'background 300ms ease',
+              }} />
+            );
+          })}
+        </div>
+        <div style={{
+          marginTop: 6,
+          fontSize: 11, fontWeight: 500,
+          color: C.mutedSoft,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          <span style={{ color: C.muted, fontWeight: 600 }}>{filledCount}</span>
+          <span> / {evidenceTotal}</span>
+          <span style={{ marginLeft: 4 }}>logged</span>
+        </div>
+      </div>
       <div style={{
-        marginTop: 'auto', paddingTop: SP.md,
+        marginTop: SP.md,
+        paddingTop: SP.md,
         borderTop: `1px solid ${C.divider}`,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
       }}>
@@ -866,6 +1257,7 @@ function BoardMissionCard({
           padding: '4px 10px', height: 24, borderRadius: 999,
           fontSize: 11, fontWeight: 600,
           background: sm.bg, color: sm.color,
+          flexShrink: 0,
         }}>
           <FontAwesomeIcon icon={sm.icon} style={{ fontSize: 10 }} />
           {sm.label}
@@ -877,7 +1269,7 @@ function BoardMissionCard({
                 ...s.btnGhost,
                 color: C.success, borderColor: C.successBorder, background: '#fff',
               }
-            : isOptional
+            : (isOptional && status === 'PENDING')
             ? s.btnOutline
             : s.btnPrimary
           }
@@ -888,6 +1280,9 @@ function BoardMissionCard({
           {sm.cta}
         </button>
       </div>
+      </>
+        );
+      })()}
     </div>
   );
 }
@@ -916,7 +1311,7 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     background: C.bg, minHeight: '100vh', color: C.text,
   },
-  inner: { maxWidth: 1200, margin: '0 auto' },
+  inner: { maxWidth: 1440, margin: '0 auto' },
 
   backBtn: {
     width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.cardBorder}`,
@@ -928,29 +1323,54 @@ const s: Record<string, React.CSSProperties> = {
   crumbCurrent: { color: C.text, fontWeight: 600 },
 
   heading: { margin: 0, fontSize: 26, fontWeight: 800, color: C.text, letterSpacing: '-0.025em' },
-  subheading: {
-    margin: '6px 0 0', fontSize: 13, fontWeight: 500, color: C.muted, lineHeight: 1.5,
-    maxWidth: 600,
-  },
 
   summaryCard: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14,
-    padding: SP.xl, marginBottom: SP.lg,
+    padding: SP.xl, marginBottom: 32,
     boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06)',
   },
 
-  filterCard: {
-    background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14,
-    padding: 8, marginBottom: SP.lg, overflowX: 'auto',
-    boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06)',
+  // Two-column layout: filter sidebar on the left, mission content on the right.
+  layout: {
+    display: 'grid',
+    gridTemplateColumns: '288px minmax(0, 1fr)',
+    gap: SP.xl,
+    alignItems: 'start',
   },
-  filterRow: { display: 'flex', gap: 6, flexWrap: 'nowrap' },
+  sidebar: {
+    position: 'sticky' as const, top: 28,
+    background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14,
+    padding: 14,
+    boxShadow: '0 1px 2px rgba(15,23,42,0.03)',
+  },
+  main: { minWidth: 0 },
+  filterEyebrow: {
+    fontSize: 10, fontWeight: 700, color: C.muted,
+    textTransform: 'uppercase' as const, letterSpacing: '0.08em',
+    padding: '4px 8px 8px',
+  },
+  filterList: { display: 'flex', flexDirection: 'column' as const, gap: 2 },
+  sidebarDivider: {
+    height: 1, background: C.divider,
+    margin: '12px 4px',
+  },
+  toggleRow: {
+    display: 'flex', alignItems: 'center', gap: 12,
+    width: '100%', padding: '7px 10px', borderRadius: 8,
+    fontSize: 13, fontWeight: 500, color: C.textSub,
+    cursor: 'pointer', userSelect: 'none' as const,
+    transition: 'background 160ms ease',
+  },
+  toggleCheckbox: {
+    width: 15, height: 15, margin: 0, accentColor: C.primary,
+    cursor: 'pointer', flexShrink: 0,
+  },
   filterBtn: {
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '8px 14px', borderRadius: 10,
+    display: 'flex', alignItems: 'center', gap: 10,
+    width: '100%', padding: '8px 10px', borderRadius: 8,
     fontSize: 13, fontWeight: 600, cursor: 'pointer',
-    border: '1px solid transparent', whiteSpace: 'nowrap',
-    fontFamily: 'inherit',
+    border: '1px solid transparent',
+    fontFamily: 'inherit', textAlign: 'left' as const,
     transition: 'background 160ms ease, color 160ms ease, border-color 160ms ease',
   },
 
@@ -981,4 +1401,45 @@ const s: Record<string, React.CSSProperties> = {
     border: `1px solid ${C.cardBorder}`,
     cursor: 'pointer',
   },
+};
+
+// Mobile overrides — spread onto base styles via useIsMobile so the
+// layout reacts to live window resize instead of being frozen at
+// module-load time.
+const sMobile: Record<string, React.CSSProperties> = {
+  page: { padding: `${SP.lg}px ${SP.md}px ${SP.xxl}px` },
+  // minmax(0, 1fr) — not '1fr' — so the track can shrink below its
+  // children's intrinsic min-content. Without this, a wide child
+  // (e.g. a segmented progress bar with many cells) blows the grid
+  // track wider than the viewport.
+  layout: { gridTemplateColumns: 'minmax(0, 1fr)', gap: SP.lg },
+  // Strip card chrome on mobile — the filters sit directly on the page
+  // background so they feel like native top-of-screen controls.
+  sidebar: {
+    position: 'static', top: 'auto',
+    padding: 0,
+    background: 'transparent',
+    border: 'none',
+    boxShadow: 'none',
+    borderRadius: 0,
+  },
+  // Horizontal scrollable chip rail for the category list.
+  filterList: {
+    flexDirection: 'row',
+    overflowX: 'auto',
+    gap: 6,
+    paddingBottom: 4,
+    flexWrap: 'nowrap',
+  },
+  filterBtn: {
+    width: 'auto',
+    flexShrink: 0,
+    gap: 6,
+    padding: '6px 10px',
+    borderRadius: 999,
+    border: `1px solid ${C.cardBorder}`,
+    background: '#fff',
+    fontSize: 12,
+  },
+  sidebarDivider: { margin: '10px 0' },
 };

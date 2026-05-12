@@ -126,6 +126,9 @@ export interface Student {
   onboardingCompleted: boolean;
   withdrawnAt: string | null;
   withdrawReason: string | null;
+  /** RFID card identifier — taps on a physical reader create an
+   *  attendance row by looking up the student via this field. */
+  rfid: string | null;
   status: 'enrolled' | 'active' | 'graduated' | 'withdrawn';
   createdAt: string;
   siblings: { id: string; childName: string }[];
@@ -172,6 +175,12 @@ export interface AllowanceType {
   name: string;
   isDefault: boolean;
   sortOrder: number;
+  /** FontAwesome icon name (without `fa` prefix), e.g. "gauge-high" */
+  icon: string;
+  /** True = always paid (Guaranteed badge). False = conditional/confirmed-when-met. */
+  isGuaranteed: boolean;
+  /** Parent allowance type's id — null for top-level types. */
+  parentId: string | null;
 }
 
 export interface TeacherAllowance {

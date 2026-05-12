@@ -33,6 +33,8 @@ export interface TeacherMissionProgress {
   status: MissionStatus;
   evidenceCount: number;
   evidenceTotal: number;
+  /** True when the teacher has pinned this mission as a current focus. */
+  isTargeted: boolean;
   notes: string | null;
   startedAt: string | null;
   submittedAt: string | null;
@@ -139,5 +141,16 @@ export function upsertTeacherMissionProgress(
   return apiFetch<TeacherMissionProgress>(`/api/teachers/${teacherId}/missions/${missionId}/progress`, {
     method: 'PUT',
     body: JSON.stringify(payload),
+  });
+}
+
+export function setMissionTarget(
+  teacherId: string,
+  missionId: string,
+  isTargeted: boolean,
+) {
+  return apiFetch<TeacherMissionProgress>(`/api/teachers/${teacherId}/missions/${missionId}/target`, {
+    method: 'PUT',
+    body: JSON.stringify({ isTargeted }),
   });
 }

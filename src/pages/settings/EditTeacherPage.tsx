@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faCalendarDays, faBriefcase, faPlus, faTrash, faCoins, faPen, faStar, faArrowUp, faChevronLeft, faXmark, faRoad, faClipboardCheck } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faCalendarDays, faBriefcase, faPlus, faTrash, faCoins, faPen, faStar, faArrowUp, faChevronLeft, faRoad } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchTeachers, createTeacher, updateTeacher,
   fetchClassrooms, fetchSubjects,
@@ -51,11 +51,18 @@ function randomUnusedHexColor(usedColors: string[]): string {
   return randomHexColor();
 }
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-type Tab = 'personal' | 'operations' | 'career' | 'appraisal' | 'salary';
+type Tab = 'personal' | 'operations' | 'career' | 'salary';
 
 function minutesToTime(m: number): string {
   const h = Math.floor(m / 60), mm = m % 60, p = h >= 12 ? 'PM' : 'AM';
   return `${h === 0 ? 12 : h > 12 ? h - 12 : h}:${String(mm).padStart(2, '0')} ${p}`;
+}
+
+// Detect the system-managed Level Allowance row by name. The amount
+// for this row is auto-derived from the position+level matrix, not
+// editable per teacher.
+function isLevelAllowance(name: string): boolean {
+  return name.trim().toLowerCase() === 'level allowance';
 }
 
 export default function EditTeacherPage() {
@@ -101,7 +108,6 @@ export default function EditTeacherPage() {
   const [positionId, setPositionId] = useState<string>('');
   const [level, setLevel] = useState(0);
   const [allowanceDrafts, setAllowanceDrafts] = useState<Record<string, number>>({});
-  const [addedAllowIds, setAddedAllowIds] = useState<Set<string>>(new Set());
   const [allowanceSaving, setAllowanceSaving] = useState(false);
   const [salaryType, setSalaryType] = useState<'formula' | 'fixed' | 'hourly'>('formula');
   const [fixedSalaryAmount, setFixedSalaryAmount] = useState(0);
@@ -165,23 +171,42 @@ export default function EditTeacherPage() {
   useEffect(() => {
     if (teacherAllowanceData.length > 0) {
       const m: Record<string, number> = {};
-      const added = new Set<string>();
       for (const a of teacherAllowanceData) {
         m[a.allowanceTypeId] = a.amount;
-        added.add(a.allowanceTypeId);
       }
       setAllowanceDrafts(m);
-      setAddedAllowIds(added);
     }
   }, [teacherAllowanceData]);
 
   const getAmt = (typeId: string) => allowanceDrafts[typeId] ?? 0;
   const setAmt = (typeId: string, v: number) => setAllowanceDrafts(prev => ({ ...prev, [typeId]: v }));
 
-  // Visible = default types + types with existing data + manually added
-  const visibleAllowTypes = allowTypes.filter(at => at.isDefault || addedAllowIds.has(at.id));
-  const availableToAdd = allowTypes.filter(at => !at.isDefault && !addedAllowIds.has(at.id));
-  const totalAllowances = visibleAllowTypes.reduce((sum, at) => sum + getAmt(at.id), 0);
+  // Show every allowance type — admins can rename them but the set
+  // is fixed system-wide. Each row carries its own enable checkbox so
+  // a teacher with 0 KPI Allowance is explicitly opted out, not just
+  // a default-zero accident. If the DB doesn't yet have a Level
+  // Allowance row (server seed hasn't run), we synthesize one so the
+  // UI is consistent regardless of seed state. The "Level Allowance"
+  // row is skipped from totalAllowances because the level incentive
+  // is added separately in totalSalary (avoid double-counting).
+  const visibleAllowTypes = (() => {
+    const list: any[] = [...allowTypes];
+    const hasLevel = list.some(at => isLevelAllowance(at.name));
+    if (!hasLevel) {
+      list.push({
+        id: '__virtual_level_allowance__',
+        name: 'Level Allowance',
+        isDefault: true,
+        sortOrder: 99,
+        parentId: null,
+      });
+    }
+    return list.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  })();
+  const totalAllowances = visibleAllowTypes.reduce((sum, at) => {
+    if (isLevelAllowance(at.name)) return sum;
+    return sum + getAmt(at.id);
+  }, 0);
 
   const timeSlots = useMemo(() => { const slots: number[] = []; for (let m = 420; m <= 1080; m += 30) slots.push(m); return slots; }, []);
 
@@ -200,7 +225,13 @@ export default function EditTeacherPage() {
   };
 
   const saveAllowances = async (teacherId: string) => {
-    const entries = visibleAllowTypes.map(at => ({ allowanceTypeId: at.id, amount: getAmt(at.id) }));
+    // Exclude Level Allowance — its value is derived from the level
+    // incentive matrix and isn't stored as a TeacherAllowance row.
+    // Also skip the synthetic placeholder if the DB row doesn't exist
+    // yet (seed hasn't run).
+    const entries = visibleAllowTypes
+      .filter(at => !isLevelAllowance(at.name) && !String(at.id).startsWith('__virtual'))
+      .map(at => ({ allowanceTypeId: at.id, amount: getAmt(at.id) }));
     await upsertTeacherAllowances(teacherId, entries);
   };
 
@@ -371,7 +402,6 @@ export default function EditTeacherPage() {
     { key: 'personal', label: 'Personal', icon: faUser },
     { key: 'operations', label: 'Operations', icon: faCalendarDays },
     { key: 'career', label: 'Career', icon: faBriefcase },
-    { key: 'appraisal', label: 'Appraisal', icon: faClipboardCheck },
     { key: 'salary', label: 'Salary', icon: faCoins },
   ];
 
@@ -853,18 +883,6 @@ export default function EditTeacherPage() {
               </>
             )}
 
-            {/* ── Appraisal ── */}
-            {tab === 'appraisal' && (
-              isNew ? (
-                <div style={s.card}>
-                  <h2 style={{ ...s.sectionTitle, margin: 0, marginBottom: 8 }}>Monthly Appraisal</h2>
-                  <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>Save the teacher first, then record monthly appraisals.</p>
-                </div>
-              ) : (
-                <AppraisalTab teacherId={id!} />
-              )
-            )}
-
             {/* ── Salary ── */}
             {tab === 'salary' && (
               <>
@@ -898,55 +916,54 @@ export default function EditTeacherPage() {
                   </div>
                 )}
 
-                {/* Allowances */}
+                {/* Allowances — render top-level types as flat rows.
+                    Types that have children (e.g. Other Allowance) act
+                    as category sums: their input shows the total of
+                    all child amounts and is disabled. Children render
+                    indented under their parent. */}
                 <div style={s.card}>
                   <h2 style={s.sectionTitle}>Allowances</h2>
-                  {visibleAllowTypes.length === 0 && availableToAdd.length === 0 ? (
+                  {visibleAllowTypes.length === 0 ? (
                     <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>No allowance types configured. Add them in Settings &gt; Employee Salary.</p>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {visibleAllowTypes.map(at => (
-                        <div key={at.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                          <span style={{ fontSize: 13, color: C.sub, flex: 1 }}>{at.name}</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: 140 }}>
-                            <span style={{ fontSize: 12, color: C.muted }}>RM</span>
-                            <input style={{ ...s.input, textAlign: 'right', fontWeight: 600 }} type="text" inputMode="numeric"
-                              value={getAmt(at.id)} onChange={e => setAmt(at.id, Number(e.target.value.replace(/[^\d.]/g, '')))} />
-                          </div>
-                          {!at.isDefault ? (
-                            <button onClick={() => { setAddedAllowIds(prev => { const n = new Set(prev); n.delete(at.id); return n; }); setAmt(at.id, 0); }}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 11, padding: '4px 6px', borderRadius: 4, width: 24 }}
-                              title="Remove">
-                              <FontAwesomeIcon icon={faTrash} />
-                            </button>
-                          ) : getAmt(at.id) > 0 ? (
-                            <button onClick={() => setAmt(at.id, 0)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 13, padding: '4px 6px', borderRadius: 4, width: 24 }}
-                              title="Clear to 0">
-                              <FontAwesomeIcon icon={faXmark} />
-                            </button>
-                          ) : <span style={{ width: 24 }} />}
-                        </div>
-                      ))}
-                      {availableToAdd.length > 0 && (
-                        <div style={{ paddingTop: 6, borderTop: visibleAllowTypes.length > 0 ? '1px solid #f1f5f9' : 'none' }}>
-                          <select
-                            value=""
-                            onChange={e => {
-                              if (e.target.value) {
-                                setAddedAllowIds(prev => new Set(prev).add(e.target.value));
-                              }
-                            }}
-                            style={{ ...s.input, width: 'auto', fontSize: 12, color: C.muted, padding: '6px 10px' }}>
-                            <option value="">+ Add allowance...</option>
-                            {availableToAdd.map(at => <option key={at.id} value={at.id}>{at.name}</option>)}
-                          </select>
-                        </div>
-                      )}
+                      {visibleAllowTypes
+                        .filter(at => !at.parentId)
+                        .map(parent => {
+                          const children = visibleAllowTypes.filter(c => c.parentId === parent.id);
+                          const childrenSum = children.reduce((sum, c) => sum + getAmt(c.id), 0);
+                          return (
+                            <Fragment key={parent.id}>
+                              <AllowanceRow
+                                at={parent}
+                                amount={isLevelAllowance(parent.name) ? levelInc : (children.length > 0 ? childrenSum : getAmt(parent.id))}
+                                disabled={isLevelAllowance(parent.name) || children.length > 0}
+                                isLevel={isLevelAllowance(parent.name)}
+                                level={level}
+                                onChange={v => setAmt(parent.id, v)}
+                              />
+                              {children.map(child => (
+                                <div key={child.id} style={{
+                                  paddingLeft: 24,
+                                  borderLeft: `2px solid ${C.divider}`,
+                                  marginLeft: 8,
+                                }}>
+                                  <AllowanceRow
+                                    at={child}
+                                    amount={getAmt(child.id)}
+                                    disabled={false}
+                                    isLevel={false}
+                                    level={level}
+                                    onChange={v => setAmt(child.id, v)}
+                                  />
+                                </div>
+                              ))}
+                            </Fragment>
+                          );
+                        })}
                     </div>
                   )}
                 </div>
-
                 {/* Salary Breakdown */}
                 {totalSalary > 0 && (
                   <div style={s.card}>
@@ -1007,6 +1024,64 @@ function Row({ label, value }: { label: string; value: number }) {
   );
 }
 
+// One row in the EditTeacher allowances list. Shared between top-level
+// and nested children. `disabled` covers two cases: the Level Allowance
+// (auto from level matrix) and parent rows that show the sum of their
+// children (and therefore aren't directly editable).
+function AllowanceRow({
+  at, amount, disabled, isLevel, level, onChange,
+}: {
+  at: { id: string; name: string };
+  amount: number;
+  disabled: boolean;
+  isLevel: boolean;
+  level: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <span style={{ fontSize: 13, color: C.sub, flex: 1 }}>
+        {at.name}
+        {isLevel && (
+          <span style={{
+            marginLeft: 8, fontSize: 10, fontWeight: 600,
+            color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em',
+          }}>
+            Auto · Level {level}
+          </span>
+        )}
+        {disabled && !isLevel && (
+          <span style={{
+            marginLeft: 8, fontSize: 10, fontWeight: 600,
+            color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em',
+          }}>
+            Sum of sub-types
+          </span>
+        )}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: 140 }}>
+        <span style={{ fontSize: 12, color: C.muted }}>RM</span>
+        <input
+          style={{
+            ...s.input,
+            textAlign: 'right', fontWeight: 600,
+            background: disabled ? '#f1f5f9' : '#fff',
+            color: disabled ? C.muted : C.text,
+            cursor: disabled ? 'not-allowed' : 'text',
+          }}
+          type="text" inputMode="numeric"
+          disabled={disabled}
+          value={amount}
+          onChange={e => {
+            if (disabled) return;
+            onChange(Number(e.target.value.replace(/[^\d.]/g, '')));
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: '#1e293b' },
   inner: { maxWidth: 860, margin: '0 auto' },
@@ -1049,7 +1124,7 @@ function scoreColors(score: number): { bg: string; color: string } {
   return { bg: '#fee2e2', color: '#991b1b' };
 }
 
-function AppraisalTab({ teacherId }: { teacherId: string }) {
+export function AppraisalTab({ teacherId }: { teacherId: string }) {
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { confirm } = useDeleteDialog();

@@ -40,9 +40,19 @@ import MissionCategoriesPage from './pages/settings/MissionCategoriesPage.js';
 import TeachersPage from './pages/TeachersPage.js';
 import TeacherCareerPage from './pages/TeacherCareerPage.js';
 import TeacherMissionBoardPage from './pages/TeacherMissionBoardPage.js';
+import TeacherAppraisalPage from './pages/TeacherAppraisalPage.js';
+import TeacherCompensationPage from './pages/TeacherCompensationPage.js';
+import TeacherRewardsPage from './pages/TeacherRewardsPage.js';
+import TeacherRedeemCatalogPage from './pages/TeacherRedeemCatalogPage.js';
+import TeacherEarnPointsPage from './pages/TeacherEarnPointsPage.js';
+import TeacherRedeemedRewardPage from './pages/TeacherRedeemedRewardPage.js';
+import TeacherRewardDetailsPage from './pages/TeacherRewardDetailsPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
 import YearRolloverPage from './pages/settings/YearRolloverPage.js';
 import FinanceSettingsPage from './pages/FinanceSettingsPage.js';
+import CompensationSettingsPage from './pages/settings/CompensationSettingsPage.js';
+import PointsRewardsSettingsPage from './pages/settings/PointsRewardsSettingsPage.js';
+import PointsRewardsAddPage from './pages/settings/PointsRewardsAddPage.js';
 import SetupAccountPage from './pages/SetupAccountPage.js';
 import { APP_VERSION, LAST_UPDATED } from './version.js';
 
@@ -122,6 +132,16 @@ export default function App() {
           <Route path="/teachers/:id" element={<ErrorBoundary><EditTeacherPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/career" element={<ErrorBoundary><TeacherCareerPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/career/missions" element={<ErrorBoundary><TeacherMissionBoardPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/appraisal" element={<ErrorBoundary><TeacherAppraisalPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/compensation" element={<ErrorBoundary><TeacherCompensationPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/rewards" element={<ErrorBoundary><TeacherRewardsPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/rewards/catalog" element={<ErrorBoundary><TeacherRedeemCatalogPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/rewards/catalog/:rewardId" element={<ErrorBoundary><TeacherRewardDetailsPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/rewards/earn" element={<ErrorBoundary><TeacherEarnPointsPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/rewards/my/:redemptionId" element={<ErrorBoundary><TeacherRedeemedRewardPage /></ErrorBoundary>} />
+          <Route path="/settings/points-rewards" element={<ErrorBoundary><PointsRewardsSettingsPage /></ErrorBoundary>} />
+          <Route path="/settings/points-rewards/add/:kind" element={<ErrorBoundary><PointsRewardsAddPage /></ErrorBoundary>} />
+          <Route path="/settings/points-rewards/edit/:kind/:id" element={<ErrorBoundary><PointsRewardsAddPage /></ErrorBoundary>} />
           <Route path="/settings/employee-salary" element={<ErrorBoundary><EmployeeSalaryPage /></ErrorBoundary>} />
           <Route path="/settings/career-missions" element={<ErrorBoundary><CareerMissionSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/mission-categories" element={<ErrorBoundary><MissionCategoriesPage /></ErrorBoundary>} />
@@ -137,6 +157,7 @@ export default function App() {
           <Route path="/settings/operating-cost-main-categories" element={<ErrorBoundary><OperatingCostMainCategoriesPage /></ErrorBoundary>} />
           <Route path="/settings/operating-cost-categories" element={<ErrorBoundary><OperatingCostCategoriesPage /></ErrorBoundary>} />
           <Route path="/settings/finance" element={<ErrorBoundary><FinanceSettingsPage /></ErrorBoundary>} />
+          <Route path="/settings/compensation" element={<ErrorBoundary><CompensationSettingsPage /></ErrorBoundary>} />
           <Route path="/analysis/sales-marketing" element={<ErrorBoundary><SalesMarketingPage /></ErrorBoundary>} />
           <Route path="/analysis/sales" element={<ErrorBoundary><SalesAnalysisPage /></ErrorBoundary>} />
           <Route path="/analysis/revenue" element={<ErrorBoundary><RevenueAnalysisPage /></ErrorBoundary>} />

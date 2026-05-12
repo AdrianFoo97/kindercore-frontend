@@ -8,13 +8,15 @@ import {
   faClipboardCheck, faCalendarDays, faPeopleArrows, faStar, faRoad,
   faLightbulb, faMedal, faLock, faChevronRight, faTimes,
   faChartLine, faShieldHalved, faUserCheck, faTriangleExclamation,
-  faPlay, faRocket, faFlag, faCircleInfo, faXmark,
+  faPlay, faRocket, faFlag, faCircleInfo, faXmark, faThumbtack,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchTeacherCareer, upsertTeacherMissionProgress,
-  MissionWithProgress, MissionCategory, MissionStatus, TeacherCareerData,
+  MissionWithProgress, MissionCategory, MissionStatus, MissionDifficulty, TeacherCareerData,
 } from '../api/career-missions.js';
 import { useCategoryMeta } from '../utils/missionCategoryIcons.js';
+import { useMissionTargets } from '../hooks/useMissionTargets.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 import { uploadUrl } from '../api/upload.js';
 import { useToast } from '../components/common/Toast.js';
 
@@ -99,6 +101,10 @@ const CAPABILITY_DESCRIPTION: Record<MissionCategory, string> = {
   LEADERSHIP: 'Mentors and develops other teachers.',
 };
 
+const DIFFICULTY_LABEL: Record<MissionDifficulty, string> = {
+  BASIC: 'Quick', INTERMEDIATE: 'Medium', ADVANCED: 'Major',
+};
+
 // Estimated effort derived from difficulty + evidence count. Keeps the
 // teacher's mental model right when picking what to start next.
 function effortFor(m: MissionWithProgress): { label: string; hint: string } {
@@ -123,6 +129,7 @@ export default function TeacherCareerPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
+  const { isMobile } = useIsMobile();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['teacher-career', id],
@@ -131,6 +138,7 @@ export default function TeacherCareerPage() {
   });
 
   const [editingMission, setEditingMission] = useState<MissionWithProgress | null>(null);
+  const { isTargeted, toggle: toggleTarget } = useMissionTargets(id);
 
   // Sort missions: high-priority first, then required, then by display order.
   // Completed sink to the bottom. Computed unconditionally so React's hook
@@ -150,8 +158,9 @@ export default function TeacherCareerPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['teacher-career', id] });
 
-  if (isLoading) return <div style={s.page}><p style={{ padding: 40, color: C.mutedSoft }}>Loading…</p></div>;
-  if (isError || !data) return <div style={s.page}><p style={{ padding: 40, color: C.danger }}>Failed to load.</p></div>;
+  const pageStyle = { ...s.page, ...(isMobile ? sMobile.page : null) };
+  if (isLoading) return <div style={pageStyle}><p style={{ padding: 40, color: C.mutedSoft }}>Loading…</p></div>;
+  if (isError || !data) return <div style={pageStyle}><p style={{ padding: 40, color: C.danger }}>Failed to load.</p></div>;
 
   const { teacher, currentPosition, nextPosition, missions, missionPct } = data;
   // Defensive defaults — protect against a backend that hasn't been
@@ -184,7 +193,7 @@ export default function TeacherCareerPage() {
   // 4. Otherwise — normal hero + 2-column body
 
   return (
-    <div style={s.page}>
+    <div style={pageStyle}>
       <style>{`
         .tcp-card { transition: box-shadow 160ms cubic-bezier(0.4,0,0.2,1), border-color 160ms cubic-bezier(0.4,0,0.2,1); }
         .tcp-card:hover { box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 6px 18px rgba(15,23,42,0.05); border-color: ${C.cardBorderHover}; }
@@ -201,7 +210,7 @@ export default function TeacherCareerPage() {
       <div style={s.inner}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
           <button
-            onClick={() => navigate(`/teachers/${id}`)}
+            onClick={() => navigate('/teachers')}
             style={s.backBtn}
             className="tcp-back-btn"
             aria-label="Back"
@@ -235,6 +244,8 @@ export default function TeacherCareerPage() {
             teacherId={id!}
             teacherName={teacher.name}
             currentPosition={currentPosition.name}
+            currentLevel={teacher.level ?? null}
+            currentMaxLevel={currentPosition.maxLevel ?? null}
             nextPosition={nextPosition?.name ?? null}
             missionPct={missionPct}
             requiredCompleted={requiredCompleted}
@@ -252,10 +263,15 @@ export default function TeacherCareerPage() {
         {/* === Body — Current Targets on the left, Career Journey
             (vertical) on the right. Side-by-side so the user sees what
             to work on AND where they are in the ladder at the same time. */}
-        <div style={s.bodyGrid}>
+        <div style={{ ...s.bodyGrid, ...(isMobile ? sMobile.bodyGrid : null) }}>
           {(() => {
+          // "Current Targets" = the missions the teacher has explicitly
+          // pinned as their focus on the Mission Board. Independent of
+          // progress status, so a target can be Not Started, In Progress,
+          // or Awaiting Review. Stored client-side via localStorage —
+          // see useMissionTargets.
           const activeMissions = sortedMissions.filter(m =>
-            m.progress?.status === 'IN_PROGRESS' || m.progress?.status === 'UNDER_REVIEW'
+            isTargeted(m.id) && m.progress?.status !== 'COMPLETED'
           );
           const allMissionsLink = (
             <Link
@@ -269,7 +285,7 @@ export default function TeacherCareerPage() {
             </Link>
           );
           return (
-            <div style={s.card} className="tcp-card">
+            <div style={{ ...s.card, ...(isMobile ? sMobile.card : null) }} className="tcp-card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
                 <div>
                   <div style={s.cardTitle}>Current Targets</div>
@@ -277,7 +293,7 @@ export default function TeacherCareerPage() {
                       empty state below already explains the situation. */}
                   {currentPosition && isCurrentInLadder && activeMissions.length > 0 && (
                     <div style={s.cardSub}>
-                      {activeMissions.length} mission{activeMissions.length === 1 ? '' : 's'} in flight this cycle
+                      {activeMissions.length} target{activeMissions.length === 1 ? '' : 's'} pinned for this cycle
                     </div>
                   )}
                   {!currentPosition && (
@@ -334,7 +350,7 @@ export default function TeacherCareerPage() {
                     <FontAwesomeIcon icon={faLightbulb} />
                   </div>
                   <h4 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>
-                    No active targets
+                    No targets pinned yet
                   </h4>
                   <p style={{
                     margin: '0 0 4px', fontSize: 10, fontWeight: 700,
@@ -346,7 +362,7 @@ export default function TeacherCareerPage() {
                     margin: '0 auto 20px', maxWidth: 340,
                     fontSize: 13, color: C.muted, lineHeight: 1.6,
                   }}>
-                    Select 2–3 required missions to focus on this cycle.
+                    Pin 2–3 missions on the board to focus on this cycle.
                   </p>
                   <Link
                     to={`/teachers/${id}/career/missions`}
@@ -364,9 +380,18 @@ export default function TeacherCareerPage() {
                   </Link>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+                <div style={{
+                  display: 'grid', gap: 14,
+                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))',
+                }}>
                   {activeMissions.map(m => (
-                    <MissionCard key={m.id} mission={m} onEdit={() => setEditingMission(m)} />
+                    <MissionCard
+                      key={m.id}
+                      mission={m}
+                      onEdit={() => setEditingMission(m)}
+                      isTargeted={isTargeted(m.id)}
+                      onToggleTarget={() => toggleTarget(m.id)}
+                    />
                   ))}
                 </div>
               )}
@@ -379,9 +404,12 @@ export default function TeacherCareerPage() {
             <CareerJourneyVertical
               ladder={ladder}
               currentPositionId={currentPosition?.positionId ?? null}
+              currentLevel={teacher.level ?? null}
               nextPositionId={nextPosition?.positionId ?? null}
               nextPositionRequirements={nextPositionRequirements}
               isCurrentInLadder={isCurrentInLadder}
+              missionsCompleted={readiness.missions.completed}
+              missionsTotal={readiness.missions.total}
               missionPct={missionPct}
             />
           )}
@@ -414,7 +442,7 @@ export default function TeacherCareerPage() {
 
 function Breadcrumb({ id, teacherName }: { id: string; teacherName: string }) {
   return (
-    <div style={s.breadcrumb}>
+    <div style={{ ...s.breadcrumb, flexWrap: 'wrap', rowGap: 4, minWidth: 0 }}>
       <Link to="/teachers" style={s.crumbLink} className="tcp-crumb-link">Teachers</Link>
       <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
       <Link to={`/teachers/${id}`} style={s.crumbLink} className="tcp-crumb-link">{teacherName}</Link>
@@ -428,31 +456,38 @@ function Breadcrumb({ id, teacherName }: { id: string; teacherName: string }) {
 
 // Compute the overall promotion status from the 3 gates. Used in hero +
 // completion banner. Safety/SOP intentionally NOT in scoring per spec.
-type OverallStatus = 'NOT_READY' | 'READY_FOR_REVIEW' | 'APPROVED';
+// Only two pill states make sense on this page — once "approved" the
+// teacher is promoted and rendered against the *next* stage instead.
+// So the pill is always either "In Progress" (still working toward
+// the gates) or "Ready for Review" (all gates met, awaiting promotion).
+type OverallStatus = 'NOT_READY' | 'READY_FOR_REVIEW';
 function computeStatus(
   missionsMet: boolean,
   appraisalMet: boolean,
-  approvalApproved: boolean,
 ): OverallStatus {
-  if (missionsMet && appraisalMet && approvalApproved) return 'APPROVED';
-  if (missionsMet) return 'READY_FOR_REVIEW';
+  if (missionsMet && appraisalMet) return 'READY_FOR_REVIEW';
   return 'NOT_READY';
 }
 const STATUS_LABEL: Record<OverallStatus, { label: string; color: string; bg: string }> = {
-  NOT_READY:        { label: 'Not Ready',         color: C.danger,  bg: '#fef2f2' },
-  READY_FOR_REVIEW: { label: 'Ready for Review',  color: C.warning, bg: C.warningSoft },
-  APPROVED:         { label: 'Approved',          color: C.success, bg: C.successSoft },
+  // Amber for in-progress momentum; green for "all gates met, ready
+  // to be promoted" — the closest the teacher gets to a celebration
+  // on this page (the actual promotion bumps them to the next stage).
+  NOT_READY:        { label: 'In Progress',       color: C.warning, bg: C.warningSoft },
+  READY_FOR_REVIEW: { label: 'Ready for Review',  color: C.success, bg: C.successSoft },
 };
 
 function CareerHero({
   teacherId,
-  teacherName, currentPosition, nextPosition, missionPct,
+  teacherName, currentPosition, currentLevel, currentMaxLevel,
+  nextPosition, missionPct,
   requiredCompleted, requiredTotal, color, readiness, missions,
   stageNumber, totalStages, currentBadgeUrl,
 }: {
   teacherId: string;
   teacherName: string;
   currentPosition: string;
+  currentLevel: number | null;
+  currentMaxLevel: number | null;
   nextPosition: string | null;
   missionPct: number;
   requiredCompleted: number;
@@ -465,10 +500,10 @@ function CareerHero({
   totalStages: number;
   currentBadgeUrl: string | null;
 }) {
+  const { isMobile } = useIsMobile();
   const missionsMet = readiness.missions.met;
   const appraisalMet = readiness.appraisal.met;
-  const approvalApproved = readiness.supervisorApproval.approved;
-  const status = computeStatus(missionsMet, appraisalMet, approvalApproved);
+  const status = computeStatus(missionsMet, appraisalMet);
   const statusMeta = STATUS_LABEL[status];
 
   // Promotion checklist gates — short labels + tight values so each row
@@ -506,68 +541,88 @@ function CareerHero({
   const allMet = gates.every(g => g.met);
   const remainingGates = gates.filter(g => !g.met);
 
+  const badgeSize = isMobile ? 64 : 120;
+
   return (
-    <div style={s.hero}>
-      {/* Top row: identity on the left, status pill on the right.
-          The badge sits inside a subtle radial halo for a premium
-          "title page" feel — the teacher should look at this and know
-          "this is mine". */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
-          {currentBadgeUrl ? (
-            <img
-              src={uploadUrl(currentBadgeUrl)}
-              alt={currentPosition}
-              style={{
-                width: 88, height: 88, objectFit: 'contain', flexShrink: 0,
-                filter: 'drop-shadow(0 6px 14px rgba(15,23,42,0.18))',
-              }}
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          ) : (
-            <Avatar name={teacherName} color={color} />
-          )}
-          <div style={{ minWidth: 0 }}>
+    <div style={{ ...s.hero, ...(isMobile ? sMobile.hero : null) }}>
+      {/* Top row: badge on the left, identity stack on the right. The
+          status pill sits on the eyebrow line — frees the title to use
+          the full row width instead of being squeezed by the pill. */}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        gap: isMobile ? 12 : 18, minWidth: 0,
+        marginBottom: isMobile ? 16 : 22,
+      }}>
+        {currentBadgeUrl ? (
+          <img
+            src={uploadUrl(currentBadgeUrl)}
+            alt={currentPosition}
+            style={{
+              width: badgeSize, height: badgeSize, objectFit: 'contain', flexShrink: 0,
+              filter: 'drop-shadow(0 6px 14px rgba(15,23,42,0.18))',
+            }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : (
+          <Avatar name={teacherName} color={color} />
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 8, marginBottom: 4,
+          }}>
             <div style={{
               fontSize: 11, fontWeight: 700, color: C.muted,
               textTransform: 'uppercase', letterSpacing: '0.1em',
-              marginBottom: 4,
             }}>
               Career Path
             </div>
             <div style={{
-              fontSize: 28, fontWeight: 700, color: C.text,
-              letterSpacing: '-0.025em', lineHeight: 1.15,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: isMobile ? '3px 8px' : '4px 10px', borderRadius: 999, flexShrink: 0,
+              background: statusMeta.bg, border: `1px solid ${statusMeta.color}33`,
             }}>
-              {teacherName}&apos;s Journey
-            </div>
-            <div style={{
-              marginTop: 8, fontSize: 13, fontWeight: 500,
-              display: 'flex', alignItems: 'center', flexWrap: 'wrap',
-              lineHeight: 1.3, color: C.muted,
-            }}>
-              <span style={{ color: C.primary, fontWeight: 700 }}>{currentPosition}</span>
-              {nextPosition && (
-                <>
-                  <span style={{ margin: '0 8px', color: C.divider }}>•</span>
-                  <span style={{ color: C.muted }}>Next:&nbsp;</span>
-                  <span style={{ color: C.text, fontWeight: 600 }}>{nextPosition}</span>
-                </>
-              )}
+              <span style={{
+                width: 6, height: 6, borderRadius: 999, background: statusMeta.color,
+              }} />
+              <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: statusMeta.color }}>
+                {statusMeta.label}
+              </span>
             </div>
           </div>
-        </div>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          padding: '6px 12px', borderRadius: 999, flexShrink: 0,
-          background: statusMeta.bg, border: `1px solid ${statusMeta.color}33`,
-        }}>
-          <span style={{
-            width: 8, height: 8, borderRadius: 999, background: statusMeta.color,
-          }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: statusMeta.color }}>
-            {statusMeta.label}
-          </span>
+          <div style={{
+            fontSize: isMobile ? 20 : 28, fontWeight: 700, color: C.text,
+            letterSpacing: '-0.025em', lineHeight: 1.15,
+          }}>
+            {teacherName}&apos;s Journey
+          </div>
+          <div style={{
+            marginTop: 8, fontSize: 13, fontWeight: 500,
+            display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+            lineHeight: 1.3, color: C.muted,
+          }}>
+            <span style={{ color: C.primary, fontWeight: 700 }}>{currentPosition}</span>
+            {currentLevel != null && currentMaxLevel != null && currentMaxLevel > 0 && (
+              <span style={{
+                marginLeft: 8,
+                display: 'inline-flex', alignItems: 'center',
+                padding: '2px 8px', borderRadius: 999,
+                background: C.primarySoft, color: C.primary,
+                border: `1px solid ${C.primaryBorder}`,
+                fontSize: 11, fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
+              }}>
+                Lv {currentLevel}
+              </span>
+            )}
+            {nextPosition && (
+              <>
+                <span style={{ margin: '0 8px', color: C.divider }}>•</span>
+                <span style={{ color: C.muted }}>Next:&nbsp;</span>
+                <span style={{ color: C.text, fontWeight: 600 }}>{nextPosition}</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -575,7 +630,7 @@ function CareerHero({
           the right. Saves vertical space and lets the eye compare
           "where I am" against "what's left" at one glance. */}
       <div style={s.heroSection}>
-        <div style={s.heroBody}>
+        <div style={{ ...s.heroBody, ...(isMobile ? sMobile.heroBody : null) }}>
           {/* Left — mission progress */}
           <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             {/* Header — label on the left, big percentage on the right.
@@ -669,7 +724,7 @@ function CareerHero({
           </div>
 
           {/* Right — promotion requirements as a compact list */}
-          <div style={s.heroChecklistCol}>
+          <div style={{ ...s.heroChecklistCol, ...(isMobile ? sMobile.heroChecklistCol : null) }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
               <span style={s.heroLabel}>Promotion Requirements</span>
               <span style={{
@@ -705,6 +760,7 @@ function CareerHero({
 // complete missions in each category. Lives in the hero so the rewards
 // for clearing this stage are visible alongside the rules.
 function AchievementStrip({ missions }: { missions: MissionWithProgress[] }) {
+  const { isMobile } = useIsMobile();
   const { categories, getMeta } = useCategoryMeta();
   const byCategory = new Map<MissionCategory, { total: number; completed: number }>();
   for (const m of missions) {
@@ -746,7 +802,12 @@ function AchievementStrip({ missions }: { missions: MissionWithProgress[] }) {
     <div>
       <div style={{ ...s.heroLabel, marginBottom: SP.md }}>Achievements</div>
 
-      <div style={{ display: 'flex', gap: SP.lg, flexWrap: 'wrap' }}>
+      <div style={{
+        display: 'flex',
+        gap: isMobile ? SP.sm : SP.lg,
+        flexWrap: 'wrap',
+        justifyContent: isMobile ? 'center' : 'flex-start',
+      }}>
         {cats.map(({ category, total, completed }) => {
           const meta = getMeta(category);
           const identity = meta.achievementName;
@@ -781,7 +842,7 @@ function AchievementStrip({ missions }: { missions: MissionWithProgress[] }) {
           return (
             <div key={category} title={tip} style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center',
-              minWidth: 116, maxWidth: 140,
+              minWidth: isMobile ? 88 : 116, maxWidth: isMobile ? 110 : 140,
               opacity: earned ? 1 : 0.72,
               transition: TRANSITION,
             }}>
@@ -789,7 +850,7 @@ function AchievementStrip({ missions }: { missions: MissionWithProgress[] }) {
                   = full color ring; earned = partial fill arc; locked = gray. */}
               <div style={{
                 position: 'relative',
-                width: 64, height: 64, borderRadius: '50%',
+                width: isMobile ? 52 : 64, height: isMobile ? 52 : 64, borderRadius: '50%',
                 background: ringFill,
                 padding: 3, boxSizing: 'border-box',
                 marginBottom: SP.md,
@@ -808,7 +869,7 @@ function AchievementStrip({ missions }: { missions: MissionWithProgress[] }) {
                     ? `radial-gradient(circle at 30% 28%, color-mix(in srgb, ${meta.color} 18%, #fff) 0%, color-mix(in srgb, ${meta.color} 10%, #fff) 100%)`
                     : earned ? `color-mix(in srgb, ${meta.color} 12%, #fff)` : '#fff',
                   color: earned ? meta.color : C.mutedSoft,
-                  fontSize: 20,
+                  fontSize: isMobile ? 16 : 20,
                   boxShadow: mastered ? 'inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
                 }}>
                   <FontAwesomeIcon icon={meta.icon} />
@@ -859,6 +920,7 @@ function StageCompletionHero({ teacherName, positionName, nextPositionName, colo
   teacherName: string; positionName: string; nextPositionName: string | null; color: string;
   readiness: TeacherCareerData['readiness'];
 }) {
+  const { isMobile } = useIsMobile();
   // Stage-aware completion message — match the spec's exact phrasing
   // so each downstream state has a clear "what's next".
   const appraisalMet = readiness.appraisal.met;
@@ -872,7 +934,7 @@ function StageCompletionHero({ teacherName, positionName, nextPositionName, colo
       : 'Promotion requirements completed. Waiting for supervisor approval.';
 
   return (
-    <div style={{ ...s.hero, background: `linear-gradient(135deg, #fff 0%, ${C.successSoft} 100%)` }}>
+    <div style={{ ...s.hero, ...(isMobile ? sMobile.hero : null), background: `linear-gradient(135deg, #fff 0%, ${C.successSoft} 100%)` }}>
       <div style={s.heroLeft}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
           <Avatar name={teacherName} color={color} />
@@ -902,8 +964,9 @@ function StageCompletionHero({ teacherName, positionName, nextPositionName, colo
 }
 
 function FinalStageHero({ teacherName, positionName, color }: { teacherName: string; positionName: string; color: string }) {
+  const { isMobile } = useIsMobile();
   return (
-    <div style={{ ...s.hero, background: `linear-gradient(135deg, #fff 0%, ${C.warningSoft} 100%)` }}>
+    <div style={{ ...s.hero, ...(isMobile ? sMobile.hero : null), background: `linear-gradient(135deg, #fff 0%, ${C.warningSoft} 100%)` }}>
       <div style={s.heroLeft}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
           <Avatar name={teacherName} color={color} />
@@ -928,8 +991,9 @@ function FinalStageHero({ teacherName, positionName, color }: { teacherName: str
 }
 
 function NoPositionHero({ teacherName, color }: { teacherName: string; color: string }) {
+  const { isMobile } = useIsMobile();
   return (
-    <div style={{ ...s.hero, background: '#fff' }}>
+    <div style={{ ...s.hero, ...(isMobile ? sMobile.hero : null), background: '#fff' }}>
       <div style={s.heroLeft}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
           <Avatar name={teacherName} color={color} />
@@ -949,8 +1013,9 @@ function NoPositionHero({ teacherName, color }: { teacherName: string; color: st
 }
 
 function OffLadderHero({ teacherName, positionName, color }: { teacherName: string; positionName: string; color: string }) {
+  const { isMobile } = useIsMobile();
   return (
-    <div style={{ ...s.hero, background: '#fff' }}>
+    <div style={{ ...s.hero, ...(isMobile ? sMobile.hero : null), background: '#fff' }}>
       <div style={s.heroLeft}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
           <Avatar name={teacherName} color={color} />
@@ -1035,7 +1100,7 @@ function getStageStyle(state: StageState): StageStyleSet {
         badgeOpacity: 0.92,
         badgeFilter: 'drop-shadow(0 1px 2px rgba(15,23,42,0.06))',
         nameColor: C.text, nameWeight: 600, nameSize: 14,
-        stageNumColor: C.primary,
+        stageNumColor: C.muted,
         chip: { label: 'Next', bg: '#fff', color: C.primary, border: C.primaryBorder },
       };
     case 'locked':
@@ -1053,32 +1118,31 @@ function getStageStyle(state: StageState): StageStyleSet {
 }
 
 function CareerJourneyVertical({
-  ladder, currentPositionId, nextPositionId, isCurrentInLadder, missionPct,
+  ladder, currentPositionId, currentLevel, nextPositionId, isCurrentInLadder,
+  missionsCompleted, missionsTotal, missionPct,
 }: {
-  ladder: { positionId: string; name: string; titleWeight: number; badgeUrl?: string | null }[];
+  ladder: { positionId: string; name: string; titleWeight: number; maxLevel?: number; badgeUrl?: string | null }[];
   currentPositionId: string | null;
+  currentLevel: number | null;
   nextPositionId: string | null;
   nextPositionRequirements: string[];
   isCurrentInLadder: boolean;
+  missionsCompleted: number;
+  missionsTotal: number;
   missionPct: number;
 }) {
+  const { isMobile } = useIsMobile();
   if (ladder.length === 0) return null;
   const currentIdx = isCurrentInLadder ? ladder.findIndex(p => p.positionId === currentPositionId) : -1;
 
-  const ROW_HEIGHT = 72;
-  const DOT_SIZE = 28;
+  const ROW_HEIGHT = isMobile ? 88 : 120;
+  const DOT_SIZE = isMobile ? 24 : 28;
+  const BADGE_SLOT = isMobile ? 40 : 56;
 
   // Pixel-based rail math. Each row is ROW_HEIGHT tall and the dot sits at
   // the row's vertical centre, so the rail spans from the first dot centre
   // (y = ROW_HEIGHT/2) down to the last dot centre.
-  // Completed stages fill their full segment; the current stage's segment
-  // toward the next is filled proportionally to mission progress.
   const railLength = Math.max(0, (ladder.length - 1) * ROW_HEIGHT);
-  const completedSegments = currentIdx >= 0 ? currentIdx : 0;
-  const partialSegment = currentIdx >= 0 && currentIdx < ladder.length - 1
-    ? missionPct / 100
-    : 0;
-  const filledLength = Math.min(railLength, (completedSegments + partialSegment) * ROW_HEIGHT);
 
   const currentStage = currentIdx >= 0 ? ladder[currentIdx] : null;
   const nextStage = nextPositionId ? ladder.find(p => p.positionId === nextPositionId) ?? null : null;
@@ -1093,16 +1157,17 @@ function CareerJourneyVertical({
 
   // Fixed grid — guarantees every row's dot, badge, text, and pill
   // sit on the exact same vertical axes regardless of content length.
-  const ROW_GRID = `${DOT_SIZE}px 40px minmax(0, 1fr) auto`;
+  const ROW_GRID = `${DOT_SIZE}px ${BADGE_SLOT}px minmax(0, 1fr) auto`;
 
   return (
-    <div style={s.card} className="tcp-card">
+    <div style={{ ...s.card, ...(isMobile ? sMobile.card : null) }} className="tcp-card">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      {/* Milestone-first composition: current rank sits as the heading,
-          supporting line names the next milestone. We deliberately do
-          NOT show overall % completion — promotion is a slow, rewarding
-          journey and "40% complete" reads as discouraging.
-          The vertical timeline below carries the progress story instead. */}
+      {/* Three-tier composition:
+          1. Eyebrow — names the surface
+          2. Current rank (large) — the headline answer to "where am I?"
+          3. Stage / Level subtext + a dedicated Next Target callout
+          We deliberately don't show an overall % — promotion is slow and
+          discrete, the timeline below tells that story. */}
       <div style={{ marginBottom: SP.lg }}>
         <div style={{
           fontSize: 10, fontWeight: 700, color: C.muted,
@@ -1112,53 +1177,53 @@ function CareerJourneyVertical({
         </div>
         <div style={{
           marginTop: 4,
-          fontSize: 20, fontWeight: 800, color: C.text,
-          letterSpacing: '-0.022em', lineHeight: 1.15,
+          fontSize: isMobile ? 18 : 22, fontWeight: 800, color: C.text,
+          letterSpacing: '-0.025em', lineHeight: 1.15,
         }}>
           {currentStage ? currentStage.name : `${ladder.length} stage${ladder.length === 1 ? '' : 's'}`}
         </div>
-        <div style={{
-          marginTop: 6, fontSize: 12, fontWeight: 500, color: C.muted,
-          fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.005em',
-          display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
-        }}>
-          {currentIdx >= 0 ? (
-            <>
-              <span>
-                Stage <span style={{ color: C.text, fontWeight: 700 }}>{currentIdx + 1}</span> of {ladder.length}
-              </span>
-              {nextStage && (
-                <>
-                  <span style={{ color: C.divider }}>·</span>
-                  <span>
-                    Next:&nbsp;
-                    <span style={{ color: C.primary, fontWeight: 700 }}>{nextStage.name}</span>
-                  </span>
-                </>
-              )}
-            </>
-          ) : (
-            <>{ladder.length} stage{ladder.length === 1 ? '' : 's'}</>
-          )}
-        </div>
+        {currentIdx >= 0 ? (
+          <div style={{
+            marginTop: 6, fontSize: 12, fontWeight: 500, color: C.muted,
+            fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.005em',
+            display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
+          }}>
+            <span>
+              Stage <span style={{ color: C.text, fontWeight: 700 }}>{currentIdx + 1}</span> of {ladder.length}
+            </span>
+            {currentStage?.maxLevel != null && currentStage.maxLevel > 0 && currentLevel != null && (
+              <>
+                <span style={{ color: C.divider }}>·</span>
+                <span>
+                  Level <span style={{ color: C.text, fontWeight: 700 }}>{currentLevel}</span>
+                </span>
+              </>
+            )}
+          </div>
+        ) : (
+          <div style={{ marginTop: 6, fontSize: 12, fontWeight: 500, color: C.muted }}>
+            {ladder.length} stage{ladder.length === 1 ? '' : 's'}
+          </div>
+        )}
       </div>
 
       {/* ── Timeline ───────────────────────────────────────────────────── */}
       <div style={{ position: 'relative' }}>
-        {/* Current-stage tinted band — starts AFTER the dot column so
-            the timeline node and rail stay clean (no visual collision
-            between the dot's halo and the row tint). No border — just a
-            very faint primary fill so it reads as "highlighted area",
-            not "selected menu item". */}
+        {/* Current-stage card — softly framed background with a blue
+            left accent and gentle glow so the active rank reads as the
+            single strongest focus on the page (without shouting). Stops
+            short of the timeline column so the rail/node stay clean. */}
         {currentIdx >= 0 && (
           <div style={{
             position: 'absolute',
-            top: currentIdx * ROW_HEIGHT + 6,
-            left: DOT_SIZE + SP.md,
-            right: -SP.sm,
-            height: ROW_HEIGHT - 12,
-            background: `${C.primary}0a`,
-            borderRadius: 10,
+            top: currentIdx * ROW_HEIGHT + 4,
+            left: DOT_SIZE + 12,
+            right: 0,
+            height: ROW_HEIGHT - 8,
+            background: `linear-gradient(135deg, ${C.primary}0c, ${C.primary}04)`,
+            border: `1px solid ${C.primary}26`,
+            borderRadius: 14,
+            boxShadow: `0 1px 2px ${C.primary}0d, 0 2px 8px ${C.primary}08`,
             zIndex: 0,
             pointerEvents: 'none',
           }} />
@@ -1173,27 +1238,122 @@ function CareerJourneyVertical({
           background: C.divider, borderRadius: 999,
           zIndex: 1,
         }} />
-        {/* Filled rail — pixel-exact so partial mission progress shows
-            a proportional fill between current and next dot. */}
-        <div style={{
-          position: 'absolute',
-          left: DOT_SIZE / 2 - 1,
-          top: ROW_HEIGHT / 2,
-          width: 2, height: filledLength,
-          background: C.success, borderRadius: 999,
-          zIndex: 1,
-          transition: 'height 600ms cubic-bezier(0.4, 0, 0.2, 1)',
-        }} />
+        {/* Completed rail — green, covers the segments leading up to the
+            current stage (these are stages the teacher has already
+            graduated from). */}
+        {currentIdx > 0 && (
+          <div style={{
+            position: 'absolute',
+            left: DOT_SIZE / 2 - 1,
+            top: ROW_HEIGHT / 2,
+            width: 2, height: currentIdx * ROW_HEIGHT,
+            background: C.success, borderRadius: 999,
+            zIndex: 1,
+          }} />
+        )}
+        {/* Current rail — blue, only as long as the chain of reached
+            (blue) beads. Beyond the last reached bead the rail stays
+            grey, so the line is only blue where it touches a coloured
+            small dot. */}
+        {(() => {
+          if (!(currentIdx >= 0 && currentIdx < ladder.length - 1)) return null;
+          const stage = ladder[currentIdx];
+          const maxLv = stage.maxLevel ?? 0;
+          const reachedLv = currentLevel ?? 0;
+          if (maxLv <= 0 || reachedLv <= 0) return null;
+          const BIG_R = DOT_SIZE / 2;
+          const SMALL_R = 5;
+          const railSpan = ROW_HEIGHT - 2 * BIG_R;
+          const beadsHeight = 2 * SMALL_R * maxLv;
+          const edgeGap = (railSpan - beadsHeight) / (maxLv + 1);
+          const reachedClamped = Math.min(reachedLv, maxLv);
+          // Extend through every reached bead AND the rail bit just
+          // below it, stopping at the *top* edge of the first grey
+          // bead. When all levels are reached this lands on the next
+          // big dot's top edge — both cases use the same formula.
+          const blueHeight = BIG_R + edgeGap
+            + reachedClamped * (2 * SMALL_R + edgeGap);
+          return (
+            <div style={{
+              position: 'absolute',
+              left: DOT_SIZE / 2 - 1,
+              top: currentIdx * ROW_HEIGHT + ROW_HEIGHT / 2,
+              width: 2, height: blueHeight,
+              background: C.primary, borderRadius: 999,
+              zIndex: 1,
+            }} />
+          );
+        })()}
+
+        {/* Level dots — small beads on the rail between consecutive stage
+            dots, one per level of the upper position. Reached levels are
+            filled (green for past stages, blue for active stage);
+            unreached beads are flat grey, no outline. */}
+        {ladder.slice(0, ladder.length - 1).flatMap((stage, i) => {
+          const maxLv = stage.maxLevel ?? 0;
+          if (maxLv <= 0) return [];
+          const isCurrentSegment = i === currentIdx;
+          const filledLv = currentIdx >= 0 && i < currentIdx
+            ? maxLv
+            : (isCurrentSegment && currentLevel != null ? currentLevel : 0);
+
+          // Equal *edge-to-edge* gaps so the visible whitespace between
+          // big↔small, small↔small, and small↔next-big all looks identical.
+          const SMALL_R = 5; // 10px small dot
+          const BIG_R = DOT_SIZE / 2;
+          const railSpan = ROW_HEIGHT - 2 * BIG_R;
+          const beadsHeight = 2 * SMALL_R * maxLv;
+          const edgeGap = (railSpan - beadsHeight) / (maxLv + 1);
+          const topBigDotEdge = i * ROW_HEIGHT + ROW_HEIGHT / 2 + BIG_R;
+
+          const isCompletedSegment = currentIdx >= 0 && i < currentIdx;
+
+          // Future-segment beads recede — lighter fill so they don't
+          // compete with the active path or the completed chain.
+          const isFutureSegment = !isCurrentSegment && !isCompletedSegment;
+
+          return Array.from({ length: maxLv }).map((_, k) => {
+            const y = topBigDotEdge + edgeGap + SMALL_R + k * (2 * SMALL_R + edgeGap);
+            const reached = k < filledLv;
+            let bg: string;
+            let halo = 'none';
+            if (reached) {
+              const color = isCompletedSegment ? C.success : C.primary;
+              bg = color;
+              halo = `0 0 0 2px ${color}33`;
+            } else {
+              bg = isFutureSegment ? '#e2e8f0' : '#cbd5e1';
+            }
+            return (
+              <span
+                key={`lv-${i}-${k}`}
+                style={{
+                  position: 'absolute',
+                  top: y - SMALL_R, left: DOT_SIZE / 2 - SMALL_R,
+                  width: SMALL_R * 2, height: SMALL_R * 2, borderRadius: 999,
+                  background: bg,
+                  border: 'none',
+                  boxSizing: 'border-box',
+                  boxShadow: halo,
+                  zIndex: 2,
+                  transition: 'background 200ms ease, box-shadow 200ms ease',
+                }}
+              />
+            );
+          });
+        })}
 
         {ladder.map((p, i) => {
           const state = stateFor(i, p);
           const style = getStageStyle(state);
+          const isCurrent = state === 'current';
 
           return (
             <div key={p.positionId} style={{
               display: 'grid',
               gridTemplateColumns: ROW_GRID,
-              alignItems: 'center', gap: SP.md,
+              alignItems: 'center',
+              gap: isMobile ? SP.sm : (isCurrent ? SP.xl : SP.md),
               minHeight: ROW_HEIGHT, position: 'relative',
               transition: TRANSITION,
             }}>
@@ -1228,11 +1388,13 @@ function CareerJourneyVertical({
                 )}
               </div>
 
-              {/* Column 2 — Badge slot, fixed 40px so every row aligns. */}
+              {/* Column 2 — Badge slot, fixed 56px so every row aligns.
+                  Sits between the timeline node and the current card —
+                  so it's literally "right beside" the big blue dot. */}
               <div style={{
-                width: 40, height: 40,
+                width: BADGE_SLOT, height: BADGE_SLOT,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                position: 'relative', zIndex: 1,
+                position: 'relative', zIndex: 2,
               }}>
                 {p.badgeUrl && (
                   <img
@@ -1249,45 +1411,104 @@ function CareerJourneyVertical({
                 )}
               </div>
 
-              {/* Column 3 — Text block. Rank name primary, stage
-                  number secondary. Min-width 0 lets the column truncate
-                  cleanly when names are long. */}
-              <div style={{ minWidth: 0, position: 'relative', zIndex: 1 }}>
+              {/* Column 3 — Text block. For non-current rows: name +
+                  stage label. For the current row: name + level + a
+                  small mission progress bar so the active rank carries
+                  the most information density. */}
+              <div style={{
+                minWidth: 0, position: 'relative', zIndex: 1,
+              }}>
+                {/* Title row — for the current stage we put "Level N"
+                    on the same baseline as the rank name so the eye
+                    catches the level without dropping a line. */}
                 <div style={{
-                  fontSize: style.nameSize,
-                  fontWeight: style.nameWeight,
-                  color: style.nameColor,
-                  letterSpacing: '-0.015em',
-                  lineHeight: 1.2,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  display: 'flex', alignItems: 'baseline', gap: 10,
+                  minWidth: 0,
                 }}>
-                  {p.name}
+                  <span style={{
+                    fontSize: state === 'current' ? 16 : style.nameSize,
+                    fontWeight: state === 'current' ? 800 : style.nameWeight,
+                    color: style.nameColor,
+                    letterSpacing: '-0.018em',
+                    lineHeight: 1.2,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    minWidth: 0,
+                  }}>
+                    {p.name}
+                  </span>
+                  {state === 'current' && p.maxLevel != null && p.maxLevel > 0 && currentLevel != null && (
+                    <span style={{
+                      fontSize: 12, fontWeight: 600,
+                      color: C.primary,
+                      fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.005em',
+                      flexShrink: 0,
+                    }}>
+                      Level {currentLevel}
+                    </span>
+                  )}
                 </div>
-                <div style={{
-                  marginTop: 3,
-                  fontSize: 9, fontWeight: 700,
-                  color: style.stageNumColor,
-                  textTransform: 'uppercase', letterSpacing: '0.08em',
-                  fontVariantNumeric: 'tabular-nums',
-                }}>
-                  Stage {i + 1}
-                </div>
+                {state !== 'current' && (
+                  <div style={{
+                    marginTop: 3,
+                    fontSize: 9, fontWeight: 700,
+                    color: style.stageNumColor,
+                    textTransform: 'uppercase', letterSpacing: '0.08em',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    Stage {i + 1}
+                  </div>
+                )}
+                {state === 'current' && p.maxLevel != null && p.maxLevel > 0 && currentLevel != null && (
+                  <div style={{
+                    marginTop: 10,
+                    display: 'flex', gap: 4,
+                  }}>
+                    {Array.from({ length: p.maxLevel }).map((_, i) => {
+                      const filled = i < currentLevel;
+                      const atMax = currentLevel >= p.maxLevel;
+                      return (
+                        <div key={i} style={{
+                          flex: 1, height: 8, borderRadius: 999,
+                          background: filled ? (atMax ? C.success : C.primary) : C.divider,
+                          transition: 'background 300ms ease',
+                        }} />
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              {/* Column 4 — Status pill, always far right. Empty cell
-                  for completed/locked rows preserves grid alignment. */}
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                {style.chip && (
+              {/* Column 4 — Status pill. Current = solid primary fill
+                  (strongest), Next Target = soft primary outline (visible
+                  but subordinate to current). Empty for other rows. */}
+              <div style={{
+                position: 'relative', zIndex: 1,
+                marginRight: state === 'current' ? 12 : 0,
+              }}>
+                {state === 'current' && (
                   <span style={{
                     display: 'inline-flex', alignItems: 'center',
-                    padding: '1px 7px', height: 18,
-                    fontSize: 9, fontWeight: 700,
-                    background: style.chip.bg, color: style.chip.color,
-                    border: `1px solid ${style.chip.border}`,
+                    padding: '0 10px', height: 20,
+                    fontSize: 9, fontWeight: 800,
+                    background: C.primary, color: '#fff',
+                    border: `1px solid ${C.primary}`,
                     borderRadius: 999,
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    textTransform: 'uppercase', letterSpacing: '0.08em',
                     whiteSpace: 'nowrap',
-                  }}>{style.chip.label}</span>
+                    boxShadow: `0 1px 2px ${C.primary}26`,
+                  }}>Current</span>
+                )}
+                {state === 'next' && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    padding: '0 10px', height: 20,
+                    fontSize: 9, fontWeight: 700,
+                    background: C.primarySoft, color: C.primary,
+                    border: `1px solid ${C.primaryBorder}`,
+                    borderRadius: 999,
+                    textTransform: 'uppercase', letterSpacing: '0.08em',
+                    whiteSpace: 'nowrap',
+                  }}>Next Target</span>
                 )}
               </div>
             </div>
@@ -1443,97 +1664,212 @@ function CareerJourneyMap({
 
 // ── Mission Card ─────────────────────────────────────────────────────────────
 
-export function MissionCard({ mission, onEdit }: { mission: MissionWithProgress; onEdit: () => void }) {
+export function MissionCard({
+  mission, onEdit, isTargeted, onToggleTarget,
+}: {
+  mission: MissionWithProgress;
+  onEdit: () => void;
+  isTargeted: boolean;
+  onToggleTarget: () => void;
+}) {
   const { getMeta } = useCategoryMeta();
   const cat = getMeta(mission.category);
   const status = mission.progress?.status ?? 'PENDING';
   const statusMeta = STATUS_META[status];
-  const evidenceTotal = mission.progress?.evidenceTotal ?? 0;
-  const evidenceCount = mission.progress?.evidenceCount ?? 0;
-  const evidencePct = evidenceTotal > 0 ? Math.min(100, Math.round((evidenceCount / evidenceTotal) * 100)) : 0;
   const isCompleted = status === 'COMPLETED';
   const isOptional = !mission.required;
-  const opacity = isCompleted ? 0.85 : isOptional ? 0.92 : 1;
   const effort = effortFor(mission);
+
+  // Card chrome — required keeps the standard white card; optional steps
+  // back to a soft fill + lighter border so the eye trusts the priority
+  // order. Mirrors BoardMissionCard so both surfaces look identical.
+  const cardBg = isCompleted ? '#fafbfc' : (isOptional ? '#fafbfc' : '#fff');
+  const cardBorder = isCompleted ? '#e9ecf1' : (isOptional ? '#e9ecf1' : '#eceef2');
+  const cardShadow = isCompleted || isOptional
+    ? 'none'
+    : '0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06)';
+
+  // Mission-priority pill — context-aware label. `MissionCard` is only
+  // rendered for missions on the teacher's current position, so the
+  // "for-future-position" branch never applies here.
+  const requiredPill = mission.required
+    ? { bg: C.dangerSoft, color: C.danger, label: 'Required' }
+    : { bg: '#f1f5f9', color: C.muted, label: 'Optional' };
+
+  // Always render a progress bar so every card carries the same baseline
+  // visual rhythm. Completed reads as fully filled even when count was
+  // never logged. Pinned cards use the saturated fill so the focus list
+  // visibly carries more weight than browse cards.
+  const evidenceTotal = Math.max(1, mission.progress?.evidenceTotal ?? 1);
+  const rawCount = mission.progress?.evidenceCount ?? 0;
+  const filledCount = isCompleted ? evidenceTotal : rawCount;
+  const fillColor = isTargeted
+    ? (isCompleted ? C.success : status === 'UNDER_REVIEW' ? C.warning : C.primary)
+    : (isCompleted ? C.successBorder : status === 'UNDER_REVIEW' ? C.warningBorder : C.primaryBorder);
 
   return (
     <div style={{
-      ...s.missionCard,
-      borderColor: isCompleted ? C.success : mission.required ? C.cardBorder : '#e2e8f0',
-      borderStyle: isOptional ? 'dashed' : 'solid',
-      background: isCompleted ? C.successSoft : '#fff',
-      opacity,
+      display: 'flex', flexDirection: 'column', gap: 12,
+      padding: 16,
+      background: cardBg,
+      border: `1px solid ${cardBorder}`,
+      borderRadius: 14,
+      boxShadow: cardShadow,
+      opacity: isCompleted ? 0.65 : 1,
+      transition: 'box-shadow 200ms ease, transform 200ms ease, opacity 200ms ease',
     }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
-        <div style={{ ...s.missionCatIcon, background: cat.bg, color: cat.color }}>
+      {/* Header — icon + title + Priority/Required + pin */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: cat.bg, color: cat.color, fontSize: 15,
+        }}>
           <FontAwesomeIcon icon={cat.icon} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, lineHeight: 1.3 }}>{mission.title}</div>
-          <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-            {mission.highPriority && (
-              <span style={{ ...s.missionPill, background: '#fef3c7', color: '#92400e' }}>★ Priority</span>
-            )}
-            <span style={{
-              ...s.missionPill,
-              background: mission.required ? C.dangerSoft : '#f1f5f9',
-              color: mission.required ? C.danger : C.muted,
-            }}>{mission.required ? 'Required' : 'Optional'}</span>
-            <span style={{ ...s.missionPill, background: cat.bg, color: cat.color }}>{cat.label}</span>
-            <span
-              title={`Effort: ${effort.hint}`}
-              style={{ ...s.missionPill, background: '#f1f5f9', color: C.muted, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
-              <FontAwesomeIcon icon={faClock} style={{ fontSize: 9 }} />
-              {effort.label} · {effort.hint}
-            </span>
+          <div style={{
+            fontSize: 15, fontWeight: 700, color: C.text,
+            letterSpacing: '-0.012em', lineHeight: 1.3,
+          }}>
+            {mission.title}
           </div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {mission.highPriority && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '2px 8px', height: 22, borderRadius: 999,
+              fontSize: 10, fontWeight: 700,
+              background: '#fffbeb', color: '#d97706',
+              border: '1px solid #fde68a',
+            }}>
+              <FontAwesomeIcon icon={faStar} style={{ fontSize: 9 }} />
+              Priority
+            </span>
+          )}
+          <span style={{
+            display: 'inline-flex', alignItems: 'center',
+            padding: '2px 9px', height: 22, borderRadius: 999,
+            fontSize: 10, fontWeight: 700,
+            background: requiredPill.bg, color: requiredPill.color,
+            textTransform: 'uppercase', letterSpacing: '0.05em',
+          }}>
+            {requiredPill.label}
+          </span>
+          <button
+            type="button"
+            onClick={onToggleTarget}
+            title={isTargeted ? 'Remove from Current Targets' : 'Pin to Current Targets'}
+            aria-pressed={isTargeted}
+            style={{
+              width: 24, height: 24, borderRadius: 6,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: isTargeted ? C.primarySoft : 'transparent',
+              color: isTargeted ? C.primary : C.mutedSoft,
+              border: `1px solid ${isTargeted ? C.primaryBorder : 'transparent'}`,
+              cursor: 'pointer', padding: 0, fontFamily: 'inherit',
+              transition: 'background 160ms ease, color 160ms ease, border-color 160ms ease',
+            }}
+          >
+            <FontAwesomeIcon
+              icon={faThumbtack}
+              style={{
+                fontSize: 11,
+                transform: isTargeted ? 'rotate(0deg)' : 'rotate(45deg)',
+                transition: 'transform 200ms ease',
+              }}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Metadata row — category · difficulty · duration */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        fontSize: 12, fontWeight: 500, color: C.muted,
+      }}>
+        <span style={{ color: cat.color, fontWeight: 600 }}>{cat.label}</span>
+        <span style={{ color: C.divider }}>·</span>
+        <span>{effort.label}</span>
+        <span style={{ color: C.divider }}>·</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <FontAwesomeIcon icon={faClock} style={{ fontSize: 10 }} />
+          {effort.hint}
+        </span>
       </div>
 
       {/* Description */}
       {mission.description && (
-        <p style={s.missionCardDesc}>{mission.description}</p>
+        <p style={{
+          margin: '4px 0 0', fontSize: 13, fontWeight: 400, color: C.textSub,
+          lineHeight: 1.6,
+        }}>
+          {mission.description}
+        </p>
       )}
 
-      {/* Why it matters */}
-      {mission.whyItMatters && (
-        <div style={s.whyMatters}>
-          <FontAwesomeIcon icon={faCircleInfo} style={{ fontSize: 11, color: C.primary, marginRight: 6 }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: C.primary, marginRight: 4 }}>Why this matters</span>
-          <span style={{ fontSize: 12, color: C.textSub, lineHeight: 1.5, display: 'block', marginTop: 4 }}>
-            {mission.whyItMatters}
-          </span>
+      {/* Progress bar — always shown, soft fill colour to stay
+          informational not loud. */}
+      <div style={{ marginTop: 'auto' }}>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {Array.from({ length: evidenceTotal }).map((_, i) => {
+            const filled = i < filledCount;
+            return (
+              <div key={i} style={{
+                flex: 1, height: 4, borderRadius: 999,
+                background: filled ? fillColor : C.divider,
+                transition: 'background 300ms ease',
+              }} />
+            );
+          })}
         </div>
-      )}
-
-      {/* Evidence progress */}
-      {evidenceTotal > 0 && (
-        <div style={{ marginBottom: 10, marginTop: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.muted, marginBottom: 4 }}>
-            <span>Evidence</span>
-            <span style={{ fontWeight: 600 }}>{evidenceCount} / {evidenceTotal} submitted</span>
-          </div>
-          <div style={s.miniTrack}>
-            <div style={{ ...s.miniFill, width: `${evidencePct}%`, background: isCompleted ? C.success : C.primary }} />
-          </div>
+        <div style={{
+          marginTop: 6,
+          fontSize: 11, fontWeight: 500,
+          color: C.mutedSoft,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          <span style={{ color: C.muted, fontWeight: 600 }}>{filledCount}</span>
+          <span> / {evidenceTotal}</span>
+          <span style={{ marginLeft: 4 }}>logged</span>
         </div>
-      )}
+      </div>
 
-      {/* Footer: status + CTA */}
-      <div style={s.missionFooter}>
-        <span style={{ ...s.statusPill, background: statusMeta.bg, color: statusMeta.color }}>
-          <FontAwesomeIcon icon={statusMeta.icon} style={{ marginRight: 5, fontSize: 10 }} />
+      {/* Footer — status pill on the left, CTA on the right */}
+      <div style={{
+        marginTop: 12,
+        paddingTop: 12,
+        borderTop: `1px solid ${C.divider}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+      }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '4px 10px', height: 24, borderRadius: 999,
+          fontSize: 11, fontWeight: 600,
+          background: statusMeta.bg, color: statusMeta.color,
+          flexShrink: 0,
+        }}>
+          <FontAwesomeIcon icon={statusMeta.icon} style={{ fontSize: 10 }} />
           {statusMeta.label}
         </span>
-        <button onClick={onEdit} style={{
-          ...s.missionAction,
-          background: isCompleted ? '#fff' : C.primary,
-          color: isCompleted ? C.primary : '#fff',
-          border: isCompleted ? `1px solid ${C.primaryBorder}` : 'none',
-        }}>
-          {status === 'PENDING' && <FontAwesomeIcon icon={faPlay} style={{ marginRight: 5, fontSize: 10 }} />}
+        <button
+          onClick={onEdit}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            height: 32, padding: '0 14px', borderRadius: 8,
+            fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+            background: isCompleted ? '#fff' : C.primary,
+            color: isCompleted ? C.success : '#fff',
+            border: isCompleted ? `1px solid ${C.successBorder}` : 'none',
+            cursor: 'pointer',
+            boxShadow: isCompleted ? 'none' : `0 1px 2px ${C.primary}40`,
+            transition: 'background 160ms ease, box-shadow 160ms ease',
+          }}
+        >
+          {status === 'PENDING' && (
+            <FontAwesomeIcon icon={faPlay} style={{ fontSize: 9, marginRight: 6 }} />
+          )}
           {statusMeta.cta}
         </button>
       </div>
@@ -1715,10 +2051,13 @@ export function MissionDetailModal({
   onClose: () => void;
   onSave: (status: MissionStatus, evidenceCount: number, evidenceTotal: number, notes: string | null) => Promise<void>;
 }) {
+  const { isMobile } = useIsMobile();
   const { getMeta } = useCategoryMeta();
   const [status, setStatus] = useState<MissionStatus>(mission.progress?.status ?? 'PENDING');
   const [evidenceCount, setEvidenceCount] = useState(mission.progress?.evidenceCount ?? 0);
-  const [evidenceTotal, setEvidenceTotal] = useState(mission.progress?.evidenceTotal ?? 0);
+  const [evidenceTotal, setEvidenceTotal] = useState(
+    Math.max(1, mission.progress?.evidenceTotal ?? 1),
+  );
   const [notes, setNotes] = useState(mission.progress?.notes ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -1734,30 +2073,85 @@ export function MissionDetailModal({
   const submit = async () => {
     setSaving(true);
     try {
-      await onSave(status, evidenceCount, evidenceTotal, notes.trim() || null);
+      // Coherence guard for the two contradictions:
+      //   • Not Started + count > 0  → promote to In Progress
+      //   • In Progress + count = 0  → revert to Not Started
+      // (only when the mission tracks evidence). UNDER_REVIEW and
+      // COMPLETED are never auto-touched — those are deliberate forward
+      // transitions.
+      let safeStatus: MissionStatus = status;
+      if (safeStatus === 'PENDING' && evidenceCount > 0) safeStatus = 'IN_PROGRESS';
+      else if (safeStatus === 'IN_PROGRESS' && evidenceCount === 0 && evidenceTotal > 0) safeStatus = 'PENDING';
+      await onSave(safeStatus, evidenceCount, evidenceTotal, notes.trim() || null);
     } finally {
       setSaving(false);
     }
   };
 
+  const dialogStyle: React.CSSProperties = isMobile
+    ? { ...mdS.dialog, maxHeight: 'calc(100vh - 16px)', borderRadius: 12 }
+    : mdS.dialog;
+  const overlayStyle: React.CSSProperties = isMobile
+    ? { ...mdS.overlay, padding: 8, alignItems: 'flex-end' }
+    : mdS.overlay;
+  const headerStyle: React.CSSProperties = isMobile
+    ? { ...mdS.header, padding: '14px 16px 12px' }
+    : mdS.header;
+  const bodyStyle: React.CSSProperties = isMobile
+    ? { ...mdS.body, padding: '14px 16px' }
+    : mdS.body;
+  const footerStyle: React.CSSProperties = isMobile
+    ? { ...mdS.footer, padding: '12px 16px 16px' }
+    : mdS.footer;
+
   return ReactDOM.createPortal(
-    <div style={mdS.overlay} onClick={onClose}>
-      <div style={mdS.dialog} onClick={e => e.stopPropagation()}>
-        <div style={mdS.header}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={dialogStyle} onClick={e => e.stopPropagation()}>
+        <div style={headerStyle}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', minWidth: 0, flex: 1 }}>
             <div style={{
               width: 40, height: 40, borderRadius: 10, display: 'flex',
               alignItems: 'center', justifyContent: 'center',
-              background: cat.bg, color: cat.color, fontSize: 16,
+              background: cat.bg, color: cat.color, fontSize: 16, flexShrink: 0,
             }}>
               <FontAwesomeIcon icon={cat.icon} />
             </div>
-            <div>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <h2 style={mdS.title}>{mission.title}</h2>
-              <div style={mdS.subtitle}>
-                {cat.label} · {mission.difficulty.toLowerCase()}
-                {mission.required && <span style={{ marginLeft: 6, color: C.danger, fontWeight: 700 }}>· Required</span>}
-                {mission.highPriority && <span style={{ marginLeft: 6, color: '#92400e', fontWeight: 700 }}>· ★ Priority</span>}
+              <div style={{
+                marginTop: 4,
+                display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+                fontSize: 12, fontWeight: 500, color: C.muted,
+              }}>
+                <span style={{ color: cat.color, fontWeight: 600 }}>{cat.label}</span>
+                <span style={{ color: C.divider }}>·</span>
+                <span>{DIFFICULTY_LABEL[mission.difficulty]}</span>
+                {/* Priority/Required pills mirror the mission-card header
+                    so the modal feels like the same component, just
+                    expanded — not a separate language. */}
+                {mission.highPriority && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '1px 8px', height: 20, borderRadius: 999,
+                    fontSize: 10, fontWeight: 700,
+                    background: '#fffbeb', color: '#d97706',
+                    border: '1px solid #fde68a',
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                  }}>
+                    <FontAwesomeIcon icon={faStar} style={{ fontSize: 9 }} />
+                    Priority
+                  </span>
+                )}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center',
+                  padding: '1px 8px', height: 20, borderRadius: 999,
+                  fontSize: 10, fontWeight: 700,
+                  background: mission.required ? C.dangerSoft : '#f1f5f9',
+                  color: mission.required ? C.danger : C.muted,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>
+                  {mission.required ? 'Required' : 'Optional'}
+                </span>
               </div>
             </div>
           </div>
@@ -1766,7 +2160,7 @@ export function MissionDetailModal({
           </button>
         </div>
 
-        <div style={mdS.body}>
+        <div style={bodyStyle}>
           {mission.description && (
             <div style={mdS.field}>
               <div style={mdS.label}>Description</div>
@@ -1804,16 +2198,38 @@ export function MissionDetailModal({
               {(['PENDING', 'IN_PROGRESS', 'UNDER_REVIEW', 'COMPLETED'] as MissionStatus[]).map(st => {
                 const meta = STATUS_META[st];
                 const active = status === st;
+                // Status ↔ evidence coherence (only enforced for missions
+                // that actually track evidence, i.e. evidenceTotal > 0):
+                //   • count > 0 → "Not Started" disabled (logged work
+                //                  contradicts the not-started state)
+                //   • count = 0 → only "Not Started" is selectable; the
+                //                  forward states are gated until at
+                //                  least one evidence item is logged
+                let disabled = false;
+                let disabledHint: string | undefined;
+                if (evidenceTotal > 0) {
+                  if (st === 'PENDING' && evidenceCount > 0) {
+                    disabled = true;
+                    disabledHint = 'Clear evidence count to mark as Not Started';
+                  } else if (st !== 'PENDING' && evidenceCount === 0) {
+                    disabled = true;
+                    disabledHint = 'Log at least one evidence item to update status';
+                  }
+                }
                 return (
                   <button
                     key={st}
                     type="button"
-                    onClick={() => setStatus(st)}
+                    onClick={() => { if (!disabled) setStatus(st); }}
+                    disabled={disabled}
+                    title={disabledHint}
                     style={{
                       ...mdS.statusBtn,
                       background: active ? meta.color : '#fff',
                       color: active ? '#fff' : meta.color,
                       borderColor: meta.color,
+                      opacity: disabled ? 0.4 : 1,
+                      cursor: disabled ? 'not-allowed' : 'pointer',
                     }}
                   >
                     <FontAwesomeIcon icon={meta.icon} style={{ marginRight: 5, fontSize: 10 }} />
@@ -1824,24 +2240,80 @@ export function MissionDetailModal({
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div style={mdS.field}>
               <div style={mdS.label}>Evidence submitted</div>
-              <input
-                type="number"
-                min={0}
-                value={evidenceCount}
-                onChange={e => setEvidenceCount(Math.max(0, parseInt(e.target.value || '0', 10)))}
-                style={mdS.input}
-              />
+              {/* Stepper UI — logging evidence is the highest-frequency
+                  action in this modal, so it gets a tactile +/− control
+                  with the count as the focal element. The big number
+                  reads at a glance; the buttons clamp at the natural
+                  bounds (0 and total). */}
+              {(() => {
+                const setCountWithStatusSync = (next: number) => {
+                  const clamped = Math.max(0, Math.min(evidenceTotal, next));
+                  setEvidenceCount(clamped);
+                  if (clamped > 0 && status === 'PENDING') {
+                    setStatus('IN_PROGRESS');
+                  } else if (clamped === 0 && status === 'IN_PROGRESS' && evidenceTotal > 0) {
+                    setStatus('PENDING');
+                  }
+                };
+                const decDisabled = evidenceCount <= 0;
+                const incDisabled = evidenceCount >= evidenceTotal;
+                const stepBtn = (disabled: boolean): React.CSSProperties => ({
+                  width: 36, height: 36, borderRadius: 8,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  border: `1px solid ${C.cardBorder}`,
+                  background: disabled ? '#fafbfc' : '#fff',
+                  color: disabled ? C.mutedSoft : C.text,
+                  fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  flexShrink: 0,
+                  transition: 'background 160ms ease, border-color 160ms ease',
+                });
+                return (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '4px 6px',
+                    border: `1px solid ${C.cardBorder}`, borderRadius: 10,
+                    background: '#fff',
+                  }}>
+                    <button
+                      type="button"
+                      aria-label="Decrease evidence count"
+                      disabled={decDisabled}
+                      onClick={() => setCountWithStatusSync(evidenceCount - 1)}
+                      style={stepBtn(decDisabled)}
+                    >
+                      −
+                    </button>
+                    <div style={{
+                      flex: 1, textAlign: 'center',
+                      fontSize: 16, fontWeight: 700, color: C.text,
+                      fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em',
+                    }}>
+                      {evidenceCount}<span style={{ color: C.mutedSoft, fontWeight: 500 }}> / {evidenceTotal}</span>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Increase evidence count"
+                      disabled={incDisabled}
+                      onClick={() => setCountWithStatusSync(evidenceCount + 1)}
+                      style={stepBtn(incDisabled)}
+                    >
+                      +
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
             <div style={mdS.field}>
               <div style={mdS.label}>Total required</div>
               <input
                 type="number"
-                min={0}
+                min={1}
                 value={evidenceTotal}
-                onChange={e => setEvidenceTotal(Math.max(0, parseInt(e.target.value || '0', 10)))}
+                onChange={e => setEvidenceTotal(Math.max(1, parseInt(e.target.value || '1', 10)))}
                 style={mdS.input}
               />
             </div>
@@ -1858,7 +2330,7 @@ export function MissionDetailModal({
           </div>
         </div>
 
-        <div style={mdS.footer}>
+        <div style={footerStyle}>
           <button onClick={onClose} style={mdS.cancelBtn}>Cancel</button>
           <button onClick={submit} disabled={saving} style={{ ...mdS.saveBtn, opacity: saving ? 0.6 : 1 }}>
             <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
@@ -1903,7 +2375,7 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     background: C.bg, minHeight: '100vh', color: C.text,
   },
-  inner: { maxWidth: 1200, margin: '0 auto' },
+  inner: { maxWidth: 1440, margin: '0 auto' },
   breadcrumb: { display: 'flex', alignItems: 'center', gap: SP.sm, fontSize: 12 },
   crumbLink: { color: C.muted, textDecoration: 'none', fontWeight: 500, transition: TRANSITION },
   crumbCurrent: { color: C.text, fontWeight: 600 },
@@ -1932,7 +2404,7 @@ const s: Record<string, React.CSSProperties> = {
   // right. Wraps to single column on narrow screens.
   bodyGrid: {
     display: 'grid', gap: SP.xl,
-    gridTemplateColumns: 'minmax(0, 1fr) 280px',
+    gridTemplateColumns: 'minmax(0, 1fr) 420px',
     alignItems: 'start',
   },
   // 2-col body inside a section. Left ≈ mission progress, right ≈ the
@@ -2106,16 +2578,20 @@ const s: Record<string, React.CSSProperties> = {
   },
 };
 
-// On narrow screens fold the right rail under the main column.
-if (typeof window !== 'undefined' && window.innerWidth < 900) {
-  s.heroBody = { ...s.heroBody, gridTemplateColumns: '1fr' };
-  s.heroChecklistCol = {
-    ...s.heroChecklistCol,
+// Mobile overrides — spread onto the base styles when isMobile is true.
+// Reactive (via useIsMobile) so the layout responds to live window resize
+// instead of being frozen at module-load time.
+const sMobile: Record<string, React.CSSProperties> = {
+  page: { padding: `${SP.lg}px ${SP.md}px ${SP.xxl}px` },
+  hero: { padding: `${SP.lg}px ${SP.lg}px`, borderRadius: RADIUS, marginBottom: SP.lg },
+  heroBody: { gridTemplateColumns: '1fr', gap: SP.lg },
+  heroChecklistCol: {
     paddingLeft: 0, borderLeft: 'none',
-    paddingTop: SP.xl, borderTop: `1px solid ${C.divider}`,
-  };
-  s.bodyGrid = { ...s.bodyGrid, gridTemplateColumns: '1fr' };
-}
+    paddingTop: SP.lg, borderTop: `1px solid ${C.divider}`,
+  },
+  bodyGrid: { gridTemplateColumns: '1fr', gap: SP.lg },
+  card: { padding: `${SP.lg}px ${SP.lg}px`, marginBottom: SP.lg },
+};
 
 const mdS: Record<string, React.CSSProperties> = {
   overlay: {
