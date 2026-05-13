@@ -39,9 +39,13 @@ import CareerMissionSettingsPage from './pages/settings/CareerMissionSettingsPag
 import MissionCategoriesPage from './pages/settings/MissionCategoriesPage.js';
 import TeachersPage from './pages/TeachersPage.js';
 import TeacherCareerPage from './pages/TeacherCareerPage.js';
+import TeacherMyCareerPage from './pages/TeacherMyCareerPage.js';
 import TeacherMissionBoardPage from './pages/TeacherMissionBoardPage.js';
 import TeacherAppraisalPage from './pages/TeacherAppraisalPage.js';
 import TeacherCompensationPage from './pages/TeacherCompensationPage.js';
+import TeacherMyCompensationPage from './pages/TeacherMyCompensationPage.js';
+import TeacherMyCompensationEarnMorePage from './pages/TeacherMyCompensationEarnMorePage.js';
+import TeacherMyCompensationBenefitsPage from './pages/TeacherMyCompensationBenefitsPage.js';
 import TeacherRewardsPage from './pages/TeacherRewardsPage.js';
 import TeacherRedeemCatalogPage from './pages/TeacherRedeemCatalogPage.js';
 import TeacherEarnPointsPage from './pages/TeacherEarnPointsPage.js';
@@ -131,9 +135,13 @@ export default function App() {
           <Route path="/teachers" element={<ErrorBoundary><TeachersPage /></ErrorBoundary>} />
           <Route path="/teachers/:id" element={<ErrorBoundary><EditTeacherPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/career" element={<ErrorBoundary><TeacherCareerPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/my-career" element={<ErrorBoundary><TeacherMyCareerPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/career/missions" element={<ErrorBoundary><TeacherMissionBoardPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/appraisal" element={<ErrorBoundary><TeacherAppraisalPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/compensation" element={<ErrorBoundary><TeacherCompensationPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/my-compensation" element={<ErrorBoundary><TeacherMyCompensationPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/my-compensation/earn-more" element={<ErrorBoundary><TeacherMyCompensationEarnMorePage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/my-compensation/benefits" element={<ErrorBoundary><TeacherMyCompensationBenefitsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/rewards" element={<ErrorBoundary><TeacherRewardsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/rewards/catalog" element={<ErrorBoundary><TeacherRedeemCatalogPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/rewards/catalog/:rewardId" element={<ErrorBoundary><TeacherRewardDetailsPage /></ErrorBoundary>} />

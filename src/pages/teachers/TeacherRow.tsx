@@ -29,6 +29,9 @@ interface PositionLike {
   positionId: string;
   name: string;
   maxLevel: number;
+  /** False for non-career-progression roles (e.g. Staff). Drives the
+   *  disabled state on Career / Appraisal / Compensation menu items. */
+  inCareerProgression?: boolean;
 }
 
 interface SalaryLike {
@@ -45,11 +48,17 @@ interface TeacherRowProps {
   onAppraisal: () => void;
   onCompensation: () => void;
   onResign: () => void;
+  /** Optional dev-only handler — forwarded to ActionMenu so the
+   *  "My Compensation (Dev)" entry only renders when the page
+   *  supplies it (gated by env in TeachersPage). */
+  onMyCompensationDev?: () => void;
+  /** Same env-gated pattern, for the teacher-facing career hub. */
+  onMyCareerDev?: () => void;
 }
 
 export const TeacherRow = memo(function TeacherRow({
   teacher: t, position: pos, salary: sal,
-  onEdit, onCareer, onAppraisal, onCompensation, onResign,
+  onEdit, onCareer, onAppraisal, onCompensation, onResign, onMyCompensationDev, onMyCareerDev,
 }: TeacherRowProps) {
   const initial = (t.name ?? '?').trim().charAt(0).toUpperCase();
   const hasSalary = !!sal && sal.calculatedSalary > 0;
@@ -142,6 +151,15 @@ export const TeacherRow = memo(function TeacherRow({
             onAppraisal={onAppraisal}
             onCompensation={onCompensation}
             onResign={isCurrentlyActive ? onResign : undefined}
+            careerDisabledReason={
+              !pos
+                ? 'Assign a position first to unlock career, appraisal, and compensation.'
+                : pos.inCareerProgression === false
+                  ? `${pos.name} is not on the career progression track — these actions don't apply.`
+                  : undefined
+            }
+            onMyCompensationDev={onMyCompensationDev}
+            onMyCareerDev={onMyCareerDev}
           />
         </div>
       </td>

@@ -1,5 +1,5 @@
 import { useReducer, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -56,6 +56,16 @@ export default function TeacherRewardDetailsPage() {
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
+  // `from=rewards` is set when the teacher arrived via the goal card
+  // on the rewards page. Drives where Back / "Back to …" sends them
+  // and tightens the breadcrumb so it doesn't pretend they came via
+  // the catalog when they didn't.
+  const [searchParams] = useSearchParams();
+  const fromRewards = searchParams.get('from') === 'rewards';
+  const backPath = fromRewards
+    ? `/teachers/${id}/rewards`
+    : `/teachers/${id}/rewards/catalog`;
+  const backLabel = fromRewards ? 'Back to rewards' : 'Back to catalog';
 
   const { data: teachers = [] } = useQuery({
     queryKey: ['planner-teachers'],
@@ -68,7 +78,7 @@ export default function TeacherRewardDetailsPage() {
     return (
       <div style={s.page}>
         <div style={s.inner}>
-          <Breadcrumb teacherId={id!} teacherName={teacher?.name ?? '...'} crumb="Not found" />
+          <Breadcrumb teacherId={id!} teacherName={teacher?.name ?? '...'} crumb="Not found" fromRewards={fromRewards} backPath={backPath} />
           <div style={{
             marginTop: SP.xl,
             padding: '48px 24px', textAlign: 'center',
@@ -81,8 +91,8 @@ export default function TeacherRewardDetailsPage() {
             <p style={{ margin: '0 0 16px', fontSize: 13, color: C.muted }}>
               This reward may have been removed from the catalog.
             </p>
-            <Link to={`/teachers/${id}/rewards/catalog`} style={primaryLinkBtn}>
-              Back to Catalog
+            <Link to={backPath} style={primaryLinkBtn}>
+              {backLabel}
             </Link>
           </div>
         </div>
@@ -143,7 +153,7 @@ export default function TeacherRewardDetailsPage() {
       `}</style>
 
       <div style={s.inner}>
-        <Breadcrumb teacherId={id!} teacherName={teacher?.name ?? '...'} crumb={item.label} />
+        <Breadcrumb teacherId={id!} teacherName={teacher?.name ?? '...'} crumb={item.label} fromRewards={fromRewards} backPath={backPath} />
 
         {/* Single card — hero block + description + footer actions
             grouped so the page reads as one composed unit. */}
@@ -222,7 +232,7 @@ export default function TeacherRewardDetailsPage() {
           }}>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link
-                to={`/teachers/${id}/rewards/catalog`}
+                to={backPath}
                 style={{
                   padding: '10px 18px', borderRadius: 10,
                   background: '#fff', color: C.textSub,
@@ -231,7 +241,7 @@ export default function TeacherRewardDetailsPage() {
                   textDecoration: 'none',
                 }}
               >
-                Back to catalog
+                {backLabel}
               </Link>
               <button
                 type="button"
@@ -329,13 +339,18 @@ export default function TeacherRewardDetailsPage() {
   );
 }
 
-function Breadcrumb({ teacherId, teacherName, crumb }: {
+function Breadcrumb({ teacherId, teacherName, crumb, fromRewards, backPath }: {
   teacherId: string; teacherName: string; crumb: string;
+  /** Drop the "Redeem rewards" crumb when the teacher arrived from
+   *  the rewards page (via the goal card) — they didn't actually pass
+   *  through the catalog, so showing it would misrepresent the trail. */
+  fromRewards: boolean;
+  backPath: string;
 }) {
   const navigate = useNavigate();
   return (
     <div style={s.breadcrumb}>
-      <button onClick={() => navigate(`/teachers/${teacherId}/rewards/catalog`)} className="trd-back-btn" style={s.backBtn} title="Back">
+      <button onClick={() => navigate(backPath)} className="trd-back-btn" style={s.backBtn} title="Back">
         <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
       </button>
       <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
@@ -343,8 +358,12 @@ function Breadcrumb({ teacherId, teacherName, crumb }: {
       <Link to={`/teachers/${teacherId}`} style={s.crumbLink}>{teacherName}</Link>
       <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
       <Link to={`/teachers/${teacherId}/rewards`} style={s.crumbLink}>Rewards</Link>
-      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-      <Link to={`/teachers/${teacherId}/rewards/catalog`} style={s.crumbLink}>Redeem rewards</Link>
+      {!fromRewards && (
+        <>
+          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
+          <Link to={`/teachers/${teacherId}/rewards/catalog`} style={s.crumbLink}>Redeem rewards</Link>
+        </>
+      )}
       <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
       <span style={s.crumbCurrent}>{crumb}</span>
     </div>

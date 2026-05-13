@@ -21,6 +21,7 @@ import { fetchAllowanceTypes } from '../api/allowance.js';
 import { fetchTeacherCareer } from '../api/career-missions.js';
 import { uploadUrl } from '../api/upload.js';
 import { pointsBalance } from '../data/pointsRewardsMock.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 import {
   PERFORMER_THRESHOLD_KEY,
   HIGH_PERFORMER_THRESHOLD_KEY,
@@ -81,7 +82,7 @@ const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
 // render before queries resolve.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const compensationData = {
+export const compensationData = {
   basicSalary: 0,
   levelIncentive: 0,                   // auto-computed from position + level
   allowances: [] as { typeId: string; typeName: string; amount: number; icon?: string; isGuaranteed?: boolean; parentId?: string | null }[],
@@ -124,7 +125,7 @@ const compensationData = {
 
 // Compute monthly total on demand (compensationData fields update as
 // queries resolve, so we can't bake this into a module-level const).
-function computeMonthlyTotal(): number {
+export function computeMonthlyTotal(): number {
   return compensationData.basicSalary
     + compensationData.levelIncentive
     + compensationData.allowances.reduce((sum, a) => sum + a.amount, 0);
@@ -133,7 +134,7 @@ function computeMonthlyTotal(): number {
 // Tier thresholds come from the SystemSetting table (editable on the
 // Compensation Settings page). Other policy values stay as code
 // constants for now — they can move to settings later.
-const benefitRules = {
+export const benefitRules = {
   minimumAppraisalForEligibility: DEFAULT_PERFORMER_THRESHOLD,
   highPerformerAppraisalThreshold: DEFAULT_HIGH_PERFORMER_THRESHOLD,
   medicalQuarterlyAllowance: 50,
@@ -174,7 +175,7 @@ const POINTS_C = {
 // Thresholds are inclusive: a score of N qualifies as "N and above". So
 // setting High-Performer to 80 means 80 itself is high-performer (the
 // previous strict `>` semantics forced users to enter 79 to get 80).
-function eligibilityFromAppraisal(score: number): 'not_eligible' | 'eligible' | 'high_performer' {
+export function eligibilityFromAppraisal(score: number): 'not_eligible' | 'eligible' | 'high_performer' {
   if (score < benefitRules.minimumAppraisalForEligibility) return 'not_eligible';
   if (score >= benefitRules.highPerformerAppraisalThreshold) return 'high_performer';
   return 'eligible';
@@ -251,7 +252,7 @@ function MechanicChip({ label, color }: { label: string; color: string }) {
   );
 }
 
-function rm(v: number): string {
+export function rm(v: number): string {
   return `RM ${v.toLocaleString('en-MY')}`;
 }
 
@@ -259,7 +260,7 @@ function rm(v: number): string {
 //   2.5  → "2 yr 6 mo"
 //   1.0  → "1 yr"
 //   0.5  → "6 mo"
-function formatService(years: number): string {
+export function formatService(years: number): string {
   const fullYears = Math.floor(years);
   const months = Math.round((years - fullYears) * 12);
   if (fullYears === 0) return `${months} mo`;
@@ -301,7 +302,7 @@ function iconForAllowance(name: string, iconKey?: string): any {
 // Build the reward-streams summary string under the headline number —
 // short word per component, joined with " + ". Children are rolled up
 // under their parent, mirroring the breakdown cards.
-function rewardStreamSummary(): string {
+export function rewardStreamSummary(): string {
   const parts: string[] = [];
   if (compensationData.basicSalary > 0) parts.push('Basic');
   if (compensationData.levelIncentive > 0) parts.push('Level');
@@ -333,12 +334,23 @@ function rewardStreamSummary(): string {
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function TeacherCompensationPage() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared data hook — runs the same backend queries every compensation
+// surface needs and writes the result into the module-level
+// `compensationData` / `benefitRules` objects the section components
+// read from. Returns the small set of derived values pages need
+// directly (teacher record, salary record, eligibility tier).
+//
+// Used by the principal view (this file), the mobile hub
+// (TeacherMyCompensationPage), and the mobile Earn-More / Benefits
+// subpages. Centralising it here means a deep-linked mobile subpage
+// still loads + populates `compensationData` correctly without
+// duplicating ~90 lines of prep logic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function useCompensationData(id: string | undefined) {
   const [searchParams] = useSearchParams();
 
-  // ── Backend queries ──────────────────────────────────────────────────────
   const { data: teachers = [] } = useQuery({ queryKey: ['planner-teachers'], queryFn: fetchTeachers });
   const { data: teachersWithSalary = [] } = useQuery({
     queryKey: ['teachers-with-salary'],
@@ -364,17 +376,11 @@ export default function TeacherCompensationPage() {
   const teacher = (teachers as any[]).find(t => t.id === id);
   const teacherSalary = teachersWithSalary.find(t => t.id === id);
 
-  // ── Apply backend data to module-level objects (sub-components read
-  // them directly, so mutating in place avoids a deeper refactor). ────
   benefitRules.minimumAppraisalForEligibility =
     readScore(settings, PERFORMER_THRESHOLD_KEY, DEFAULT_PERFORMER_THRESHOLD);
   benefitRules.highPerformerAppraisalThreshold =
     readScore(settings, HIGH_PERFORMER_THRESHOLD_KEY, DEFAULT_HIGH_PERFORMER_THRESHOLD);
 
-  // Salary breakdown — every allowance entry the teacher has a non-zero
-  // amount for becomes its own card. Allowance entries come from the
-  // breakdown.allowances array (TeacherAllowance/AllowanceType tables);
-  // legacy top-level kpi/attendance fields are merged in if set.
   if (teacherSalary) {
     const breakdown = teacherSalary.breakdown;
     if (teacherSalary.isFixedSalary) {
@@ -385,26 +391,16 @@ export default function TeacherCompensationPage() {
       compensationData.levelIncentive = breakdown.levelIncentive ?? 0;
     }
 
-    // Build the allowance list — only entries with amount > 0 make it.
-    // We carry icon + isGuaranteed + parentId straight from the type
-    // so the comp page can group children under parents.
     const out: { typeId: string; typeName: string; amount: number; icon?: string; isGuaranteed?: boolean; parentId?: string | null }[] = [];
     for (const a of breakdown?.allowances ?? []) {
       if (a.amount > 0) {
         out.push({
-          typeId: a.typeId,
-          typeName: a.typeName,
-          amount: a.amount,
-          icon: a.icon,
-          isGuaranteed: a.isGuaranteed,
-          parentId: a.parentId,
+          typeId: a.typeId, typeName: a.typeName, amount: a.amount,
+          icon: a.icon, isGuaranteed: a.isGuaranteed, parentId: a.parentId,
         });
       }
     }
-    // Legacy top-level fields — merge in only if not already represented
-    // by a same-named entry above.
-    const hasName = (n: string) =>
-      out.some(o => o.typeName.toLowerCase().includes(n));
+    const hasName = (n: string) => out.some(o => o.typeName.toLowerCase().includes(n));
     const kpi = teacherSalary.kpiAllowance ?? 0;
     if (kpi > 0 && !hasName('kpi')) out.push({ typeId: '__legacy_kpi__', typeName: 'KPI Allowance', amount: kpi });
     const att = teacherSalary.attendanceAllowance ?? 0;
@@ -418,9 +414,6 @@ export default function TeacherCompensationPage() {
     compensationData.isFixedSalary = teacherSalary.isFixedSalary === true;
   }
 
-  // Build level → RM incentive map for the current position. Used by
-  // the Level Up card to translate "+1 level" into the actual money
-  // delta the teacher would see at the next review cycle.
   if (compensationData.positionId) {
     const map: Record<number, number> = {};
     for (const li of levelIncentives) {
@@ -431,27 +424,20 @@ export default function TeacherCompensationPage() {
     compensationData.incentiveByLevel = {};
   }
 
-  // Snapshot top-level allowance types — used to render parent cards
-  // (e.g. Other Allowance) that may have child amounts but no direct
-  // teacher amount of their own.
   compensationData.parentTypes = (allowanceTypes ?? [])
     .filter(t => !t.parentId)
     .map(t => ({ id: t.id, name: t.name, icon: t.icon, isGuaranteed: t.isGuaranteed }));
 
-  // Tenure derived from createdAt (no separate hire date in schema).
   if (teacher?.createdAt) {
     const start = new Date(teacher.createdAt).getTime();
     const ms = Date.now() - start;
     compensationData.yearsOfService = Math.max(0, ms / (1000 * 60 * 60 * 24 * 365.25));
   }
 
-  // Appraisal score: 6-month rolling average from the appraisals API.
-  // Falls back to 0 if the teacher has no recorded appraisals yet.
   const liveAverage = appraisalData?.summary?.average;
   if (typeof liveAverage === 'number') {
     compensationData.appraisalScore = Math.round(liveAverage);
   }
-
   // Dev preview override: ?score=N takes precedence over the live
   // average so we can demo any tier without recording appraisals.
   const scoreOverride = searchParams.get('score');
@@ -462,9 +448,6 @@ export default function TeacherCompensationPage() {
     }
   }
 
-  // Promotion gates + next-position salary uplift. Drives the "Get
-  // promoted" card in MoneyQuests. Defaults to no-next-position when
-  // the teacher is on the final stage / off-ladder / no position.
   if (careerData) {
     const cur = careerData.currentPosition;
     const next = careerData.nextPosition;
@@ -496,8 +479,18 @@ export default function TeacherCompensationPage() {
 
   const eligibility = eligibilityFromAppraisal(compensationData.appraisalScore);
 
+  return { teacher, teacherSalary, eligibility };
+}
+
+export default function TeacherCompensationPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { isMobile } = useIsMobile();
+
+  const { teacher, teacherSalary, eligibility } = useCompensationData(id);
+
   return (
-    <div style={s.page}>
+    <div style={{ ...s.page, ...(isMobile ? { padding: '16px 12px' } : null) }}>
       <style>{`
         .tcomp-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }
         .tcomp-card { transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease; }
@@ -529,12 +522,12 @@ export default function TeacherCompensationPage() {
             instead of two separate sections. The bordered white card
             visually unifies the two sub-blocks against the page's
             off-white background. */}
-        <section style={s.section}>
+        <section style={{ ...s.section, ...(isMobile ? { marginBottom: 32 } : null) }}>
           <div style={{
             background: C.card,
             border: `1px solid ${C.cardBorder}`,
             borderRadius: 16,
-            padding: '24px 24px 28px',
+            padding: isMobile ? '18px 14px 20px' : '24px 24px 28px',
             boxShadow: '0 1px 3px rgba(15,23,42,0.05), 0 12px 32px rgba(15,23,42,0.06)',
           }}>
             <SectionHeader
@@ -543,7 +536,7 @@ export default function TeacherCompensationPage() {
               sub="Your monthly pay, allowances, and shared rewards in one clear view."
             />
             <MonthlySalaryBreakdown compact />
-            <div style={{ marginTop: 32 }}>
+            <div style={{ marginTop: isMobile ? 24 : 32 }}>
               <CompanyGoalRewards eligibility={eligibility} compact />
             </div>
           </div>
@@ -562,6 +555,7 @@ export default function TeacherCompensationPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; teacherId: string; eligibility: ReturnType<typeof eligibilityFromAppraisal>; badgeUrl: string | null }) {
+  const { isMobile } = useIsMobile();
   // Eligibility label communicates BENEFIT level, not status/rank —
   // this is a compensation page, not the Career Path. Below threshold
   // = "Not Eligible," middle = "Standard Benefits," top = "High-
@@ -577,16 +571,67 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
       : eligibility === 'eligible'
       ? { color: C.success,  bg: C.successSoft, border: C.successBorder,   icon: faCircleCheck }
       : { color: C.danger,   bg: C.dangerSoft,  border: C.dangerBorder,    icon: faLock };
+  const badgeSize = isMobile ? 56 : 88;
+
+  // Eligibility pill — extracted so we can render it in two distinct
+  // slots: top-right header bar on mobile (paired with the eyebrow),
+  // or the right side of the identity row on desktop.
+  const eligibilityPill = (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: isMobile ? 6 : 8,
+      padding: isMobile ? '4px 10px' : '6px 14px', borderRadius: 999, flexShrink: 0,
+      background: eligStatusVisuals.bg,
+      border: `1px solid ${eligStatusVisuals.border}`,
+      color: eligStatusVisuals.color,
+      fontSize: isMobile ? 10 : 12, fontWeight: 700,
+      textTransform: 'uppercase', letterSpacing: '0.05em',
+    }}>
+      <FontAwesomeIcon icon={eligStatusVisuals.icon} style={{ fontSize: isMobile ? 10 : 11 }} />
+      {eligibilityLabel}
+    </div>
+  );
 
   return (
-    <div className="tcomp-card" style={s.heroCard}>
-      {/* Top row — identity on the left, eligibility status pill on the right.
-          Mirrors the Career Path hero layout pattern. */}
+    <div className="tcomp-card" style={{
+      ...s.heroCard,
+      ...(isMobile ? { padding: '18px 16px 20px', borderRadius: 16, marginBottom: 18 } : null),
+    }}>
+      {/* Mobile-only header bar — eyebrow on the left, eligibility pill
+          on the right. Pulls the status pill out of its orphan row
+          below the identity block and pairs it with the page label so
+          the top of the card carries identity + status at a glance. */}
+      {isMobile && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 10, marginBottom: 14,
+        }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0,
+            fontSize: 10, fontWeight: 700, color: C.muted,
+            textTransform: 'uppercase', letterSpacing: '0.1em',
+          }}>
+            {teacher?.color && (
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: teacher.color, flexShrink: 0 }} />
+            )}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Compensation & Benefits
+            </span>
+          </div>
+          {eligibilityPill}
+        </div>
+      )}
+
+      {/* Identity row — badge + title + meta pills on the left;
+          eligibility pill on the right on desktop only (mobile moves
+          it into the header bar above). */}
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 16, marginBottom: 22,
+        display: 'flex',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        justifyContent: 'space-between',
+        gap: isMobile ? 10 : 16, marginBottom: isMobile ? 16 : 22,
+        flexWrap: 'wrap',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 18, minWidth: 0 }}>
           {/* Career badge — links pay to identity. Falls back to a gold
               wallet tile when the teacher's position has no badge image
               configured yet. The badge is rendered without a background
@@ -599,36 +644,38 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
               src={uploadUrl(badgeUrl)}
               alt={compensationData.positionName || 'Position badge'}
               style={{
-                width: 88, height: 88, objectFit: 'contain', flexShrink: 0,
+                width: badgeSize, height: badgeSize, objectFit: 'contain', flexShrink: 0,
                 filter: 'drop-shadow(0 6px 14px rgba(15,23,42,0.18))',
               }}
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           ) : (
             <div style={{
-              width: 88, height: 88, borderRadius: 18, flexShrink: 0,
+              width: badgeSize, height: badgeSize, borderRadius: isMobile ? 14 : 18, flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: `linear-gradient(135deg, ${C.gold}1a 0%, ${C.gold}0a 100%)`,
               border: `1px solid ${C.goldBorder}`,
-              color: C.gold, fontSize: 36,
+              color: C.gold, fontSize: isMobile ? 24 : 36,
               boxShadow: `0 6px 14px ${C.gold}1a`,
             }}>
               <FontAwesomeIcon icon={faSackDollar} />
             </div>
           )}
           <div style={{ minWidth: 0 }}>
-            <div style={{
-              fontSize: 11, fontWeight: 700, color: C.muted,
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              {teacher?.color && (
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: teacher.color }} />
-              )}
-              Compensation & Benefits
-            </div>
+            {!isMobile && (
+              <div style={{
+                fontSize: 11, fontWeight: 700, color: C.muted,
+                textTransform: 'uppercase', letterSpacing: '0.1em',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                {teacher?.color && (
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: teacher.color }} />
+                )}
+                Compensation & Benefits
+              </div>
+            )}
             <h1 style={{
-              margin: '4px 0 0', fontSize: 28, fontWeight: 800, color: C.text,
+              margin: isMobile ? 0 : '4px 0 0', fontSize: isMobile ? 20 : 28, fontWeight: 800, color: C.text,
               letterSpacing: '-0.025em', lineHeight: 1.15,
             }}>
               {teacher?.name ? `${teacher.name}'s Rewards Wallet` : 'Your Rewards Wallet'}
@@ -636,31 +683,36 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
             {/* Service period chip — long-term context relevant to
                 loyalty incentive eligibility. Sits with identity info,
                 not as a separate stat. Points chip sits beside it as a
-                discoverable link to the full Rewards page. */}
+                discoverable link to the full Rewards page. Mobile uses
+                tighter padding + a lower-cased "1y 1m" service format
+                so both pills fit on one line in the narrow column. */}
             <div style={{
-              marginTop: 10,
-              display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
+              marginTop: isMobile ? 8 : 10,
+              display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+              gap: isMobile ? 5 : 6,
             }}>
               <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '3px 10px', borderRadius: 999,
+                display: 'inline-flex', alignItems: 'center', gap: isMobile ? 4 : 6,
+                padding: isMobile ? '2px 8px' : '3px 10px', borderRadius: 999,
                 background: C.primarySoft, color: C.primary,
                 border: `1px solid ${C.primaryBorder}`,
-                fontSize: 11, fontWeight: 700,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
+                fontSize: isMobile ? 10 : 11, fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: isMobile ? '0.04em' : '0.06em',
               }}>
                 <FontAwesomeIcon icon={faAward} style={{ fontSize: 9 }} />
-                Tenure · {formatService(compensationData.yearsOfService)}
+                {isMobile
+                  ? formatService(compensationData.yearsOfService)
+                  : `Tenure · ${formatService(compensationData.yearsOfService)}`}
               </span>
               <Link
                 to={`/teachers/${teacherId}/rewards`}
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '3px 10px', borderRadius: 999,
+                  display: 'inline-flex', alignItems: 'center', gap: isMobile ? 4 : 6,
+                  padding: isMobile ? '2px 8px' : '3px 10px', borderRadius: 999,
                   background: POINTS_C.soft, color: POINTS_C.accent,
                   border: `1px solid ${POINTS_C.border}`,
-                  fontSize: 11, fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  fontSize: isMobile ? 10 : 11, fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: isMobile ? '0.04em' : '0.06em',
                   textDecoration: 'none',
                   fontVariantNumeric: 'tabular-nums',
                 }}
@@ -673,26 +725,21 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
           </div>
         </div>
 
-        {/* Eligibility status pill — same rounded-pill grammar as the
-            Career Path "Not Ready / Ready for Review" badge. */}
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          padding: '6px 14px', borderRadius: 999, flexShrink: 0,
-          background: eligStatusVisuals.bg,
-          border: `1px solid ${eligStatusVisuals.border}`,
-          color: eligStatusVisuals.color,
-          fontSize: 12, fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.05em',
-        }}>
-          <FontAwesomeIcon icon={eligStatusVisuals.icon} style={{ fontSize: 11 }} />
-          {eligibilityLabel}
-        </div>
+        {/* Eligibility status pill — desktop only. Mobile shows the
+            same pill up in the header bar at the top of the card so
+            it doesn't orphan onto its own row underneath the badge. */}
+        {!isMobile && eligibilityPill}
       </div>
 
       {/* Hero body — money on the left (analogous to Career Path's
           "required missions" progress block), appraisal score on the
-          right (analogous to its "promotion checklist" block). */}
-      <div style={s.heroBody}>
+          right (analogous to its "promotion checklist" block). On
+          mobile, stacks vertically so the score panel sits below the
+          monthly compensation block instead of beside it. */}
+      <div style={{
+        ...s.heroBody,
+        ...(isMobile ? { gridTemplateColumns: '1fr', gap: 18 } : null),
+      }}>
         {/* Left: monthly compensation — the focal number on the page.
             Label says "Monthly Compensation" because this is the
             teacher's fixed monthly compensation structure, not a
@@ -711,13 +758,13 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
             fontVariantNumeric: 'tabular-nums',
           }}>
             <span style={{
-              fontSize: 18, fontWeight: 700, color: C.gold,
+              fontSize: isMobile ? 14 : 18, fontWeight: 700, color: C.gold,
               letterSpacing: '-0.005em',
             }}>
               RM
             </span>
             <span style={{
-              fontSize: 48, fontWeight: 800, color: C.text,
+              fontSize: isMobile ? 36 : 48, fontWeight: 800, color: C.text,
               letterSpacing: '-0.035em', lineHeight: 1,
             }}>
               {computeMonthlyTotal().toLocaleString('en-MY')}
@@ -735,11 +782,18 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
         </div>
 
         {/* Right: appraisal score panel — score circle sits inline
-            with the tier bar in a single row, tier text below. Compact
-            vertical stack keeps the right column from ballooning past
-            the left, while the bar earns its keep right next to the
-            score it visualizes. */}
-        <div style={s.heroChecklistCol}>
+            with the tier bar in a single row, tier text below. On
+            mobile the divider flips from a left border to a top
+            border so the panel sits cleanly below the monthly figure. */}
+        <div style={{
+          ...s.heroChecklistCol,
+          ...(isMobile ? {
+            paddingLeft: 0,
+            paddingTop: 18,
+            borderLeft: 'none',
+            borderTop: `1px solid ${C.divider}`,
+          } : null),
+        }}>
           <div style={{
             fontSize: 11, fontWeight: 700, color: C.muted,
             textTransform: 'uppercase', letterSpacing: '0.06em',
@@ -786,7 +840,7 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
 // Monthly Salary Breakdown — Basic + KPI + Attendance = Total
 // ─────────────────────────────────────────────────────────────────────────────
 
-function MonthlySalaryBreakdown({ compact = false }: { compact?: boolean }) {
+export function MonthlySalaryBreakdown({ compact = false }: { compact?: boolean }) {
   // Cards mirror the EditTeacherPage allowances 1:1. Basic always
   // shows; level incentive shows if the position has one; every
   // remaining allowance with amount > 0 gets its own card. Parent
@@ -1299,7 +1353,10 @@ function SalaryLadder({ ladder }: {
   );
 }
 
-function MoneyQuests({ eligibility: _eligibility }: { eligibility: ReturnType<typeof eligibilityFromAppraisal> }) {
+export function MoneyQuests({ eligibility: _eligibility }: { eligibility: ReturnType<typeof eligibilityFromAppraisal> }) {
+  const { isMobile } = useIsMobile();
+  // Anchor id is referenced by the Hero's "Grow your earnings" quick
+  // link so teachers can jump straight to this section from the top.
   // Each card represents one earning stream. Mix of "actions" the
   // teacher actively does (training, enrolments) and "outcomes" the
   // teacher works toward via missions + appraisal (promotion, level
@@ -1318,7 +1375,7 @@ function MoneyQuests({ eligibility: _eligibility }: { eligibility: ReturnType<ty
   const showLevel = compensationData.positionName && !compensationData.isFixedSalary;
 
   return (
-    <section style={s.section}>
+    <section id="earn-more" style={{ ...s.section, scrollMarginTop: 80 }}>
       <SectionHeader
         eyebrow="Earn More"
         title="Ways your earnings can grow"
@@ -1328,7 +1385,10 @@ function MoneyQuests({ eligibility: _eligibility }: { eligibility: ReturnType<ty
           a lonely card in the "one-time" row. The status badges and
           amount labels (per-day, per-semester, ongoing) already convey
           each card's cadence without needing section dividers. */}
-      <div style={s.benefitGrid}>
+      <div style={{
+        ...s.benefitGrid,
+        ...(isMobile ? { gridTemplateColumns: 'minmax(0, 1fr)' } : null),
+      }}>
         {nextPos && (
           <BenefitCard
             icon={faChartLine}
@@ -1448,7 +1508,8 @@ function MoneyQuests({ eligibility: _eligibility }: { eligibility: ReturnType<ty
 // Company Goal Rewards — Quarterly Profit Sharing + Annual Bonus
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CompanyGoalRewards({ eligibility, compact = false }: { eligibility: ReturnType<typeof eligibilityFromAppraisal>; compact?: boolean }) {
+export function CompanyGoalRewards({ eligibility, compact = false }: { eligibility: ReturnType<typeof eligibilityFromAppraisal>; compact?: boolean }) {
+  const { isMobile } = useIsMobile();
   // Both sides must hit goals — the school AND the teacher. Eligibility
   // here piggybacks on the appraisal threshold (≥60). When the teacher
   // hasn't met their part, the share is locked even if the school does
@@ -1473,6 +1534,7 @@ function CompanyGoalRewards({ eligibility, compact = false }: { eligibility: Ret
               {teacherEligible ? 'Unlocked' : 'Variable upside'}
             </span>
           }
+          spacing="loose"
         />
       ) : (
         <SectionHeader
@@ -1481,32 +1543,38 @@ function CompanyGoalRewards({ eligibility, compact = false }: { eligibility: Ret
         />
       )}
 
-      {/* Inline status — sits flush with the section header, no
-          panel wrapping it. The teacher's appraisal gate is one line
-          with a small status icon; the cards below already carry a
-          green-tinted background so the "shared upside" cue stays. */}
+      {/* Eligibility status callout — softly tinted panel so the
+          appraisal gate reads as a distinct status block rather than
+          a third line of body text packed up against the description.
+          Green tint when eligible, neutral slate when not. */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '10px 14px',
+        background: teacherEligible ? C.successSoft : C.slateSoft,
+        border: `1px solid ${teacherEligible ? C.successBorder : C.cardBorder}`,
+        borderRadius: 10,
+        marginBottom: 18,
       }}>
         <div style={{
-          width: 22, height: 22, borderRadius: '50%',
+          width: 26, height: 26, borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: teacherEligible ? `${C.success}1f` : C.slateSoft,
+          background: teacherEligible ? '#fff' : C.card,
+          border: `1px solid ${teacherEligible ? C.successBorder : C.cardBorder}`,
           color: teacherEligible ? C.success : C.muted,
-          fontSize: 10,
+          fontSize: 11,
           flexShrink: 0,
         }}>
           <FontAwesomeIcon icon={teacherEligible ? faCheck : faLock} />
         </div>
         <div style={{
           fontSize: 13, fontWeight: 600, color: C.text,
-          letterSpacing: '-0.005em',
+          letterSpacing: '-0.005em', lineHeight: 1.4, minWidth: 0,
         }}>
           <span style={{ color: teacherEligible ? C.success : C.muted, fontWeight: 700 }}>
             {teacherEligible ? 'Eligible' : 'Not yet eligible'}
           </span>
           <span style={{ color: C.muted, fontWeight: 500 }}> based on appraisal score: </span>
-          <span style={{ color: C.text, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ color: C.text, fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
             {compensationData.appraisalScore} / {benefitRules.minimumAppraisalForEligibility}
           </span>
         </div>
@@ -1514,7 +1582,9 @@ function CompanyGoalRewards({ eligibility, compact = false }: { eligibility: Ret
 
       <div style={{
         display: 'grid', gap: SP.md,
-        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+        gridTemplateColumns: isMobile
+          ? 'minmax(0, 1fr)'
+          : 'repeat(auto-fit, minmax(360px, 1fr))',
       }}>
         <CompanyGoalCard
           icon={faPiggyBank}
@@ -1643,7 +1713,8 @@ function CompanyGoalCard({
 // Money-Related Benefits — 4 grouped sections.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function MoneyBenefits({ eligibility }: { eligibility: ReturnType<typeof eligibilityFromAppraisal> }) {
+export function MoneyBenefits({ eligibility }: { eligibility: ReturnType<typeof eligibilityFromAppraisal> }) {
+  const { isMobile } = useIsMobile();
   const isEligibleForBenefits = eligibility !== 'not_eligible';
 
   return (
@@ -1729,7 +1800,10 @@ function MoneyBenefits({ eligibility }: { eligibility: ReturnType<typeof eligibi
           </div>
         </div>
 
-        <div style={s.benefitGrid}>
+        <div style={{
+          ...s.benefitGrid,
+          ...(isMobile ? { gridTemplateColumns: 'minmax(0, 1fr)' } : null),
+        }}>
           {(() => {
             // Inner cards use a lighter silver tint than the wrapper so
             // they feel contained inside it rather than competing with
@@ -1999,6 +2073,7 @@ function BenefitCard({ icon, title, amount, bonus, status, description, requirem
 }
 
 function EnrollmentTierStrip() {
+  const { isMobile } = useIsMobile();
   return (
     <div style={{
       padding: 12,
@@ -2016,7 +2091,7 @@ function EnrollmentTierStrip() {
       </div>
       <div style={{
         display: 'grid', gap: 6,
-        gridTemplateColumns: 'repeat(4, 1fr)',
+        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
       }}>
         {enrollmentCommissionTiers.map(tier => (
           <div key={tier.label} style={{
@@ -2169,7 +2244,8 @@ function LevelPromotionTierStrip({
 // High-Performer Benefits — unlocked when appraisal > 80.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function HighPerformerBenefits({ unlocked }: { unlocked: boolean }) {
+export function HighPerformerBenefits({ unlocked }: { unlocked: boolean }) {
+  const { isMobile } = useIsMobile();
   return (
     <section style={s.section}>
       {/* Pill divider — gold + trophy when unlocked, slate + lock when
@@ -2251,7 +2327,9 @@ function HighPerformerBenefits({ unlocked }: { unlocked: boolean }) {
 
         <div style={{
           display: 'grid', gap: SP.md,
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: isMobile
+            ? 'minmax(0, 1fr)'
+            : 'repeat(auto-fit, minmax(320px, 1fr))',
         }}>
           <HighPerformerCard
             icon={faBusinessTime}
@@ -2549,19 +2627,32 @@ function SubSectionHeader({
   title,
   sub,
   right,
+  spacing = 'tight',
 }: {
   title: string;
   sub?: string;
   right?: React.ReactNode;
+  /** 'tight' keeps the original compact rhythm. 'loose' gives the
+   *  title more weight, lets the sub wrap normally (no white-space
+   *  nowrap on the title), and adds more space between title/sub and
+   *  the section content below — used when the sub line is more than
+   *  a few words and the section sits inside another card. */
+  spacing?: 'tight' | 'loose';
 }) {
+  const loose = spacing === 'loose';
   return (
-    <div style={{ marginBottom: SP.md }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+    <div style={{ marginBottom: loose ? SP.lg : SP.md }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        flexWrap: loose ? 'wrap' : 'nowrap',
+      }}>
         <h3 style={{
           margin: 0, flex: 1, minWidth: 0,
-          fontSize: 15, fontWeight: 700, color: C.text,
-          letterSpacing: '-0.01em', lineHeight: 1.2,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          fontSize: loose ? 17 : 15, fontWeight: 800, color: C.text,
+          letterSpacing: '-0.012em', lineHeight: 1.2,
+          ...(loose ? null : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
         }}>
           {title}
         </h3>
@@ -2569,8 +2660,9 @@ function SubSectionHeader({
       </div>
       {sub && (
         <p style={{
-          margin: '4px 0 0', fontSize: 12, fontWeight: 500, color: C.muted,
-          lineHeight: 1.5, maxWidth: 720,
+          margin: loose ? '8px 0 0' : '4px 0 0',
+          fontSize: loose ? 13 : 12, fontWeight: 500, color: C.muted,
+          lineHeight: loose ? 1.55 : 1.5, maxWidth: 720,
         }}>
           {sub}
         </p>

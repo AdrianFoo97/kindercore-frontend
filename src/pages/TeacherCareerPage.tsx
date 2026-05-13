@@ -1212,12 +1212,17 @@ function CareerJourneyVertical({
         {/* Current-stage card — softly framed background with a blue
             left accent and gentle glow so the active rank reads as the
             single strongest focus on the page (without shouting). Stops
-            short of the timeline column so the rail/node stay clean. */}
+            short of the timeline column so the rail/node stay clean.
+            Mobile uses a tighter left offset so the card encloses the
+            badge with a few pixels of padding instead of slicing
+            through it — the row's mobile gap (SP.sm = 8px) is smaller
+            than the desktop gap (SP.xl = 24px), so the desktop offset
+            of +12 would otherwise put the border *inside* the badge. */}
         {currentIdx >= 0 && (
           <div style={{
             position: 'absolute',
             top: currentIdx * ROW_HEIGHT + 4,
-            left: DOT_SIZE + 12,
+            left: isMobile ? DOT_SIZE + 2 : DOT_SIZE + 12,
             right: 0,
             height: ROW_HEIGHT - 8,
             background: `linear-gradient(135deg, ${C.primary}0c, ${C.primary}04)`,

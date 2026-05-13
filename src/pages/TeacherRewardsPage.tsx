@@ -319,16 +319,15 @@ function MyGoalCard({ teacherId, onCleared }: {
     ? 100
     : Math.max(1, Math.round((pointsBalance.current / item.cost) * 100));
   const need = reached ? 0 : item.cost - pointsBalance.current;
-  const detailsHref = `/teachers/${teacherId}/rewards/catalog/${item.id}`;
+  // `from=rewards` tells the details page to send the user back here
+  // instead of to the catalog when they hit Back / "Back to …".
+  const detailsHref = `/teachers/${teacherId}/rewards/catalog/${item.id}?from=rewards`;
 
   const accentColor = reached ? C.success : POINTS_C.deep;
 
   return (
-    <Link
-      to={detailsHref}
-      className="trew-goal-card"
+    <div
       style={{
-        display: 'block',
         marginTop: SP.md,
         padding: SP.lg,
         background: reached
@@ -337,16 +336,19 @@ function MyGoalCard({ teacherId, onCleared }: {
         border: `1px solid ${reached ? C.successBorder : POINTS_C.border}`,
         borderRadius: 14,
         boxShadow: '0 1px 2px rgba(91,33,182,0.04)',
-        textDecoration: 'none', color: 'inherit',
       }}
     >
       <style>{`
         .trew-goal-clear:hover { color: ${C.text} !important; background: ${C.slateSoft} !important; }
+        .trew-goal-link:hover { color: ${POINTS_C.deep} !important; }
       `}</style>
 
-      {/* Identity row — eyebrow + icon + title/sub on the left,
-          cost on the right, Remove button anchored top-right. The
-          whole card is a Link, so Remove must stop propagation. */}
+      {/* Identity row — icon + eyebrow/title/sub on the left, Remove
+          anchored top-right. The standalone cost is intentionally
+          omitted — the progress row below already shows the target
+          inline as "1,250 / 4,000 pts", so a duplicate big number
+          here was reading as a second balance and competing with the
+          progress stats. */}
       <div style={{
         display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap',
       }}>
@@ -386,45 +388,24 @@ function MyGoalCard({ teacherId, onCleared }: {
             </div>
           )}
         </div>
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
-          gap: 6, flexShrink: 0,
-        }}>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault(); e.stopPropagation();
-              clearGoal(); onCleared();
-            }}
-            className="trew-goal-clear"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '4px 10px', borderRadius: 999,
-              background: 'transparent', color: C.muted,
-              border: `1px solid ${C.cardBorder}`,
-              fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
-              cursor: 'pointer',
-              transition: 'background 140ms ease, color 140ms ease',
-            }}
-            title="Stop tracking this as your goal"
-          >
-            <FontAwesomeIcon icon={faXmark} style={{ fontSize: 9 }} />
-            Remove
-          </button>
-          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
-            <span style={{
-              fontSize: 22, fontWeight: 800, color: POINTS_C.deep,
-              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.022em',
-              lineHeight: 1,
-            }}>
-              {item.cost.toLocaleString('en-MY')}
-            </span>
-            <span style={{
-              fontSize: 11, fontWeight: 700, color: C.muted,
-              letterSpacing: '0.02em',
-            }}>pts</span>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => { clearGoal(); onCleared(); }}
+          className="trew-goal-clear"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: '4px 10px', borderRadius: 999,
+            background: 'transparent', color: C.muted,
+            border: `1px solid ${C.cardBorder}`,
+            fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
+            cursor: 'pointer', flexShrink: 0,
+            transition: 'background 140ms ease, color 140ms ease',
+          }}
+          title="Stop tracking this as your goal"
+        >
+          <FontAwesomeIcon icon={faXmark} style={{ fontSize: 9 }} />
+          Remove
+        </button>
       </div>
 
       {/* Progress bar — full width below the identity block. */}
@@ -447,39 +428,48 @@ function MyGoalCard({ teacherId, onCleared }: {
           }} />
         </div>
 
-        {/* Single stats row — current/total + percentage on the left,
-            "need more" microcopy + inline View details affordance on
-            the right. One row replaces the previous two-row footer +
-            orphan CTA layout. */}
+        {/* Stats row — progress percentage on the left, gap +
+            View details affordance on the right. The teacher's raw
+            balance isn't repeated here; it already lives in the
+            balance hero above, and showing "1,250 / 4,000" again was
+            making the goal card visually echo the hero. Keeping only
+            the percentage + gap lets the goal card own "progress
+            toward target" without competing for the same attention. */}
         <div style={{
           marginTop: 8,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: 10, flexWrap: 'wrap',
         }}>
           <span style={{
-            fontSize: 12, fontWeight: 700, color: C.textSub,
+            fontSize: 12, fontWeight: 600, color: C.muted,
             fontVariantNumeric: 'tabular-nums',
           }}>
-            {pointsBalance.current.toLocaleString('en-MY')} <span style={{ color: C.mutedSoft }}>/</span> {item.cost.toLocaleString('en-MY')} pts
-            <span style={{ color: C.mutedSoft, fontWeight: 600, margin: '0 6px' }}>•</span>
             <span style={{ color: accentColor, fontWeight: 800 }}>{progressPct}%</span>
+            <span style={{ color: C.mutedSoft, fontWeight: 600, margin: '0 6px' }}>of</span>
+            {item.cost.toLocaleString('en-MY')} pts
           </span>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 10,
-            fontSize: 12, fontWeight: 700, color: C.muted,
+            fontSize: 12, fontWeight: 600, color: C.muted,
           }}>
             {reached
               ? <span style={{ color: C.success, fontWeight: 800 }}>You can redeem this now!</span>
               : <span>Need <span style={{ color: POINTS_C.deep, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
                   {need.toLocaleString('en-MY')}
                 </span> more pts</span>}
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              color: POINTS_C.accent, fontWeight: 800,
-            }}>
+            <Link
+              to={detailsHref}
+              className="trew-goal-link"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                color: POINTS_C.accent, fontWeight: 800,
+                textDecoration: 'none',
+                transition: 'color 140ms ease',
+              }}
+            >
               {reached ? 'Redeem now' : 'View details'}
               <FontAwesomeIcon icon={faArrowRight} style={{ fontSize: 10 }} />
-            </span>
+            </Link>
           </span>
         </div>
 
@@ -497,7 +487,7 @@ function MyGoalCard({ teacherId, onCleared }: {
             : `Keep earning — you're ${progressPct}% there.`}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -524,6 +514,7 @@ function RecentActivity({
       <SectionHeader
         title="Recent activity"
         sub="Earn and redeem transactions, newest first."
+        tone="muted"
         right={
           <div style={{ display: 'inline-flex', gap: 4 }}>
             <FilterPill active={filter === 'all'} onClick={() => onFilterChange('all')}>All</FilterPill>
@@ -539,6 +530,23 @@ function RecentActivity({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* Column header row — labels the otherwise-unlabelled
+              "amount" and "balance" columns so the rightmost number
+              isn't just a floating figure the teacher has to decode. */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '32px minmax(0, 1fr) 100px 90px',
+            gap: 10, alignItems: 'center',
+            padding: '4px 0 8px',
+            fontSize: 9, fontWeight: 800, color: C.muted,
+            textTransform: 'uppercase', letterSpacing: '0.08em',
+            borderBottom: `1px solid ${C.divider}`,
+          }}>
+            <span />
+            <span>Activity</span>
+            <span style={{ textAlign: 'right' }}>Amount</span>
+            <span style={{ textAlign: 'right' }}>Balance</span>
+          </div>
           {visible.map((tx, i) => {
             const isEarn = tx.kind === 'earned';
             const arrowColor = isEarn ? C.success : C.danger;
@@ -732,14 +740,24 @@ function MyRewards({ teacherId, filter, onFilterChange }: {
                     </div>
                   </div>
                   <span style={{
-                    display: 'inline-flex', alignItems: 'center',
-                    padding: '2px 8px', height: 20, borderRadius: 999,
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '2px 8px 2px 7px', height: 20, borderRadius: 999,
                     fontSize: 10, fontWeight: 700,
                     background: badge.bg, color: badge.color,
                     border: `1px solid ${badge.border}`,
                     textTransform: 'uppercase', letterSpacing: '0.06em',
                     flexShrink: 0,
                   }}>
+                    {/* Status dot — solid for actionable states
+                        (available/pending), hollow for terminal states
+                        (used/delivered/expired) so the eye picks up
+                        "still claimable" vs "history" at a glance. */}
+                    <span style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: r.status === 'available' || r.status === 'pending' ? badge.color : 'transparent',
+                      border: `1.5px solid ${badge.color}`,
+                      flexShrink: 0,
+                    }} />
                     {badge.label}
                   </span>
                 </div>
@@ -778,17 +796,23 @@ function MyRewards({ teacherId, filter, onFilterChange }: {
 // ─── Shared section header ────────────────────────────────────────────────
 
 function SectionHeader({
-  title, sub, right,
+  title, sub, right, tone = 'primary',
 }: {
   title: string; sub?: string; right?: React.ReactNode;
+  /** 'primary' uses the violet brand accent (My Rewards). 'muted'
+   *  uses a quieter slate accent so secondary sections like Recent
+   *  Activity sit visually below the primary sections without losing
+   *  the section-header pattern. */
+  tone?: 'primary' | 'muted';
 }) {
+  const accent = tone === 'muted' ? C.mutedSoft : POINTS_C.accent;
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
       gap: 12, marginBottom: 14, flexWrap: 'wrap',
     }}>
       <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-        <span style={{ width: 3, height: 14, borderRadius: 999, background: POINTS_C.accent, flexShrink: 0, marginTop: 3 }} />
+        <span style={{ width: 3, height: 14, borderRadius: 999, background: accent, flexShrink: 0, marginTop: 3 }} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <h3 style={{
             margin: 0, fontSize: 14, fontWeight: 800, color: C.text,
