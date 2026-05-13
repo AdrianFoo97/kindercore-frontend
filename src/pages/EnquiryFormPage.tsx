@@ -58,6 +58,12 @@ export default function EnquiryFormPage() {
   const [relationOther, setRelationOther] = useState(false);
   const [addressOther, setAddressOther] = useState(false);
   const [sourceOther, setSourceOther] = useState(false);
+  // Captured when the parent picks "Friend Referral" — lets staff
+  // verify whether the friend's child is currently enrolled so both
+  // families qualify for the referral discount. Folded into `notes`
+  // on submit so it shows up in the lead detail without polluting
+  // the howDidYouKnow field used by analytics.
+  const [referralFriendName, setReferralFriendName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -177,6 +183,19 @@ export default function EnquiryFormPage() {
       hasError = true;
     }
     if (hasError) return;
+    // Friend Referral with a friend's name = qualified referral (HR
+    // can verify the referrer and apply the discount). Friend
+    // Referral without a name = anonymous "heard from someone" =
+    // Word of Mouth bucket. Keeping them separate in `howDidYouKnow`
+    // lets marketing analytics tell genuine referrals from generic
+    // brand awareness.
+    const hasFriendName = referralFriendName.trim().length > 0;
+    const resolvedSource = (form.howDidYouKnow === 'Friend Referral' && !hasFriendName)
+      ? 'Word of Mouth'
+      : form.howDidYouKnow;
+    const referralNote = (form.howDidYouKnow === 'Friend Referral' && hasFriendName)
+      ? `朋友介绍 — 朋友的孩子：${referralFriendName.trim()}，请确认是否在 Bukit Indah 分校就读以申请介绍优惠`
+      : '';
     setSubmitting(true);
     try {
       const res = await fetch(`${API}/api/leads`, {
@@ -184,9 +203,11 @@ export default function EnquiryFormPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(Object.fromEntries(Object.entries({
           ...form,
+          howDidYouKnow: resolvedSource,
           preferredAppointmentTime: form.preferredAppointmentTime,
           ...(ctaSource ? { ctaSource } : {}),
           ...(utmSource ? { utmSource } : {}),
+          ...(referralNote ? { notes: referralNote } : {}),
         }).filter(([k, v]) => k === 'needsTransport' ? true : v !== ''))),
       });
       if (!res.ok) throw new Error('提交失败，请稍后重试');
@@ -751,7 +772,10 @@ export default function EnquiryFormPage() {
                     style={{ ...inputStyle, appearance: 'auto' }}
                   >
                     <option value="">请选择</option>
-                    {MARKETING_CHANNELS.map(c => (
+                    {/* Word of Mouth is an admin-only bucket — the form
+                        auto-routes nameless Friend Referrals into it, so
+                        parents never pick it directly. */}
+                    {MARKETING_CHANNELS.filter(c => c.value !== 'Word of Mouth').map(c => (
                       <option key={c.value} value={c.value}>{c.label.replace(/ \(.*\)$/, '')}</option>
                     ))}
                     <option value="Others">其他</option>
@@ -768,6 +792,40 @@ export default function EnquiryFormPage() {
                   )}
                   {sourceError && (
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444' }}>&#9888; {sourceError}</p>
+                  )}
+
+                  {/* Friend Referral follow-up — captures the referring
+                      friend's child name so HR can verify enrolment
+                      and apply the referral discount to both families.
+                      Soft indigo panel signals the perk without
+                      pretending it's required. */}
+                  {form.howDidYouKnow === 'Friend Referral' && (
+                    <div style={{
+                      marginTop: 12,
+                      padding: '14px 14px 12px',
+                      background: '#eef2ff',
+                      borderRadius: 10,
+                      border: '1px solid #c7d2fe',
+                    }}>
+                      <label style={{ ...labelStyle, marginBottom: 6 }}>
+                        朋友的孩子叫什么名字？<span style={{ color: '#94a3b8', fontWeight: 400 }}>（可选）</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={referralFriendName}
+                        onChange={e => setReferralFriendName(e.target.value)}
+                        placeholder="例：小明"
+                        style={inputStyle}
+                      />
+                      <p style={{
+                        margin: '10px 0 0',
+                        fontSize: 12,
+                        color: '#4338ca',
+                        lineHeight: 1.55,
+                      }}>
+                        🎁 如果他们的孩子正在 Ten Toes Bukit Indah 分校就读，您和他们都可以享受介绍优惠
+                      </p>
+                    </div>
                   )}
                 </div>
               </>

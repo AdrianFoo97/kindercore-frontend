@@ -10,6 +10,11 @@ export interface MarketingChannel {
 export const MARKETING_CHANNELS: MarketingChannel[] = [
   { value: 'Facebook',        label: 'Facebook' },
   { value: 'Friend Referral', label: '朋友介绍 (Friend Referral)' },
+  // Word of Mouth covers leads who say "I heard from someone" but
+  // can't name the referrer. Not surfaced in the public enquiry form
+  // (the form auto-buckets nameless Friend Referrals into this),
+  // but admins can pick it manually when editing a lead.
+  { value: 'Word of Mouth',   label: '口口相传 (Word of Mouth)' },
   { value: '小红书',          label: '小红书 (Xiaohongshu)' },
   { value: 'Instagram',       label: 'Instagram' },
   { value: 'Pass By',         label: '驾车经过 (Pass By)' },

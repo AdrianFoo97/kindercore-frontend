@@ -40,6 +40,16 @@ export interface Lead {
   ctaSource: string | null;
   utmSource: string | null;
   leadTemperature: 'COOL' | 'WARM' | 'HOT' | null;
+  /** Where the parent first heard about the school — distinct from
+   *  `submissionChannel` (how they submitted the form). Existing
+   *  `howDidYouKnow` is kept as a fallback for legacy rows; new
+   *  rows should populate this enum-style field. Optional during the
+   *  rollout so backend can ship the column independently. */
+  discoverySource?: 'facebook' | 'xhs' | 'tiktok' | 'referral' | 'word_of_mouth' | 'walk_in' | 'pass_by' | 'google' | 'instagram' | 'sibling' | 'billboard' | 'unknown' | null;
+  /** How the enquiry actually reached us. A parent who heard of us
+   *  on Facebook may still submit through a WhatsApp link — these are
+   *  two different concepts. Optional until the backend ships it. */
+  submissionChannel?: 'whatsapp_link' | 'website_form' | 'facebook_form' | 'qr_code' | 'manual_entry' | 'unknown' | null;
   deletedAt: string | null;
 }
 

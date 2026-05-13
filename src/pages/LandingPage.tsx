@@ -35,6 +35,42 @@ export default function LandingPage() {
     }}>
       <div style={{ maxWidth: isDesktop ? undefined : 480, margin: '0 auto', minHeight: '100vh', overflow: isDesktop ? undefined : 'hidden' }}>
 
+        {/* ── Top CTA strip — navy full-row banner above the logo so
+            visitors who already want to enquire have a single tap to
+            the form before they scroll. White pill on the navy panel
+            for high contrast; same two-line label as the in-hero CTA.
+            Uses `from=hero` to roll up with the other hero-area CTA
+            in analytics rather than tracking as its own bucket. */}
+        <section style={{
+          background: '#1e2a78',
+          padding: isDesktop ? '32px 24px' : '28px 16px',
+          textAlign: 'center' as const,
+        }}>
+          <button
+            onClick={() => navigate(toForm('hero'))}
+            style={{
+              padding: isDesktop ? '13px 40px' : '11px 28px',
+              background: '#fff',
+              color: '#1e2a78',
+              border: 'none',
+              borderRadius: 50,
+              fontSize: isDesktop ? 16 : 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              letterSpacing: '1.3px',
+              lineHeight: 1.35,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+            }}
+          >
+            预约参观学校
+            <br />
+            <span style={{ fontSize: isDesktop ? 12 : 11, fontWeight: 400, opacity: 0.75, letterSpacing: '0.5px' }}>
+              与园长 1 对 1 深入交流孩子的学习发展
+            </span>
+          </button>
+        </section>
+
         {/* ── Hero ── */}
         <section style={{
           background: '#fff',

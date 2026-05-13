@@ -3,6 +3,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faPen } from '@fortawesome/free-solid-svg-icons';
 import { updateLead, UpdateLeadPayload } from '../../api/leads.js';
 import { Lead, LeadStatus } from '../../types/index.js';
+// Shared with the enquiry form + student-creation modal so the source
+// dropdown stays consistent (adding a channel only happens in one file).
+import { MARKETING_CHANNELS } from '../../constants/marketingChannels.js';
 
 const currentYear = new Date().getFullYear();
 const ENROLMENT_YEARS = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
@@ -13,7 +16,6 @@ const PROGRAMME_OPTIONS = [
   { value: 'Core+Music', label: '日常+音乐 Core+Music' },
   { value: 'FullDay', label: 'Full Day 学习生活' },
 ];
-const MARKETING_CHANNELS = ['Facebook', 'Instagram', 'Google', 'Friend Referral', 'Walk-in', 'Banner/Flyer', 'Other'];
 
 function programmeLabel(val: string): string {
   return PROGRAMME_OPTIONS.find(p => p.value === val)?.label || val || '—';
@@ -33,11 +35,36 @@ function statusLabel(s: string): string {
   return map[s] || s;
 }
 
+// Friend Referral leads carry the referrer's child name inside `notes`
+// in the shape `朋友介绍 — 朋友的孩子：{name}，请确认是否在 Bukit Indah 分校
+// 就读以申请介绍优惠` (saved by the public enquiry form). The edit modal
+// surfaces that name as a dedicated field so staff don't have to type the
+// Chinese marker phrase by hand. Helpers below keep the textarea clean
+// (without the phrase) while ensuring saves rebuild it correctly.
+const REFERRAL_PHRASE_RE = /朋友介绍 — 朋友的孩子：[^，\n]*，请确认是否在 Bukit Indah 分校就读以申请介绍优惠\n?/g;
+
+function extractReferrerNameFromNotes(notes: string): string {
+  const m = notes.match(/朋友的孩子：\s*([^，,\n。]+)/);
+  return m ? m[1].trim() : '';
+}
+
+function stripReferralPhrase(notes: string): string {
+  return notes.replace(REFERRAL_PHRASE_RE, '').trim();
+}
+
+function rebuildNotesWithReferrer(notesBody: string, refName: string, isReferral: boolean): string {
+  const body = notesBody.trim();
+  if (!isReferral || !refName.trim()) return body;
+  const phrase = `朋友介绍 — 朋友的孩子：${refName.trim()}，请确认是否在 Bukit Indah 分校就读以申请介绍优惠`;
+  return body ? `${phrase}\n${body}` : phrase;
+}
+
 interface EditForm {
   childName: string; parentPhone: string; childDob: string;
   enrolmentYear: string; status: LeadStatus; notes: string; lostReason: string;
   relationship: string; programme: string; howDidYouKnow: string;
   addressLocation: string; needsTransport: string; preferredAppointmentTime: string;
+  referrerName: string;
 }
 
 type ViewTab = 'child' | 'contact' | 'other';
@@ -52,14 +79,16 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
 }) {
   const [tab, setTab] = useState<ViewTab>('child');
   const [editing, setEditing] = useState(false);
+  const initialNotesRaw = lead.notes ?? '';
   const [form, setForm] = useState<EditForm>({
     childName: lead.childName, parentPhone: lead.parentPhone,
     childDob: lead.childDob.split('T')[0], enrolmentYear: String(lead.enrolmentYear),
-    status: lead.status, notes: lead.notes ?? '', lostReason: lead.lostReason ?? '',
+    status: lead.status, notes: stripReferralPhrase(initialNotesRaw), lostReason: lead.lostReason ?? '',
     relationship: lead.relationship ?? '', programme: lead.programme ?? '',
     howDidYouKnow: lead.howDidYouKnow ?? '', addressLocation: lead.addressLocation ?? '',
     needsTransport: lead.needsTransport === null ? '' : lead.needsTransport ? 'yes' : 'no',
     preferredAppointmentTime: lead.preferredAppointmentTime ?? '',
+    referrerName: extractReferrerNameFromNotes(initialNotesRaw),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -71,9 +100,14 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
     if (form.status === 'LOST' && !form.lostReason) { setError('Please select a reason for marking this lead as Lost.'); return; }
     setSaving(true); setError('');
     try {
+      const combinedNotes = rebuildNotesWithReferrer(
+        form.notes,
+        form.referrerName,
+        form.howDidYouKnow === 'Friend Referral',
+      );
       const payload: UpdateLeadPayload = {
         childName: form.childName, parentPhone: form.parentPhone, childDob: form.childDob,
-        enrolmentYear: Number(form.enrolmentYear), status: form.status, notes: form.notes,
+        enrolmentYear: Number(form.enrolmentYear), status: form.status, notes: combinedNotes,
         lostReason: form.status === 'LOST' ? form.lostReason : null,
         relationship: form.relationship || null, programme: form.programme || null,
         howDidYouKnow: form.howDidYouKnow || null, addressLocation: form.addressLocation || null,
@@ -88,14 +122,16 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
   };
 
   const handleCancel = () => {
+    const notesRaw = lead.notes ?? '';
     setForm({
       childName: lead.childName, parentPhone: lead.parentPhone,
       childDob: lead.childDob.split('T')[0], enrolmentYear: String(lead.enrolmentYear),
-      status: lead.status, notes: lead.notes ?? '', lostReason: lead.lostReason ?? '',
+      status: lead.status, notes: stripReferralPhrase(notesRaw), lostReason: lead.lostReason ?? '',
       relationship: lead.relationship ?? '', programme: lead.programme ?? '',
       howDidYouKnow: lead.howDidYouKnow ?? '', addressLocation: lead.addressLocation ?? '',
       needsTransport: lead.needsTransport === null ? '' : lead.needsTransport ? 'yes' : 'no',
       preferredAppointmentTime: lead.preferredAppointmentTime ?? '',
+      referrerName: extractReferrerNameFromNotes(notesRaw),
     });
     setEditing(false);
     setError('');
@@ -195,31 +231,43 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
             )}
 
             {/* ── Other Tab ── */}
-            {tab === 'other' && !editing && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={mo.viewGrid}>
-                  <ViewRow label="How Did You Know?" value={lead.howDidYouKnow || '—'} />
-                  <ViewRow label="Preferred Visit Time" value={lead.preferredAppointmentTime || '—'} />
-                  <ViewRow label="Status" value={statusLabel(lead.status)} />
-                  {lead.status === 'LOST' && <ViewRow label="Lost Reason" value={lead.lostReason || '—'} />}
+            {tab === 'other' && !editing && (() => {
+              const cleanNotes = stripReferralPhrase(lead.notes ?? '');
+              const refName = extractReferrerNameFromNotes(lead.notes ?? '');
+              const isReferral = lead.howDidYouKnow === 'Friend Referral';
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={mo.viewGrid}>
+                    <ViewRow label="How Did You Know?" value={lead.howDidYouKnow || '—'} />
+                    {isReferral && <ViewRow label="Referrer's Child" value={refName || '—'} />}
+                    <ViewRow label="Preferred Visit Time" value={lead.preferredAppointmentTime || '—'} />
+                    <ViewRow label="Status" value={statusLabel(lead.status)} />
+                    {lead.status === 'LOST' && <ViewRow label="Lost Reason" value={lead.lostReason || '—'} />}
+                  </div>
+                  <div>
+                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Notes</span>
+                    <p style={{ fontSize: 14, color: cleanNotes ? '#1e293b' : '#cbd5e1', margin: '2px 0 0', lineHeight: 1.5 }}>
+                      {cleanNotes || '—'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Notes</span>
-                  <p style={{ fontSize: 14, color: lead.notes ? '#1e293b' : '#cbd5e1', margin: '2px 0 0', lineHeight: 1.5 }}>
-                    {lead.notes || '—'}
-                  </p>
-                </div>
-              </div>
-            )}
+              );
+            })()}
             {tab === 'other' && editing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={mo.grid}>
                   <label style={mo.label}>How Did You Know?
                     <select style={mo.input} value={form.howDidYouKnow} onChange={set('howDidYouKnow')}>
                       <option value="">—</option>
-                      {MARKETING_CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+                      {MARKETING_CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
                   </label>
+                  {form.howDidYouKnow === 'Friend Referral' && (
+                    <label style={mo.label}>
+                      Referrer's Child Name
+                      <input style={mo.input} value={form.referrerName} onChange={set('referrerName')} placeholder="e.g. Tommy" />
+                    </label>
+                  )}
                   <label style={mo.label}>Preferred Visit Time<input style={mo.input} value={form.preferredAppointmentTime} onChange={set('preferredAppointmentTime')} placeholder="e.g. Weekday afternoon" /></label>
                   <label style={mo.label}>Status
                     <select style={mo.input} value={form.status} onChange={set('status')}>
