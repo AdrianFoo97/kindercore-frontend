@@ -43,32 +43,29 @@ export default function LandingPage() {
             in analytics rather than tracking as its own bucket. */}
         <section style={{
           background: '#1e2a78',
-          padding: isDesktop ? '16px 24px' : '14px 16px',
+          padding: isDesktop ? '32px 24px' : '28px 16px',
           textAlign: 'center' as const,
         }}>
           <button
             onClick={() => navigate(toForm('hero'))}
             style={{
-              padding: isDesktop ? '11px 32px' : '10px 24px',
+              padding: isDesktop ? '13px 40px' : '11px 28px',
               background: '#fff',
               color: '#1e2a78',
               border: 'none',
               borderRadius: 50,
-              fontSize: isDesktop ? 14 : 13,
+              fontSize: isDesktop ? 16 : 14,
               fontWeight: 700,
               cursor: 'pointer',
               fontFamily: 'inherit',
-              letterSpacing: '1.2px',
+              letterSpacing: '1.3px',
               lineHeight: 1.35,
               boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-              transition: 'transform 0.2s, box-shadow 0.2s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.28)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)'; }}
           >
             预约参观学校
             <br />
-            <span style={{ fontSize: isDesktop ? 10 : 10, fontWeight: 400, opacity: 0.7 }}>
+            <span style={{ fontSize: isDesktop ? 12 : 11, fontWeight: 400, opacity: 0.75, letterSpacing: '0.5px' }}>
               与园长 1 对 1 深入交流孩子的学习发展
             </span>
           </button>
