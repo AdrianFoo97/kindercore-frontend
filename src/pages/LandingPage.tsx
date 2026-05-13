@@ -35,6 +35,45 @@ export default function LandingPage() {
     }}>
       <div style={{ maxWidth: isDesktop ? undefined : 480, margin: '0 auto', minHeight: '100vh', overflow: isDesktop ? undefined : 'hidden' }}>
 
+        {/* ── Top CTA strip — navy full-row banner above the logo so
+            visitors who already want to enquire have a single tap to
+            the form before they scroll. White pill on the navy panel
+            for high contrast; same two-line label as the in-hero CTA.
+            Uses `from=hero` to roll up with the other hero-area CTA
+            in analytics rather than tracking as its own bucket. */}
+        <section style={{
+          background: '#1e2a78',
+          padding: isDesktop ? '16px 24px' : '14px 16px',
+          textAlign: 'center' as const,
+        }}>
+          <button
+            onClick={() => navigate(toForm('hero'))}
+            style={{
+              padding: isDesktop ? '11px 32px' : '10px 24px',
+              background: '#fff',
+              color: '#1e2a78',
+              border: 'none',
+              borderRadius: 50,
+              fontSize: isDesktop ? 14 : 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              letterSpacing: '1.2px',
+              lineHeight: 1.35,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.28)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)'; }}
+          >
+            预约参观学校
+            <br />
+            <span style={{ fontSize: isDesktop ? 10 : 10, fontWeight: 400, opacity: 0.7 }}>
+              与园长 1 对 1 深入交流孩子的学习发展
+            </span>
+          </button>
+        </section>
+
         {/* ── Hero ── */}
         <section style={{
           background: '#fff',

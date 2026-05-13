@@ -16,8 +16,8 @@ import { useToast } from '../components/common/Toast.js';
 // Adding / renaming a channel happens in /constants/marketingChannels.ts.
 import { MARKETING_CHANNELS } from '../constants/marketingChannels.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar } from '@fortawesome/free-solid-svg-icons';
-import { faWhatsapp, faFacebook, faGoogle, faTiktok } from '@fortawesome/free-brands-svg-icons';
+import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp, faFacebook, faGoogle, faTiktok, faInstagram } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
 
@@ -61,14 +61,24 @@ type SubmissionChannel = NonNullable<Lead['submissionChannel']>;
 // can supply an `imageSrc` instead — the renderer falls back to an
 // <img> tag from /public for those.
 const DISCOVERY_META: Record<DiscoverySource, { label: string; short: string; icon: any; imageSrc?: string }> = {
-  facebook:  { label: 'Facebook', short: 'FB',       icon: faFacebook },
-  xhs:       { label: 'XHS',      short: 'XHS',      icon: faVideo,        imageSrc: '/xhs logo.png' },
-  tiktok:    { label: 'TikTok',   short: 'TikTok',   icon: faTiktok },
-  referral:  { label: 'Referral', short: 'Ref',      icon: faUsers },
-  walk_in:   { label: 'Walk-in',  short: 'Walk-in',  icon: faPersonWalking },
-  pass_by:   { label: 'Pass By',  short: 'Pass By',  icon: faCar },
-  google:    { label: 'Google',   short: 'Google',   icon: faGoogle },
-  unknown:   { label: 'Unknown',  short: '—',        icon: faQuestion },
+  facebook:  { label: 'Facebook',  short: 'FB',       icon: faFacebook },
+  instagram: { label: 'Instagram', short: 'IG',       icon: faInstagram },
+  xhs:       { label: 'XHS',       short: 'XHS',      icon: faVideo,        imageSrc: '/xhs logo.png' },
+  tiktok:    { label: 'TikTok',    short: 'TikTok',   icon: faTiktok },
+  referral:  { label: 'Referral',  short: 'Ref',      icon: faUsers },
+  // Word of Mouth = anonymous referral. Distinct from referral
+  // (which carries a named referrer) so HR knows the discount
+  // eligibility differs.
+  word_of_mouth: { label: 'Word of Mouth', short: 'WOM', icon: faComments },
+  // Sibling = "其他孩子在就读" — a current student's family enquired
+  // about another child. Distinct from referral (named external
+  // referrer) because the family relationship is internal.
+  sibling:   { label: 'Sibling',   short: 'Sibling',  icon: faChildren },
+  walk_in:   { label: 'Walk-in',   short: 'Walk-in',  icon: faPersonWalking },
+  pass_by:   { label: 'Pass By',   short: 'Pass By',  icon: faCar },
+  billboard: { label: 'Billboard', short: 'Billboard',icon: faRectangleAd },
+  google:    { label: 'Google',    short: 'Google',   icon: faGoogle },
+  unknown:   { label: 'Unknown',   short: '—',        icon: faQuestion },
 };
 
 // Submission channel meta — icon-only in the table, rendered in a
@@ -92,15 +102,24 @@ function legacyDiscoveryFromHowDidYouKnow(value: string | null | undefined): Dis
   if (!value) return null;
   const v = value.toLowerCase();
   if (v.includes('facebook') || v === 'fb') return 'facebook';
+  if (v.includes('instagram') || v === 'ig') return 'instagram';
   if (v.includes('tiktok')) return 'tiktok';
   if (v.includes('xhs') || v.includes('xiaohongshu') || v.includes('小红书')) return 'xhs';
   if (v.includes('google')) return 'google';
+  // Check WOM before referral — "word of mouth" contains the word
+  // "mouth" but not "refer/friend", so it'd never match the referral
+  // branch anyway, but keeping it ordered explicitly here.
+  if (v.includes('word of mouth') || v.includes('口口相传') || v === 'wom') return 'word_of_mouth';
   if (v.includes('referral') || v.includes('friend') || v.includes('refer')) return 'referral';
+  // Sibling = a current student's family is enquiring about another
+  // child. Marketing-channel value is 'Sibling' / '其他孩子在就读'.
+  if (v.includes('sibling') || v.includes('其他孩子在就读')) return 'sibling';
   // Pass-by (driving past, 驾车经过) gets its own bucket with a car
   // icon — distinct from walk-in (foot traffic into the school) so
   // the tooltip / source column reflects the actual channel.
   if (v.includes('pass')) return 'pass_by';
   if (v.includes('walk')) return 'walk_in';
+  if (v.includes('billboard') || v.includes('广告牌')) return 'billboard';
   return null;
 }
 
@@ -121,13 +140,27 @@ function legacySubmissionFromUtmSource(value: string | null | undefined): Submis
   if (v.includes('fb_form') || v.includes('facebook_form')) return 'facebook_form';
   if (v.includes('qr')) return 'qr_code';
   if (v.includes('manual')) return 'manual_entry';
-  if (v.includes('website') || v.includes('web_') || v === 'web' || v.includes('organic')) return 'website_form';
-  return null;
+  // Anything else that came with a UTM tag (xiaohongshu, fb_ad,
+  // ig_ad, google_cpc, etc.) means the parent clicked a tracked URL
+  // and landed on the website form. Treat as website submission so
+  // the row carries "via Website" instead of dropping the badge.
+  return 'website_form';
 }
 
 function resolveSubmissionChannel(lead: Lead): SubmissionChannel {
   if (lead.submissionChannel) return lead.submissionChannel;
   return legacySubmissionFromUtmSource(lead.utmSource) ?? 'unknown';
+}
+
+// EnquiryFormPage saves Friend Referral submissions with a note in the
+// shape `朋友介绍 — 朋友的孩子：{name}，请确认...`. Surface that child
+// name on the row so staff can spot who the warm lead is connected to
+// without opening the lead. Returns null when the lead either isn't a
+// referral or notes have been edited away from the original shape.
+function extractReferrerChildName(lead: Lead): string | null {
+  if (!lead.notes) return null;
+  const m = lead.notes.match(/朋友的孩子：\s*([^，,\n。]+)/);
+  return m ? m[1].trim() : null;
 }
 
 function getLeadHeat(ctaSource: string | null): { level: number; label: string; color: string; bg: string; icon: typeof faFire | null; tooltip: string } {
@@ -1544,6 +1577,30 @@ interface EditForm {
   relationship: string; programme: string; howDidYouKnow: string;
   addressLocation: string; needsTransport: string; preferredAppointmentTime: string;
   attendedDate: string;
+  referrerName: string;
+}
+
+// Friend Referral leads carry the referrer's child name inside `notes`
+// in the canonical phrase the public enquiry form saves. The edit modal
+// surfaces that name as a dedicated field so staff don't have to type
+// the Chinese marker by hand; helpers below keep the textarea clean
+// while ensuring saves rebuild the phrase correctly.
+const REFERRAL_PHRASE_RE = /朋友介绍 — 朋友的孩子：[^，\n]*，请确认是否在 Bukit Indah 分校就读以申请介绍优惠\n?/g;
+
+function extractReferrerNameFromNotes(notes: string): string {
+  const m = notes.match(/朋友的孩子：\s*([^，,\n。]+)/);
+  return m ? m[1].trim() : '';
+}
+
+function stripReferralPhrase(notes: string): string {
+  return notes.replace(REFERRAL_PHRASE_RE, '').trim();
+}
+
+function rebuildNotesWithReferrer(notesBody: string, refName: string, isReferral: boolean): string {
+  const body = notesBody.trim();
+  if (!isReferral || !refName.trim()) return body;
+  const phrase = `朋友介绍 — 朋友的孩子：${refName.trim()}，请确认是否在 Bukit Indah 分校就读以申请介绍优惠`;
+  return body ? `${phrase}\n${body}` : phrase;
 }
 
 const RELATIONSHIP_OPTIONS = ['Mother', 'Father', 'Guardian', 'Grandparent', 'Other'];
@@ -1578,15 +1635,17 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
 }) {
   const [tab, setTab] = useState<EditTab>('child');
   const [editing, setEditing] = useState(false);
+  const initialNotesRaw = lead.notes ?? '';
   const [form, setForm] = useState<EditForm>({
     childName: lead.childName, parentPhone: lead.parentPhone,
     childDob: lead.childDob.split('T')[0], enrolmentYear: String(lead.enrolmentYear),
-    status: lead.status, notes: lead.notes ?? '', lostReason: lead.lostReason ?? '',
+    status: lead.status, notes: stripReferralPhrase(initialNotesRaw), lostReason: lead.lostReason ?? '',
     relationship: lead.relationship ?? '', programme: lead.programme ?? '',
     howDidYouKnow: lead.howDidYouKnow ?? '', addressLocation: lead.addressLocation ?? '',
     needsTransport: lead.needsTransport === null ? '' : lead.needsTransport ? 'yes' : 'no',
     preferredAppointmentTime: lead.preferredAppointmentTime ?? '',
     attendedDate: lead.status === 'FOLLOW_UP' && lead.statusChangedAt ? new Date(lead.statusChangedAt).toISOString().split('T')[0] : '',
+    referrerName: extractReferrerNameFromNotes(initialNotesRaw),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -1605,9 +1664,14 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
     if ((form.status === 'LOST' || form.status === 'REJECTED') && !form.lostReason) { setError(`Please select a reason for marking this lead as ${form.status === 'REJECTED' ? 'Rejected' : 'Lost'}.`); return; }
     setSaving(true); setError('');
     try {
+      const combinedNotes = rebuildNotesWithReferrer(
+        form.notes,
+        form.referrerName,
+        form.howDidYouKnow === 'Friend Referral',
+      );
       const payload: UpdateLeadPayload = {
         childName: form.childName, parentPhone: form.parentPhone, childDob: form.childDob,
-        enrolmentYear: Number(form.enrolmentYear), status: form.status, notes: form.notes,
+        enrolmentYear: Number(form.enrolmentYear), status: form.status, notes: combinedNotes,
         lostReason: (form.status === 'LOST' || form.status === 'REJECTED') ? form.lostReason : null,
         relationship: form.relationship || null, programme: form.programme || null,
         howDidYouKnow: form.howDidYouKnow || null, addressLocation: form.addressLocation || null,
@@ -1623,15 +1687,17 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
   };
 
   const handleCancel = () => {
+    const notesRaw = lead.notes ?? '';
     setForm({
       childName: lead.childName, parentPhone: lead.parentPhone,
       childDob: lead.childDob.split('T')[0], enrolmentYear: String(lead.enrolmentYear),
-      status: lead.status, notes: lead.notes ?? '', lostReason: lead.lostReason ?? '',
+      status: lead.status, notes: stripReferralPhrase(notesRaw), lostReason: lead.lostReason ?? '',
       relationship: lead.relationship ?? '', programme: lead.programme ?? '',
       howDidYouKnow: lead.howDidYouKnow ?? '', addressLocation: lead.addressLocation ?? '',
       needsTransport: lead.needsTransport === null ? '' : lead.needsTransport ? 'yes' : 'no',
       preferredAppointmentTime: lead.preferredAppointmentTime ?? '',
       attendedDate: lead.status === 'FOLLOW_UP' && lead.statusChangedAt ? new Date(lead.statusChangedAt).toISOString().split('T')[0] : '',
+      referrerName: extractReferrerNameFromNotes(notesRaw),
     });
     setEditing(false);
     setError('');
@@ -1753,24 +1819,30 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
             )}
 
             {/* ── Other tab ── */}
-            {tab === 'other' && !editing && (
-              <div>
-                <ViewRow label="Source" value={lead.howDidYouKnow || '—'} />
-                {lead.utmSource && <ViewRow label="UTM Source" value={lead.utmSource} />}
-                <ViewRow label="Visit Preference" value={lead.preferredAppointmentTime || '—'} />
-                <ViewRow label="Status" value={statusDisplayLabel(lead.status)} />
-                {lead.status === 'FOLLOW_UP' && lead.statusChangedAt && (
-                  <ViewRow label="Attended Date" value={new Date(lead.statusChangedAt).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })} />
-                )}
-                {(lead.status === 'LOST' || lead.status === 'REJECTED') && <ViewRow label={lead.status === 'REJECTED' ? 'Reject Reason' : 'Lost Reason'} value={lead.lostReason || '—'} />}
-                {lead.notes && (
-                  <div style={{ marginTop: 12, background: '#f8fafc', borderRadius: 8, padding: '10px 14px' }}>
-                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Notes</span>
-                    <p style={{ fontSize: 13, color: '#475569', margin: '4px 0 0', lineHeight: 1.6 }}>{lead.notes}</p>
-                  </div>
-                )}
-              </div>
-            )}
+            {tab === 'other' && !editing && (() => {
+              const cleanNotes = stripReferralPhrase(lead.notes ?? '');
+              const refName = extractReferrerNameFromNotes(lead.notes ?? '');
+              const isReferral = lead.howDidYouKnow === 'Friend Referral';
+              return (
+                <div>
+                  <ViewRow label="Source" value={lead.howDidYouKnow || '—'} />
+                  {isReferral && <ViewRow label="Referrer's Child" value={refName || '—'} />}
+                  {lead.utmSource && <ViewRow label="UTM Source" value={lead.utmSource} />}
+                  <ViewRow label="Visit Preference" value={lead.preferredAppointmentTime || '—'} />
+                  <ViewRow label="Status" value={statusDisplayLabel(lead.status)} />
+                  {lead.status === 'FOLLOW_UP' && lead.statusChangedAt && (
+                    <ViewRow label="Attended Date" value={new Date(lead.statusChangedAt).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })} />
+                  )}
+                  {(lead.status === 'LOST' || lead.status === 'REJECTED') && <ViewRow label={lead.status === 'REJECTED' ? 'Reject Reason' : 'Lost Reason'} value={lead.lostReason || '—'} />}
+                  {cleanNotes && (
+                    <div style={{ marginTop: 12, background: '#f8fafc', borderRadius: 8, padding: '10px 14px' }}>
+                      <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Notes</span>
+                      <p style={{ fontSize: 13, color: '#475569', margin: '4px 0 0', lineHeight: 1.6 }}>{cleanNotes}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {tab === 'other' && editing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={mo.grid}>
@@ -1780,6 +1852,11 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                       {MARKETING_CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
                   </label>
+                  {form.howDidYouKnow === 'Friend Referral' && (
+                    <label style={mo.label}>Referrer's Child Name
+                      <input style={mo.input} value={form.referrerName} onChange={set('referrerName')} placeholder="e.g. Tommy" />
+                    </label>
+                  )}
                   <label style={mo.label}>Visit Preference<input style={mo.input} value={form.preferredAppointmentTime} onChange={set('preferredAppointmentTime')} placeholder="e.g. Weekday afternoon" /></label>
                   <label style={mo.label}>Status
                     <select style={mo.input} value={form.status} onChange={set('status')}>
@@ -2868,8 +2945,12 @@ export default function LeadsPage() {
                             const ds = resolveDiscoverySource(lead);
                             if (ds === 'unknown') return null;
                             const dm = DISCOVERY_META[ds];
+                            const refName = ds === 'referral' ? extractReferrerChildName(lead) : null;
+                            const tip = refName
+                              ? `Lead Source: ${dm.label} from ${refName}'s family`
+                              : `Lead Source: ${dm.label}`;
                             return (
-                              <span title={`Lead Source: ${dm.label}`} style={{
+                              <span title={tip} style={{
                                 display: 'inline-flex', alignItems: 'center',
                                 cursor: 'default',
                               }}>
@@ -2897,6 +2978,20 @@ export default function LeadsPage() {
                               </span>
                             );
                           })()}
+                          {/* Friend Referral = warm lead with the highest
+                              close-rate. Compact round badge keeps the
+                              row clean; full context lives in the lead
+                              modal. */}
+                          {resolveDiscoverySource(lead) === 'referral' && (
+                            <span title="Warm lead, nurture to close" style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              background: '#dcfce7', color: '#15803d',
+                              width: 16, height: 16, borderRadius: '50%',
+                              cursor: 'default', flexShrink: 0,
+                            }}>
+                              <FontAwesomeIcon icon={faSeedling} style={{ fontSize: 9 }} />
+                            </span>
+                          )}
                         </div>
                         {/* Status time + "via X" text (when known). */}
                         {(() => {
@@ -3109,6 +3204,20 @@ export default function LeadsPage() {
                                 </span>
                               );
                             })()}
+                            {/* Friend Referral = warm lead with the highest
+                                close-rate. Compact round badge keeps the
+                                row clean; full context lives in the lead
+                                modal. */}
+                            {resolveDiscoverySource(lead) === 'referral' && (
+                              <span title="Warm lead, nurture to close" style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                background: '#dcfce7', color: '#15803d',
+                                width: 16, height: 16, borderRadius: '50%',
+                                cursor: 'default', flexShrink: 0,
+                              }}>
+                                <FontAwesomeIcon icon={faSeedling} style={{ fontSize: 9 }} />
+                              </span>
+                            )}
                           </div>
                           {/* Status time + "via X" text (when known).
                               Plain inline text in the same muted style
@@ -3144,14 +3253,20 @@ export default function LeadsPage() {
                         {/* Source — brand icon only, centered. Empty
                             cell when the lead's discovery source is
                             unknown (not in the enum / no legacy
-                            match). Tooltip carries the full name. */}
+                            match). Tooltip carries the full name and
+                            the referrer's family name for Friend
+                            Referral leads. */}
                         <td style={{ ...tD, textAlign: 'center' as const }}>
                           {(() => {
                             const ds = resolveDiscoverySource(lead);
                             if (ds === 'unknown') return <span style={{ color: '#e2e8f0' }}>—</span>;
                             const dm = DISCOVERY_META[ds];
+                            const refName = ds === 'referral' ? extractReferrerChildName(lead) : null;
+                            const tip = refName
+                              ? `Lead Source: ${dm.label} from ${refName}'s family`
+                              : `Lead Source: ${dm.label}`;
                             return (
-                              <span title={`Lead Source: ${dm.label}`} style={{
+                              <span title={tip} style={{
                                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                 cursor: 'default',
                               }}>
