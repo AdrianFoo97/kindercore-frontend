@@ -11,8 +11,12 @@ import { Lead, LeadStatus, LeadsResponse, Package } from '../types/index.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useDeleteDialog } from '../components/common/DeleteDialog.js';
 import { useToast } from '../components/common/Toast.js';
+// Canonical source list — kept in one place so the public enquiry form,
+// the student-creation modal, and this lead-editor share the same options.
+// Adding / renaming a channel happens in /constants/marketingChannels.ts.
+import { MARKETING_CHANNELS } from '../constants/marketingChannels.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faLocationDot, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faFacebook, faGoogle, faTiktok } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
@@ -50,15 +54,19 @@ type DiscoverySource = NonNullable<Lead['discoverySource']>;
 type SubmissionChannel = NonNullable<Lead['submissionChannel']>;
 
 // Discovery source meta — icon-only in the table, rendered in a
-// neutral slate. The icon shape (Facebook F, Google G, video for
-// XHS, users for Referral, etc.) carries the identity without brand
-// colors competing for attention. Tooltip carries the full label.
-const DISCOVERY_META: Record<DiscoverySource, { label: string; short: string; icon: any }> = {
+// neutral slate. The icon shape (Facebook F, Google G, users for
+// Referral, etc.) carries the identity without brand colors
+// competing for attention. Tooltip carries the full label.
+// Sources that aren't in FontAwesome's brand set (e.g. 小红书 / XHS)
+// can supply an `imageSrc` instead — the renderer falls back to an
+// <img> tag from /public for those.
+const DISCOVERY_META: Record<DiscoverySource, { label: string; short: string; icon: any; imageSrc?: string }> = {
   facebook:  { label: 'Facebook', short: 'FB',       icon: faFacebook },
-  xhs:       { label: 'XHS',      short: 'XHS',      icon: faVideo },
+  xhs:       { label: 'XHS',      short: 'XHS',      icon: faVideo,        imageSrc: '/xhs logo.png' },
   tiktok:    { label: 'TikTok',   short: 'TikTok',   icon: faTiktok },
   referral:  { label: 'Referral', short: 'Ref',      icon: faUsers },
-  walk_in:   { label: 'Walk-in',  short: 'Walk-in',  icon: faLocationDot },
+  walk_in:   { label: 'Walk-in',  short: 'Walk-in',  icon: faPersonWalking },
+  pass_by:   { label: 'Pass By',  short: 'Pass By',  icon: faCar },
   google:    { label: 'Google',   short: 'Google',   icon: faGoogle },
   unknown:   { label: 'Unknown',  short: '—',        icon: faQuestion },
 };
@@ -88,6 +96,10 @@ function legacyDiscoveryFromHowDidYouKnow(value: string | null | undefined): Dis
   if (v.includes('xhs') || v.includes('xiaohongshu') || v.includes('小红书')) return 'xhs';
   if (v.includes('google')) return 'google';
   if (v.includes('referral') || v.includes('friend') || v.includes('refer')) return 'referral';
+  // Pass-by (driving past, 驾车经过) gets its own bucket with a car
+  // icon — distinct from walk-in (foot traffic into the school) so
+  // the tooltip / source column reflects the actual channel.
+  if (v.includes('pass')) return 'pass_by';
   if (v.includes('walk')) return 'walk_in';
   return null;
 }
@@ -1540,7 +1552,6 @@ const PROGRAMME_OPTIONS = [
   { value: 'Core+Music', label: '日常+音乐 Core+Music' },
   { value: 'FullDay', label: 'Full Day 学习生活' },
 ];
-const MARKETING_CHANNELS = ['Facebook', 'Instagram', 'Google', 'Friend Referral', 'Walk-in', 'Banner/Flyer', 'Other'];
 
 type EditTab = 'child' | 'contact' | 'other';
 const EDIT_TABS: { key: EditTab; label: string }[] = [
@@ -1766,7 +1777,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                   <label style={mo.label}>Source
                     <select style={mo.input} value={form.howDidYouKnow} onChange={set('howDidYouKnow')}>
                       <option value="">—</option>
-                      {MARKETING_CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+                      {MARKETING_CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
                   </label>
                   <label style={mo.label}>Visit Preference<input style={mo.input} value={form.preferredAppointmentTime} onChange={set('preferredAppointmentTime')} placeholder="e.g. Weekday afternoon" /></label>
@@ -2862,14 +2873,27 @@ export default function LeadsPage() {
                                 display: 'inline-flex', alignItems: 'center',
                                 cursor: 'default',
                               }}>
-                                <FontAwesomeIcon
-                                  icon={dm.icon}
-                                  fixedWidth
-                                  style={{
-                                    fontSize: 11,
-                                    color: '#94a3b8',
-                                  }}
-                                />
+                                {dm.imageSrc ? (
+                                  <img
+                                    src={dm.imageSrc}
+                                    alt=""
+                                    style={{
+                                      width: 17, height: 17,
+                                      objectFit: 'contain',
+                                      display: 'block',
+                                      filter: 'grayscale(1) opacity(0.55)',
+                                    }}
+                                  />
+                                ) : (
+                                  <FontAwesomeIcon
+                                    icon={dm.icon}
+                                    fixedWidth
+                                    style={{
+                                      fontSize: 11,
+                                      color: '#94a3b8',
+                                    }}
+                                  />
+                                )}
                               </span>
                             );
                           })()}
@@ -3131,14 +3155,37 @@ export default function LeadsPage() {
                                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                 cursor: 'default',
                               }}>
-                                <FontAwesomeIcon
-                                  icon={dm.icon}
-                                  fixedWidth
-                                  style={{
-                                    fontSize: 14,
-                                    color: '#94a3b8',
-                                  }}
-                                />
+                                {dm.imageSrc ? (
+                                  <img
+                                    src={dm.imageSrc}
+                                    alt=""
+                                    style={{
+                                      // PNG has its own padding around
+                                      // the logo, so use a larger box
+                                      // than the FA icons' 14px glyph
+                                      // to land at a similar optical
+                                      // weight in the column.
+                                      width: 22, height: 22,
+                                      objectFit: 'contain',
+                                      display: 'block',
+                                      // Match the muted slate of the
+                                      // FontAwesome source icons —
+                                      // desaturate + dim so the XHS
+                                      // logo doesn't shout brand color
+                                      // while the others are neutral.
+                                      filter: 'grayscale(1) opacity(0.55)',
+                                    }}
+                                  />
+                                ) : (
+                                  <FontAwesomeIcon
+                                    icon={dm.icon}
+                                    fixedWidth
+                                    style={{
+                                      fontSize: 14,
+                                      color: '#94a3b8',
+                                    }}
+                                  />
+                                )}
                               </span>
                             );
                           })()}

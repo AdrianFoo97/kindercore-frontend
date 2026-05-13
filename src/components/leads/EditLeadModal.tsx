@@ -3,6 +3,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faPen } from '@fortawesome/free-solid-svg-icons';
 import { updateLead, UpdateLeadPayload } from '../../api/leads.js';
 import { Lead, LeadStatus } from '../../types/index.js';
+// Shared with the enquiry form + student-creation modal so the source
+// dropdown stays consistent (adding a channel only happens in one file).
+import { MARKETING_CHANNELS } from '../../constants/marketingChannels.js';
 
 const currentYear = new Date().getFullYear();
 const ENROLMENT_YEARS = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
@@ -13,7 +16,6 @@ const PROGRAMME_OPTIONS = [
   { value: 'Core+Music', label: '日常+音乐 Core+Music' },
   { value: 'FullDay', label: 'Full Day 学习生活' },
 ];
-const MARKETING_CHANNELS = ['Facebook', 'Instagram', 'Google', 'Friend Referral', 'Walk-in', 'Banner/Flyer', 'Other'];
 
 function programmeLabel(val: string): string {
   return PROGRAMME_OPTIONS.find(p => p.value === val)?.label || val || '—';
@@ -217,7 +219,7 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
                   <label style={mo.label}>How Did You Know?
                     <select style={mo.input} value={form.howDidYouKnow} onChange={set('howDidYouKnow')}>
                       <option value="">—</option>
-                      {MARKETING_CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+                      {MARKETING_CHANNELS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                     </select>
                   </label>
                   <label style={mo.label}>Preferred Visit Time<input style={mo.input} value={form.preferredAppointmentTime} onChange={set('preferredAppointmentTime')} placeholder="e.g. Weekday afternoon" /></label>
