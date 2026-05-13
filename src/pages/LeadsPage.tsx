@@ -12,8 +12,8 @@ import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useDeleteDialog } from '../components/common/DeleteDialog.js';
 import { useToast } from '../components/common/Toast.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser } from '@fortawesome/free-solid-svg-icons';
-import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faLocationDot, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp, faFacebook, faGoogle, faTiktok } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
 
@@ -37,6 +37,86 @@ type PipelineStage = 'all_active' | 'NEW' | 'CONTACTED' | 'APPOINTMENT_BOOKED' |
 const CTA_SOURCE_LABELS: Record<string, string> = {
   final: '整个页面', courses: '课程详情', methods: '学习方式', story: '故事部分', hero: '顶部',
 };
+
+// ── Lead source + submission channel meta ────────────────────────────────────
+// Two concepts the table must show side-by-side without conflating:
+//   • discoverySource — where the parent first heard of us.
+//   • submissionChannel — how they actually submitted the enquiry.
+// Each has a label (full + compact), an icon (FontAwesome), and the
+// "Unknown" fallback gets rendered in muted grey rather than hidden,
+// so the absence is informative.
+
+type DiscoverySource = NonNullable<Lead['discoverySource']>;
+type SubmissionChannel = NonNullable<Lead['submissionChannel']>;
+
+// Discovery source meta — icon-only in the table, rendered in a
+// neutral slate. The icon shape (Facebook F, Google G, video for
+// XHS, users for Referral, etc.) carries the identity without brand
+// colors competing for attention. Tooltip carries the full label.
+const DISCOVERY_META: Record<DiscoverySource, { label: string; short: string; icon: any }> = {
+  facebook:  { label: 'Facebook', short: 'FB',       icon: faFacebook },
+  xhs:       { label: 'XHS',      short: 'XHS',      icon: faVideo },
+  tiktok:    { label: 'TikTok',   short: 'TikTok',   icon: faTiktok },
+  referral:  { label: 'Referral', short: 'Ref',      icon: faUsers },
+  walk_in:   { label: 'Walk-in',  short: 'Walk-in',  icon: faLocationDot },
+  google:    { label: 'Google',   short: 'Google',   icon: faGoogle },
+  unknown:   { label: 'Unknown',  short: '—',        icon: faQuestion },
+};
+
+// Submission channel meta — icon-only in the table, rendered in a
+// neutral muted slate. No brand colors here: the channel is a
+// "how it reached us" detail, not a marketing signal worth visual
+// shouting room. Brand colors stay on `DISCOVERY_META` where source
+// identity actually matters.
+const SUBMISSION_META: Record<SubmissionChannel, { label: string; short: string; icon: any }> = {
+  whatsapp_link:  { label: 'WhatsApp Link', short: 'WhatsApp', icon: faWhatsapp },
+  website_form:   { label: 'Website Form',  short: 'Website',  icon: faGlobe },
+  facebook_form:  { label: 'Facebook Form', short: 'FB Form',  icon: faFacebook },
+  qr_code:        { label: 'QR Code',       short: 'QR',       icon: faQrcode },
+  manual_entry:   { label: 'Manual Entry',  short: 'Manual',   icon: faPenToSquare },
+  unknown:        { label: 'Unknown',       short: '—',        icon: faQuestion },
+};
+
+// Some legacy rows only have `howDidYouKnow` (free-text Marketing
+// Channels). Map the common values to the enum so the new UI degrades
+// gracefully instead of dropping all info.
+function legacyDiscoveryFromHowDidYouKnow(value: string | null | undefined): DiscoverySource | null {
+  if (!value) return null;
+  const v = value.toLowerCase();
+  if (v.includes('facebook') || v === 'fb') return 'facebook';
+  if (v.includes('tiktok')) return 'tiktok';
+  if (v.includes('xhs') || v.includes('xiaohongshu') || v.includes('小红书')) return 'xhs';
+  if (v.includes('google')) return 'google';
+  if (v.includes('referral') || v.includes('friend') || v.includes('refer')) return 'referral';
+  if (v.includes('walk')) return 'walk_in';
+  return null;
+}
+
+function resolveDiscoverySource(lead: Lead): DiscoverySource {
+  if (lead.discoverySource) return lead.discoverySource;
+  return legacyDiscoveryFromHowDidYouKnow(lead.howDidYouKnow) ?? 'unknown';
+}
+
+// Map the legacy `utmSource` string (a UTM tracking value like
+// 'wa_link', 'website', 'qr_card', 'fb_form', 'manual') to the
+// enum-shaped `submissionChannel`. Lets old rows render the new
+// "via X" badge without a DB migration. Unknown / unmapped values
+// return null so the table simply omits the badge.
+function legacySubmissionFromUtmSource(value: string | null | undefined): SubmissionChannel | null {
+  if (!value) return null;
+  const v = value.toLowerCase();
+  if (v.includes('whatsapp') || v.includes('wa_') || v === 'wa') return 'whatsapp_link';
+  if (v.includes('fb_form') || v.includes('facebook_form')) return 'facebook_form';
+  if (v.includes('qr')) return 'qr_code';
+  if (v.includes('manual')) return 'manual_entry';
+  if (v.includes('website') || v.includes('web_') || v === 'web' || v.includes('organic')) return 'website_form';
+  return null;
+}
+
+function resolveSubmissionChannel(lead: Lead): SubmissionChannel {
+  if (lead.submissionChannel) return lead.submissionChannel;
+  return legacySubmissionFromUtmSource(lead.utmSource) ?? 'unknown';
+}
 
 function getLeadHeat(ctaSource: string | null): { level: number; label: string; color: string; bg: string; icon: typeof faFire | null; tooltip: string } {
   const sourceOrder: Record<string, number> = {
@@ -2122,6 +2202,28 @@ export default function LeadsPage() {
     }
   }
 
+  // Revert a Lost / Rejected lead back to New so staff can re-engage
+  // from the top of the pipeline. Clears the lostReason so the row
+  // doesn't carry the stale "why we lost them" tag once it's active
+  // again.
+  async function revertToNew(lead: Lead) {
+    try {
+      await updateLead(lead.id, {
+        status: 'NEW',
+        lostReason: null,
+        statusChangedAt: new Date().toISOString(),
+      });
+      invalidateAll();
+      const id = lead.id;
+      showToast(`${lead.childName} reverted to`, 'success', undefined, {
+        label: 'New',
+        onClick: () => { handleStageSelect('NEW'); setHighlightId(id); },
+      });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Revert failed', 'error');
+    }
+  }
+
   async function confirmBookingDirect(lead: Lead) {
     try {
       const result = await confirmAppointment(lead.id);
@@ -2736,24 +2838,68 @@ export default function LeadsPage() {
                               <FontAwesomeIcon icon={faNoteSticky} />
                             </span>
                           )}
+                          {/* Heat indicator — icon + label. */}
                           {getLeadHeat(lead.ctaSource).label && (() => {
                             const heat = getLeadHeat(lead.ctaSource);
                             return (
                               <span title={heat.tooltip} style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 3,
-                                color: heat.color, fontSize: 9, fontWeight: 600, cursor: 'default',
+                                color: heat.color, fontSize: 10, fontWeight: 700,
+                                cursor: 'default', whiteSpace: 'nowrap' as const,
                               }}>
-                                {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 8 }} />}
+                                {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 10 }} />}
                                 {heat.label}
                               </span>
                             );
                           })()}
+                          {/* Lead source — brand icon only, next to the heat. */}
+                          {(() => {
+                            const ds = resolveDiscoverySource(lead);
+                            if (ds === 'unknown') return null;
+                            const dm = DISCOVERY_META[ds];
+                            return (
+                              <span title={`Lead Source: ${dm.label}`} style={{
+                                display: 'inline-flex', alignItems: 'center',
+                                cursor: 'default',
+                              }}>
+                                <FontAwesomeIcon
+                                  icon={dm.icon}
+                                  fixedWidth
+                                  style={{
+                                    fontSize: 11,
+                                    color: '#94a3b8',
+                                  }}
+                                />
+                              </span>
+                            );
+                          })()}
                         </div>
-                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                          <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
-                            {STATUS_VERB[lead.status]} {rt.text}
-                          </span>
-                        </div>
+                        {/* Status time + "via X" text (when known). */}
+                        {(() => {
+                          const sc = resolveSubmissionChannel(lead);
+                          const hasVia = sc !== 'unknown';
+                          return (
+                            <div style={{
+                              marginTop: 2,
+                              fontSize: 11, color: '#94a3b8',
+                            }}>
+                              <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
+                                {STATUS_VERB[lead.status]} {rt.text}
+                              </span>
+                              {hasVia && (() => {
+                                const sm = SUBMISSION_META[sc];
+                                return (
+                                  <>
+                                    <span style={{ color: '#cbd5e1', margin: '0 5px' }} aria-hidden>·</span>
+                                    <span title={`Submission Channel: ${sm.label}`} style={{ cursor: 'default' }}>
+                                      via {sm.short}
+                                    </span>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })()}
                       </div>
                       {!isClosed && (
                         <button onClick={e => { e.stopPropagation(); openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); }}
@@ -2801,6 +2947,13 @@ export default function LeadsPage() {
                             {hasScheduleActions && (
                               <button onClick={() => { setBookingIntent('reschedule'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
                             )}
+                            {/* Follow-up leads have already attended one
+                                visit; let staff book another (re-visit,
+                                follow-up tour) without going through
+                                Reschedule semantics. */}
+                            {lead.status === 'FOLLOW_UP' && (
+                              <button onClick={() => { setBookingIntent('book'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Schedule Appointment</button>
+                            )}
                             <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
                             <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
                             {isMobile && (
@@ -2825,8 +2978,24 @@ export default function LeadsPage() {
                               </button>
                             </div>
                           </>)}
+                          {/* Revert — only on closed Lost/Rejected leads.
+                              Sends the lead back to New so staff can
+                              re-engage from the top of the pipeline.
+                              Rendered with the same plain icon+label
+                              styling as the other neutral actions
+                              (Edit Notes, View Lead Details). */}
                           {sep}
                           <div style={{ padding: '0 2px' }}>
+                            {(lead.status === 'LOST' || lead.status === 'REJECTED') && (
+                              <button
+                                onClick={() => { setConfirmDialog({ message: `Revert ${lead.childName} back to New? This will reactivate the lead and clear its ${lead.status === 'LOST' ? 'lost reason' : 'rejection reason'}.`, onConfirm: () => revertToNew(lead) }); setMenuOpenId(null); }}
+                                className={mI}
+                                style={{ color: '#64748b' }}
+                              >
+                                <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+                                Revert to New
+                              </button>
+                            )}
                             <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#64748b' }}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#b0b8c9', fontSize: 11 }} /> View Lead Details</button>
                           </div>
                           {sep}
@@ -2858,16 +3027,17 @@ export default function LeadsPage() {
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <th style={{ width: 4, padding: 0, borderTopLeftRadius: 10 }} />
-                    <th style={{ ...tH, width: '25%' }}>Lead</th>
+                    <th style={{ ...tH, width: '22%' }}>Lead</th>
+                    <th style={{ ...tH, width: '6%', textAlign: 'center' as const }}>Source</th>
                     <th style={{ ...tH, width: '11%' }}>Enrolment</th>
                     <th style={{ ...tH, width: '15%' }}>Phone</th>
                     {isClosed
                       ? <th style={{ ...tH, width: '12%' }}>Closed</th>
-                      : <th style={{ ...tH, width: '20%' }}>Visit</th>
+                      : <th style={{ ...tH, width: '19%' }}>Visit</th>
                     }
                     {isClosed
                       ? <th style={{ ...tH }}>Reason</th>
-                      : <th style={{ ...tH, textAlign: 'right' as const, width: '35%' }}>Next Action</th>
+                      : <th style={{ ...tH, textAlign: 'right' as const, width: '33%' }}>Next Action</th>
                     }
                     <th style={{ ...tH, width: 44, textAlign: 'center' as const }} />
                   </tr>
@@ -2897,25 +3067,81 @@ export default function LeadsPage() {
                                 <FontAwesomeIcon icon={faNoteSticky} />
                               </span>
                             )}
+                            {/* Heat indicator — icon + Hot/Warm/Cold
+                                label, both in the heat color so the
+                                row carries an unambiguous lead-quality
+                                signal next to the name. Source lives in
+                                its own column to the right. */}
                             {getLeadHeat(lead.ctaSource).label && (() => {
                               const heat = getLeadHeat(lead.ctaSource);
                               return (
                                 <span title={heat.tooltip} style={{
                                   display: 'inline-flex', alignItems: 'center', gap: 3,
-                                  color: heat.color, fontSize: 10, fontWeight: 600,
+                                  color: heat.color, fontSize: 10, fontWeight: 700,
                                   cursor: 'default', whiteSpace: 'nowrap' as const,
                                 }}>
-                                  {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 9 }} />}
+                                  {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 10 }} />}
                                   {heat.label}
                                 </span>
                               );
                             })()}
                           </div>
-                          <div style={{ fontSize: 11, color: '#b0b8c9', marginTop: 2 }}>
-                            <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
-                              {STATUS_VERB[lead.status]} {rt.text}
-                            </span>
-                          </div>
+                          {/* Status time + "via X" text (when known).
+                              Plain inline text in the same muted style
+                              as the time. Full submission-channel name
+                              lives in the hover tooltip. */}
+                          {(() => {
+                            const sc = resolveSubmissionChannel(lead);
+                            const hasVia = sc !== 'unknown';
+                            return (
+                              <div style={{
+                                marginTop: 2,
+                                fontSize: 11, color: '#b0b8c9',
+                              }}>
+                                <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
+                                  {STATUS_VERB[lead.status]} {rt.text}
+                                </span>
+                                {hasVia && (() => {
+                                  const sm = SUBMISSION_META[sc];
+                                  return (
+                                    <>
+                                      <span style={{ color: '#cbd5e1', margin: '0 5px' }} aria-hidden>·</span>
+                                      <span title={`Submission Channel: ${sm.label}`} style={{ cursor: 'default' }}>
+                                        via {sm.short}
+                                      </span>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            );
+                          })()}
+                        </td>
+
+                        {/* Source — brand icon only, centered. Empty
+                            cell when the lead's discovery source is
+                            unknown (not in the enum / no legacy
+                            match). Tooltip carries the full name. */}
+                        <td style={{ ...tD, textAlign: 'center' as const }}>
+                          {(() => {
+                            const ds = resolveDiscoverySource(lead);
+                            if (ds === 'unknown') return <span style={{ color: '#e2e8f0' }}>—</span>;
+                            const dm = DISCOVERY_META[ds];
+                            return (
+                              <span title={`Lead Source: ${dm.label}`} style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'default',
+                              }}>
+                                <FontAwesomeIcon
+                                  icon={dm.icon}
+                                  fixedWidth
+                                  style={{
+                                    fontSize: 14,
+                                    color: '#94a3b8',
+                                  }}
+                                />
+                              </span>
+                            );
+                          })()}
                         </td>
 
                         {/* Enrolment */}
@@ -3062,6 +3288,9 @@ export default function LeadsPage() {
                                       {hasScheduleActions && (
                                         <button onClick={() => { setBookingIntent('reschedule'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
                                       )}
+                                      {lead.status === 'FOLLOW_UP' && (
+                                        <button onClick={() => { setBookingIntent('book'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Schedule Appointment</button>
+                                      )}
                                       <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
                                       <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
                                     </div>
@@ -3085,6 +3314,16 @@ export default function LeadsPage() {
                                     </>)}
                                     {sep}
                                     <div style={{ padding: '0 2px' }}>
+                                      {(lead.status === 'LOST' || lead.status === 'REJECTED') && (
+                                        <button
+                                          onClick={() => { setConfirmDialog({ message: `Revert ${lead.childName} back to New? This will reactivate the lead and clear its ${lead.status === 'LOST' ? 'lost reason' : 'rejection reason'}.`, onConfirm: () => revertToNew(lead) }); setMenuOpenId(null); }}
+                                          className={mI}
+                                          style={{ color: '#64748b' }}
+                                        >
+                                          <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+                                          Revert to New
+                                        </button>
+                                      )}
                                       <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#64748b' }}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#b0b8c9', fontSize: 11 }} /> View Lead Details</button>
                                     </div>
                                     {sep}
