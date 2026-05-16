@@ -22,7 +22,7 @@ import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.j
 
 const C = {
   primary: '#5a67d8', card: '#fff', text: '#1e293b',
-  muted: '#94a3b8', border: '#e2e8f0', danger: '#ef4444', green: '#059669',
+  muted: '#94a3b8', sub: '#475569', border: '#e2e8f0', danger: '#ef4444', green: '#059669',
 };
 const MIN_LEVEL = 1;
 const MAX_LEVEL = 5;
@@ -528,7 +528,6 @@ export default function EmployeeSalaryPage() {
                                 setAddingForParentId(parent.id);
                                 setNewAllowanceName('');
                                 setNewAllowanceIcon('gift');
-                                setNewAllowanceGuaranteed(true);
                               }}
                               style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 6,

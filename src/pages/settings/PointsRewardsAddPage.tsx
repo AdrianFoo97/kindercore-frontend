@@ -68,7 +68,7 @@ export default function PointsRewardsAddPage() {
       : ''
   );
   const [category, setCategory] = useState<RuleCategory>(
-    existing && 'category' in existing ? existing.category : 'mission',
+    existing && 'category' in existing ? (existing.category as RuleCategory) : 'mission',
   );
   const [amount, setAmount] = useState<number>(
     existing

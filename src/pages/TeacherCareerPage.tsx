@@ -1638,7 +1638,7 @@ function MobileJourneyStack({
               display: 'flex', flexDirection: 'column',
               alignItems: titleOnLeft ? 'flex-end' : 'flex-start',
               gap: 6,
-              textAlign: (titleOnLeft ? 'right' : 'left') as const,
+              textAlign: (titleOnLeft ? 'right' : 'left') as 'right' | 'left',
             }}>
               <span style={{
                 fontSize: isCurrent ? 20 : 16,

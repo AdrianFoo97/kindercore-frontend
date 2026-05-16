@@ -945,7 +945,7 @@ export default function EditTeacherPage() {
                               {children.map(child => (
                                 <div key={child.id} style={{
                                   paddingLeft: 24,
-                                  borderLeft: `2px solid ${C.divider}`,
+                                  borderLeft: `2px solid ${C.border}`,
                                   marginLeft: 8,
                                 }}>
                                   <AllowanceRow

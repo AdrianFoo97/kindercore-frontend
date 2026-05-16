@@ -847,7 +847,7 @@ export function MonthlySalaryBreakdown({ compact = false }: { compact?: boolean 
   // cards (e.g. Other Allowance with sub-types) carry a structured
   // breakdownItems list so the children render as a small list inside
   // the card rather than getting crammed into the sub-line.
-  const lines: { icon: any; label: string; amount: number; status: RewardStatus; accent: string; sub?: string; breakdownItems?: { name: string; amount: number }[] }[] = [];
+  const lines: { icon: any; label: string; amount: number; status: RewardStatus; accent: string; sub?: string; muted?: boolean; breakdownItems?: { name: string; amount: number }[] }[] = [];
 
   lines.push({
     icon: faShieldHalved,
