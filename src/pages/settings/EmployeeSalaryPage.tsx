@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, Fragment } from 'react';
 import ReactDOM from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -11,7 +12,7 @@ import {
   faShieldHalved, faClock, faCheck, faBolt,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchPositions, upsertPosition, deletePosition, fetchLevelIncentives, upsertLevelIncentives, fetchTeachersWithSalary } from '../../api/salary.js';
-import { uploadBadge, uploadUrl } from '../../api/upload.js';
+import { uploadUrl } from '../../api/upload.js';
 import { fetchAllowanceTypes, createAllowanceType, updateAllowanceType, deleteAllowanceType } from '../../api/allowance.js';
 import { fetchSettings, patchSetting } from '../../api/settings.js';
 import { Position } from '../../types/index.js';
@@ -33,6 +34,7 @@ function numOnly(val: string): string { return val.replace(/[^\d.]/g, ''); }
 
 export default function EmployeeSalaryPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm: confirmDelete } = useDeleteDialog();
 
@@ -42,23 +44,10 @@ export default function EmployeeSalaryPage() {
   const { data: incentives = [] } = useQuery({ queryKey: ['salary-incentives'], queryFn: fetchLevelIncentives });
 
   // ── Positions editing ──────────────────────────────────────────────
-  const [editingPos, setEditingPos] = useState<Position | null>(null);
-  const [posForm, setPosForm] = useState({ positionId: '', name: '', titleWeight: 0, basicSalary: 0, maxLevel: 5, inCareerProgression: true, badgeUrl: '', starColor: '' });
-  const [addingPos, setAddingPos] = useState(false);
-  const [badgeUploading, setBadgeUploading] = useState(false);
-  const badgeFileRef = useRef<HTMLInputElement | null>(null);
-
-  const handleBadgeUpload = async (file: File) => {
-    setBadgeUploading(true);
-    try {
-      const { url } = await uploadBadge(file);
-      setPosForm(p => ({ ...p, badgeUrl: url }));
-      showToast('Badge uploaded');
-    } catch (e: any) {
-      showToast(e?.message ?? 'Upload failed', 'error');
-    }
-    setBadgeUploading(false);
-  };
+  // Inline editing moved to a dedicated page at
+  //   /settings/employee-salary/positions/new
+  //   /settings/employee-salary/positions/:id/edit
+  // The list page now just renders the table + dispatches navigation.
   const [editingAllowId, setEditingAllowId] = useState<string | null>(null);
   const [addingForParentId, setAddingForParentId] = useState<string | null>(null);
   const [newAllowanceName, setNewAllowanceName] = useState('');
@@ -128,34 +117,11 @@ export default function EmployeeSalaryPage() {
     showToast('Order updated');
   };
 
-  const openEditPos = (p: Position) => {
-    setEditingPos(p);
-    setPosForm({ positionId: p.positionId, name: p.name, titleWeight: p.titleWeight, basicSalary: p.basicSalary, maxLevel: p.maxLevel, inCareerProgression: p.inCareerProgression, badgeUrl: p.badgeUrl ?? '', starColor: p.starColor ?? '' });
-  };
-
-  const savePos = async () => {
-    const id = addingPos ? posForm.positionId.trim().toUpperCase() : editingPos!.positionId;
-    if (!id || !posForm.name.trim()) return;
-    try {
-      await upsertPosition(id, {
-        name: posForm.name.trim(),
-        titleWeight: posForm.titleWeight,
-        basicSalary: posForm.basicSalary,
-        maxLevel: posForm.maxLevel,
-        sortOrder: addingPos ? positions.length : undefined,
-        inCareerProgression: posForm.inCareerProgression,
-        badgeUrl: posForm.badgeUrl.trim() || null,
-        starColor: posForm.starColor.trim() || null,
-      });
-      qc.invalidateQueries({ queryKey: ['salary-positions'] });
-      qc.invalidateQueries({ queryKey: ['salary-incentives'] });
-      showToast(addingPos ? `${id} added` : `${id} updated`);
-      setEditingPos(null);
-      setAddingPos(false);
-    } catch (e: any) {
-      showToast(e?.message ?? 'Failed to save', 'error');
-    }
-  };
+  // Edit / Add navigate to the dedicated page instead of inline-
+  // editing the row. Keeps the list clean and gives the form room
+  // for fields like description and richer help text.
+  const openEditPos = (p: Position) => navigate(`/settings/employee-salary/positions/${p.positionId}/edit`);
+  const openAddPos = () => navigate('/settings/employee-salary/positions/new');
 
   const removePos = async (pos: Position) => {
     const ok = await confirmDelete({
@@ -255,8 +221,7 @@ export default function EmployeeSalaryPage() {
         <div style={s.card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h2 style={s.sectionTitle}>Positions</h2>
-            <button onClick={() => { setAddingPos(true); setPosForm({ positionId: '', name: '', titleWeight: 0, basicSalary: 0, maxLevel: 5, inCareerProgression: true, badgeUrl: '', starColor: '' }); }}
-              style={s.addBtn}>
+            <button onClick={openAddPos} style={s.addBtn}>
               <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Add Position
             </button>
           </div>
@@ -284,230 +249,69 @@ export default function EmployeeSalaryPage() {
               </thead>
               <tbody>
                 {positions.map((pos, idx) => {
-                  const isEditing = editingPos?.positionId === pos.positionId;
                   const tCount = teacherCountByPos.get(pos.positionId) ?? 0;
                   const isDragging = dragIdx === idx;
                   const isDropTarget = dropIdx === idx && dragIdx !== null && dragIdx !== idx;
                   return (
-                    <Fragment key={pos.positionId}>
                     <tr
+                      key={pos.positionId}
                       style={{ ...s.tr, cursor: 'default', opacity: isDragging ? 0.4 : 1, borderTop: isDropTarget ? '2px solid #5a67d8' : undefined }}
                       onDragOver={onDragOver(idx)}
                       onDrop={onDrop(idx)}
                     >
-                      {isEditing ? (
-                        <>
-                          <td style={s.td} />
-                          <td style={s.td}><span style={s.posId}>{pos.positionId}</span></td>
-                          <td style={s.td}><input style={s.cellInput} value={posForm.name} onChange={e => setPosForm(p => ({ ...p, name: e.target.value }))} autoFocus /></td>
-                          <td style={s.td}><input style={s.cellInput} type="text" inputMode="numeric" value={posForm.basicSalary} onChange={e => setPosForm(p => ({ ...p, basicSalary: Number(numOnly(e.target.value)) }))} /></td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>
-                            <input type="checkbox" checked={posForm.maxLevel > 0} onChange={e => setPosForm(p => ({ ...p, maxLevel: e.target.checked ? 5 : 0 }))} />
-                          </td>
-                          <td style={s.td}>
-                            {posForm.maxLevel > 0
-                              ? <input style={{ ...s.cellInput, textAlign: 'center' }} type="text" inputMode="numeric" value={posForm.maxLevel} onChange={e => setPosForm(p => ({ ...p, maxLevel: Math.max(1, Number(numOnly(e.target.value))) }))} />
-                              : <span style={{ color: C.muted, textAlign: 'center', display: 'block' }}>—</span>
-                            }
-                          </td>
-                          <td style={s.td}>
-                            <input style={{ ...s.cellInput, textAlign: 'center' }} type="text" inputMode="numeric" value={posForm.titleWeight} onChange={e => setPosForm(p => ({ ...p, titleWeight: Number(numOnly(e.target.value)) }))} />
-                          </td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>
-                            <input type="checkbox" checked={posForm.inCareerProgression} onChange={e => setPosForm(p => ({ ...p, inCareerProgression: e.target.checked }))} title="Include in career progression ladder" />
-                          </td>
-                          <td style={{ ...s.td, textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                              <button onClick={savePos} style={s.saveBtnSm}>Save</button>
-                              <button onClick={() => setEditingPos(null)} style={s.cancelBtnSm}>Cancel</button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td style={{ ...s.td, padding: '6px 4px 6px 10px' }}>
-                            <span draggable onDragStart={onDragStart(idx)} onDragEnd={onDragEnd}
-                              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, color: C.muted, cursor: 'grab', fontSize: 12 }}>
-                              <FontAwesomeIcon icon={faGripVertical} />
-                            </span>
-                          </td>
-                          <td style={s.td}><span style={s.posId}>{pos.positionId}</span></td>
-                          <td style={s.td}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              {pos.badgeUrl && (
-                                <img
-                                  src={uploadUrl(pos.badgeUrl)}
-                                  alt=""
-                                  style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }}
-                                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                              )}
-                              <span style={{ fontWeight: 600, color: C.text }}>{pos.name}</span>
-                            </div>
-                          </td>
-                          <td style={s.td}><span style={{ fontWeight: 600 }}>{fmtRM(pos.basicSalary)}</span></td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>
-                            {pos.maxLevel > 0
-                              ? <span style={{ fontSize: 11, fontWeight: 600, color: C.green }}>Yes</span>
-                              : <span style={{ fontSize: 11, color: C.muted }}>No</span>
-                            }
-                          </td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>{pos.maxLevel > 0 ? pos.maxLevel : '—'}</td>
-                          <td style={{ ...s.td, textAlign: 'center', color: C.muted }}>{pos.titleWeight}</td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>
-                            {pos.inCareerProgression
-                              ? <span style={{ fontSize: 11, fontWeight: 600, color: C.green }}>On path</span>
-                              : <span style={{ fontSize: 11, color: C.muted }}>Off path</span>
-                            }
-                          </td>
-                          <td style={{ ...s.td, textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', alignItems: 'center' }}>
-                              <button onClick={() => openEditPos(pos)} style={s.actionBtn} title="Edit">
-                                <FontAwesomeIcon icon={faPen} style={{ fontSize: 11 }} />
-                              </button>
-                              <MoreMenuTrigger
-                                isOpen={menuOpenPosId === pos.positionId}
-                                onToggle={() => setMenuOpenPosId(menuOpenPosId === pos.positionId ? null : pos.positionId)}
-                                onDelete={() => { setMenuOpenPosId(null); removePos(pos); }}
-                                onClose={() => setMenuOpenPosId(null)}
-                                disabled={tCount > 0}
-                                disabledReason={tCount > 0 ? `Cannot delete — ${tCount} teacher(s) assigned` : undefined}
-                              />
-                            </div>
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                    {/* Sub-row: badge upload — only while editing this row. */}
-                    {isEditing && (
-                      <tr style={{ ...s.tr, background: '#fafbfc' }}>
-                        <td style={s.td} />
-                        <td style={s.td} />
-                        <td colSpan={6} style={{ ...s.td, padding: '6px 12px 14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                              Badge image
-                            </span>
-                            <div style={{
-                              width: 40, height: 40, borderRadius: 8,
-                              border: `1px solid ${C.border}`, background: '#fff',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              overflow: 'hidden', flexShrink: 0,
-                            }}>
-                              {posForm.badgeUrl ? (
-                                <img
-                                  src={uploadUrl(posForm.badgeUrl)}
-                                  alt={pos.name}
-                                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                  onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
-                                />
-                              ) : (
-                                <span style={{ fontSize: 11, color: C.muted }}>—</span>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                              <input
-                                ref={badgeFileRef}
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                style={{ display: 'none' }}
-                                onChange={e => {
-                                  const f = e.target.files?.[0];
-                                  if (f) handleBadgeUpload(f);
-                                  e.target.value = '';
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => badgeFileRef.current?.click()}
-                                disabled={badgeUploading}
-                                style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                                  padding: '6px 10px', fontSize: 12, fontWeight: 600,
-                                  color: C.text, background: '#fff',
-                                  border: `1px solid ${C.border}`, borderRadius: 6,
-                                  cursor: badgeUploading ? 'wait' : 'pointer',
-                                  opacity: badgeUploading ? 0.6 : 1,
-                                }}
-                              >
-                                <FontAwesomeIcon
-                                  icon={badgeUploading ? faSpinner : faUpload}
-                                  spin={badgeUploading}
-                                  style={{ fontSize: 11 }}
-                                />
-                                {posForm.badgeUrl ? 'Replace image' : 'Upload image'}
-                              </button>
-                              {posForm.badgeUrl && !badgeUploading && (
-                                <button
-                                  type="button"
-                                  onClick={() => setPosForm(p => ({ ...p, badgeUrl: '' }))}
-                                  style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    padding: '6px 8px', fontSize: 11, fontWeight: 600,
-                                    color: C.danger, background: 'transparent',
-                                    border: 'none', borderRadius: 6, cursor: 'pointer',
-                                  }}
-                                  title="Remove badge"
-                                >
-                                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 11 }} />
-                                  Remove
-                                </button>
-                              )}
-                              <span style={{ fontSize: 11, color: C.muted, marginLeft: 'auto' }}>
-                                PNG, JPG, WebP or SVG · max 5 MB
-                              </span>
-                            </div>
-                          </div>
-                          {/* Star color — when a teacher completes all
-                              missions in an achievement category at this
-                              position, the achievement renders with a
-                              star in this color. */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
-                            <span style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                              Star color
-                            </span>
-                            <StarColorPicker
-                              value={posForm.starColor}
-                              onChange={v => setPosForm(p => ({ ...p, starColor: v }))}
+                      <td style={{ ...s.td, padding: '6px 4px 6px 10px' }}>
+                        <span draggable onDragStart={onDragStart(idx)} onDragEnd={onDragEnd}
+                          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, color: C.muted, cursor: 'grab', fontSize: 12 }}>
+                          <FontAwesomeIcon icon={faGripVertical} />
+                        </span>
+                      </td>
+                      <td style={s.td}><span style={s.posId}>{pos.positionId}</span></td>
+                      <td style={s.td}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {pos.badgeUrl && (
+                            <img
+                              src={uploadUrl(pos.badgeUrl)}
+                              alt=""
+                              style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }}
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
-                            <span style={{ fontSize: 11, color: C.muted, marginLeft: 'auto' }}>
-                              Earned when all category missions complete
-                            </span>
-                          </div>
-                        </td>
-                        <td style={s.td} />
-                      </tr>
-                    )}
-                    </Fragment>
+                          )}
+                          <span style={{ fontWeight: 600, color: C.text }}>{pos.name}</span>
+                        </div>
+                      </td>
+                      <td style={s.td}><span style={{ fontWeight: 600 }}>{fmtRM(pos.basicSalary)}</span></td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>
+                        {pos.maxLevel > 0
+                          ? <span style={{ fontSize: 11, fontWeight: 600, color: C.green }}>Yes</span>
+                          : <span style={{ fontSize: 11, color: C.muted }}>No</span>
+                        }
+                      </td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>{pos.maxLevel > 0 ? pos.maxLevel : '—'}</td>
+                      <td style={{ ...s.td, textAlign: 'center', color: C.muted }}>{pos.titleWeight}</td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>
+                        {pos.inCareerProgression
+                          ? <span style={{ fontSize: 11, fontWeight: 600, color: C.green }}>On path</span>
+                          : <span style={{ fontSize: 11, color: C.muted }}>Off path</span>
+                        }
+                      </td>
+                      <td style={{ ...s.td, textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button onClick={() => openEditPos(pos)} style={s.actionBtn} title="Edit">
+                            <FontAwesomeIcon icon={faPen} style={{ fontSize: 11 }} />
+                          </button>
+                          <MoreMenuTrigger
+                            isOpen={menuOpenPosId === pos.positionId}
+                            onToggle={() => setMenuOpenPosId(menuOpenPosId === pos.positionId ? null : pos.positionId)}
+                            onDelete={() => { setMenuOpenPosId(null); removePos(pos); }}
+                            onClose={() => setMenuOpenPosId(null)}
+                            disabled={tCount > 0}
+                            disabledReason={tCount > 0 ? `Cannot delete — ${tCount} teacher(s) assigned` : undefined}
+                          />
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })}
-                {addingPos && (
-                  <tr style={{ ...s.tr, background: '#f0fdf4' }}>
-                    <td style={s.td} />
-                    <td style={s.td}><input style={s.cellInput} value={posForm.positionId} onChange={e => setPosForm(p => ({ ...p, positionId: e.target.value }))} placeholder="ID" autoFocus /></td>
-                    <td style={s.td}><input style={s.cellInput} value={posForm.name} onChange={e => setPosForm(p => ({ ...p, name: e.target.value }))} placeholder="Position name" /></td>
-                    <td style={s.td}><input style={s.cellInput} type="text" inputMode="numeric" value={posForm.basicSalary} onChange={e => setPosForm(p => ({ ...p, basicSalary: Number(numOnly(e.target.value)) }))} /></td>
-                    <td style={{ ...s.td, textAlign: 'center' }}>
-                      <input type="checkbox" checked={posForm.maxLevel > 0} onChange={e => setPosForm(p => ({ ...p, maxLevel: e.target.checked ? 5 : 0 }))} />
-                    </td>
-                    <td style={s.td}>
-                      {posForm.maxLevel > 0
-                        ? <input style={{ ...s.cellInput, textAlign: 'center' }} type="text" inputMode="numeric" value={posForm.maxLevel} onChange={e => setPosForm(p => ({ ...p, maxLevel: Math.max(1, Number(numOnly(e.target.value))) }))} />
-                        : <span style={{ color: C.muted, textAlign: 'center', display: 'block' }}>—</span>
-                      }
-                    </td>
-                    <td style={{ ...s.td, textAlign: 'center', color: C.muted }}>auto</td>
-                    <td style={{ ...s.td, textAlign: 'center' }}>
-                      <input type="checkbox" checked={posForm.inCareerProgression} onChange={e => setPosForm(p => ({ ...p, inCareerProgression: e.target.checked }))} title="Include in career progression ladder" />
-                    </td>
-                    <td style={{ ...s.td, textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button onClick={savePos} style={s.saveBtnSm}>Add</button>
-                        <button onClick={() => setAddingPos(false)} style={s.cancelBtnSm}>Cancel</button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>

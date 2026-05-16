@@ -171,6 +171,13 @@ export interface Position {
    *  achievement is fully earned at this position. Each tier feels
    *  distinct (silver → gold → blue → ...). */
   starColor: string | null;
+  /** Short headline summarising what this rank is mainly responsible
+   *  for (e.g. "Overall School Management"). Rendered bold above the
+   *  description on the teacher career page. */
+  roleFocus: string | null;
+  /** Free-form description of the rank — shown on the position edit
+   *  page and (later) on the teacher-facing career journey. */
+  description: string | null;
 }
 
 export interface LevelIncentive {

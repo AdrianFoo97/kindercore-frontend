@@ -5,7 +5,7 @@ export function fetchPositions() {
   return apiFetch<Position[]>('/api/salary/positions');
 }
 
-export function upsertPosition(positionId: string, data: { name: string; titleWeight: number; basicSalary: number; maxLevel: number; sortOrder?: number; inCareerProgression?: boolean; badgeUrl?: string | null; starColor?: string | null }) {
+export function upsertPosition(positionId: string, data: { name: string; titleWeight: number; basicSalary: number; maxLevel: number; sortOrder?: number; inCareerProgression?: boolean; badgeUrl?: string | null; starColor?: string | null; description?: string | null; roleFocus?: string | null }) {
   return apiFetch<Position>(`/api/salary/positions/${positionId}`, { method: 'PUT', body: JSON.stringify(data) });
 }
 

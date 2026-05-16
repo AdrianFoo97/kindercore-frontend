@@ -8,7 +8,7 @@ import {
   faClipboardCheck, faCalendarDays, faPeopleArrows, faStar, faRoad,
   faLightbulb, faMedal, faLock, faChevronRight, faTimes,
   faChartLine, faShieldHalved, faUserCheck, faTriangleExclamation,
-  faPlay, faRocket, faFlag, faCircleInfo, faXmark, faThumbtack,
+  faPlay, faRocket, faFlag, faCircleInfo, faXmark, faThumbtack, faTrophy,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchTeacherCareer, upsertTeacherMissionProgress,
@@ -19,6 +19,7 @@ import { useMissionTargets } from '../hooks/useMissionTargets.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { uploadUrl } from '../api/upload.js';
 import { useToast } from '../components/common/Toast.js';
+import { AchievementStrip } from '../components/career/AchievementStrip.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 // Slate-based neutral scale + a single primary accent. Lighter borders and
@@ -756,165 +757,6 @@ function CareerHero({
   );
 }
 
-// "Stage Rewards" — capability identities the teacher unlocks as they
-// complete missions in each category. Lives in the hero so the rewards
-// for clearing this stage are visible alongside the rules.
-function AchievementStrip({ missions }: { missions: MissionWithProgress[] }) {
-  const { isMobile } = useIsMobile();
-  const { categories, getMeta } = useCategoryMeta();
-  const byCategory = new Map<MissionCategory, { total: number; completed: number }>();
-  for (const m of missions) {
-    const slot = byCategory.get(m.category) ?? { total: 0, completed: 0 };
-    slot.total++;
-    if (m.progress?.status === 'COMPLETED') slot.completed++;
-    byCategory.set(m.category, slot);
-  }
-  // Walk admin-managed categories in their saved sortOrder; only include
-  // ones that actually have missions configured.
-  const cats = categories
-    .filter(c => byCategory.has(c.code))
-    .map(c => ({ category: c.code, ...byCategory.get(c.code)! }))
-    // Sort so the most-progressed badges sit on the left:
-    //   1. Mastered (all complete)
-    //   2. Partially earned, ordered by progress %
-    //   3. Locked (no completions)
-    // Stable on category order within each tier.
-    .sort((a, b) => {
-      const tier = (x: typeof a) => {
-        if (x.total > 0 && x.completed === x.total) return 0; // mastered
-        if (x.completed > 0) return 1;                         // earned
-        return 2;                                              // locked
-      };
-      const ta = tier(a), tb = tier(b);
-      if (ta !== tb) return ta - tb;
-      // Within "earned" tier, more progress wins.
-      if (ta === 1) {
-        const pctA = a.completed / a.total;
-        const pctB = b.completed / b.total;
-        if (pctA !== pctB) return pctB - pctA;
-      }
-      return 0;
-    });
-
-  if (cats.length === 0) return null;
-
-  return (
-    <div>
-      <div style={{ ...s.heroLabel, marginBottom: SP.md }}>Achievements</div>
-
-      <div style={{
-        display: 'flex',
-        gap: isMobile ? SP.sm : SP.lg,
-        flexWrap: 'wrap',
-        justifyContent: isMobile ? 'center' : 'flex-start',
-      }}>
-        {cats.map(({ category, total, completed }) => {
-          const meta = getMeta(category);
-          const identity = meta.achievementName;
-          const description = meta.description ?? '';
-          const earned = completed > 0;
-          const mastered = total > 0 && completed === total;
-          const remaining = total - completed;
-          // Inline label below the badge — visible action, not just hover.
-          const subLabel = mastered
-            ? 'Unlocked'
-            : earned
-              ? `${remaining} to master`
-              : `Complete ${total} to unlock`;
-          // Tooltip carries the longer description + the explicit action.
-          const tip = mastered
-            ? `${identity} — ${description}`
-            : earned
-              ? `${description} · Complete ${remaining} more ${meta.label.toLowerCase()} mission${remaining === 1 ? '' : 's'} to master.`
-              : `${description} · Complete ${total} ${meta.label.toLowerCase()} mission${total === 1 ? '' : 's'} to unlock.`;
-
-          // Progress ring percentage drives the conic gradient that
-          // wraps the medallion. Replaces the floating "1/2" chip with
-          // a calmer, integrated visual.
-          const pct = total > 0 ? completed / total : 0;
-          const ringDeg = Math.max(0.001, pct * 360);
-          const ringFill = mastered
-            ? meta.color
-            : earned
-              ? `conic-gradient(${meta.color} 0deg ${ringDeg}deg, ${C.cardBorder} ${ringDeg}deg 360deg)`
-              : C.cardBorder;
-
-          return (
-            <div key={category} title={tip} style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              minWidth: isMobile ? 88 : 116, maxWidth: isMobile ? 110 : 140,
-              opacity: earned ? 1 : 0.72,
-              transition: TRANSITION,
-            }}>
-              {/* Outer ring (conic gradient) wraps the medallion. Mastered
-                  = full color ring; earned = partial fill arc; locked = gray. */}
-              <div style={{
-                position: 'relative',
-                width: isMobile ? 52 : 64, height: isMobile ? 52 : 64, borderRadius: '50%',
-                background: ringFill,
-                padding: 3, boxSizing: 'border-box',
-                marginBottom: SP.md,
-                boxShadow: mastered
-                  ? `0 4px 14px ${meta.color}30`
-                  : earned ? `0 2px 8px ${meta.color}1f` : 'none',
-              }}>
-                {/* Inner medallion face — must be OPAQUE so the conic
-                    progress ring outside doesn't bleed through. We mix
-                    the category colour with white to get a soft opaque
-                    tint for the earned state. */}
-                <div style={{
-                  width: '100%', height: '100%', borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: mastered
-                    ? `radial-gradient(circle at 30% 28%, color-mix(in srgb, ${meta.color} 18%, #fff) 0%, color-mix(in srgb, ${meta.color} 10%, #fff) 100%)`
-                    : earned ? `color-mix(in srgb, ${meta.color} 12%, #fff)` : '#fff',
-                  color: earned ? meta.color : C.mutedSoft,
-                  fontSize: isMobile ? 16 : 20,
-                  boxShadow: mastered ? 'inset 0 1px 0 rgba(255,255,255,0.6)' : 'none',
-                }}>
-                  <FontAwesomeIcon icon={meta.icon} />
-                </div>
-                {mastered && (
-                  <div style={{
-                    position: 'absolute', top: -3, right: -3,
-                    width: 22, height: 22, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                    color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 11, fontWeight: 700,
-                    border: '2px solid #fff',
-                    boxShadow: '0 2px 4px rgba(245,158,11,0.35)',
-                  }}>★</div>
-                )}
-              </div>
-              {/* Fixed-height title area so a 2-line identity (like
-                  "Parent Communication Ready") doesn't push siblings up. */}
-              <div style={{
-                fontSize: 12, fontWeight: 700, textAlign: 'center', lineHeight: 1.35,
-                color: earned ? C.text : C.muted,
-                letterSpacing: '-0.005em',
-                minHeight: 32,
-                display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-              }}>
-                {identity}
-              </div>
-              {/* Single uniform sub-label — same weight + case everywhere. */}
-              <div style={{
-                marginTop: 4,
-                fontSize: 11, fontWeight: 500, textAlign: 'center', lineHeight: 1.3,
-                color: mastered ? meta.color : C.mutedSoft,
-                fontVariantNumeric: 'tabular-nums',
-                minHeight: 14,
-              }}>
-                {subLabel}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function StageCompletionHero({ teacherName, positionName, nextPositionName, color, readiness }: {
   teacherName: string; positionName: string; nextPositionName: string | null; color: string;
@@ -1117,11 +959,15 @@ function getStageStyle(state: StageState): StageStyleSet {
   }
 }
 
-function CareerJourneyVertical({
+// Exported so the teacher-facing mobile My Career hub can render the
+// same journey ladder. Closure on local C/SP/TRANSITION/s tokens keeps
+// the visuals identical to the HR view.
+export function CareerJourneyVertical({
   ladder, currentPositionId, currentLevel, nextPositionId, isCurrentInLadder,
-  missionsCompleted, missionsTotal, missionPct,
+  missionsCompleted, missionsTotal, missionPct, appraisalRequired, appraisalCurrent,
+  teacherId,
 }: {
-  ladder: { positionId: string; name: string; titleWeight: number; maxLevel?: number; badgeUrl?: string | null }[];
+  ladder: { positionId: string; name: string; titleWeight: number; maxLevel?: number; badgeUrl?: string | null; roleFocus?: string | null; description?: string | null; basicSalary?: number | null }[];
   currentPositionId: string | null;
   currentLevel: number | null;
   nextPositionId: string | null;
@@ -1130,14 +976,26 @@ function CareerJourneyVertical({
   missionsCompleted: number;
   missionsTotal: number;
   missionPct: number;
+  /** Appraisal % threshold required to clear the next rank. Optional
+   *  — when undefined the detail sheet hides the appraisal criterion. */
+  appraisalRequired?: number | null;
+  /** Teacher's current rolling appraisal average, if any. Drives the
+   *  progress bar on the appraisal unlock row. */
+  appraisalCurrent?: number | null;
+  /** Teacher id — drives the "Open Mission Board" footer CTA on the
+   *  position detail sheet. */
+  teacherId?: string;
 }) {
   const { isMobile } = useIsMobile();
   if (ladder.length === 0) return null;
   const currentIdx = isCurrentInLadder ? ladder.findIndex(p => p.positionId === currentPositionId) : -1;
 
-  const ROW_HEIGHT = isMobile ? 88 : 120;
-  const DOT_SIZE = isMobile ? 24 : 28;
-  const BADGE_SLOT = isMobile ? 40 : 56;
+  // These sizes drive the desktop grid layout only. Mobile takes the
+  // forked `MobileJourneyStack` path above which uses its own
+  // centered-badge sizing.
+  const ROW_HEIGHT = 120;
+  const DOT_SIZE = 28;
+  const BADGE_SLOT = 56;
 
   // Pixel-based rail math. Each row is ROW_HEIGHT tall and the dot sits at
   // the row's vertical centre, so the rail spans from the first dot centre
@@ -1160,14 +1018,23 @@ function CareerJourneyVertical({
   const ROW_GRID = `${DOT_SIZE}px ${BADGE_SLOT}px minmax(0, 1fr) auto`;
 
   return (
-    <div style={{ ...s.card, ...(isMobile ? sMobile.card : null) }} className="tcp-card">
+    // Mobile drops the white card chrome so the journey reads as a
+    // full-bleed timeline on the phone (no inner border competing with
+    // the page background). Desktop keeps the framed card for the HR
+    // sidebar layout.
+    <div style={isMobile ? undefined : { ...s.card }} className="tcp-card">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       {/* Three-tier composition:
           1. Eyebrow — names the surface
           2. Current rank (large) — the headline answer to "where am I?"
           3. Stage / Level subtext + a dedicated Next Target callout
           We deliberately don't show an overall % — promotion is slow and
-          discrete, the timeline below tells that story. */}
+          discrete, the timeline below tells that story.
+
+          Hidden on mobile — the teacher My Journey page already prints
+          its own "Your Career Journey" intro above, so this inner block
+          would be duplicate chrome on the phone view. */}
+      {!isMobile && (
       <div style={{ marginBottom: SP.lg }}>
         <div style={{
           fontSize: 10, fontWeight: 700, color: C.muted,
@@ -1206,8 +1073,32 @@ function CareerJourneyVertical({
           </div>
         )}
       </div>
+      )}
 
-      {/* ── Timeline ───────────────────────────────────────────────────── */}
+      {/* ── Mobile timeline (centered stack) ────────────────────────────
+          On mobile the rail flips from "left-edge column" to a centered
+          column where every stage is a vertically-stacked card: badge
+          at the centre, name on a new line below, then a vertical
+          connector (with level beads where applicable) down to the
+          next stage. Reads like an RPG progression path rather than a
+          sidebar widget. */}
+      {isMobile ? (
+        <MobileJourneyStack
+          ladder={ladder}
+          stateFor={stateFor}
+          currentIdx={currentIdx}
+          currentLevel={currentLevel}
+          nextPositionId={nextPositionId}
+          missionsCompleted={missionsCompleted}
+          missionsTotal={missionsTotal}
+          appraisalRequired={appraisalRequired ?? null}
+          appraisalCurrent={appraisalCurrent ?? null}
+          teacherId={teacherId}
+        />
+      ) : null}
+
+      {/* ── Desktop timeline (side rail + grid) ─────────────────────── */}
+      {!isMobile && (
       <div style={{ position: 'relative' }}>
         {/* Current-stage card — softly framed background with a blue
             left accent and gentle glow so the active rank reads as the
@@ -1431,7 +1322,9 @@ function CareerJourneyVertical({
                   minWidth: 0,
                 }}>
                   <span style={{
-                    fontSize: state === 'current' ? 16 : style.nameSize,
+                    fontSize: state === 'current'
+                      ? (isMobile ? 18 : 16)
+                      : (isMobile ? 15 : style.nameSize),
                     fontWeight: state === 'current' ? 800 : style.nameWeight,
                     color: style.nameColor,
                     letterSpacing: '-0.018em',
@@ -1454,10 +1347,13 @@ function CareerJourneyVertical({
                 </div>
                 {state !== 'current' && (
                   <div style={{
-                    marginTop: 3,
-                    fontSize: 9, fontWeight: 700,
-                    color: style.stageNumColor,
-                    textTransform: 'uppercase', letterSpacing: '0.08em',
+                    marginTop: 4,
+                    fontSize: 10, fontWeight: 600,
+                    // Always muted slate — the badge + colour state on the
+                    // medallion carries the visual signal; stage label is
+                    // pure chronology and shouldn't compete.
+                    color: C.mutedSoft,
+                    textTransform: 'uppercase' as const, letterSpacing: '0.08em',
                     fontVariantNumeric: 'tabular-nums',
                   }}>
                     Stage {i + 1}
@@ -1519,6 +1415,1126 @@ function CareerJourneyVertical({
             </div>
           );
         })}
+      </div>
+      )}
+    </div>
+  );
+}
+
+// ── Mobile journey stack ─────────────────────────────────────────────────────
+// Centered vertical layout used on phone widths. Each stage is its own
+// stacked card (badge → name → status), connected by a vertical line
+// that picks up level beads for the segment leading away from a stage
+// with multiple levels (e.g. Junior EI Lv1 → Lv5 → Senior EI).
+
+function MobileJourneyStack({
+  ladder, stateFor, currentIdx, currentLevel, nextPositionId,
+  missionsCompleted, missionsTotal, appraisalRequired, appraisalCurrent,
+  teacherId,
+}: {
+  ladder: { positionId: string; name: string; titleWeight: number; maxLevel?: number; badgeUrl?: string | null; roleFocus?: string | null; description?: string | null; basicSalary?: number | null }[];
+  stateFor: (i: number, p: any) => StageState;
+  currentIdx: number;
+  currentLevel: number | null;
+  nextPositionId: string | null;
+  missionsCompleted?: number;
+  missionsTotal?: number;
+  appraisalRequired?: number | null;
+  appraisalCurrent?: number | null;
+  teacherId?: string;
+}) {
+  // Open-detail state — selected badge index. Tapping a badge opens
+  // the full role-focus + description sheet; tapping the backdrop or
+  // close button clears it.
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const openPos = openIdx != null ? ladder[openIdx] : null;
+  const openState = openIdx != null ? stateFor(openIdx, ladder[openIdx]) : 'locked';
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      gap: 0,
+    }}>
+      {/* Intro line — full S-curve identical in geometry AND length
+          to the inter-stage connector that follows. Height is
+          computed from the first badge's level count so the intro
+          matches the next connector edge-for-edge. */}
+      {ladder.length > 0 && (() => {
+        const SVG_W = 200;
+        const cx = SVG_W / 2;
+        const RAIL = 5;
+        const firstOff = 60;
+        const startX = cx - firstOff;
+        const endX   = cx + firstOff;
+        // Same constants the inter-stage connector below uses, then
+        // shrunk by 30% — the intro is a "start" cap, not a full
+        // stage segment, so it doesn't need the same vertical real
+        // estate as a real connector.
+        const PAD = 20, BEAD_D = 18, GAP_D = 32;
+        const firstMaxLv = ladder[0]?.maxLevel ?? 0;
+        const fullHeight = firstMaxLv > 0
+          ? PAD * 2 + firstMaxLv * BEAD_D + (firstMaxLv - 1) * GAP_D
+          : 130;
+        const railHeight = Math.round(fullHeight * 0.7);
+        const cpY = railHeight * 0.5;
+        const pathD = `M ${startX} 0 C ${startX} ${cpY} ${endX} ${cpY} ${endX} ${railHeight}`;
+        return (
+          <div style={{
+            position: 'relative',
+            width: SVG_W, height: railHeight,
+            marginBottom: -16,    // tuck under the first badge
+            marginTop: 52,        // breathing room for the flag icon above
+            zIndex: 1,            // sit behind the badge it tucks into
+          }}>
+            {/* Flag icon — sized between the original tiny pip and the
+                badge medallions so the "start" cap reads as a clear
+                milestone without overpowering the first badge. */}
+            <div style={{
+              position: 'absolute',
+              top: -52,
+              left: `calc(50% - ${firstOff}px)`,
+              transform: 'translateX(-50%)',
+              width: 52, height: 52, borderRadius: '50%',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: '#fff',
+              border: `2px solid ${C.success}`,
+              color: C.success,
+              fontSize: 22,
+              boxShadow: `0 3px 10px ${C.success}33`,
+              zIndex: 2,
+            }}>
+              <FontAwesomeIcon icon={faFlag} />
+            </div>
+            <svg width={SVG_W} height={railHeight} style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
+              {/* Start dot removed — the flag icon above is the start
+                  marker; the dot was peeking out below it. */}
+              <path
+                d={pathD}
+                stroke={C.success}
+                strokeWidth={RAIL}
+                strokeLinecap="round"
+                fill="none"
+              />
+            </svg>
+          </div>
+        );
+      })()}
+
+      {ladder.map((p, i) => {
+        const state = stateFor(i, p);
+        const style = getStageStyle(state);
+        const isCurrent = state === 'current';
+        const isCompleted = state === 'completed';
+        const isLast = i === ladder.length - 1;
+        // The path enters/exits each badge on a specific side (based
+        // on row parity, matching the cubic S-curve offsets). The
+        // title block goes on the OPPOSITE side so it sits in the
+        // empty space, not crowding the path.
+        //
+        //   Even i: line on right of badge  → title on left
+        //   Odd  i: line on left of badge   → title on right
+        const titleOnLeft = i % 2 === 0;
+
+        // Connector colour for the rail leading DOWN from this stage
+        // to the next. Past stages → green. Current stage → blue up
+        // to reached levels then grey. Future → all-grey beads.
+        const connectorIsCompleted = isCompleted || (currentIdx < 0 && i < ladder.length - 1);
+        const connectorIsCurrentSegment = isCurrent && i < ladder.length - 1;
+        const maxLv = p.maxLevel ?? 0;
+        // Always show beads if the stage has multiple levels — past =
+        // all green filled, current = blue up to reached, future = all
+        // grey. Keeps every connector visually consistent.
+        const showBeads = maxLv > 0 && !isLast;
+        const reachedLv = connectorIsCompleted
+          ? maxLv
+          : connectorIsCurrentSegment
+            ? Math.min(maxLv, Math.max(0, currentLevel ?? 0))
+            : 0;
+        const beadColor = connectorIsCompleted ? C.success : C.primary;
+
+        return (
+          <div
+            key={p.positionId}
+            data-stage-state={state}
+            data-current={isCurrent || undefined}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              width: '100%',
+            }}
+          >
+            {/* Badge row — shifted horizontally so the badge sits on
+                the line's side (the line itself stays put). Even rows
+                push right, odd rows push left, matching the cubic
+                S-curve's offset endpoints so the badge anchors at the
+                line's vertical entry/exit. The title moves with the
+                row, so the relative gap between badge and label is
+                preserved. z-index: 2 keeps the badge above the
+                connector lines that tuck under it. */}
+            <div style={{
+              position: 'relative', width: '100%', minHeight: 140,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transform: `translateX(${(i % 2 === 0 ? 1 : -1) * 60}px)`,
+              zIndex: 2,
+            }}>
+            {/* Badge medallion — tappable to open the role-focus +
+                description sheet. Mobile stack keeps every badge in
+                full colour; the connector beads + status pill already
+                say "earned / current / locked", so desaturating future
+                badges would dull the aspirational feel of the journey. */}
+            <button
+              type="button"
+              onClick={() => setOpenIdx(i)}
+              aria-label={`View ${p.name} details`}
+              style={{
+                position: 'relative',
+                width: 140, height: 140,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: TRANSITION,
+                background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+              }}>
+              {p.badgeUrl ? (
+                <img
+                  src={uploadUrl(p.badgeUrl)}
+                  alt=""
+                  style={{
+                    maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
+                  }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              ) : (
+                <div style={{
+                  width: 108, height: 108, borderRadius: 22,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isCurrent ? C.primarySoft : '#fff',
+                  border: `1px solid ${isCurrent ? C.primaryBorder : C.cardBorder}`,
+                  color: isCurrent ? C.primary : C.mutedSoft,
+                  fontSize: 40,
+                }}>
+                  <FontAwesomeIcon icon={faShieldHalved} />
+                </div>
+              )}
+              {/* Status pip — sits on the top-center of the badge
+                  like a stamp on a passport. Compact size so it
+                  marks the badge as completed without dominating the
+                  artwork. */}
+              {/* Check + flag pips removed — the rank label below the
+                  badge ("Current" / "Next Target") + the path's bead
+                  states already convey progress without overlaying the
+                  badge artwork. */}
+              {/* Current-stage halo removed — the glowing animated
+                  bead in the connector below carries the "you are
+                  here" signal instead. */}
+            </button>
+
+            {/* Title block — absolutely positioned in the empty
+                space on the side opposite the snaking path. Vertically
+                centered on the badge so they share a baseline. */}
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              [titleOnLeft ? 'right' : 'left']: 'calc(50% + 92px)',
+              width: 130,
+              display: 'flex', flexDirection: 'column',
+              alignItems: titleOnLeft ? 'flex-end' : 'flex-start',
+              gap: 6,
+              textAlign: (titleOnLeft ? 'right' : 'left') as const,
+            }}>
+              <span style={{
+                fontSize: isCurrent ? 20 : 16,
+                fontWeight: isCurrent ? 800 : 700,
+                color: style.nameColor,
+                letterSpacing: '-0.018em',
+                lineHeight: 1.2,
+              }}>
+                {p.name}
+              </span>
+
+              {/* Role focus subtitle — short headline naming what
+                  this rank is mainly responsible for. Always muted
+                  so it reads as supporting context regardless of
+                  state; the badge + connector colour already do the
+                  state signalling. */}
+              {p.roleFocus && (
+                <span style={{
+                  marginTop: -2,
+                  fontSize: 11, fontWeight: 600,
+                  color: C.muted,
+                  lineHeight: 1.3,
+                  letterSpacing: '-0.005em',
+                }}>
+                  {p.roleFocus}
+                </span>
+              )}
+
+              {/* Status pill + stage label removed — the coloured
+                  connector line and bead state ("YOU'RE AT Level N",
+                  past beads filled green, future beads grey) already
+                  communicate which rank is completed / current / next,
+                  so the redundant chips just added noise. */}
+
+              {/* Explicit "View details" cue — without it the badge's
+                  tappability isn't obvious. Same tap target as the
+                  badge button (state setter on click). Negative top
+                  margin tucks it directly under the role-focus
+                  subtitle so the three lines read as one stacked
+                  block instead of name / subtitle / link with extra
+                  air between subtitle and link. */}
+              {(p.roleFocus || p.description) && (
+                <button
+                  type="button"
+                  onClick={() => setOpenIdx(i)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 3,
+                    padding: '2px 6px',
+                    margin: titleOnLeft ? '-4px -6px 0 0' : '-4px 0 0 -6px',
+                    background: 'transparent', border: 'none',
+                    fontFamily: 'inherit',
+                    fontSize: 11, fontWeight: 600, color: C.primary,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap' as const,
+                  }}
+                >
+                  View details
+                  <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9 }} />
+                </button>
+              )}
+            </div>
+            </div>{/* /badge row */}
+
+            {/* Connector to next stage — SVG quadratic-bezier path that
+                bends alternately left and right. Badges stay locked on
+                the vertical centerline; only the rope between them
+                snakes. Beads ride the curve at evenly-spaced t values
+                so the path reads as a journey, not a ladder. */}
+            {!isLast && (() => {
+              const beadCount = showBeads ? maxLv : 0;
+              const BEAD = 18;          // smaller dots — less visual weight on the rail
+              const GAP  = 32;          // tighter spacing so the next badge fits in viewport when centered on the current bead
+              const PAD  = 20;          // smaller end-padding for the same reason
+              const RAIL = 5;       // thinner rail — easier to read at a glance
+              const railHeight = showBeads
+                ? PAD * 2 + beadCount * BEAD + (beadCount - 1) * GAP
+                : 130;                  // plain connector trimmed proportionally
+              const nextIsCurrent = i + 1 === currentIdx;
+              // SVG canvas wide enough to contain the bend without
+              // clipping. Centerline x = SVG_W/2 so the path enters
+              // and exits aligned with the badge column above/below.
+              const SVG_W = 280;
+              const cx = SVG_W / 2;
+              // Alternate bend direction by row index — even rows
+              // bow right, odd rows bow left. Bigger bend = more
+              // serpentine, less ladder-like.
+              // Cubic S-curve with offset endpoints. Each connector
+              // enters one side of the badge above and exits the
+              // opposite side of the badge below. Adjacent connectors
+              // share offsets at the badge they meet at — top of
+              // connector i+1 = bottom of connector i — so the whole
+              // ladder reads as one continuous snake.
+              //
+              //   i = 0  →  top: +X  bottom: -X
+              //   i = 1  →  top: -X  bottom: +X
+              //   i = 2  →  top: +X  bottom: -X
+              //
+              // Vertical tangents at endpoints (control x = endpoint x)
+              // mean the line enters and exits each badge going
+              // straight down, so the curve flows without kinks.
+              const SIDE_X = showBeads ? 60 : 40;
+              const offTop = (i % 2 === 0 ? 1 : -1) * SIDE_X;
+              const offBot = -offTop;
+              const startX = cx + offTop;
+              const endX   = cx + offBot;
+              const c1x = startX, c1y = railHeight * 0.5;
+              const c2x = endX,   c2y = railHeight * 0.5;
+              const bendDir = offTop > 0 ? 1 : -1;
+              const pathD = `M ${startX} 0 C ${c1x} ${c1y} ${c2x} ${c2y} ${endX} ${railHeight}`;
+              // Line fill rule (decoupled from beads):
+              //   completed segment      → full colour (rank cleared)
+              //   current  segment       → fraction = mission progress
+              //                            toward the NEXT TARGET
+              //   future / locked        → no fill
+              // Beads still represent the current rank's levels; the
+              // line itself now tracks how close the teacher is to
+              // promoting out of this rank.
+              const missionFraction = (missionsTotal && missionsTotal > 0)
+                ? Math.max(0, Math.min(1, (missionsCompleted ?? 0) / missionsTotal))
+                : 0;
+              const reachT = connectorIsCompleted
+                ? 1
+                : connectorIsCurrentSegment
+                  ? missionFraction
+                  : 0;
+              // Sample CUBIC bezier position for each bead.
+              const beadPos = (k: number) => {
+                const t = (k + 1) / (beadCount + 1);
+                const u = 1 - t;
+                const x = u*u*u*startX + 3*u*u*t*c1x + 3*u*t*t*c2x + t*t*t*endX;
+                const y = u*u*u*0      + 3*u*u*t*c1y + 3*u*t*t*c2y + t*t*t*railHeight;
+                return { x, y };
+              };
+              return (
+                <div style={{
+                  position: 'relative',
+                  width: SVG_W, height: railHeight,
+                  // Negative margins pull the connector into the badge
+                  // rows above/below by a few pixels so the path
+                  // visibly tucks under the badge edge instead of
+                  // floating in a gap. SVG has overflow: visible so
+                  // the path actually renders into that overlap.
+                  // z-index 1 keeps the line *behind* the badges
+                  // (which sit at z-index 2).
+                  marginTop: -16,
+                  marginBottom: -16,
+                  zIndex: 1,
+                }}>
+                  <svg
+                    width={SVG_W} height={railHeight}
+                    style={{ position: 'absolute', inset: 0, overflow: 'visible' }}
+                  >
+                    {/* Base path — full length in grey (or full success
+                        green for completed segments via the overlay). */}
+                    <path
+                      d={pathD}
+                      stroke={C.divider}
+                      strokeWidth={RAIL}
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                    {/* Coloured overlay — draws the reached portion of
+                        the path. Uses pathLength=1 so dasharray values
+                        are simple fractions. */}
+                    {reachT > 0 && (
+                      <path
+                        d={pathD}
+                        stroke={beadColor}
+                        strokeWidth={RAIL}
+                        strokeLinecap="round"
+                        fill="none"
+                        pathLength={1}
+                        strokeDasharray={`${reachT} 1`}
+                        style={{ transition: 'stroke-dasharray 400ms ease' }}
+                      />
+                    )}
+                    {/* Beads on the curve. The current-level bead
+                        pulses with an animated glow to mark "you are
+                        here", and carries the Level N label off to
+                        the empty side of the bend. */}
+                    <style>{`
+                      @keyframes kc-bead-glow {
+                        0%, 100% { r: ${BEAD / 2 + 6}; opacity: 0.55; }
+                        50%      { r: ${BEAD / 2 + 14}; opacity: 0; }
+                      }
+                      @keyframes kc-bead-pulse {
+                        0%, 100% { transform: scale(1); }
+                        50%      { transform: scale(1.12); }
+                      }
+                    `}</style>
+                    {/* The "furthest" bead — i.e. the highest-index
+                        bead the line has touched (either earned as a
+                        level OR overtaken by mission progress) — gets
+                        the "you are here" pulse + halo animation
+                        below. The Level label stays on the actual
+                        reached level. */}
+                    {showBeads && Array.from({ length: beadCount }).map((_, k) => {
+                      const { x, y } = beadPos(k);
+                      const reached = k < reachedLv;
+                      const isCurrentLevelBead = connectorIsCurrentSegment
+                        && reachedLv > 0
+                        && k === reachedLv - 1;
+                      const labelOnRight = bendDir < 0;
+                      // If the coloured line has overtaken this bead
+                      // but the level itself hasn't been earned yet,
+                      // draw the bead as an OUTLINE in the line's
+                      // colour — visualises "missions overtaking level".
+                      const beadT = (k + 1) / (beadCount + 1);
+                      const passedByLine = !reached && beadT < reachT;
+                      // Compute "furthest touched bead" inline (cheap)
+                      // — animate THAT bead so the pulse follows the
+                      // ahead-of-the-pack mission progress, not the
+                      // slower level bead.
+                      let furthestIdx = -1;
+                      for (let kk = beadCount - 1; kk >= 0; kk--) {
+                        const tk = (kk + 1) / (beadCount + 1);
+                        if (kk < reachedLv || tk < reachT) { furthestIdx = kk; break; }
+                      }
+                      const isFurthestBead = connectorIsCurrentSegment && k === furthestIdx;
+                      return (
+                        <g key={k} data-current-level-bead={isCurrentLevelBead || undefined}>
+                          {/* Pulsing halo for the FURTHEST bead the
+                              line has reached. */}
+                          {isFurthestBead && (
+                            <circle
+                              cx={x} cy={y}
+                              r={BEAD / 2 + 6}
+                              fill={beadColor}
+                              style={{
+                                transformOrigin: `${x}px ${y}px`,
+                                animation: 'kc-bead-glow 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                              }}
+                            />
+                          )}
+                          {reached && !isFurthestBead && (
+                            <circle cx={x} cy={y} r={BEAD / 2 + 3} fill={`${beadColor}22`} />
+                          )}
+                          <circle
+                            cx={x} cy={y}
+                            r={BEAD / 2}
+                            fill={reached
+                              ? beadColor
+                              : passedByLine
+                                ? '#ffffff'
+                                : '#e2e8f0'}
+                            stroke={passedByLine ? beadColor : 'none'}
+                            strokeWidth={passedByLine ? 2.5 : 0}
+                            style={{
+                              transition: 'fill 300ms ease, stroke 300ms ease',
+                              ...(isFurthestBead ? {
+                                transformOrigin: `${x}px ${y}px`,
+                                animation: 'kc-bead-pulse 2.2s ease-in-out infinite',
+                              } : {}),
+                            }}
+                          />
+                          {isCurrentLevelBead && currentLevel != null && (() => {
+                            // Two-line label: a small "YOU'RE AT" eyebrow sits
+                            // above the "Level N" headline so the teacher reads
+                            // this dot as their own status, not just an
+                            // abstract rung marker.
+                            const labelX = x + (labelOnRight ? BEAD / 2 + 10 : -(BEAD / 2 + 10));
+                            const anchor = labelOnRight ? 'start' : 'end';
+                            return (
+                              <>
+                                <text
+                                  x={labelX}
+                                  y={y - 7}
+                                  textAnchor={anchor}
+                                  fontSize="8.5"
+                                  fontWeight="800"
+                                  fill={C.mutedSoft}
+                                  style={{ letterSpacing: '0.08em', fontFamily: 'inherit' }}
+                                >
+                                  YOU'RE AT
+                                </text>
+                                <text
+                                  x={labelX}
+                                  y={y + 7}
+                                  textAnchor={anchor}
+                                  fontSize="13"
+                                  fontWeight="800"
+                                  fill={beadColor}
+                                  style={{ letterSpacing: '-0.005em', fontFamily: 'inherit' }}
+                                >
+                                  Level {currentLevel}
+                                </text>
+                              </>
+                            );
+                          })()}
+                        </g>
+                      );
+                    })}
+
+                    {/* Mission progress label — percentage BESIDE the
+                        tail of the coloured line, opposite the Level
+                        label. Generous offset so the text never
+                        touches the curve, the bead halo at the tail,
+                        or the level dot. */}
+                    {connectorIsCurrentSegment && missionsTotal != null && missionsTotal > 0 && reachT > 0 && (() => {
+                      const labelMission = `${Math.round(((missionsCompleted ?? 0) / missionsTotal) * 100)}%`;
+                      // Sample bezier at t = reachT → the tail point
+                      // of the coloured arc (where it transitions to
+                      // grey).
+                      const t = Math.min(0.97, reachT);
+                      const u = 1 - t;
+                      const xTail = u*u*u*startX + 3*u*u*t*c1x + 3*u*t*t*c2x + t*t*t*endX;
+                      const yTail = u*u*u*0      + 3*u*u*t*c1y + 3*u*t*t*c2y + t*t*t*railHeight;
+                      const onRight = !(bendDir < 0);
+                      // Offset clears bead radius (BEAD/2) + halo (6)
+                      // + breathing room so the label never overlaps
+                      // a dot/halo or the curve at its widest bow.
+                      const SIDE_GAP = BEAD / 2 + 18;
+                      const labelX = xTail + (onRight ? SIDE_GAP : -SIDE_GAP);
+                      const subY = yTail + 14;
+                      return (
+                        <g>
+                          <text
+                            x={labelX}
+                            y={yTail}
+                            dy="0.32em"
+                            textAnchor={onRight ? 'start' : 'end'}
+                            fontSize="14"
+                            fontWeight="800"
+                            fill={C.primary}
+                            style={{
+                              letterSpacing: '-0.005em',
+                              fontFamily: 'inherit',
+                              fontVariantNumeric: 'tabular-nums' as const,
+                            }}
+                          >
+                            {labelMission}
+                          </text>
+                          <text
+                            x={labelX}
+                            y={subY}
+                            dy="0.32em"
+                            textAnchor={onRight ? 'start' : 'end'}
+                            fontSize="9"
+                            fontWeight="700"
+                            fill={C.mutedSoft}
+                            style={{ letterSpacing: '0.08em', fontFamily: 'inherit', textTransform: 'uppercase' as const }}
+                          >
+                            Missions Done
+                          </text>
+                        </g>
+                      );
+                    })()}
+                  </svg>
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })}
+
+      {/* Outro line — mirrors the intro at the top of the journey.
+          Continues the curve down from the last badge (which sits at
+          an offset due to row translateX) back to a centered point
+          capped by a premium gold trophy medallion that sits ON TOP
+          of the line's end (no separate end-dot needed). */}
+      {ladder.length > 0 && (() => {
+        const SVG_W = 200;
+        const cx = SVG_W / 2;
+        const RAIL = 5;
+        const lastIdx = ladder.length - 1;
+        const lastOff = (lastIdx % 2 === 0 ? 1 : -1) * 60;
+        const railHeight = 154;
+        const startX = cx + lastOff;
+        const endX   = cx;
+        const cpY = railHeight * 0.5;
+        const pathD = `M ${startX} 0 C ${startX} ${cpY} ${endX} ${cpY} ${endX} ${railHeight}`;
+        // Bright gold-yellow palette — luminous, celebratory, less
+        // amber/brown than the earlier #b45309-leaning palette.
+        const GOLD_LIGHT = '#fef9c3';   // pale yellow highlight
+        const GOLD       = '#facc15';   // bright gold-yellow body
+        const GOLD_DEEP  = '#ca8a04';   // warm gold accent (label / borders)
+        return (
+          <div style={{
+            position: 'relative',
+            width: SVG_W, height: railHeight,
+            marginTop: -16,
+            marginBottom: 90,
+            zIndex: 1,
+          }}>
+            <svg width={SVG_W} height={railHeight} style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
+              <path
+                d={pathD}
+                stroke={C.divider}
+                strokeWidth={RAIL}
+                strokeLinecap="round"
+                fill="none"
+              />
+              {/* End dot removed — the trophy medallion sits centred
+                  on the line's terminal point and visually caps it. */}
+            </svg>
+
+            {/* Trophy medallion — centred on the line's end (bottom:
+                -(72/2)) so it covers the rail tip. Static (no
+                animation) per latest UX direction. */}
+            <div style={{
+              position: 'absolute',
+              bottom: -36,           // ⌀72 / 2 → trophy center sits at SVG bottom = line end
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 72, height: 72, borderRadius: '50%',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: `radial-gradient(circle at 30% 28%, ${GOLD_LIGHT} 0%, ${GOLD} 55%, ${GOLD_DEEP} 100%)`,
+              color: '#fff',
+              fontSize: 30,
+              border: `3px solid #fff`,
+              boxShadow: `0 0 0 6px ${GOLD}1f, 0 8px 24px ${GOLD}40, 0 2px 6px rgba(15,23,42,0.12)`,
+              zIndex: 3,
+            }}>
+              <FontAwesomeIcon icon={faTrophy} style={{ filter: 'drop-shadow(0 2px 3px rgba(180,83,9,0.4))' }} />
+              {/* Static sparkle pip in the upper-right corner */}
+              <span style={{
+                position: 'absolute',
+                top: -2, right: -2,
+                width: 18, height: 18, borderRadius: '50%',
+                background: '#fff', color: GOLD,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 900,
+                border: `2px solid ${GOLD}`,
+                boxShadow: `0 2px 4px ${GOLD}66`,
+              }}>
+                <FontAwesomeIcon icon={faStar} />
+              </span>
+            </div>
+
+            {/* "The Summit" label below the trophy */}
+            <div style={{
+              position: 'absolute',
+              bottom: -96,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              textAlign: 'center' as const,
+              whiteSpace: 'nowrap' as const,
+            }}>
+              <div style={{
+                fontSize: 10, fontWeight: 800,
+                color: GOLD_DEEP,
+                textTransform: 'uppercase' as const, letterSpacing: '0.16em',
+              }}>
+                The Summit
+              </div>
+              <div style={{
+                marginTop: 4,
+                fontSize: 12, fontWeight: 600, color: C.mutedSoft,
+                letterSpacing: '-0.005em',
+              }}>
+                Master every rank
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Detail sheet — opens when a badge is tapped. Shows the rank,
+          role focus, full description, and the badge's state pill.
+          When the tapped rank is the Next Target, also surfaces the
+          unlock checklist (mission count, appraisal %, supervisor
+          approval) so the teacher sees exactly what stands between
+          them and that ability. */}
+      {openPos && (
+        <PositionDetailSheet
+          pos={openPos}
+          state={openState}
+          stageIndex={openIdx!}
+          totalStages={ladder.length}
+          currentLevel={currentLevel}
+          onClose={() => setOpenIdx(null)}
+          missionsCompleted={missionsCompleted}
+          missionsTotal={missionsTotal}
+          appraisalRequired={appraisalRequired ?? null}
+          appraisalCurrent={appraisalCurrent ?? null}
+          teacherId={teacherId}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Position detail sheet (mobile) ───────────────────────────────────────────
+// Opens from a badge tap on the journey ladder. Bottom-anchored sheet
+// with the rank's identity, role focus, and full description.
+
+function PositionDetailSheet({
+  pos, state, stageIndex, totalStages, currentLevel, onClose,
+  missionsCompleted, missionsTotal, appraisalRequired, appraisalCurrent,
+  teacherId,
+}: {
+  pos: { positionId: string; name: string; maxLevel?: number; badgeUrl?: string | null; roleFocus?: string | null; description?: string | null; basicSalary?: number | null };
+  state: StageState;
+  stageIndex: number;
+  totalStages: number;
+  currentLevel: number | null;
+  onClose: () => void;
+  missionsCompleted?: number;
+  missionsTotal?: number;
+  appraisalRequired?: number | null;
+  appraisalCurrent?: number | null;
+  teacherId?: string;
+}) {
+  const stateLabel = state === 'current' ? 'Current Rank'
+    : state === 'completed' ? 'Completed'
+    : state === 'next' ? 'Next Target'
+    : 'Locked';
+  const stateColor = state === 'completed' ? C.success
+    : state === 'current' ? C.primary
+    : state === 'next' ? C.primary
+    : C.mutedSoft;
+  const stateBg = state === 'completed' ? `${C.success}1a`
+    : (state === 'current' || state === 'next') ? `${C.primary}1a`
+    : `${C.mutedSoft}1a`;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(15,23,42,0.45)',
+        backdropFilter: 'blur(2px)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        animation: 'kc-sheet-fade 180ms ease',
+      }}
+    >
+      <style>{`
+        @keyframes kc-sheet-fade { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes kc-sheet-slide {
+          from { transform: translateY(24px); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
+        }
+      `}</style>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff',
+          width: '100%', maxWidth: 520, maxHeight: '85vh',
+          overflowY: 'auto' as const,
+          borderRadius: '20px 20px 0 0',
+          padding: '14px 20px 28px',
+          boxShadow: '0 -8px 32px rgba(15,23,42,0.16)',
+          animation: 'kc-sheet-slide 220ms cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        {/* Pull handle */}
+        <div style={{
+          width: 40, height: 4, borderRadius: 999,
+          background: '#eceef2',
+          margin: '0 auto 16px',
+        }} />
+
+        {/* Top status row — state pill centered as a "tag" for the
+            rank; close button anchored top-right. The level number is
+            already conveyed by the "YOU'RE AT Level N" label on the
+            connector beads, so the pill row stays compact. */}
+        <div style={{ position: 'relative', marginBottom: 22, minHeight: 32 }}>
+          <div style={{
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            minHeight: 32,
+          }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center',
+              padding: '3px 10px', borderRadius: 999,
+              background: stateBg, color: stateColor,
+              fontSize: 10, fontWeight: 800,
+              textTransform: 'uppercase' as const, letterSpacing: '0.06em',
+            }}>
+              {stateLabel}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              position: 'absolute', top: 0, right: 0,
+              width: 32, height: 32, borderRadius: 8,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              background: '#f1f5f9', color: C.muted,
+              border: `1px solid ${C.divider}`,
+              cursor: 'pointer', flexShrink: 0,
+            }}
+            aria-label="Close"
+          >
+            <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
+          </button>
+        </div>
+
+        {/* Header — badge + name + salary */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 14 }}>
+          <div style={{
+            width: 80, height: 80, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {pos.badgeUrl ? (
+              <img
+                src={uploadUrl(pos.badgeUrl)}
+                alt={pos.name}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <FontAwesomeIcon icon={faShieldHalved} style={{ fontSize: 36, color: C.mutedSoft }} />
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 800, color: C.muted,
+              textTransform: 'uppercase' as const, letterSpacing: '0.08em',
+              marginBottom: 4,
+            }}>
+              Stage {stageIndex + 1} of {totalStages}
+            </div>
+            <h2 style={{
+              margin: 0, fontSize: 20, fontWeight: 800, color: C.text,
+              letterSpacing: '-0.012em', lineHeight: 1.2,
+            }}>
+              {pos.name}
+            </h2>
+            {/* Basic salary — concrete tangible reward of this rank.
+                Sits under the name as a sub-detail of the position. */}
+            {pos.basicSalary != null && pos.basicSalary > 0 && (
+              <div style={{
+                marginTop: 8,
+                display: 'inline-flex', alignItems: 'baseline', gap: 6,
+                fontSize: 13, fontWeight: 600, color: C.muted,
+              }}>
+                <span style={{
+                  fontSize: 9, fontWeight: 800, color: C.mutedSoft,
+                  textTransform: 'uppercase' as const, letterSpacing: '0.08em',
+                }}>
+                  Basic Salary
+                </span>
+                <span style={{
+                  fontSize: 14, fontWeight: 800, color: C.text,
+                  fontVariantNumeric: 'tabular-nums' as const,
+                  letterSpacing: '-0.005em',
+                }}>
+                  RM {pos.basicSalary.toLocaleString('en-MY', { minimumFractionDigits: 0 })}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Ability card — merged role focus + description into a single
+            framed block so the "what is this rank" story reads as one
+            thought. Salary lives in the eyebrow as a concrete reward. */}
+        {(() => {
+          const earned = state === 'completed' || state === 'current';
+          const abilityLabel = state === 'completed'
+            ? 'Ability Unlocked'
+            : state === 'current'
+              ? 'Your Ability'
+              : 'Ability You\'ll Unlock';
+          const hasContent = pos.roleFocus || pos.description;
+          if (!hasContent) {
+            return (
+              <div style={{
+                padding: 16, textAlign: 'center' as const,
+                fontSize: 13, color: C.muted,
+                background: '#f8fafc', borderRadius: 10,
+              }}>
+                No ability description set for this rank yet.
+              </div>
+            );
+          }
+          return (
+            <div style={{
+              padding: '14px 16px',
+              background: `${C.primary}0d`,
+              border: `1px solid ${C.primary}26`,
+              borderRadius: 12,
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: 10, marginBottom: 8, flexWrap: 'wrap',
+              }}>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: 10, fontWeight: 800, color: C.primary,
+                  textTransform: 'uppercase' as const, letterSpacing: '0.1em',
+                }}>
+                  <FontAwesomeIcon
+                    icon={earned ? faStar : faLock}
+                    style={{ fontSize: 10 }}
+                  />
+                  {abilityLabel}
+                </div>
+              </div>
+              {pos.roleFocus && (
+                <div style={{
+                  fontSize: 17, fontWeight: 800, color: C.text,
+                  letterSpacing: '-0.012em', lineHeight: 1.3,
+                  marginBottom: pos.description ? 8 : 0,
+                }}>
+                  {pos.roleFocus}
+                </div>
+              )}
+              {pos.description && (
+                <p style={{
+                  margin: 0, fontSize: 14, fontWeight: 500, color: C.textSub,
+                  lineHeight: 1.55, whiteSpace: 'pre-wrap' as const,
+                }}>
+                  {pos.description}
+                </p>
+              )}
+            </div>
+          );
+        })()}
+
+              {/* Unlock checklist — only for the Next Target rank.
+                  Each criterion is a card with a state-aware icon
+                  badge, headline, and optional progress detail. */}
+              {state === 'next' && (missionsTotal != null || appraisalRequired != null) && (() => {
+                const missionDone = missionsTotal != null && missionsTotal > 0
+                  && (missionsCompleted ?? 0) >= missionsTotal;
+                const conditionRows: { done: boolean; title: string; detail?: React.ReactNode; progress?: number }[] = [];
+                if (missionsTotal != null && missionsTotal > 0) {
+                  const pct = Math.round(((missionsCompleted ?? 0) / missionsTotal) * 100);
+                  conditionRows.push({
+                    done: missionDone,
+                    title: `Complete ${missionsTotal} required missions`,
+                    detail: (
+                      <span style={{ fontVariantNumeric: 'tabular-nums' as const }}>
+                        <strong style={{ color: missionDone ? C.success : C.text }}>{missionsCompleted ?? 0}</strong>
+                        <span style={{ color: C.mutedSoft }}> / {missionsTotal}</span>
+                      </span>
+                    ),
+                    progress: pct,
+                  });
+                }
+                if (appraisalRequired != null) {
+                  const cur = appraisalCurrent ?? 0;
+                  const appraisalDone = appraisalCurrent != null && cur >= appraisalRequired;
+                  // Progress capped at 100% so a teacher above the
+                  // threshold still shows a fully-filled bar instead
+                  // of overshooting visually.
+                  const pct = appraisalRequired > 0
+                    ? Math.min(100, Math.round((cur / appraisalRequired) * 100))
+                    : 0;
+                  conditionRows.push({
+                    done: appraisalDone,
+                    title: 'Reach the appraisal threshold',
+                    detail: appraisalCurrent != null ? (
+                      <span style={{ fontVariantNumeric: 'tabular-nums' as const }}>
+                        <strong style={{ color: appraisalDone ? C.success : C.text }}>{Math.round(cur)}%</strong>
+                        <span style={{ color: C.mutedSoft }}> / {appraisalRequired}%</span>
+                      </span>
+                    ) : (
+                      <>{appraisalRequired}% required</>
+                    ),
+                    progress: pct,
+                  });
+                }
+                conditionRows.push({
+                  done: false,
+                  title: 'Receive supervisor approval',
+                  detail: 'Granted by your Principal or Shadow Principal',
+                });
+                const metCount = conditionRows.filter(c => c.done).length;
+                return (
+                  <div style={{
+                    marginTop: 18,
+                    padding: '16px 14px',
+                    background: 'linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)',
+                    border: `1px solid ${C.divider}`,
+                    borderRadius: 12,
+                  }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      gap: 10, marginBottom: 12,
+                    }}>
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        fontSize: 10, fontWeight: 800, color: C.text,
+                        textTransform: 'uppercase' as const, letterSpacing: '0.1em',
+                      }}>
+                        <FontAwesomeIcon icon={faLock} style={{ fontSize: 10, color: C.primary }} />
+                        Unlock Conditions
+                      </div>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        padding: '3px 8px', borderRadius: 999,
+                        background: '#fff', border: `1px solid ${C.divider}`,
+                        fontSize: 10, fontWeight: 800, color: C.muted,
+                        fontVariantNumeric: 'tabular-nums' as const,
+                        letterSpacing: '0.04em',
+                      }}>
+                        {metCount} / {conditionRows.length} met
+                      </span>
+                    </div>
+                    <ul style={{
+                      margin: 0, padding: 0, listStyle: 'none',
+                      display: 'flex', flexDirection: 'column', gap: 8,
+                    }}>
+                      {conditionRows.map((row, idx) => (
+                        <li
+                          key={idx}
+                          style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 10,
+                            padding: '10px 12px',
+                            background: row.done ? `${C.success}0d` : '#fff',
+                            border: `1px solid ${row.done ? `${C.success}33` : C.divider}`,
+                            borderRadius: 10,
+                          }}
+                        >
+                          <span style={{
+                            width: 22, height: 22, borderRadius: '50%',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            background: row.done ? C.success : '#f1f5f9',
+                            color: row.done ? '#fff' : C.mutedSoft,
+                            fontSize: 9,
+                            flexShrink: 0,
+                            marginTop: 1,
+                          }}>
+                            <FontAwesomeIcon icon={row.done ? faCheck : faLock} />
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+                              gap: 10, flexWrap: 'wrap',
+                            }}>
+                              <span style={{
+                                fontSize: 13, fontWeight: 700,
+                                color: row.done ? C.text : C.text,
+                                lineHeight: 1.35,
+                              }}>
+                                {row.title}
+                              </span>
+                              {row.detail && typeof row.detail !== 'string' && (
+                                <span style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>
+                                  {row.detail}
+                                </span>
+                              )}
+                            </div>
+                            {row.progress != null && (
+                              <div style={{
+                                marginTop: 8,
+                                position: 'relative',
+                                height: 5, borderRadius: 999,
+                                background: '#eef2f7',
+                                overflow: 'hidden',
+                              }}>
+                                <div style={{
+                                  position: 'absolute', insetBlock: 0, left: 0,
+                                  width: `${Math.max(2, row.progress)}%`,
+                                  background: row.done ? C.success : C.primary,
+                                  borderRadius: 999,
+                                  transition: 'width 500ms cubic-bezier(0.4, 0, 0.2, 1)',
+                                }} />
+                              </div>
+                            )}
+                            {typeof row.detail === 'string' && (
+                              <div style={{
+                                marginTop: 3,
+                                fontSize: 11, fontWeight: 500, color: C.mutedSoft,
+                                lineHeight: 1.4,
+                              }}>
+                                {row.detail}
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
+              {/* Footer CTA — only when the teacher has an actionable rank in
+                  view (their current rank or their next target). Routes to the
+                  Mission Board so they can act on the missions that move this
+                  ladder forward, instead of leaving the sheet as a dead-end
+                  detail screen. */}
+              {teacherId && (state === 'current' || state === 'next') && (
+                <Link
+                  to={`/teachers/${teacherId}/career/missions`}
+                  onClick={onClose}
+                  style={{
+                    marginTop: 18,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '13px 18px',
+                    borderRadius: 12,
+                    background: C.primary,
+                    color: '#fff',
+                    fontSize: 14, fontWeight: 700,
+                    letterSpacing: '-0.005em',
+                    textDecoration: 'none',
+                    boxShadow: '0 2px 8px rgba(90,103,216,0.25)',
+                  }}
+                >
+                  {state === 'next' ? 'View Required Missions' : 'Open Mission Board'}
+                  <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 11 }} />
+                </Link>
+              )}
       </div>
     </div>
   );
