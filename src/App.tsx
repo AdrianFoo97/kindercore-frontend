@@ -42,6 +42,7 @@ import FinanceSettingsPage from './pages/FinanceSettingsPage.js';
 import SetupAccountPage from './pages/SetupAccountPage.js';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.js';
 import TermsOfServicePage from './pages/TermsOfServicePage.js';
+import HomePage from './pages/HomePage.js';
 import { APP_VERSION, LAST_UPDATED } from './version.js';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -92,7 +93,10 @@ export default function App() {
     <DeleteDialogProvider>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Public homepage — explains the product, links visibly to
+            /privacy and /terms, and lives outside any auth gate so
+            Google's OAuth verification reviewer can read it. */}
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupAccountPage />} />
         {/* Public legal pages — must be reachable without auth so the
