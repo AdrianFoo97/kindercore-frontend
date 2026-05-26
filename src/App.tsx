@@ -40,6 +40,8 @@ import ManageUsersPage from './pages/settings/ManageUsersPage.js';
 import YearRolloverPage from './pages/settings/YearRolloverPage.js';
 import FinanceSettingsPage from './pages/FinanceSettingsPage.js';
 import SetupAccountPage from './pages/SetupAccountPage.js';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage.js';
+import TermsOfServicePage from './pages/TermsOfServicePage.js';
 import { APP_VERSION, LAST_UPDATED } from './version.js';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -93,6 +95,10 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupAccountPage />} />
+        {/* Public legal pages — must be reachable without auth so the
+            Google OAuth verification reviewer can open them. */}
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/leads" element={<ErrorBoundary><LeadsPage /></ErrorBoundary>} />
           <Route path="/leads/import" element={<ErrorBoundary><ImportLeadsPage /></ErrorBoundary>} />
