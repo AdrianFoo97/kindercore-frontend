@@ -1395,12 +1395,26 @@ function DeclineModal({ lead, lostReasons, onClose, onDeclined }: {
   const isOther = reason === 'Others';
   const finalReason = isOther ? otherText.trim() : reason;
 
+  // Default the close date to the visit date if the parent already attended
+  // (most LOST decisions are made at or shortly after the visit, not at
+  // bulk-cleanup time). Falls back to today when there's no past visit.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const defaultClosedDate = lead.appointmentStart && new Date(lead.appointmentStart) < new Date()
+    ? new Date(lead.appointmentStart).toISOString().slice(0, 10)
+    : todayStr;
+  const [closedDate, setClosedDate] = useState(defaultClosedDate);
+
   const handleConfirm = async () => {
     if (!reason) { setError('Please select a reason.'); return; }
     if (isOther && !otherText.trim()) { setError('Please describe the reason.'); return; }
     setSaving(true);
     try {
-      await updateLead(lead.id, { status: 'LOST', lostReason: finalReason, notes: notes.trim() });
+      await updateLead(lead.id, {
+        status: 'LOST',
+        lostReason: finalReason,
+        notes: notes.trim(),
+        statusChangedAt: new Date(closedDate).toISOString(),
+      });
       onDeclined(); onClose();
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed'); }
     finally { setSaving(false); }
@@ -1411,6 +1425,16 @@ function DeclineModal({ lead, lostReasons, onClose, onDeclined }: {
       <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
         <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Not Enrolling</h3>
         <p style={{ margin: '0 0 10px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
+        <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 12 }}>
+          <span>Closed Date {lead.appointmentStart && <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(defaults to visit date)</span>}</span>
+          <input
+            type="date"
+            value={closedDate}
+            onChange={e => setClosedDate(e.target.value)}
+            max={todayStr}
+            style={{ padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 6, fontSize: 13, fontFamily: 'inherit', background: '#fafafa' }}
+          />
+        </label>
         <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 12 }}>
           <span>Notes <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(optional)</span></span>
           <textarea
