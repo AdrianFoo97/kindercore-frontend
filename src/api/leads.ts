@@ -184,6 +184,9 @@ export interface SalesLeadRow {
   howDidYouKnow: string | null;
   age: number;
   submittedAt: string;
+  /** Date the deal was won/lost (lead.statusChangedAt, falling back to
+   *  submittedAt for legacy rows). Drives the monthly bucket. */
+  closedAt: string;
 }
 
 export interface SalesAnalyticsData {

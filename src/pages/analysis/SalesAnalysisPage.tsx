@@ -44,7 +44,7 @@ export default function SalesAnalysisPage() {
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterState>(null);
   const [statusTab, setStatusTab] = useState<'ALL' | 'ENROLLED' | 'LOST'>('ALL');
-  const [chartMode, setChartMode] = useState<'talks' | 'closed'>('talks');
+  const [chartMode, setChartMode] = useState<'talks' | 'closed'>('closed');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
@@ -61,8 +61,12 @@ export default function SalesAnalysisPage() {
   const closingPct = Math.round(data.closingRate * 100);
 
   // ── Month-scoped leads (drives donuts + table) ──
+  // Bucket by close date — backend ships `closedAt` per row (statusChangedAt,
+  // falling back to submittedAt for legacy rows), and the chart is built
+  // on the same axis, so the table stays in sync with the bar the admin
+  // clicked on.
   const monthLeads = selectedMonth !== null
-    ? data.leadsTable.filter(r => new Date(r.submittedAt).getMonth() === selectedMonth)
+    ? data.leadsTable.filter(r => new Date(r.closedAt).getMonth() === selectedMonth)
     : data.leadsTable;
 
   // ── Address / channel breakdowns re-derived from month scope ──
