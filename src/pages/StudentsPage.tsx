@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisVertical, faArrowRotateLeft, faCircleInfo, faRightFromBracket, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { fetchStudents, updateStudent, withdrawStudent, reactivateStudent, deleteStudent } from '../api/students.js';
+import { faEllipsisVertical, faArrowRotateLeft, faCircleInfo, faRightFromBracket, faTrash, faListCheck } from '@fortawesome/free-solid-svg-icons';
+import { fetchStudents, updateStudent, withdrawStudent, reactivateStudent, deleteStudent, patchOnboardingProgress } from '../api/students.js';
+import { fetchSettings } from '../api/settings.js';
 import { Student } from '../types/index.js';
 import AddStudentModal from '../components/students/AddStudentModal.js';
 import WithdrawDialog from '../components/students/WithdrawDialog.js';
@@ -886,6 +887,44 @@ export default function StudentsPage() {
               </>
             ) : (
               <>
+                {(() => {
+                  const raw = s.onboardingProgress;
+                  const existing: { done: boolean }[] = Array.isArray(raw) ? raw : (typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return []; } })() : []);
+                  const hasIncomplete = existing.length > 0 && existing.some(t => !t.done);
+                  if (hasIncomplete) {
+                    return (
+                      <button
+                        className="sp-menu-item"
+                        disabled
+                        title="Onboarding already in progress"
+                        style={{ ...menuItemStyle, color: '#cbd5e1', cursor: 'default' }}
+                      >
+                        <FontAwesomeIcon icon={faListCheck} style={{ width: 14 }} /> Create Onboarding Tasks
+                      </button>
+                    );
+                  }
+                  return (
+                    <button className="sp-menu-item" onClick={async () => {
+                      setOpenMenuId(null);
+                      try {
+                        const settings = await fetchSettings();
+                        const template = Array.isArray(settings?.onboarding_tasks) ? (settings.onboarding_tasks as string[]) : [];
+                        if (template.length === 0) {
+                          setConfirmModal({ message: 'Onboarding template is empty. Add tasks in Settings → Student Onboarding first.', onConfirm: () => {} });
+                          return;
+                        }
+                        await patchOnboardingProgress(s.id, template.map(task => ({ task, done: false })));
+                        invalidateStudentDerived();
+                        showToast(`Created ${template.length} onboarding tasks for ${s.lead.childName}`);
+                        navigate(`/onboarding?student=${s.id}`);
+                      } catch (e) {
+                        setConfirmModal({ message: e instanceof Error ? e.message : 'Failed to create onboarding tasks', onConfirm: () => {} });
+                      }
+                    }} style={{ ...menuItemStyle, color: '#1d4ed8' }}>
+                      <FontAwesomeIcon icon={faListCheck} style={{ width: 14 }} /> Create Onboarding Tasks
+                    </button>
+                  );
+                })()}
                 <button className="sp-menu-item" onClick={() => { setWithdrawingStudent(s); setOpenMenuId(null); }} style={{ ...menuItemStyle, color: '#dc2626' }}>
                   <FontAwesomeIcon icon={faRightFromBracket} style={{ width: 14 }} /> Withdraw
                 </button>

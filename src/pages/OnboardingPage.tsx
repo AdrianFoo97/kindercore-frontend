@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchStudents, patchOnboardingProgress, completeOnboarding } from '../api/students.js';
 import { fetchSettings } from '../api/settings.js';
@@ -227,6 +227,7 @@ function StudentOnboardingCard({
   onWhatsApp,
   onCompleteAll,
   isMobile,
+  highlighted,
 }: {
   student: Student;
   onViewTasks: () => void;
@@ -234,6 +235,7 @@ function StudentOnboardingCard({
   onWhatsApp: () => void;
   onCompleteAll: () => void;
   isMobile: boolean;
+  highlighted?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const { done, total, nextTask } = getProgress(student.onboardingProgress);
@@ -248,6 +250,7 @@ function StudentOnboardingCard({
   const sideColor = countdown?.isPast ? '#fecaca' : hovered ? '#c7d2fe' : '#e2e8f0';
   return (
     <div
+      id={`onboarding-card-${student.id}`}
       style={{
         background: '#fff',
         border: `1px solid ${sideColor}`,
@@ -258,6 +261,11 @@ function StudentOnboardingCard({
         boxShadow: accent !== 'transparent' ? `inset 3px 0 0 ${accent}` : 'none',
         padding: isMobile ? '14px 12px' : '18px 20px',
         transition: 'border-color 0.15s',
+        // Outline ring (not border) is used for the highlight animation so
+        // it doesn't fight the per-state border color (red for overdue).
+        outline: highlighted ? '2px solid transparent' : undefined,
+        outlineOffset: highlighted ? 2 : undefined,
+        animation: highlighted ? 'kc-highlight-card 2.4s ease-out' : undefined,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -670,6 +678,8 @@ export default function OnboardingPage() {
   const { isMobile, isTablet } = useIsMobile();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openStudentId = searchParams.get('student');
   const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -715,6 +725,25 @@ export default function OnboardingPage() {
 
   const invalidateStudents = () => queryClient.invalidateQueries({ queryKey: ['students'] });
 
+  // If we arrived with ?student=<id>, scroll their card into view and
+  // run a highlight animation so the admin sees exactly which one was
+  // just touched. Clear the param so a refresh doesn't re-trigger it.
+  useEffect(() => {
+    if (!openStudentId) return;
+    const target = paginated.find(s => s.id === openStudentId);
+    if (!target) return;
+    const el = document.getElementById(`onboarding-card-${openStudentId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const t = setTimeout(() => {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.delete('student');
+        return next;
+      }, { replace: true });
+    }, 2400);
+    return () => clearTimeout(t);
+  }, [openStudentId, paginated, setSearchParams]);
+
   const handleSaved = (_updated: Student, completed: boolean) => {
     invalidateStudents();
     setChecklistStudent(null);
@@ -726,6 +755,16 @@ export default function OnboardingPage() {
 
   return (
     <div style={{ padding: isMobile ? '16px 12px' : '28px 32px', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', minHeight: '100vh' }}>
+      <style>{`
+        @keyframes kc-highlight-card {
+          0%   { outline-color: #3b82f6; }
+          70%  { outline-color: #93c5fd; }
+          100% { outline-color: transparent; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes kc-highlight-card { from, to { outline-color: transparent; } }
+        }
+      `}</style>
       <div style={{ maxWidth: isMobile ? '100%' : 860, margin: '0 auto' }}>
 
         {/* ── Top Bar ── */}
@@ -916,6 +955,7 @@ export default function OnboardingPage() {
                   setTimeout(() => setSuccessMsg(null), 5000);
                 }}
                 isMobile={isMobile}
+                highlighted={openStudentId === s.id}
               />
             ))}
           </div>
