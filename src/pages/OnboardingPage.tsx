@@ -58,7 +58,7 @@ function getAge(dob: string) {
   return age;
 }
 
-function getCountdown(startDate: string | null): { label: string; color: string; bg: string; urgent: boolean } | null {
+function getCountdown(startDate: string | null): { label: string; color: string; bg: string; urgent: boolean; isPast: boolean } | null {
   if (!startDate) return null;
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -66,21 +66,28 @@ function getCountdown(startDate: string | null): { label: string; color: string;
   const targetDay = new Date(target.getFullYear(), target.getMonth(), target.getDate());
   const diffDays = Math.round((targetDay.getTime() - today.getTime()) / 86400000);
 
-  if (diffDays === 0)  return { label: 'Today!',        color: '#15803d', bg: '#dcfce7', urgent: true };
-  if (diffDays === 1)  return { label: 'Tomorrow',      color: '#c2410c', bg: '#ffedd5', urgent: true };
-  if (diffDays <= 7)   return { label: `In ${diffDays} days`, color: '#c2410c', bg: '#ffedd5', urgent: true };
-  if (diffDays <= 30)  return { label: `In ${diffDays} days`, color: '#b45309', bg: '#fef9c3', urgent: false };
+  // Past — student has already started; onboarding is overdue.
+  // Single red tier: any overdue is bad and the longer it sits the worse,
+  // so no softening for older cases.
+  if (diffDays < 0) {
+    const past = Math.abs(diffDays);
+    const label = past <= 7  ? `${past} day${past !== 1 ? 's' : ''} overdue`
+                : past <= 30 ? (() => { const w = Math.round(past / 7);  return `${w} week${w !== 1 ? 's' : ''} overdue`; })()
+                :              (() => { const m = Math.round(past / 30); return `${m} month${m !== 1 ? 's' : ''} overdue`; })();
+    return { label, color: '#b91c1c', bg: '#fee2e2', urgent: true, isPast: true };
+  }
+
+  // Future
+  if (diffDays === 0) return { label: 'Today!',   color: '#15803d', bg: '#dcfce7', urgent: true, isPast: false };
+  if (diffDays === 1) return { label: 'Tomorrow', color: '#c2410c', bg: '#ffedd5', urgent: true, isPast: false };
+  if (diffDays <= 7)  return { label: `In ${diffDays} days`, color: '#c2410c', bg: '#ffedd5', urgent: true,  isPast: false };
+  if (diffDays <= 30) return { label: `In ${diffDays} days`, color: '#b45309', bg: '#fef9c3', urgent: false, isPast: false };
   if (diffDays <= 90) {
     const weeks = Math.round(diffDays / 7);
-    return { label: `In ${weeks} week${weeks !== 1 ? 's' : ''}`, color: '#6d28d9', bg: '#f5f3ff', urgent: false };
+    return { label: `In ${weeks} week${weeks !== 1 ? 's' : ''}`, color: '#6d28d9', bg: '#f5f3ff', urgent: false, isPast: false };
   }
-  if (diffDays > 0) {
-    const months = Math.round(diffDays / 30);
-    return { label: `In ${months} month${months !== 1 ? 's' : ''}`, color: '#475569', bg: '#f1f5f9', urgent: false };
-  }
-  const past = Math.abs(diffDays);
-  if (past <= 30) return { label: `${past}d ago`, color: '#94a3b8', bg: '#f8fafc', urgent: false };
-  return null;
+  const months = Math.round(diffDays / 30);
+  return { label: `In ${months} month${months !== 1 ? 's' : ''}`, color: '#475569', bg: '#f1f5f9', urgent: false, isPast: false };
 }
 
 function getProgress(tasks: OnboardingTask[] | string | null) {
@@ -99,14 +106,19 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   const remaining = total - done;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%',
-          width: `${pct}%`,
-          background: isComplete ? '#10b981' : '#3b82f6',
-          borderRadius: 3,
-          transition: 'width 0.3s ease',
-        }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1, height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%',
+            width: `${pct}%`,
+            background: isComplete ? '#10b981' : '#3b82f6',
+            borderRadius: 3,
+            transition: 'width 0.3s ease',
+          }} />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: isComplete ? '#059669' : '#3b82f6', minWidth: 28, textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const }}>
+          {pct}%
+        </span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 11, fontWeight: 500, color: isComplete ? '#059669' : '#64748b' }}>
@@ -244,15 +256,27 @@ function StudentOnboardingCard({
   const age = getAge(student.lead.childDob);
   const countdown = getCountdown(student.startDate);
 
+  // Per-card overdue accent: any overdue = red, finished = green.
+  const accent = allDone ? '#10b981'
+    : countdown?.isPast ? '#dc2626'
+    : 'transparent';
+
+  const sideColor = allDone ? '#bbf7d0'
+    : countdown?.isPast ? '#fecaca'
+    : hovered ? '#c7d2fe' : '#e2e8f0';
   return (
     <div
       style={{
         background: '#fff',
-        border: `1px solid ${allDone ? '#bbf7d0' : hovered ? '#c7d2fe' : '#e2e8f0'}`,
+        borderTop:    `1px solid ${sideColor}`,
+        borderRight:  `1px solid ${sideColor}`,
+        borderBottom: `1px solid ${sideColor}`,
+        // Accent stays put on hover — overdue/urgent/completed signal is more
+        // important than the hover indicator.
+        borderLeft: accent !== 'transparent' ? `3px solid ${accent}` : `1px solid ${sideColor}`,
         borderRadius: isMobile ? 10 : 14,
         padding: isMobile ? '14px 12px' : '18px 20px',
-        transition: 'border-color 0.15s, box-shadow 0.15s',
-        boxShadow: hovered ? '0 4px 16px rgba(59,130,246,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+        transition: 'border-color 0.15s',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -281,7 +305,7 @@ function StudentOnboardingCard({
           <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const }}>
             {student.startDate ? (
               <>
-                <span>Starting {formatStartDate(student)}</span>
+                <span>{countdown?.isPast ? 'Started' : 'Starting'} {formatStartDate(student)}</span>
                 {countdown && (
                   <span style={{
                     padding: '1px 7px', borderRadius: 10,
@@ -365,23 +389,33 @@ function StudentOnboardingCard({
           <ProgressBar done={done} total={total} />
         )}
 
-        {/* Next task */}
-        {!allDone && nextTask && (
-          <div style={{
-            marginTop: 10, padding: '9px 12px',
-            background: '#fffbeb',
-            border: '1px solid #fde68a', borderLeft: '3px solid #f59e0b',
-            borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#d97706', letterSpacing: '0.06em', whiteSpace: 'nowrap' as const, textTransform: 'uppercase' as const }}>
-              Up next
-            </span>
-            <span style={{ width: 1, height: 12, background: '#fcd34d', flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: '#92400e', lineHeight: 1.4, fontWeight: 500 }}>
-              {nextTask.task}
-            </span>
-          </div>
-        )}
+        {/* Next task — red theme when overdue, amber otherwise. Drop the
+            inner left accent when the parent card already carries one,
+            so the urgency signal isn't doubled. */}
+        {!allDone && nextTask && (() => {
+          const overdue = !!countdown?.isPast;
+          const theme = overdue
+            ? { bg: '#fef2f2', border: '#fecaca', accent: '#dc2626', label: '#b91c1c', divider: '#fca5a5', text: '#991b1b' }
+            : { bg: '#fffbeb', border: '#fde68a', accent: '#f59e0b', label: '#d97706', divider: '#fcd34d', text: '#92400e' };
+          const cardHasAccent = accent !== 'transparent';
+          return (
+            <div style={{
+              marginTop: 10, padding: '9px 12px',
+              background: theme.bg,
+              border: `1px solid ${theme.border}`,
+              ...(cardHasAccent ? {} : { borderLeft: `3px solid ${theme.accent}` }),
+              borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: theme.label, letterSpacing: '0.06em', whiteSpace: 'nowrap' as const, textTransform: 'uppercase' as const }}>
+                Up next
+              </span>
+              <span style={{ width: 1, height: 12, background: theme.divider, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: theme.text, lineHeight: 1.4, fontWeight: 500 }}>
+                {nextTask.task}
+              </span>
+            </div>
+          );
+        })()}
 
         {allDone && (
           <div style={{
@@ -694,7 +728,7 @@ export default function OnboardingPage() {
   const { isMobile, isTablet } = useIsMobile();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>(CURRENT_YEAR);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -704,6 +738,7 @@ export default function OnboardingPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [waStudent, setWaStudent] = useState<Student | null>(null);
   const [onboardingStatusFilter, setOnboardingStatusFilter] = useState<string | null>(null);
+  const [startMonthFilter, setStartMonthFilter] = useState<string | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -721,6 +756,7 @@ export default function OnboardingPage() {
     sortBy: 'startDate',
     sortOrder: 'asc' as const,
     ...(onboardingStatusFilter ? { onboardingStatus: onboardingStatusFilter } : {}),
+    ...(startMonthFilter ? { startMonth: startMonthFilter } : {}),
   };
 
   const { data, isPending, isError } = useQuery({
@@ -735,6 +771,7 @@ export default function OnboardingPage() {
   const availableYears = data?.availableYears ?? [];
   const yearOptions = selectedYear !== 'all' && !availableYears.includes(selectedYear as number) ? [selectedYear as number, ...availableYears] : availableYears;
   const { total: onboardingTotal, notStarted: notStartedCount, inProgress: inProgressCount, readyToComplete: readyCount } = data?.onboardingCounts ?? { total: 0, notStarted: 0, inProgress: 0, readyToComplete: 0 };
+  const monthlyBreakdown = data?.monthlyBreakdown ?? { months: [], overdue: 0, noDate: 0 };
 
   const invalidateStudents = () => queryClient.invalidateQueries({ queryKey: ['students'] });
 
@@ -777,7 +814,7 @@ export default function OnboardingPage() {
             }}
           >
             <option value="all">All Years</option>
-            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+            {yearOptions.map(y => <option key={y} value={y}>{y === CURRENT_YEAR ? `${y} (Current)` : y}</option>)}
           </select>
         </div>
 
@@ -796,6 +833,51 @@ export default function OnboardingPage() {
             </button>
           )}
         </div>
+
+        {/* ── Monthly start-date strip ── */}
+        {!isPending && !isError && (monthlyBreakdown.months.length > 0 || monthlyBreakdown.overdue > 0 || monthlyBreakdown.noDate > 0) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+            overflowX: 'auto' as const, WebkitOverflowScrolling: 'touch' as const,
+            scrollbarWidth: 'none' as const, msOverflowStyle: 'none' as const, paddingBottom: 2,
+          }}>
+            <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' as const, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Starts</span>
+            {[
+              ...(monthlyBreakdown.overdue > 0 ? [{ key: 'overdue', label: 'Overdue', count: monthlyBreakdown.overdue, color: '#b91c1c', bg: '#fee2e2' }] : []),
+              ...monthlyBreakdown.months.map(m => {
+                const [yr, mo] = m.month.split('-');
+                const label = `${MONTH_NAMES[Number(mo) - 1]} ${yr.slice(2)}`;
+                return { key: m.month, label, count: m.count, color: '#1d4ed8', bg: '#eff6ff' };
+              }),
+              ...(monthlyBreakdown.noDate > 0 ? [{ key: 'noDate', label: 'No date', count: monthlyBreakdown.noDate, color: '#64748b', bg: '#f1f5f9' }] : []),
+            ].map(chip => {
+              const active = startMonthFilter === chip.key;
+              return (
+                <button
+                  key={chip.key}
+                  onClick={() => { setStartMonthFilter(active ? null : chip.key); setPage(1); }}
+                  style={{
+                    padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', border: '1px solid', transition: 'all 0.12s',
+                    whiteSpace: 'nowrap' as const, flexShrink: 0,
+                    background: active ? chip.color : chip.bg,
+                    color: active ? '#fff' : chip.color,
+                    borderColor: active ? chip.color : 'transparent',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <span>{chip.label}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700,
+                    padding: '0 6px', borderRadius: 8,
+                    background: active ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.06)',
+                    color: active ? '#fff' : chip.color,
+                  }}>{chip.count}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Filter pills + total ── */}
         {!isPending && !isError && onboardingTotal > 0 && (
@@ -829,6 +911,20 @@ export default function OnboardingPage() {
                 </button>
               );
             })}
+            {(onboardingStatusFilter || startMonthFilter) && (
+              <button
+                onClick={() => { setOnboardingStatusFilter(null); setStartMonthFilter(null); setPage(1); }}
+                style={{
+                  marginLeft: 'auto',
+                  padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+                  cursor: 'pointer', border: 'none', background: 'none', color: '#94a3b8',
+                  whiteSpace: 'nowrap' as const, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}
+              >
+                <FontAwesomeIcon icon={faXmark} style={{ fontSize: 10 }} /> Clear filters
+              </button>
+            )}
           </div>
         )}
 
