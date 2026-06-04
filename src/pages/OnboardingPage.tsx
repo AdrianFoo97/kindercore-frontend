@@ -6,7 +6,7 @@ import { fetchSettings } from '../api/settings.js';
 import { Student, OnboardingTask } from '../types/index.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck, faXmark, faGraduationCap, faTriangleExclamation, faPen, faListCheck, faCircleCheck, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faXmark, faTriangleExclamation, faPen, faListCheck, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -138,17 +138,13 @@ function ActionMenu({
   onViewTasks,
   onEdit,
   onWhatsApp,
-  onComplete,
   onCompleteAll,
-  allDone,
   hasTasks,
 }: {
   onViewTasks: () => void;
   onEdit: () => void;
   onWhatsApp: () => void;
-  onComplete: () => void;
   onCompleteAll: () => void;
-  allDone: boolean;
   hasTasks: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -162,7 +158,7 @@ function ActionMenu({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const menuItem = (icon: typeof faPen, label: string, onClick: () => void) => (
+  const menuItem = (icon: typeof faPen, label: string, onClick: () => void, iconColor = '#64748b') => (
     <button
       onClick={() => { onClick(); setOpen(false); }}
       style={{
@@ -174,7 +170,7 @@ function ActionMenu({
       onMouseEnter={e => (e.currentTarget.style.background = '#eef1f5')}
       onMouseLeave={e => (e.currentTarget.style.background = 'none')}
     >
-      <FontAwesomeIcon icon={icon} fixedWidth style={{ color: '#64748b', fontSize: 12 }} />
+      <FontAwesomeIcon icon={icon} fixedWidth style={{ color: iconColor, fontSize: 12 }} />
       {label}
     </button>
   );
@@ -203,23 +199,17 @@ function ActionMenu({
           boxShadow: '0 4px 24px rgba(0,0,0,0.12)', minWidth: 190, padding: '4px 0',
         }}>
           <div style={{ padding: '2px 4px' }}>
-            {menuItem(faListCheck, 'View Tasks', onViewTasks)}
-            {menuItem(faPen, 'Edit Student', onEdit)}
+            {menuItem(faListCheck, 'View Tasks', onViewTasks, '#3b82f6')}
+            {menuItem(faPen, 'Edit Student', onEdit, '#5a67d8')}
           </div>
           {sep}
           <div style={{ padding: '2px 4px' }}>
-            {menuItem(faWhatsapp, 'WhatsApp Parent', onWhatsApp)}
+            {menuItem(faWhatsapp, 'WhatsApp Parent', onWhatsApp, '#25d366')}
           </div>
-          {!allDone && (<>
+          {hasTasks && (<>
             {sep}
             <div style={{ padding: '2px 4px' }}>
-              {menuItem(faCheck, 'Complete All Tasks', onCompleteAll)}
-            </div>
-          </>)}
-          {allDone && (<>
-            {sep}
-            <div style={{ padding: '2px 4px' }}>
-              {menuItem(faCircleCheck, 'Complete Onboarding', onComplete)}
+              {menuItem(faCheck, 'Complete All Tasks', onCompleteAll, '#10b981')}
             </div>
           </>)}
         </div>
@@ -235,46 +225,37 @@ function StudentOnboardingCard({
   onViewTasks,
   onEdit,
   onWhatsApp,
-  onConfirmComplete,
   onCompleteAll,
-  completing,
   isMobile,
 }: {
   student: Student;
   onViewTasks: () => void;
   onEdit: () => void;
   onWhatsApp: () => void;
-  onConfirmComplete: () => void;
   onCompleteAll: () => void;
-  completing: boolean;
   isMobile: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const { done, total, nextTask } = getProgress(student.onboardingProgress);
-  const allDone = total > 0 && done === total;
   const avatarColor = getAvatarColor(student.lead.childName);
   const age = getAge(student.lead.childDob);
   const countdown = getCountdown(student.startDate);
 
-  // Per-card overdue accent: any overdue = red, finished = green.
-  const accent = allDone ? '#10b981'
-    : countdown?.isPast ? '#dc2626'
-    : 'transparent';
-
-  const sideColor = allDone ? '#bbf7d0'
-    : countdown?.isPast ? '#fecaca'
-    : hovered ? '#c7d2fe' : '#e2e8f0';
+  // Per-card overdue accent. There is no "all-done" path here: when every
+  // task is checked the modal/menu auto-finalizes the student, so the
+  // student leaves the pending list before this card ever renders done.
+  const accent = countdown?.isPast ? '#dc2626' : 'transparent';
+  const sideColor = countdown?.isPast ? '#fecaca' : hovered ? '#c7d2fe' : '#e2e8f0';
   return (
     <div
       style={{
         background: '#fff',
-        borderTop:    `1px solid ${sideColor}`,
-        borderRight:  `1px solid ${sideColor}`,
-        borderBottom: `1px solid ${sideColor}`,
-        // Accent stays put on hover — overdue/urgent/completed signal is more
-        // important than the hover indicator.
-        borderLeft: accent !== 'transparent' ? `3px solid ${accent}` : `1px solid ${sideColor}`,
+        border: `1px solid ${sideColor}`,
         borderRadius: isMobile ? 10 : 14,
+        // Left accent stripe via inset shadow so the border-radius stays
+        // perfectly symmetric on all four corners. Survives hover because
+        // it's independent of the border colors.
+        boxShadow: accent !== 'transparent' ? `inset 3px 0 0 ${accent}` : 'none',
         padding: isMobile ? '14px 12px' : '18px 20px',
         transition: 'border-color 0.15s',
       }}
@@ -329,9 +310,7 @@ function StudentOnboardingCard({
             onViewTasks={onViewTasks}
             onEdit={onEdit}
             onWhatsApp={onWhatsApp}
-            onComplete={onConfirmComplete}
             onCompleteAll={onCompleteAll}
-            allDone={allDone}
             hasTasks={total > 0}
           />
         )}
@@ -341,40 +320,22 @@ function StudentOnboardingCard({
         {/* Primary action + menu — desktop only */}
         {!isMobile && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {allDone ? (
-              <button
-                onClick={onConfirmComplete}
-                disabled={completing}
-                style={{
-                  padding: '8px 16px', borderRadius: 8, border: 'none',
-                  background: completing ? '#6ee7b7' : '#10b981',
-                  color: '#fff', cursor: completing ? 'default' : 'pointer',
-                  fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
-                  boxShadow: '0 1px 4px rgba(16,185,129,0.25)',
-                }}
-              >
-                {completing ? 'Completing…' : <><FontAwesomeIcon icon={faCheck} /> Mark Complete</>}
-              </button>
-            ) : (
-              <button
-                onClick={onViewTasks}
-                style={{
-                  padding: '8px 16px', borderRadius: 8, border: 'none',
-                  background: '#3b82f6', color: '#fff', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
-                  boxShadow: '0 1px 4px rgba(59,130,246,0.25)',
-                }}
-              >
-                {total === 0 ? 'Set Up Tasks' : 'Continue Tasks'}
-              </button>
-            )}
+            <button
+              onClick={onViewTasks}
+              style={{
+                padding: '8px 16px', borderRadius: 8, border: 'none',
+                background: '#3b82f6', color: '#fff', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
+                boxShadow: '0 1px 4px rgba(59,130,246,0.25)',
+              }}
+            >
+              {total === 0 ? 'Set Up Tasks' : 'Continue Tasks'}
+            </button>
             <ActionMenu
               onViewTasks={onViewTasks}
               onEdit={onEdit}
               onWhatsApp={onWhatsApp}
-              onComplete={onConfirmComplete}
               onCompleteAll={onCompleteAll}
-              allDone={allDone}
               hasTasks={total > 0}
             />
           </div>
@@ -392,7 +353,7 @@ function StudentOnboardingCard({
         {/* Next task — red theme when overdue, amber otherwise. Drop the
             inner left accent when the parent card already carries one,
             so the urgency signal isn't doubled. */}
-        {!allDone && nextTask && (() => {
+        {nextTask && (() => {
           const overdue = !!countdown?.isPast;
           const theme = overdue
             ? { bg: '#fef2f2', border: '#fecaca', accent: '#dc2626', label: '#b91c1c', divider: '#fca5a5', text: '#991b1b' }
@@ -416,50 +377,22 @@ function StudentOnboardingCard({
             </div>
           );
         })()}
-
-        {allDone && (
-          <div style={{
-            marginTop: 10, padding: '9px 12px',
-            background: '#f0fdf4', border: '1px solid #86efac',
-            borderRadius: 8, fontSize: 13, color: '#15803d', fontWeight: 600,
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <span><FontAwesomeIcon icon={faCheck} /></span>
-            <span>All tasks completed — ready to finalize</span>
-          </div>
-        )}
       </div>
 
       {/* Primary action — mobile: at bottom of card */}
       {isMobile && (
         <div style={{ width: '100%', display: 'flex', gap: 8, marginTop: 12 }}>
-          {allDone ? (
-            <button
-              onClick={onConfirmComplete}
-              disabled={completing}
-              style={{
-                flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none',
-                background: completing ? '#6ee7b7' : '#10b981',
-                color: '#fff', cursor: completing ? 'default' : 'pointer',
-                fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
-                boxShadow: '0 1px 4px rgba(16,185,129,0.25)',
-              }}
-            >
-              {completing ? 'Completing…' : <><FontAwesomeIcon icon={faCheck} /> Mark Complete</>}
-            </button>
-          ) : (
-            <button
-              onClick={onViewTasks}
-              style={{
-                flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none',
-                background: '#3b82f6', color: '#fff', cursor: 'pointer',
-                fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
-                boxShadow: '0 1px 4px rgba(59,130,246,0.25)',
-              }}
-            >
-              {total === 0 ? 'Set Up Tasks' : 'Continue Tasks'}
-            </button>
-          )}
+          <button
+            onClick={onViewTasks}
+            style={{
+              flex: 1, padding: '10px 16px', borderRadius: 8, border: 'none',
+              background: '#3b82f6', color: '#fff', cursor: 'pointer',
+              fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' as const,
+              boxShadow: '0 1px 4px rgba(59,130,246,0.25)',
+            }}
+          >
+            {total === 0 ? 'Set Up Tasks' : 'Continue Tasks'}
+          </button>
         </div>
       )}
     </div>
@@ -475,7 +408,7 @@ function ChecklistModal({
 }: {
   student: Student;
   onClose: () => void;
-  onSaved: (updated: Student) => void;
+  onSaved: (updated: Student, completed: boolean) => void;
 }) {
   const raw = student.onboardingProgress;
   const existingTasks: OnboardingTask[] = Array.isArray(raw) ? raw : (typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return []; } })() : []);
@@ -497,20 +430,23 @@ function ChecklistModal({
 
   const markAll = () => setItems(prev => prev.map(t => ({ ...t, done: true })));
 
+  const doneCount = items.filter(t => t.done).length;
+  const allDone = doneCount === items.length && items.length > 0;
+
   const handleSave = async () => {
     setSaving(true); setError('');
     try {
       const updated = await patchOnboardingProgress(student.id, items);
-      onSaved(updated);
+      // When every item is checked, the natural next action is to finalize
+      // — saves the user a second click and matches the button's intent.
+      if (allDone) await completeOnboarding(student.id);
+      onSaved(updated, allDone);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setSaving(false);
     }
   };
-
-  const doneCount = items.filter(t => t.done).length;
-  const allDone = doneCount === items.length && items.length > 0;
   const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
 
   const listRef = useRef<HTMLDivElement>(null);
@@ -605,8 +541,14 @@ function ChecklistModal({
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={onClose} style={modal.cancelBtn}>Cancel</button>
-            <button onClick={handleSave} disabled={saving} style={modal.saveBtn}>
-              {saving ? 'Saving…' : 'Save'}
+            <button onClick={handleSave} disabled={saving} style={{
+              ...modal.saveBtn,
+              background: allDone ? '#10b981' : '#3b82f6',
+              minWidth: allDone ? 150 : undefined,
+            }}>
+              {saving
+                ? (allDone ? 'Finalizing…' : 'Saving…')
+                : (allDone ? <><FontAwesomeIcon icon={faCheck} /> Mark as Completed</> : 'Save')}
             </button>
           </div>
         </div>
@@ -728,13 +670,11 @@ export default function OnboardingPage() {
   const { isMobile, isTablet } = useIsMobile();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [selectedYear, setSelectedYear] = useState<number | 'all'>(CURRENT_YEAR);
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [checklistStudent, setChecklistStudent] = useState<Student | null>(null);
-  const [confirmStudent, setConfirmStudent] = useState<Student | null>(null);
-  const [completing, setCompleting] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [waStudent, setWaStudent] = useState<Student | null>(null);
   const [onboardingStatusFilter, setOnboardingStatusFilter] = useState<string | null>(null);
@@ -770,28 +710,17 @@ export default function OnboardingPage() {
   const totalPages = Math.max(1, Math.ceil(totalStudents / PAGE_SIZE));
   const availableYears = data?.availableYears ?? [];
   const yearOptions = selectedYear !== 'all' && !availableYears.includes(selectedYear as number) ? [selectedYear as number, ...availableYears] : availableYears;
-  const { total: onboardingTotal, notStarted: notStartedCount, inProgress: inProgressCount, readyToComplete: readyCount } = data?.onboardingCounts ?? { total: 0, notStarted: 0, inProgress: 0, readyToComplete: 0 };
-  const monthlyBreakdown = data?.monthlyBreakdown ?? { months: [], overdue: 0, noDate: 0 };
+  const { total: onboardingTotal, notStarted: notStartedCount, inProgress: inProgressCount } = data?.onboardingCounts ?? { total: 0, notStarted: 0, inProgress: 0, readyToComplete: 0 };
+  const monthlyBreakdown = data?.monthlyBreakdown ?? { months: [], overdue: 0, startingSoon: 0, noDate: 0 };
 
   const invalidateStudents = () => queryClient.invalidateQueries({ queryKey: ['students'] });
 
-  const handleSaved = (_updated: Student) => {
+  const handleSaved = (_updated: Student, completed: boolean) => {
     invalidateStudents();
     setChecklistStudent(null);
-  };
-
-  const handleComplete = async (s: Student) => {
-    setCompleting(s.id);
-    setConfirmStudent(null);
-    try {
-      await completeOnboarding(s.id);
-      invalidateStudents();
-      setSuccessMsg(`${s.lead.childName} has been marked as fully onboarded.`);
+    if (completed) {
+      setSuccessMsg(`${_updated.lead.childName} has been marked as fully onboarded.`);
       setTimeout(() => setSuccessMsg(null), 5000);
-    } catch {
-      // ignore
-    } finally {
-      setCompleting(null);
     }
   };
 
@@ -800,10 +729,16 @@ export default function OnboardingPage() {
       <div style={{ maxWidth: isMobile ? '100%' : 860, margin: '0 auto' }}>
 
         {/* ── Top Bar ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14, marginBottom: isMobile ? 14 : 20 }}>
-          <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 22, fontWeight: 700, color: '#0f172a', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 8 : 12, marginBottom: isMobile ? 14 : 20 }}>
+          <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 22, fontWeight: 700, color: '#0f172a' }}>
             Student Onboarding
           </h1>
+          {!isPending && !isError && onboardingTotal > 0 && (
+            <span style={{ fontSize: 13, color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap' as const }}>
+              {onboardingTotal} {onboardingTotal === 1 ? 'student' : 'students'}
+            </span>
+          )}
+          <div style={{ flex: 1 }} />
           <select
             value={selectedYear}
             onChange={e => { setSelectedYear(e.target.value === 'all' ? 'all' : Number(e.target.value)); setPage(1); }}
@@ -818,115 +753,92 @@ export default function OnboardingPage() {
           </select>
         </div>
 
-        {/* ── Search Bar ── */}
-        <div style={{ position: 'relative', marginBottom: 16 }}>
-          <input
-            placeholder="Search students..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', color: '#1e293b', background: '#fff', outline: 'none' }}
-          />
-          <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 13 }} />
-          {search && (
-            <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 2 }}>
-              <FontAwesomeIcon icon={faXmark} />
-            </button>
-          )}
-        </div>
-
-        {/* ── Monthly start-date strip ── */}
-        {!isPending && !isError && (monthlyBreakdown.months.length > 0 || monthlyBreakdown.overdue > 0 || monthlyBreakdown.noDate > 0) && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
-            overflowX: 'auto' as const, WebkitOverflowScrolling: 'touch' as const,
-            scrollbarWidth: 'none' as const, msOverflowStyle: 'none' as const, paddingBottom: 2,
-          }}>
-            <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' as const, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Starts</span>
-            {[
-              ...(monthlyBreakdown.overdue > 0 ? [{ key: 'overdue', label: 'Overdue', count: monthlyBreakdown.overdue, color: '#b91c1c', bg: '#fee2e2' }] : []),
-              ...monthlyBreakdown.months.map(m => {
-                const [yr, mo] = m.month.split('-');
-                const label = `${MONTH_NAMES[Number(mo) - 1]} ${yr.slice(2)}`;
-                return { key: m.month, label, count: m.count, color: '#1d4ed8', bg: '#eff6ff' };
-              }),
-              ...(monthlyBreakdown.noDate > 0 ? [{ key: 'noDate', label: 'No date', count: monthlyBreakdown.noDate, color: '#64748b', bg: '#f1f5f9' }] : []),
-            ].map(chip => {
-              const active = startMonthFilter === chip.key;
-              return (
-                <button
-                  key={chip.key}
-                  onClick={() => { setStartMonthFilter(active ? null : chip.key); setPage(1); }}
-                  style={{
-                    padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                    cursor: 'pointer', border: '1px solid', transition: 'all 0.12s',
-                    whiteSpace: 'nowrap' as const, flexShrink: 0,
-                    background: active ? chip.color : chip.bg,
-                    color: active ? '#fff' : chip.color,
-                    borderColor: active ? chip.color : 'transparent',
-                    display: 'flex', alignItems: 'center', gap: 6,
-                  }}
-                >
-                  <span>{chip.label}</span>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700,
-                    padding: '0 6px', borderRadius: 8,
-                    background: active ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.06)',
-                    color: active ? '#fff' : chip.color,
-                  }}>{chip.count}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── Filter pills + total ── */}
-        {!isPending && !isError && onboardingTotal > 0 && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
-            ...(isMobile ? { overflowX: 'auto' as const, WebkitOverflowScrolling: 'touch' as const, scrollbarWidth: 'none' as const, msOverflowStyle: 'none' as const, paddingBottom: 2 } : {}),
-          }}>
-            <span style={{ fontSize: 13, color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap' as const }}>{onboardingTotal} students</span>
-            <div style={{ width: 1, height: 16, background: '#e2e8f0', flexShrink: 0 }} />
-            {[
-              { key: null as string | null, label: 'All', count: undefined as number | undefined, color: '#334155' },
-              { key: 'notStarted', label: 'Not Started', count: notStartedCount, color: '#6d28d9' },
-              { key: 'inProgress', label: 'In Progress', count: inProgressCount, color: '#b45309' },
-              { key: 'readyToComplete', label: 'Ready', count: readyCount, color: '#15803d' },
-            ].map(f => {
-              const active = onboardingStatusFilter === f.key;
-              return (
-                <button
-                  key={f.key ?? 'all'}
-                  onClick={() => { setOnboardingStatusFilter(active ? null : f.key); setPage(1); }}
-                  style={{
-                    padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-                    cursor: 'pointer', border: '1px solid', transition: 'all 0.12s',
-                    whiteSpace: 'nowrap' as const, flexShrink: 0,
-                    background: active ? f.color : '#fff',
-                    color: active ? '#fff' : (f.key ? f.color : '#64748b'),
-                    borderColor: active ? f.color : '#e2e8f0',
-                  }}
-                >
-                  {f.label}{f.count !== undefined ? ` (${f.count})` : ''}
-                </button>
-              );
-            })}
-            {(onboardingStatusFilter || startMonthFilter) && (
-              <button
-                onClick={() => { setOnboardingStatusFilter(null); setStartMonthFilter(null); setPage(1); }}
-                style={{
-                  marginLeft: 'auto',
-                  padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                  cursor: 'pointer', border: 'none', background: 'none', color: '#94a3b8',
-                  whiteSpace: 'nowrap' as const, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', gap: 5,
-                }}
-              >
-                <FontAwesomeIcon icon={faXmark} style={{ fontSize: 10 }} /> Clear filters
+        {/* ── Toolbar — Search + Priority + Progress in one floating card ── */}
+        <div style={toolbarCard}>
+          <div style={{ position: 'relative' }}>
+            <input
+              placeholder="Search students..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                width: '100%', padding: '7px 12px 7px 32px', border: '1px solid #e8eaed',
+                borderRadius: 7, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box',
+                color: '#111827', background: search ? '#fff' : '#f9fafb', outline: 'none',
+                transition: 'border-color 0.15s, background 0.15s',
+              }}
+            />
+            <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#b0b8c8', fontSize: 12 }} />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 2 }}>
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             )}
           </div>
-        )}
+
+          {!isPending && !isError && onboardingTotal > 0 && (
+            <>
+              {(monthlyBreakdown.overdue > 0 || monthlyBreakdown.startingSoon > 0) && (
+              <div style={filterRow}>
+                <span style={filterLabel}>Priority</span>
+                {[
+                  { key: 'overdue', label: 'Overdue',       count: monthlyBreakdown.overdue,       color: '#b91c1c', bg: '#fef2f2' },
+                  { key: 'soon',    label: 'Starting Soon', count: monthlyBreakdown.startingSoon,  color: '#b45309', bg: '#fffbeb' },
+                ].filter(c => c.count > 0).map(chip => {
+                  const active = startMonthFilter === chip.key;
+                  return (
+                    <button
+                      key={chip.key}
+                      onClick={() => { setStartMonthFilter(active ? null : chip.key); setPage(1); }}
+                      style={chipStyle(active, chip.color, chip.bg, false)}
+                    >
+                      <span>{chip.label}</span>
+                      <span style={chipCount(active, chip.color)}>{chip.count}</span>
+                    </button>
+                  );
+                })}
+                {(onboardingStatusFilter || startMonthFilter) && (
+                  <button
+                    onClick={() => { setOnboardingStatusFilter(null); setStartMonthFilter(null); setPage(1); }}
+                    style={clearFiltersBtn}
+                  >
+                    <FontAwesomeIcon icon={faXmark} style={{ fontSize: 10 }} /> Clear filters
+                  </button>
+                )}
+              </div>
+            )}
+            <div style={filterRow}>
+              <span style={filterLabel}>Progress</span>
+              {[
+                { key: null as string | null, label: 'All',         count: onboardingTotal, color: '#334155', bg: '#f1f5f9' },
+                { key: 'notStarted',          label: 'Not Started', count: notStartedCount, color: '#6d28d9', bg: '#f5f3ff' },
+                { key: 'inProgress',          label: 'In Progress', count: inProgressCount, color: '#b45309', bg: '#fffbeb' },
+              ].map(f => {
+                const active = onboardingStatusFilter === f.key;
+                const muted = !active && f.count === 0;
+                return (
+                  <button
+                    key={f.key ?? 'all'}
+                    onClick={() => { setOnboardingStatusFilter(active ? null : f.key); setPage(1); }}
+                    style={chipStyle(active, f.color, f.bg, muted)}
+                  >
+                    <span>{f.label}</span>
+                    <span style={chipCount(active, f.color, muted)}>{f.count}</span>
+                  </button>
+                );
+              })}
+              {/* When the Priority row isn't rendered, Clear filters lives here instead. */}
+              {!(monthlyBreakdown.overdue > 0 || monthlyBreakdown.startingSoon > 0) && (onboardingStatusFilter || startMonthFilter) && (
+                <button
+                  onClick={() => { setOnboardingStatusFilter(null); setStartMonthFilter(null); setPage(1); }}
+                  style={clearFiltersBtn}
+                >
+                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 10 }} /> Clear filters
+                </button>
+              )}
+            </div>
+            </>
+          )}
+        </div>
 
         {/* ── Success Banner ── */}
         {successMsg && (
@@ -987,19 +899,19 @@ export default function OnboardingPage() {
                 onViewTasks={() => setChecklistStudent(s)}
                 onEdit={() => navigate(`/students/${s.id}`)}
                 onWhatsApp={() => setWaStudent(s)}
-                onConfirmComplete={() => setConfirmStudent(s)}
                 onCompleteAll={async () => {
+                  // Check every task AND finalize in one shot — the menu
+                  // action means "we're done with this student".
                   const raw = s.onboardingProgress;
                   const tasks: Array<{ task: string; done: boolean }> = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
                   if (tasks.length > 0) {
-                    const allDone = tasks.map(t => ({ ...t, done: true }));
-                    await patchOnboardingProgress(s.id, allDone);
-                  } else {
-                    await completeOnboarding(s.id);
+                    await patchOnboardingProgress(s.id, tasks.map(t => ({ ...t, done: true })));
                   }
+                  await completeOnboarding(s.id);
                   invalidateStudents();
+                  setSuccessMsg(`${s.lead.childName} has been marked as fully onboarded.`);
+                  setTimeout(() => setSuccessMsg(null), 5000);
                 }}
-                completing={completing === s.id}
                 isMobile={isMobile}
               />
             ))}
@@ -1057,29 +969,6 @@ export default function OnboardingPage() {
         return <OnboardingWhatsAppModal phone={phone} childName={childName} templates={templates} onClose={() => setWaStudent(null)} />;
       })()}
 
-      {confirmStudent && (
-        <div style={modal.backdrop} onClick={() => setConfirmStudent(null)}>
-          <div style={{ ...modal.card, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-            <div style={{ marginBottom: 6, fontSize: 28 }}><FontAwesomeIcon icon={faGraduationCap} /></div>
-            <h2 style={{ margin: '0 0 10px', fontSize: 17, fontWeight: 700, color: '#0f172a' }}>
-              Confirm Onboarding Completion
-            </h2>
-            <p style={{ fontSize: 14, color: '#64748b', margin: '0 0 20px', lineHeight: 1.6 }}>
-              Mark <strong style={{ color: '#0f172a' }}>{confirmStudent.lead.childName}</strong> as fully onboarded?
-              They will be <strong>removed from this list</strong>.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => setConfirmStudent(null)} style={modal.cancelBtn}>Cancel</button>
-              <button
-                onClick={() => handleComplete(confirmStudent)}
-                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#10b981', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
-              >
-                Yes, Complete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1121,3 +1010,58 @@ const modal: Record<string, React.CSSProperties> = {
     background: '#3b82f6', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13,
   },
 };
+
+// ── Filter chip styling ──────────────────────────────────────────────────────
+// Shared between the Priority and Progress rows so both filter dimensions
+// read as siblings instead of two different chip systems.
+
+const toolbarCard: React.CSSProperties = {
+  display: 'flex', flexDirection: 'column', gap: 14,
+  padding: '12px 14px', marginBottom: 16,
+  background: '#fff',
+  border: '1px solid #e2e8f0',
+  borderRadius: 14,
+  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+};
+
+const filterRow: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 8,
+  overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+  scrollbarWidth: 'none', msOverflowStyle: 'none',
+};
+
+const filterLabel: React.CSSProperties = {
+  fontSize: 11, color: '#94a3b8', fontWeight: 600,
+  whiteSpace: 'nowrap', textTransform: 'uppercase',
+  letterSpacing: '0.06em', minWidth: 64,
+};
+
+const clearFiltersBtn: React.CSSProperties = {
+  marginLeft: 'auto',
+  padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+  cursor: 'pointer', border: 'none', background: 'none', color: '#94a3b8',
+  whiteSpace: 'nowrap', flexShrink: 0,
+  display: 'flex', alignItems: 'center', gap: 5,
+};
+
+function chipStyle(active: boolean, color: string, bg: string, muted: boolean): React.CSSProperties {
+  return {
+    padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', border: '1px solid', transition: 'all 0.12s',
+    whiteSpace: 'nowrap', flexShrink: 0,
+    background: active ? color : muted ? '#f8fafc' : bg,
+    color: active ? '#fff' : muted ? '#cbd5e1' : color,
+    borderColor: active ? color : 'transparent',
+    display: 'flex', alignItems: 'center', gap: 6,
+  };
+}
+
+function chipCount(active: boolean, color: string, muted = false): React.CSSProperties {
+  return {
+    fontSize: 11, fontWeight: 700,
+    padding: '0 6px', borderRadius: 8,
+    background: active ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.06)',
+    color: active ? '#fff' : muted ? '#cbd5e1' : color,
+    fontVariantNumeric: 'tabular-nums',
+  };
+}
