@@ -58,7 +58,6 @@ export default function SalesAnalysisPage() {
   if (isLoading) return <div style={s.centered}>Loading…</div>;
   if (isError || !data) return <div style={s.centered}>Failed to load sales analytics.</div>;
 
-  const closingPct = Math.round(data.closingRate * 100);
 
   // ── Month-scoped leads (drives donuts + table) ──
   // Bucket by close date — backend ships `closedAt` per row (statusChangedAt,
@@ -77,7 +76,11 @@ export default function SalesAnalysisPage() {
   };
 
   // ── Filtered + paginated leads ──
-  const statusLeads = statusTab === 'ALL' ? monthLeads : monthLeads.filter(r => r.status === statusTab);
+  // Closed-sales mode forces the table to only Enrolled rows so the table
+  // axis matches the chart axis. The Enrolled/All/Lost tabs are only
+  // meaningful in Sales Talks mode.
+  const effectiveStatus: 'ALL' | 'ENROLLED' | 'LOST' = chartMode === 'closed' ? 'ENROLLED' : statusTab;
+  const statusLeads = effectiveStatus === 'ALL' ? monthLeads : monthLeads.filter(r => r.status === effectiveStatus);
   const filteredLeads = activeFilter
     ? statusLeads.filter(r =>
         activeFilter.type === 'address'
@@ -172,38 +175,63 @@ export default function SalesAnalysisPage() {
 
       {/* ── KPI strip ── */}
       {(() => {
-        const topChannel = data.marketingChannelBreakdown[0];
-        const topLocation = data.addressBreakdown[0];
-        const channelShare = topChannel && data.totalLeads > 0
-          ? Math.round((topChannel.count / data.totalLeads) * 100) : 0;
-        const locationShare = topLocation && data.totalLeads > 0
-          ? Math.round((topLocation.count / data.totalLeads) * 100) : 0;
-        const channelColor = topChannel ? getChannelColor(topChannel.channel, 0) : C.blue;
-        const locationColor = topLocation ? getAddressColor(topLocation.location, 0) : C.blue;
+        // KPIs follow the active filters (chartMode / selectedMonth /
+        // activeFilter) — same set the donuts use, so "Top channel" /
+        // "Top location" reflect whichever slice the user is viewing.
+        // chartFilteredLeads already encodes chartMode + month; activeFilter
+        // adds the donut-segment narrow.
+        const kpiLeads = activeFilter
+          ? chartFilteredLeads.filter(r =>
+              activeFilter.type === 'address'
+                ? r.addressLocation === activeFilter.value
+                : r.howDidYouKnow === activeFilter.value)
+          : chartFilteredLeads;
+
+        const denom = kpiLeads.length;
+        // Closing rate also re-derives so it tracks the same slice.
+        const kpiEnrolled = kpiLeads.filter(r => r.status === 'ENROLLED').length;
+        const kpiClosingPct = denom > 0 ? Math.round((kpiEnrolled / denom) * 100) : 0;
+
+        const tally = (key: 'addressLocation' | 'howDidYouKnow') => {
+          const map = new Map<string, number>();
+          for (const l of kpiLeads) { const v = l[key]; if (v) map.set(v, (map.get(v) ?? 0) + 1); }
+          return [...map.entries()].sort((a, b) => b[1] - a[1])[0];
+        };
+        const top = (entry: [string, number] | undefined): { name: string; count: number } | null =>
+          entry ? { name: entry[0], count: entry[1] } : null;
+
+        const topChannel = top(tally('howDidYouKnow'));
+        const topLocation = top(tally('addressLocation'));
+        const channelShare = topChannel && denom > 0 ? Math.round((topChannel.count / denom) * 100) : 0;
+        const locationShare = topLocation && denom > 0 ? Math.round((topLocation.count / denom) * 100) : 0;
+        const channelColor = topChannel ? getChannelColor(topChannel.name, 0) : C.blue;
+        const locationColor = topLocation ? getAddressColor(topLocation.name, 0) : C.blue;
+
+        const unit = chartMode === 'closed' ? 'enrolments' : 'sales talks';
         return (
           <div style={{ ...s.kpiStrip, gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? 10 : 16 }}>
             <KpiCard
               label="Closing Rate"
-              value={`${closingPct}%`}
+              value={`${kpiClosingPct}%`}
               accent={C.indigo}
-              bar={{ fill: closingPct, color: C.indigo, title: `${data.enrolledLeads} closed out of ${data.totalLeads} sales talks` }}
-              breakdown={`${data.enrolledLeads} closed out of ${data.totalLeads} sales talks`}
+              bar={{ fill: kpiClosingPct, color: C.indigo, title: `${kpiEnrolled} closed out of ${denom} sales talks` }}
+              breakdown={`${kpiEnrolled} closed out of ${denom} sales talks`}
             />
             <KpiCard
               label="Top Marketing Channel"
-              value={topChannel ? topChannel.channel : '—'}
+              value={topChannel ? topChannel.name : '—'}
               accent={channelColor}
               valueColor={topChannel ? channelColor : C.muted}
-              bar={topChannel ? { fill: channelShare, color: channelColor, title: `${channelShare}% of sales talks` } : undefined}
-              breakdown={topChannel ? `${topChannel.count} sales talks · ${channelShare}% share` : 'No sales talks yet'}
+              bar={topChannel ? { fill: channelShare, color: channelColor, title: `${channelShare}% of ${unit}` } : undefined}
+              breakdown={topChannel ? `${topChannel.count} ${unit} · ${channelShare}% share` : `No ${unit} yet`}
             />
             <KpiCard
               label="Top Location"
-              value={topLocation ? topLocation.location : '—'}
+              value={topLocation ? topLocation.name : '—'}
               accent={locationColor}
               valueColor={topLocation ? locationColor : C.muted}
-              bar={topLocation ? { fill: locationShare, color: locationColor, title: `${locationShare}% of sales talks` } : undefined}
-              breakdown={topLocation ? `${topLocation.count} sales talks · ${locationShare}% share` : 'No sales talks yet'}
+              bar={topLocation ? { fill: locationShare, color: locationColor, title: `${locationShare}% of ${unit}` } : undefined}
+              breakdown={topLocation ? `${topLocation.count} ${unit} · ${locationShare}% share` : `No ${unit} yet`}
             />
           </div>
         );
@@ -357,31 +385,35 @@ export default function SalesAnalysisPage() {
             <p style={{ margin: '2px 0 0', fontSize: 12, color: C.muted }}>
               {activeFilter
                 ? <>Filtered by <strong>{activeFilter.value}</strong> · {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
-                : <>{statusTab === 'ALL' ? 'All leads' : statusTab === 'ENROLLED' ? 'Closed sales' : 'Lost sales'} · {selectedMonth !== null ? MONTH_LABELS[selectedMonth] + ' ' : ''}{data.selectedYear} — {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
+                : <>{effectiveStatus === 'ALL' ? 'All leads' : effectiveStatus === 'ENROLLED' ? 'Closed sales' : 'Lost sales'} · {selectedMonth !== null ? MONTH_LABELS[selectedMonth] + ' ' : ''}{data.selectedYear} — {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''}</>
               }
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.border}` }}>
-              <button
-                onClick={() => handleTabChange('ALL')}
-                style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', background: statusTab === 'ALL' ? C.indigo : C.card, color: statusTab === 'ALL' ? '#fff' : C.muted }}
-              >
-                All
-              </button>
-              <button
-                onClick={() => handleTabChange('ENROLLED')}
-                style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', borderLeft: `1px solid ${C.border}`, background: statusTab === 'ENROLLED' ? C.green : C.card, color: statusTab === 'ENROLLED' ? '#fff' : C.muted }}
-              >
-                Enrolled
-              </button>
-              <button
-                onClick={() => handleTabChange('LOST')}
-                style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', borderLeft: `1px solid ${C.border}`, background: statusTab === 'LOST' ? C.red : C.card, color: statusTab === 'LOST' ? '#fff' : C.muted }}
-              >
-                Lost
-              </button>
-            </div>
+            {/* Status tabs are only meaningful in Sales Talks mode; in
+                Closed Sales mode the table is locked to Enrolled. */}
+            {chartMode === 'talks' && (
+              <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                <button
+                  onClick={() => handleTabChange('ALL')}
+                  style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', background: statusTab === 'ALL' ? C.indigo : C.card, color: statusTab === 'ALL' ? '#fff' : C.muted }}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => handleTabChange('ENROLLED')}
+                  style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', borderLeft: `1px solid ${C.border}`, background: statusTab === 'ENROLLED' ? C.green : C.card, color: statusTab === 'ENROLLED' ? '#fff' : C.muted }}
+                >
+                  Enrolled
+                </button>
+                <button
+                  onClick={() => handleTabChange('LOST')}
+                  style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', borderLeft: `1px solid ${C.border}`, background: statusTab === 'LOST' ? C.red : C.card, color: statusTab === 'LOST' ? '#fff' : C.muted }}
+                >
+                  Lost
+                </button>
+              </div>
+            )}
             {activeFilter && (
               <button onClick={() => { setActiveFilter(null); setPage(1); }} style={s.clearBtn}>
                 <FontAwesomeIcon icon={faXmark} /> Clear filter
