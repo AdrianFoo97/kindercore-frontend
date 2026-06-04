@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisVertical, faArrowRotateLeft, faCircleInfo, faRightFromBracket, faTrash, faCircleCheck } from '@fortawesome/free-solid-svg-icons';
-import { fetchStudents, updateStudent, completeOnboarding, withdrawStudent, reactivateStudent, deleteStudent } from '../api/students.js';
+import { faEllipsisVertical, faArrowRotateLeft, faCircleInfo, faRightFromBracket, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { fetchStudents, updateStudent, withdrawStudent, reactivateStudent, deleteStudent } from '../api/students.js';
 import { Student } from '../types/index.js';
 import AddStudentModal from '../components/students/AddStudentModal.js';
 import WithdrawDialog from '../components/students/WithdrawDialog.js';
@@ -886,34 +886,6 @@ export default function StudentsPage() {
               </>
             ) : (
               <>
-                {s.status === 'enrolled' && (
-                  <button className="sp-menu-item" onClick={() => {
-                    setOpenMenuId(null);
-                    const tasks: { done: boolean }[] = Array.isArray(s.onboardingProgress) ? s.onboardingProgress : [];
-                    const hasTasks = tasks.length > 0;
-                    const hasIncompleteTasks = tasks.some(t => !t.done);
-                    const doActivate = async () => {
-                      try {
-                        await completeOnboarding(s.id, true);
-                        await updateStudent(s.id, { startDate: new Date().toISOString().split('T')[0] });
-                        invalidateStudentDerived();
-                        showToast(`${s.lead.childName} marked as active`);
-                      } catch (e) {
-                        setConfirmModal({ message: e instanceof Error ? e.message : 'Failed to mark active', onConfirm: () => {} });
-                      }
-                    };
-                    if (hasIncompleteTasks || !hasTasks) {
-                      setConfirmModal({
-                        message: `${s.lead.childName} has ${!hasTasks ? 'no' : 'incomplete'} onboarding tasks. Mark as active anyway?`,
-                        onConfirm: doActivate,
-                      });
-                    } else {
-                      doActivate();
-                    }
-                  }} style={{ ...menuItemStyle, color: '#16a34a' }}>
-                    <FontAwesomeIcon icon={faCircleCheck} style={{ width: 14 }} /> Mark Active
-                  </button>
-                )}
                 <button className="sp-menu-item" onClick={() => { setWithdrawingStudent(s); setOpenMenuId(null); }} style={{ ...menuItemStyle, color: '#dc2626' }}>
                   <FontAwesomeIcon icon={faRightFromBracket} style={{ width: 14 }} /> Withdraw
                 </button>
