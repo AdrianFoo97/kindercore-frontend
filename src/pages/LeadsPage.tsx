@@ -2020,7 +2020,7 @@ export default function LeadsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
-  const [selectedStage, setSelectedStage] = useState<PipelineStage>('all_active');
+  const [selectedStage, setSelectedStage] = useState<PipelineStage>('NEW');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState('appointments');

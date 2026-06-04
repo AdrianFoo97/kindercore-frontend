@@ -5,6 +5,7 @@ export interface FetchStudentsParams {
   status?: string;
   onboarding?: 'pending' | 'completed' | 'all';
   onboardingStatus?: 'notStarted' | 'inProgress' | 'readyToComplete';
+  startMonth?: string; // 'YYYY-MM' | 'overdue' | 'noDate'
   search?: string;
   year?: number;
   page?: number;

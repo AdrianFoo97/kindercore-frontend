@@ -150,6 +150,7 @@ export interface StudentsResponse {
   pageSize: number;
   statusCounts: { enrolled: number; active: number; graduated: number; withdrawn: number };
   onboardingCounts: { total: number; notStarted: number; inProgress: number; readyToComplete: number };
+  monthlyBreakdown: { months: { month: string; count: number }[]; overdue: number; noDate: number };
   availableYears: number[];
 }
 
