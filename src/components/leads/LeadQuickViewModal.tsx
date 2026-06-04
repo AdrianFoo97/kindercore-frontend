@@ -2,7 +2,7 @@ import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faXmark, faPhone, faLocationDot, faBullhorn, faNoteSticky, faTag,
-  faFire, faSun, faSnowflake,
+  faFire, faSun, faSnowflake, faCalendarPlus, faCalendarCheck,
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { Lead } from '../../types/index.js';
@@ -47,6 +47,15 @@ function leadHeat(lead: { leadTemperature?: string | null; ctaSource?: string | 
   return null;
 }
 
+// Compact date formatter shared by the date rows. Returns null on
+// invalid/empty so the row collapses to "—".
+function fmtDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 export default function LeadQuickViewModal({ lead, pill, onClose }: { lead: Lead; pill: LeadQuickViewPill; onClose: () => void }) {
   const heat = leadHeat(lead);
   const reasonLabel = lead.status === 'REJECTED' ? 'Reject Reason' : lead.status === 'LOST' ? 'Lost Reason' : null;
@@ -56,6 +65,15 @@ export default function LeadQuickViewModal({ lead, pill, onClose }: { lead: Lead
   const notes = lead.notes && lead.notes.trim() !== (lead.lostReason ?? '').trim() ? lead.notes : null;
   // Use WhatsApp Web directly (matches the LeadsPage whatsappUrl helper).
   const waLink = `https://web.whatsapp.com/send?phone=${normalizeWaPhone(lead.parentPhone)}`;
+
+  // Close-date label depends on terminal status. For non-terminal leads
+  // (NEW, CONTACTED, …), `statusChangedAt` reflects the most recent stage
+  // transition rather than a real "close", so we don't render the row.
+  const closeLabel = lead.status === 'ENROLLED' ? 'Payment Date'
+                   : lead.status === 'LOST'     ? 'Lost Date'
+                   : lead.status === 'REJECTED' ? 'Rejected Date'
+                   : null;
+  const closeDate = closeLabel ? fmtDate(lead.statusChangedAt) : null;
 
   return (
     <div
@@ -82,7 +100,10 @@ export default function LeadQuickViewModal({ lead, pill, onClose }: { lead: Lead
               borderRadius: 999, background: pill.bg, color: pill.color,
               textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
             }}>{pill.label}</span>
-            {lead.status === 'ENROLLED' && (
+            {/* "Converted to student" indicator. Skip when the caller's
+                pill is already ENROLLED — Sales Analysis passes that
+                pill, and we don't want to render the same word twice. */}
+            {lead.status === 'ENROLLED' && pill.label.toUpperCase() !== 'ENROLLED' && (
               <span
                 title="This lead converted to a student"
                 style={{
@@ -126,7 +147,7 @@ export default function LeadQuickViewModal({ lead, pill, onClose }: { lead: Lead
           <QuickSection title="Contact">
             <QuickRow icon={faPhone} label="Phone" value={lead.parentPhone} />
           </QuickSection>
-          <QuickSection title="Attribution" last={!(reason || notes)}>
+          <QuickSection title="Attribution">
             <QuickRow icon={faLocationDot} label="Address" value={lead.addressLocation ?? null} />
             <QuickRow
               icon={faBullhorn}
@@ -134,6 +155,10 @@ export default function LeadQuickViewModal({ lead, pill, onClose }: { lead: Lead
               value={lead.howDidYouKnow ?? null}
               valueColor={lead.howDidYouKnow ? getChannelColor(lead.howDidYouKnow, 0) : undefined}
             />
+          </QuickSection>
+          <QuickSection title="Dates" last={!(reason || notes)}>
+            <QuickRow icon={faCalendarPlus} label="Form Submitted" value={fmtDate(lead.submittedAt)} />
+            {closeLabel && <QuickRow icon={faCalendarCheck} label={closeLabel} value={closeDate} />}
           </QuickSection>
           {(reason || notes) && (
             <QuickSection title="Outcome" last>
