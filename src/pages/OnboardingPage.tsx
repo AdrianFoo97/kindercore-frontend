@@ -777,13 +777,17 @@ export default function OnboardingPage() {
 
           {!isPending && !isError && onboardingTotal > 0 && (
             <>
-              {(monthlyBreakdown.overdue > 0 || monthlyBreakdown.startingSoon > 0) && (
+              {(monthlyBreakdown.overdue > 0 || monthlyBreakdown.startingSoon > 0 || monthlyBreakdown.months.length > 0) && (
               <div style={filterRow}>
-                <span style={filterLabel}>Priority</span>
+                <span style={filterLabel}>Starting</span>
                 {[
-                  { key: 'overdue', label: 'Overdue',       count: monthlyBreakdown.overdue,       color: '#b91c1c', bg: '#fef2f2' },
-                  { key: 'soon',    label: 'Starting Soon', count: monthlyBreakdown.startingSoon,  color: '#b45309', bg: '#fffbeb' },
-                ].filter(c => c.count > 0).map(chip => {
+                  ...(monthlyBreakdown.overdue > 0       ? [{ key: 'overdue', label: 'Overdue',       count: monthlyBreakdown.overdue,      color: '#b91c1c', bg: '#fef2f2' }] : []),
+                  ...(monthlyBreakdown.startingSoon > 0  ? [{ key: 'soon',    label: 'Starting Soon', count: monthlyBreakdown.startingSoon, color: '#b45309', bg: '#fffbeb' }] : []),
+                  ...monthlyBreakdown.months.map(m => {
+                    const [yr, mo] = m.month.split('-');
+                    return { key: m.month, label: `${MONTH_NAMES[Number(mo) - 1]} ${yr.slice(2)}`, count: m.count, color: '#1d4ed8', bg: '#eff6ff' };
+                  }),
+                ].map(chip => {
                   const active = startMonthFilter === chip.key;
                   return (
                     <button
