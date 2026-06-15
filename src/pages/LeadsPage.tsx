@@ -2102,8 +2102,8 @@ export default function LeadsPage() {
 
   const apiFilterStatus = selectedStage === 'all_active' ? 'active' : selectedStage;
   const isClosed = selectedStage === 'ENROLLED' || selectedStage === 'LOST' || selectedStage === 'REJECTED';
-  const [closedYear, setClosedYear] = useState<number>(new Date().getFullYear());
-  const apiYear = isClosed ? closedYear : undefined;
+  const [closedYear, setClosedYear] = useState<number | 'all'>(new Date().getFullYear());
+  const apiYear = isClosed && closedYear !== 'all' ? closedYear : undefined;
 
   const handleStageSelect = (stage: PipelineStage) => { setSelectedStage(stage); setPage(1); };
 
@@ -2162,7 +2162,7 @@ export default function LeadsPage() {
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['lead-stats', closedYear], queryFn: () => fetchLeadStats(closedYear), staleTime: 0, refetchInterval: 60_000,
+    queryKey: ['lead-stats', closedYear], queryFn: () => fetchLeadStats(closedYear === 'all' ? undefined : closedYear), staleTime: 0, refetchInterval: 60_000,
   });
 
   const { data: trashedLeads = [] } = useQuery({
@@ -2351,6 +2351,9 @@ export default function LeadsPage() {
 
   // ── Button style system ──
   const btnBase: React.CSSProperties = { padding: '5px 12px', border: '1px solid', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' as const, lineHeight: '18px', transition: 'all .12s ease' };
+  // Icon-only secondary buttons that flank the primary CTA — same height,
+  // narrower, muted color so the primary action stays visually dominant.
+  const btnSecondaryBase: React.CSSProperties = { ...btnBase, padding: '5px 8px', fontSize: 13 };
   const btnStyles = {
     bookVisit:       { ...btnBase, background: '#eef2fa', color: '#5a79c8', borderColor: '#c7d2e8' },
     confirmBooking:  { ...btnBase, background: '#f0fdfa', color: '#0d9488', borderColor: '#99f6e4' },
@@ -2358,8 +2361,13 @@ export default function LeadsPage() {
     enroll:          { ...btnBase, background: '#f0fdf4', color: '#15803d', borderColor: '#bbf7d0' },
     noShow:          { ...btnBase, background: '#fef2f2', color: '#dc2626', borderColor: '#fecaca' },
     notEnrolling:    { ...btnBase, background: '#fff', color: '#9f1239', borderColor: '#e2e8f0' },
-    followUp:        { ...btnBase, background: '#eef2fa', color: '#5a79c8', borderColor: '#c7d2e8' },
+    // Follow Up is blue — distinct from the green Enroll outcome that
+    // shares the same row at FOLLOW_UP. Nudging is an in-flight action;
+    // green is reserved for the terminal "won" decision.
+    followUp:        { ...btnBase, background: '#eef2fa', color: '#1d4ed8', borderColor: '#c7d2e8' },
     reject:          { ...btnBase, background: '#fffbeb', color: '#92400e', borderColor: '#fde68a' },
+    enrollSecondary:       { ...btnSecondaryBase, background: '#fff', color: '#15803d', borderColor: '#bbf7d0' },
+    notEnrollingSecondary: { ...btnSecondaryBase, background: '#fff', color: '#9f1239', borderColor: '#fecdd3' },
   };
 
   function getPrimaryAction(lead: Lead): { label: React.ReactNode; style: React.CSSProperties; action: () => void } | null {
@@ -2371,7 +2379,7 @@ export default function LeadsPage() {
       case 'APPOINTMENT_BOOKED':
         return { label: <><FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 6 }} /> Attended</>, style: btnStyles.attended, action: () => { setAttendedLead(lead); setAttendedNotes(''); setAttendedDate(lead.appointmentStart ? new Date(lead.appointmentStart).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]); } };
       case 'FOLLOW_UP':
-        return { label: <><FontAwesomeIcon icon={faEnvelope} style={{ marginRight: 6 }} /> Follow Up</>, style: btnStyles.followUp, action: () => openWhatsApp(lead, 'follow_up') };
+        return { label: <><FontAwesomeIcon icon={faWhatsapp} style={{ marginRight: 6 }} /> Follow Up</>, style: btnStyles.followUp, action: () => openWhatsApp(lead, 'follow_up') };
       default:
         return null;
     }
@@ -2724,9 +2732,10 @@ export default function LeadsPage() {
                   <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Year</span>
                   <select
                     value={closedYear}
-                    onChange={e => { setClosedYear(Number(e.target.value)); setPage(1); }}
+                    onChange={e => { const v = e.target.value; setClosedYear(v === 'all' ? 'all' : Number(v)); setPage(1); }}
                     style={{ padding: '2px 4px', border: 'none', fontSize: 13, color: '#374151', background: 'transparent', cursor: 'pointer', fontWeight: 600 }}
                   >
+                    <option value="all">All</option>
                     {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
                       <option key={y} value={y}>{y}</option>
                     ))}
@@ -3113,6 +3122,12 @@ export default function LeadsPage() {
                                 </span>
                                 Enroll Student
                               </button>
+                              <button onClick={() => { setDecliningLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#9f1239', fontSize: 12 }}>
+                                <span style={{ width: 20, height: 20, borderRadius: 6, background: '#ffe4e6', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0 }}>
+                                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 10, color: '#e11d48' }} />
+                                </span>
+                                Not Enrolling
+                              </button>
                               <button onClick={() => { setRejectingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#b45309', fontSize: 12 }}>
                                 <span style={{ width: 20, height: 20, borderRadius: 6, background: '#fef3c7', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0 }}>
                                   <FontAwesomeIcon icon={faXmark} style={{ fontSize: 10, color: '#d97706' }} />
@@ -3415,32 +3430,34 @@ export default function LeadsPage() {
                           </td>
                         ) : (
                           <td style={{ ...tD, textAlign: 'right' as const }} onClick={e => e.stopPropagation()}>
-                            {lead.status === 'FOLLOW_UP' ? (
-                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-                                <button onClick={() => setEnrollingLead(lead)} style={btnStyles.enroll}>
-                                  <FontAwesomeIcon icon={faGraduationCap} style={{ marginRight: 6 }} /> Enroll
+                            {/* Primary CTA per stage. FOLLOW_UP also gets Enroll / Not Enrolling
+                                as compact secondary buttons so the admin can commit an outcome
+                                without opening the overflow menu when the parent has decided. */}
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                              {primaryAction ? (
+                                <button onClick={primaryAction.action} style={primaryAction.style}>
+                                  {primaryAction.label}
                                 </button>
-                                <button onClick={() => setDecliningLead(lead)} style={btnStyles.notEnrolling}>
-                                  <FontAwesomeIcon icon={faXmark} style={{ marginRight: 6 }} /> Not Enrolling
+                              ) : <span style={{ fontSize: 12, color: '#e2e8f0' }}>—</span>}
+                              {lead.status === 'FOLLOW_UP' && (
+                                <>
+                                  <button onClick={() => setEnrollingLead(lead)} style={btnStyles.enrollSecondary} title="Enroll">
+                                    <FontAwesomeIcon icon={faGraduationCap} />
+                                  </button>
+                                  <button onClick={() => setDecliningLead(lead)} style={btnStyles.notEnrollingSecondary} title="Not Enrolling">
+                                    <FontAwesomeIcon icon={faXmark} />
+                                  </button>
+                                </>
+                              )}
+                              {lead.status === 'APPOINTMENT_BOOKED' && (
+                                <button
+                                  onClick={() => setConfirmDialog({ message: `Mark ${lead.childName} as No Show?`, onConfirm: () => markAttendance(lead, false) })}
+                                  style={btnStyles.noShow}
+                                >
+                                  <FontAwesomeIcon icon={faCircleXmark} style={{ marginRight: 6 }} /> No Show
                                 </button>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-                                {primaryAction ? (
-                                  <button onClick={primaryAction.action} style={primaryAction.style}>
-                                    {primaryAction.label}
-                                  </button>
-                                ) : <span style={{ fontSize: 12, color: '#e2e8f0' }}>—</span>}
-                                {lead.status === 'APPOINTMENT_BOOKED' && (
-                                  <button
-                                    onClick={() => setConfirmDialog({ message: `Mark ${lead.childName} as No Show?`, onConfirm: () => markAttendance(lead, false) })}
-                                    style={btnStyles.noShow}
-                                  >
-                                    <FontAwesomeIcon icon={faCircleXmark} style={{ marginRight: 6 }} /> No Show
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </td>
                         )}
 
@@ -3489,6 +3506,12 @@ export default function LeadsPage() {
                                             <FontAwesomeIcon icon={faGraduationCap} style={{ fontSize: 10, color: '#16a34a' }} />
                                           </span>
                                           Enroll Student
+                                        </button>
+                                        <button onClick={() => { setDecliningLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#9f1239', fontSize: 12 }}>
+                                          <span style={{ width: 20, height: 20, borderRadius: 6, background: '#ffe4e6', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0 }}>
+                                            <FontAwesomeIcon icon={faXmark} style={{ fontSize: 10, color: '#e11d48' }} />
+                                          </span>
+                                          Not Enrolling
                                         </button>
                                         <button onClick={() => { setRejectingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#b45309', fontSize: 12 }}>
                                           <span style={{ width: 20, height: 20, borderRadius: 6, background: '#fef3c7', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 8, flexShrink: 0 }}>
