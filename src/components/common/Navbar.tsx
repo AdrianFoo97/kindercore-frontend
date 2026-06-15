@@ -550,7 +550,7 @@ export default function Navbar() {
                   style={{
                     display: 'block', width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
                     fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' as const, background: '#fff',
-                    height: 100, resize: 'vertical' as const, lineHeight: 1.5, color: '#1e293b', outline: 'none',
+                    height: 200, resize: 'vertical' as const, lineHeight: 1.5, color: '#1e293b', outline: 'none',
                   }}
                   value={waMessage} onChange={e => setWaMessage(e.target.value)}
                 />
@@ -576,7 +576,7 @@ export default function Navbar() {
                 boxShadow: valid ? '0 1px 3px rgba(34,197,94,0.3)' : 'none',
               }}>
                 <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 15 }} />
-                Send via WhatsApp
+                Open in WhatsApp
                 <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9, opacity: 0.7, marginLeft: 1 }} />
               </button>
             </div>

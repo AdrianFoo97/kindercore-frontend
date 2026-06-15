@@ -1139,7 +1139,7 @@ function AppointmentModal({
               boxShadow: '0 1px 3px rgba(34,197,94,0.3)',
             }}
           >
-            <FontAwesomeIcon icon={faWhatsapp} /> {confirming ? 'Saving…' : isReschedule ? 'Reschedule & Send' : 'Book & Send WhatsApp'}
+            <FontAwesomeIcon icon={faWhatsapp} /> {confirming ? 'Saving…' : isReschedule ? 'Reschedule & Open WhatsApp' : 'Book & Open WhatsApp'}
           </button>
         </div>
 
@@ -1341,13 +1341,15 @@ function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, 
             {langSeg}
           </div>
 
-          {/* Textarea */}
+          {/* Textarea — sized to fit a typical multi-line template
+              (date / time / address + closer) without scrolling. Still
+              user-resizable vertically. */}
           <textarea
             placeholder="Type your message..."
             style={{
               display: 'block', width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8,
               fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' as const, background: '#fff',
-              height: 120, resize: 'vertical' as const, lineHeight: 1.5, color: '#1e293b',
+              height: 220, resize: 'vertical' as const, lineHeight: 1.5, color: '#1e293b',
             }}
             value={currentMsg}
             onChange={e => { setMessages(m => ({ ...m, [key]: e.target.value })); setEdited(ed => ({ ...ed, [key]: true })); }}
@@ -1373,7 +1375,7 @@ function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, 
             }}
           >
             <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 15 }} />
-            Send via WhatsApp
+            Open in WhatsApp
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9, opacity: 0.7, marginLeft: 1 }} />
           </button>
         </div>
@@ -2611,7 +2613,7 @@ export default function LeadsPage() {
                 </button>
                 <button onClick={() => handleConfirmBooking(true)} disabled={cbStatus === 'confirming'}
                   style={{ padding: '8px 18px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 1px 3px rgba(34,197,94,0.25)', opacity: cbStatus === 'confirming' ? 0.5 : 1 }}>
-                  <FontAwesomeIcon icon={faWhatsapp} /> {cbStatus === 'confirming' && cbPendingWa ? 'Confirming…' : 'Confirm & Send'}
+                  <FontAwesomeIcon icon={faWhatsapp} /> {cbStatus === 'confirming' && cbPendingWa ? 'Confirming…' : 'Confirm & Open WhatsApp'}
                 </button>
               </div>
 
