@@ -471,8 +471,11 @@ function ChecklistModal({
   }, [nextIdx]);
 
   return (
-    <div style={modal.backdrop} onClick={onClose}>
-      <div style={modal.card} onClick={e => e.stopPropagation()}>
+    <div style={modal.backdrop}>
+      {/* Backdrop is intentionally NOT clickable — onboarding edits are
+          easy to lose with an accidental click. Close via the ✕, Cancel,
+          or Save buttons only. */}
+      <div style={modal.card}>
         <div style={modal.header}>
           <div>
             <h2 style={modal.title}>Onboarding Checklist</h2>
@@ -656,7 +659,7 @@ function OnboardingWhatsAppModal({ phone, childName, templates, onClose }: {
 
         <textarea
           placeholder="Type your message..."
-          style={{ display: 'block', width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fff', height: 110, resize: 'vertical', lineHeight: 1.5, color: '#1e293b' }}
+          style={{ display: 'block', width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fff', height: 200, resize: 'vertical', lineHeight: 1.5, color: '#1e293b' }}
           value={message} onChange={e => setMessage(e.target.value)}
         />
 
@@ -664,7 +667,7 @@ function OnboardingWhatsAppModal({ phone, childName, templates, onClose }: {
           <button onClick={onClose} style={{ padding: '8px 16px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#64748b', fontWeight: 500 }}>Cancel</button>
           <div style={{ flex: 1 }} />
           <button onClick={openWa} style={{ padding: '9px 20px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 1px 3px rgba(34,197,94,0.3)' }}>
-            <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 15 }} /> Send via WhatsApp
+            <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 15 }} /> Open in WhatsApp
           </button>
         </div>
       </div>
