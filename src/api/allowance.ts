@@ -5,11 +5,17 @@ export function fetchAllowanceTypes() {
   return apiFetch<AllowanceType[]>('/api/allowance-types');
 }
 
-export function createAllowanceType(data: { name: string; sortOrder?: number }) {
+export function createAllowanceType(data: {
+  name: string;
+  sortOrder?: number;
+  icon?: string;
+  isGuaranteed?: boolean;
+  parentId?: string | null;
+}) {
   return apiFetch<AllowanceType>('/api/allowance-types', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export function updateAllowanceType(id: string, data: Partial<{ name: string; isDefault: boolean; sortOrder: number }>) {
+export function updateAllowanceType(id: string, data: Partial<{ name: string; isDefault: boolean; sortOrder: number; icon: string; isGuaranteed: boolean }>) {
   return apiFetch<AllowanceType>(`/api/allowance-types/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 }
 

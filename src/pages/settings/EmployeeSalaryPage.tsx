@@ -1,9 +1,18 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, Fragment } from 'react';
 import ReactDOM from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrash, faPen, faGripVertical, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
+import {
+  faPlus, faTrash, faPen, faGripVertical, faEllipsisVertical, faUpload, faXmark, faSpinner, faStar,
+  // Icons exposed by the allowance icon picker — keep the IconDefinition
+  // map below in sync with this list.
+  faGift, faGaugeHigh, faCalendarCheck, faAward, faGraduationCap, faTrophy,
+  faBookOpen, faMedal, faHandHoldingDollar, faSackDollar, faPiggyBank, faChartLine,
+  faShieldHalved, faClock, faCheck, faBolt,
+} from '@fortawesome/free-solid-svg-icons';
 import { fetchPositions, upsertPosition, deletePosition, fetchLevelIncentives, upsertLevelIncentives, fetchTeachersWithSalary } from '../../api/salary.js';
+import { uploadUrl } from '../../api/upload.js';
 import { fetchAllowanceTypes, createAllowanceType, updateAllowanceType, deleteAllowanceType } from '../../api/allowance.js';
 import { fetchSettings, patchSetting } from '../../api/settings.js';
 import { Position } from '../../types/index.js';
@@ -13,7 +22,7 @@ import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.j
 
 const C = {
   primary: '#5a67d8', card: '#fff', text: '#1e293b',
-  muted: '#94a3b8', border: '#e2e8f0', danger: '#ef4444', green: '#059669',
+  muted: '#94a3b8', sub: '#475569', border: '#e2e8f0', danger: '#ef4444', green: '#059669',
 };
 const MIN_LEVEL = 1;
 const MAX_LEVEL = 5;
@@ -25,6 +34,7 @@ function numOnly(val: string): string { return val.replace(/[^\d.]/g, ''); }
 
 export default function EmployeeSalaryPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { confirm: confirmDelete } = useDeleteDialog();
 
@@ -34,12 +44,14 @@ export default function EmployeeSalaryPage() {
   const { data: incentives = [] } = useQuery({ queryKey: ['salary-incentives'], queryFn: fetchLevelIncentives });
 
   // ── Positions editing ──────────────────────────────────────────────
-  const [editingPos, setEditingPos] = useState<Position | null>(null);
-  const [posForm, setPosForm] = useState({ positionId: '', name: '', titleWeight: 0, basicSalary: 0, maxLevel: 5 });
-  const [addingPos, setAddingPos] = useState(false);
+  // Inline editing moved to a dedicated page at
+  //   /settings/employee-salary/positions/new
+  //   /settings/employee-salary/positions/:id/edit
+  // The list page now just renders the table + dispatches navigation.
   const [editingAllowId, setEditingAllowId] = useState<string | null>(null);
-  const [addingAllowance, setAddingAllowance] = useState(false);
+  const [addingForParentId, setAddingForParentId] = useState<string | null>(null);
   const [newAllowanceName, setNewAllowanceName] = useState('');
+  const [newAllowanceIcon, setNewAllowanceIcon] = useState('gift');
   const [menuOpenPosId, setMenuOpenPosId] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
@@ -97,38 +109,19 @@ export default function EmployeeSalaryPage() {
       const pos = reordered[i];
       await upsertPosition(pos.positionId, {
         name: pos.name, titleWeight: pos.titleWeight, basicSalary: pos.basicSalary,
-        maxLevel: pos.maxLevel, sortOrder: i,
+        maxLevel: pos.maxLevel, sortOrder: i, inCareerProgression: pos.inCareerProgression,
+        badgeUrl: pos.badgeUrl, starColor: pos.starColor,
       });
     }
     qc.invalidateQueries({ queryKey: ['salary-positions'] });
     showToast('Order updated');
   };
 
-  const openEditPos = (p: Position) => {
-    setEditingPos(p);
-    setPosForm({ positionId: p.positionId, name: p.name, titleWeight: p.titleWeight, basicSalary: p.basicSalary, maxLevel: p.maxLevel });
-  };
-
-  const savePos = async () => {
-    const id = addingPos ? posForm.positionId.trim().toUpperCase() : editingPos!.positionId;
-    if (!id || !posForm.name.trim()) return;
-    try {
-      await upsertPosition(id, {
-        name: posForm.name.trim(),
-        titleWeight: posForm.titleWeight,
-        basicSalary: posForm.basicSalary,
-        maxLevel: posForm.maxLevel,
-        sortOrder: addingPos ? positions.length : undefined,
-      });
-      qc.invalidateQueries({ queryKey: ['salary-positions'] });
-      qc.invalidateQueries({ queryKey: ['salary-incentives'] });
-      showToast(addingPos ? `${id} added` : `${id} updated`);
-      setEditingPos(null);
-      setAddingPos(false);
-    } catch (e: any) {
-      showToast(e?.message ?? 'Failed to save', 'error');
-    }
-  };
+  // Edit / Add navigate to the dedicated page instead of inline-
+  // editing the row. Keeps the list clean and gives the form room
+  // for fields like description and richer help text.
+  const openEditPos = (p: Position) => navigate(`/settings/employee-salary/positions/${p.positionId}/edit`);
+  const openAddPos = () => navigate('/settings/employee-salary/positions/new');
 
   const removePos = async (pos: Position) => {
     const ok = await confirmDelete({
@@ -210,6 +203,14 @@ export default function EmployeeSalaryPage() {
 
   return (
     <div style={s.page}>
+      <style>{`
+        /* Allowance row action buttons — muted by default, color-shift
+           on hover/focus. Edit picks up a neutral grey, Delete stays
+           contained (only goes red on its own hover). */
+        .allowance-action { color: #94a3b8; transition: color 120ms ease, background 120ms ease; }
+        .allowance-action:hover { color: #475569; background: #f1f5f9; }
+        .allowance-action.danger:hover { color: #dc2626; background: #fef2f2; }
+      `}</style>
       <div style={s.inner}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
           <h1 style={{ ...s.heading, margin: 0 }}>Employee Salary</h1>
@@ -220,8 +221,7 @@ export default function EmployeeSalaryPage() {
         <div style={s.card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h2 style={s.sectionTitle}>Positions</h2>
-            <button onClick={() => { setAddingPos(true); setPosForm({ positionId: '', name: '', titleWeight: 0, basicSalary: 0, maxLevel: 5 }); }}
-              style={s.addBtn}>
+            <button onClick={openAddPos} style={s.addBtn}>
               <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Add Position
             </button>
           </div>
@@ -236,116 +236,82 @@ export default function EmployeeSalaryPage() {
                 <col style={{ width: 80 }} />
                 <col style={{ width: 76 }} />
                 <col style={{ width: 84 }} />
+                <col style={{ width: 96 }} />
                 <col style={{ width: 130 }} />
               </colgroup>
               <thead>
                 <tr>
                   <th style={s.th} />
-                  {['ID', 'Position', 'Basic Salary', 'Has Levels', 'Max Level', 'Title Weight', ''].map(h => (
+                  {['ID', 'Position', 'Basic Salary', 'Has Levels', 'Max Level', 'Title Weight', 'Career Path', ''].map(h => (
                     <th key={h} style={s.th}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {positions.map((pos, idx) => {
-                  const isEditing = editingPos?.positionId === pos.positionId;
                   const tCount = teacherCountByPos.get(pos.positionId) ?? 0;
                   const isDragging = dragIdx === idx;
                   const isDropTarget = dropIdx === idx && dragIdx !== null && dragIdx !== idx;
                   return (
-                    <tr key={pos.positionId}
+                    <tr
+                      key={pos.positionId}
                       style={{ ...s.tr, cursor: 'default', opacity: isDragging ? 0.4 : 1, borderTop: isDropTarget ? '2px solid #5a67d8' : undefined }}
                       onDragOver={onDragOver(idx)}
                       onDrop={onDrop(idx)}
                     >
-                      {isEditing ? (
-                        <>
-                          <td style={s.td} />
-                          <td style={s.td}><span style={s.posId}>{pos.positionId}</span></td>
-                          <td style={s.td}><input style={s.cellInput} value={posForm.name} onChange={e => setPosForm(p => ({ ...p, name: e.target.value }))} autoFocus /></td>
-                          <td style={s.td}><input style={s.cellInput} type="text" inputMode="numeric" value={posForm.basicSalary} onChange={e => setPosForm(p => ({ ...p, basicSalary: Number(numOnly(e.target.value)) }))} /></td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>
-                            <input type="checkbox" checked={posForm.maxLevel > 0} onChange={e => setPosForm(p => ({ ...p, maxLevel: e.target.checked ? 5 : 0 }))} />
-                          </td>
-                          <td style={s.td}>
-                            {posForm.maxLevel > 0
-                              ? <input style={{ ...s.cellInput, textAlign: 'center' }} type="text" inputMode="numeric" value={posForm.maxLevel} onChange={e => setPosForm(p => ({ ...p, maxLevel: Math.max(1, Number(numOnly(e.target.value))) }))} />
-                              : <span style={{ color: C.muted, textAlign: 'center', display: 'block' }}>—</span>
-                            }
-                          </td>
-                          <td style={s.td}>
-                            <input style={{ ...s.cellInput, textAlign: 'center' }} type="text" inputMode="numeric" value={posForm.titleWeight} onChange={e => setPosForm(p => ({ ...p, titleWeight: Number(numOnly(e.target.value)) }))} />
-                          </td>
-                          <td style={{ ...s.td, textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                              <button onClick={savePos} style={s.saveBtnSm}>Save</button>
-                              <button onClick={() => setEditingPos(null)} style={s.cancelBtnSm}>Cancel</button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td style={{ ...s.td, padding: '6px 4px 6px 10px' }}>
-                            <span draggable onDragStart={onDragStart(idx)} onDragEnd={onDragEnd}
-                              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, color: C.muted, cursor: 'grab', fontSize: 12 }}>
-                              <FontAwesomeIcon icon={faGripVertical} />
-                            </span>
-                          </td>
-                          <td style={s.td}><span style={s.posId}>{pos.positionId}</span></td>
-                          <td style={s.td}><span style={{ fontWeight: 600, color: C.text }}>{pos.name}</span></td>
-                          <td style={s.td}><span style={{ fontWeight: 600 }}>{fmtRM(pos.basicSalary)}</span></td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>
-                            {pos.maxLevel > 0
-                              ? <span style={{ fontSize: 11, fontWeight: 600, color: C.green }}>Yes</span>
-                              : <span style={{ fontSize: 11, color: C.muted }}>No</span>
-                            }
-                          </td>
-                          <td style={{ ...s.td, textAlign: 'center' }}>{pos.maxLevel > 0 ? pos.maxLevel : '—'}</td>
-                          <td style={{ ...s.td, textAlign: 'center', color: C.muted }}>{pos.titleWeight}</td>
-                          <td style={{ ...s.td, textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', alignItems: 'center' }}>
-                              <button onClick={() => openEditPos(pos)} style={s.actionBtn} title="Edit">
-                                <FontAwesomeIcon icon={faPen} style={{ fontSize: 11 }} />
-                              </button>
-                              <MoreMenuTrigger
-                                isOpen={menuOpenPosId === pos.positionId}
-                                onToggle={() => setMenuOpenPosId(menuOpenPosId === pos.positionId ? null : pos.positionId)}
-                                onDelete={() => { setMenuOpenPosId(null); removePos(pos); }}
-                                onClose={() => setMenuOpenPosId(null)}
-                                disabled={tCount > 0}
-                                disabledReason={tCount > 0 ? `Cannot delete — ${tCount} teacher(s) assigned` : undefined}
-                              />
-                            </div>
-                          </td>
-                        </>
-                      )}
+                      <td style={{ ...s.td, padding: '6px 4px 6px 10px' }}>
+                        <span draggable onDragStart={onDragStart(idx)} onDragEnd={onDragEnd}
+                          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, color: C.muted, cursor: 'grab', fontSize: 12 }}>
+                          <FontAwesomeIcon icon={faGripVertical} />
+                        </span>
+                      </td>
+                      <td style={s.td}><span style={s.posId}>{pos.positionId}</span></td>
+                      <td style={s.td}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {pos.badgeUrl && (
+                            <img
+                              src={uploadUrl(pos.badgeUrl)}
+                              alt=""
+                              style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }}
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          )}
+                          <span style={{ fontWeight: 600, color: C.text }}>{pos.name}</span>
+                        </div>
+                      </td>
+                      <td style={s.td}><span style={{ fontWeight: 600 }}>{fmtRM(pos.basicSalary)}</span></td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>
+                        {pos.maxLevel > 0
+                          ? <span style={{ fontSize: 11, fontWeight: 600, color: C.green }}>Yes</span>
+                          : <span style={{ fontSize: 11, color: C.muted }}>No</span>
+                        }
+                      </td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>{pos.maxLevel > 0 ? pos.maxLevel : '—'}</td>
+                      <td style={{ ...s.td, textAlign: 'center', color: C.muted }}>{pos.titleWeight}</td>
+                      <td style={{ ...s.td, textAlign: 'center' }}>
+                        {pos.inCareerProgression
+                          ? <span style={{ fontSize: 11, fontWeight: 600, color: C.green }}>On path</span>
+                          : <span style={{ fontSize: 11, color: C.muted }}>Off path</span>
+                        }
+                      </td>
+                      <td style={{ ...s.td, textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button onClick={() => openEditPos(pos)} style={s.actionBtn} title="Edit">
+                            <FontAwesomeIcon icon={faPen} style={{ fontSize: 11 }} />
+                          </button>
+                          <MoreMenuTrigger
+                            isOpen={menuOpenPosId === pos.positionId}
+                            onToggle={() => setMenuOpenPosId(menuOpenPosId === pos.positionId ? null : pos.positionId)}
+                            onDelete={() => { setMenuOpenPosId(null); removePos(pos); }}
+                            onClose={() => setMenuOpenPosId(null)}
+                            disabled={tCount > 0}
+                            disabledReason={tCount > 0 ? `Cannot delete — ${tCount} teacher(s) assigned` : undefined}
+                          />
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
-                {addingPos && (
-                  <tr style={{ ...s.tr, background: '#f0fdf4' }}>
-                    <td style={s.td} />
-                    <td style={s.td}><input style={s.cellInput} value={posForm.positionId} onChange={e => setPosForm(p => ({ ...p, positionId: e.target.value }))} placeholder="ID" autoFocus /></td>
-                    <td style={s.td}><input style={s.cellInput} value={posForm.name} onChange={e => setPosForm(p => ({ ...p, name: e.target.value }))} placeholder="Position name" /></td>
-                    <td style={s.td}><input style={s.cellInput} type="text" inputMode="numeric" value={posForm.basicSalary} onChange={e => setPosForm(p => ({ ...p, basicSalary: Number(numOnly(e.target.value)) }))} /></td>
-                    <td style={{ ...s.td, textAlign: 'center' }}>
-                      <input type="checkbox" checked={posForm.maxLevel > 0} onChange={e => setPosForm(p => ({ ...p, maxLevel: e.target.checked ? 5 : 0 }))} />
-                    </td>
-                    <td style={s.td}>
-                      {posForm.maxLevel > 0
-                        ? <input style={{ ...s.cellInput, textAlign: 'center' }} type="text" inputMode="numeric" value={posForm.maxLevel} onChange={e => setPosForm(p => ({ ...p, maxLevel: Math.max(1, Number(numOnly(e.target.value))) }))} />
-                        : <span style={{ color: C.muted, textAlign: 'center', display: 'block' }}>—</span>
-                      }
-                    </td>
-                    <td style={{ ...s.td, textAlign: 'center', color: C.muted }}>auto</td>
-                    <td style={{ ...s.td, textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button onClick={savePos} style={s.saveBtnSm}>Add</button>
-                        <button onClick={() => setAddingPos(false)} style={s.cancelBtnSm}>Cancel</button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -402,79 +368,185 @@ export default function EmployeeSalaryPage() {
           </div>
         </div>
 
-        {/* ── Allowance Types ── */}
+        {/* ── Allowance Types ──
+            System types are fixed (rename/icon/status only). Sub-types
+            can be added under "Other Allowance" — these are admin-
+            created and deletable. */}
         <div style={s.card}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, gap: 16 }}>
-            <div>
-              <h2 style={s.sectionTitle}>Allowance Types</h2>
-              <p style={{ fontSize: 12, color: C.muted, margin: '3px 0 0' }}>Define allowance categories that can be assigned to teachers</p>
-            </div>
-            <button
-              onClick={() => { setAddingAllowance(true); setNewAllowanceName(''); }}
-              disabled={addingAllowance}
-              style={{ ...s.addBtn, opacity: addingAllowance ? 0.5 : 1, cursor: addingAllowance ? 'not-allowed' : 'pointer' }}
-            >
-              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Add Allowance Type
-            </button>
+          <div style={{ marginBottom: 14 }}>
+            <h2 style={s.sectionTitle}>Allowance Types</h2>
+            <p style={{ fontSize: 12, color: C.muted, margin: '3px 0 0' }}>
+              System-managed allowance categories. Sub-allowances can be added under <strong>Other Allowance</strong>.
+            </p>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {addingAllowance && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f0fdf4', borderRadius: 8 }}>
-                <input
-                  style={{ ...s.cellInput, flex: 1 }}
-                  value={newAllowanceName}
-                  onChange={e => setNewAllowanceName(e.target.value)}
-                  placeholder="e.g. Transport Allowance"
-                  autoFocus
-                  onKeyDown={async e => {
-                    if (e.key === 'Enter' && newAllowanceName.trim()) {
-                      const name = newAllowanceName.trim();
-                      await createAllowanceType({ name, sortOrder: allowTypes.length });
-                      qc.invalidateQueries({ queryKey: ['allowance-types'] });
-                      showToast(`${name} added`);
-                      setNewAllowanceName('');
-                      setAddingAllowance(false);
-                    }
-                    if (e.key === 'Escape') { setNewAllowanceName(''); setAddingAllowance(false); }
-                  }}
-                />
-                <button
-                  onClick={async () => {
-                    if (!newAllowanceName.trim()) return;
-                    const name = newAllowanceName.trim();
-                    await createAllowanceType({ name, sortOrder: allowTypes.length });
-                    qc.invalidateQueries({ queryKey: ['allowance-types'] });
-                    showToast(`${name} added`);
-                    setNewAllowanceName('');
-                    setAddingAllowance(false);
-                  }}
-                  style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', background: C.primary, color: '#fff', cursor: 'pointer' }}
-                >Add</button>
-                <button
-                  onClick={() => { setNewAllowanceName(''); setAddingAllowance(false); }}
-                  style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, color: C.muted, cursor: 'pointer' }}
-                >Cancel</button>
-              </div>
-            )}
-            {allowTypes.map((at) => (
-              <AllowanceTypeRow key={at.id} type={at}
-                isEditing={editingAllowId === at.id}
-                onStartEdit={() => setEditingAllowId(at.id)}
-                onStopEdit={() => setEditingAllowId(null)}
-                onUpdate={async (name) => {
-                await updateAllowanceType(at.id, { name });
-                qc.invalidateQueries({ queryKey: ['allowance-types'] });
-                showToast(`${name} updated`);
-              }} onToggleDefault={async (v) => {
-                await updateAllowanceType(at.id, { isDefault: v } as any);
-                qc.invalidateQueries({ queryKey: ['allowance-types'] });
-                showToast(`${at.name} ${v ? 'set as default' : 'no longer default'}`);
-              }} onDelete={async () => {
-                await deleteAllowanceType(at.id);
-                qc.invalidateQueries({ queryKey: ['allowance-types'] });
-                showToast(`${at.name} deleted`);
-              }} />
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {allowTypes
+              .filter((at: any) => !at.parentId)
+              .map((parent: any) => {
+                const isOther = parent.name.trim().toLowerCase() === 'other allowance';
+                const subTypes = allowTypes.filter((c: any) => c.parentId === parent.id);
+                // Top-level rows that aren't system-seeded (isDefault=false)
+                // are admin-created and removable. The 5 default types
+                // stay protected.
+                const topLevelDeletable = !parent.isDefault;
+                return (
+                  <Fragment key={parent.id}>
+                    <AllowanceTypeRow
+                      type={parent}
+                      isEditing={editingAllowId === parent.id}
+                      onStartEdit={() => setEditingAllowId(parent.id)}
+                      onStopEdit={() => setEditingAllowId(null)}
+                      onUpdate={async (data) => {
+                        if (Object.keys(data).length === 0) return;
+                        await updateAllowanceType(parent.id, data);
+                        qc.invalidateQueries({ queryKey: ['allowance-types'] });
+                        showToast(`${data.name ?? parent.name} updated`);
+                      }}
+                      onDelete={topLevelDeletable ? async () => {
+                        await deleteAllowanceType(parent.id);
+                        qc.invalidateQueries({ queryKey: ['allowance-types'] });
+                        showToast(`${parent.name} removed`);
+                      } : undefined}
+                    />
+                    {(subTypes.length > 0 || isOther) && (
+                      <div style={{
+                        paddingLeft: 24,
+                        display: 'flex', flexDirection: 'column',
+                      }}>
+                        {subTypes.map((child: any) => (
+                          <AllowanceTypeRow
+                            key={child.id}
+                            type={child}
+                            isChild
+                            isEditing={editingAllowId === child.id}
+                            onStartEdit={() => setEditingAllowId(child.id)}
+                            onStopEdit={() => setEditingAllowId(null)}
+                            onUpdate={async (data) => {
+                              if (Object.keys(data).length === 0) return;
+                              await updateAllowanceType(child.id, data);
+                              qc.invalidateQueries({ queryKey: ['allowance-types'] });
+                              showToast(`${data.name ?? child.name} updated`);
+                            }}
+                            // System-managed children (isDefault=true) cannot
+                            // be deleted — only admin-added customs can.
+                            onDelete={child.isDefault ? undefined : async () => {
+                              await deleteAllowanceType(child.id);
+                              qc.invalidateQueries({ queryKey: ['allowance-types'] });
+                              showToast(`${child.name} removed`);
+                            }}
+                          />
+                        ))}
+                        {isOther && (
+                          addingForParentId === parent.id ? (
+                            <div style={{
+                              display: 'flex', flexDirection: 'column', gap: 12,
+                              padding: '12px 14px',
+                              background: '#fff',
+                              borderRadius: 8,
+                              border: `1.5px solid ${C.primary}40`,
+                            }}>
+                              {/* Name */}
+                              <input
+                                style={{ ...s.cellInput, fontSize: 14, fontWeight: 500 }}
+                                value={newAllowanceName}
+                                onChange={e => setNewAllowanceName(e.target.value)}
+                                placeholder="e.g. Long-Service Allowance"
+                                autoFocus
+                                onKeyDown={e => {
+                                  if (e.key === 'Escape') {
+                                    setNewAllowanceName('');
+                                    setNewAllowanceIcon('gift');
+                                    setAddingForParentId(null);
+                                  }
+                                }}
+                              />
+                              {/* Icon picker */}
+                              <div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Icon</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
+                                  {ALLOWANCE_ICONS.map(opt => {
+                                    const selected = newAllowanceIcon === opt.key;
+                                    return (
+                                      <button
+                                        key={opt.key}
+                                        type="button"
+                                        onClick={() => setNewAllowanceIcon(opt.key)}
+                                        title={opt.label}
+                                        style={{
+                                          width: '100%', height: 36,
+                                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                          background: selected ? `${C.primary}14` : '#fff',
+                                          border: `1px solid ${selected ? C.primary : '#e5e7eb'}`,
+                                          borderRadius: 8, cursor: 'pointer',
+                                          color: selected ? C.primary : C.muted,
+                                        }}
+                                      >
+                                        <FontAwesomeIcon icon={opt.icon} />
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              {/* Save / Cancel */}
+                              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                <button
+                                  onClick={() => {
+                                    setNewAllowanceName('');
+                                    setNewAllowanceIcon('gift');
+                                    setAddingForParentId(null);
+                                  }}
+                                  style={s.cancelBtnSm}
+                                >Cancel</button>
+                                <button
+                                  onClick={async () => {
+                                    if (!newAllowanceName.trim()) return;
+                                    const name = newAllowanceName.trim();
+                                    // Sub-allowance inherits the parent's
+                                    // isGuaranteed status — the comp page rolls
+                                    // children up under the parent's badge anyway.
+                                    await createAllowanceType({
+                                      name,
+                                      sortOrder: allowTypes.length,
+                                      parentId: parent.id,
+                                      icon: newAllowanceIcon,
+                                      isGuaranteed: parent.isGuaranteed,
+                                    });
+                                    qc.invalidateQueries({ queryKey: ['allowance-types'] });
+                                    showToast(`${name} added`);
+                                    setNewAllowanceName('');
+                                    setNewAllowanceIcon('gift');
+                                    setAddingForParentId(null);
+                                  }}
+                                  disabled={!newAllowanceName.trim()}
+                                  style={{ ...s.saveBtnSm, opacity: newAllowanceName.trim() ? 1 : 0.5 }}
+                                >Add</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setAddingForParentId(parent.id);
+                                setNewAllowanceName('');
+                                setNewAllowanceIcon('gift');
+                              }}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                padding: '6px 12px', alignSelf: 'flex-start',
+                                fontSize: 12, fontWeight: 600,
+                                border: `1px dashed ${C.border}`, borderRadius: 8,
+                                background: 'transparent', color: C.muted, cursor: 'pointer',
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} />
+                              Add sub-allowance
+                            </button>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </Fragment>
+                );
+              })}
           </div>
         </div>
 
@@ -594,38 +666,208 @@ export default function EmployeeSalaryPage() {
   );
 }
 
-function AllowanceTypeRow({ type: at, isEditing, onStartEdit, onStopEdit, onUpdate, onToggleDefault, onDelete }: {
-  type: any; isEditing: boolean; onStartEdit: () => void; onStopEdit: () => void;
-  onUpdate: (name: string) => void; onToggleDefault: (v: boolean) => void; onDelete: () => void;
+// Curated icon set offered by the allowance type editor. Keys are the
+// FontAwesome class names (without `fa` prefix) that get persisted to
+// AllowanceType.icon and re-resolved on the Compensation page.
+const ALLOWANCE_ICONS: { key: string; icon: any; label: string }[] = [
+  { key: 'gift',                 icon: faGift,               label: 'Gift' },
+  { key: 'gauge-high',           icon: faGaugeHigh,          label: 'Gauge' },
+  { key: 'calendar-check',       icon: faCalendarCheck,      label: 'Calendar' },
+  { key: 'award',                icon: faAward,              label: 'Award' },
+  { key: 'graduation-cap',       icon: faGraduationCap,      label: 'Graduation' },
+  { key: 'trophy',               icon: faTrophy,             label: 'Trophy' },
+  { key: 'book-open',            icon: faBookOpen,           label: 'Book' },
+  { key: 'medal',                icon: faMedal,              label: 'Medal' },
+  { key: 'hand-holding-dollar',  icon: faHandHoldingDollar,  label: 'Cash' },
+  { key: 'sack-dollar',          icon: faSackDollar,         label: 'Sack' },
+  { key: 'piggy-bank',           icon: faPiggyBank,          label: 'Piggy' },
+  { key: 'chart-line',           icon: faChartLine,          label: 'Chart' },
+  { key: 'shield-halved',        icon: faShieldHalved,       label: 'Shield' },
+  { key: 'clock',                icon: faClock,              label: 'Clock' },
+  { key: 'check',                icon: faCheck,              label: 'Check' },
+  { key: 'bolt',                 icon: faBolt,               label: 'Bolt' },
+];
+
+function getAllowanceIcon(key: string): any {
+  return ALLOWANCE_ICONS.find(i => i.key === key)?.icon ?? faGift;
+}
+
+function AllowanceTypeRow({ type: at, isEditing, isChild = false, onStartEdit, onStopEdit, onUpdate, onDelete }: {
+  type: any; isEditing: boolean;
+  /** Sub-allowance row — rendered with lighter typography and tighter
+   *  spacing so the parent/child hierarchy is obvious without
+   *  relying on indentation alone. */
+  isChild?: boolean;
+  onStartEdit: () => void; onStopEdit: () => void;
+  onUpdate: (data: { name?: string; icon?: string; isGuaranteed?: boolean }) => void;
+  /** When set, renders a delete button next to Edit. Used for admin-
+   *  added sub-allowances under Other Allowance. */
+  onDelete?: () => void;
 }) {
   const [name, setName] = useState(at.name);
-  const [isDefault, setIsDefault] = useState(at.isDefault);
-  useEffect(() => { if (isEditing) { setName(at.name); setIsDefault(at.isDefault); } }, [isEditing]);
+  const [icon, setIcon] = useState<string>(at.icon ?? 'gift');
+  const [isGuaranteed, setIsGuaranteed] = useState<boolean>(at.isGuaranteed ?? true);
+  useEffect(() => {
+    if (isEditing) {
+      setName(at.name);
+      setIcon(at.icon ?? 'gift');
+      setIsGuaranteed(at.isGuaranteed ?? true);
+    }
+  }, [isEditing]);
   const save = () => {
-    if (name.trim()) { onUpdate(name.trim()); if (isDefault !== at.isDefault) onToggleDefault(isDefault); }
+    if (!name.trim()) { onStopEdit(); return; }
+    const payload: { name?: string; icon?: string; isGuaranteed?: boolean } = {};
+    if (name.trim() !== at.name) payload.name = name.trim();
+    if (icon !== (at.icon ?? 'gift')) payload.icon = icon;
+    if (isGuaranteed !== (at.isGuaranteed ?? true)) payload.isGuaranteed = isGuaranteed;
+    onUpdate(payload);
     onStopEdit();
   };
-  const cancel = () => { setName(at.name); setIsDefault(at.isDefault); onStopEdit(); };
+  const cancel = () => {
+    setName(at.name); setIcon(at.icon ?? 'gift'); setIsGuaranteed(at.isGuaranteed ?? true);
+    onStopEdit();
+  };
+  const currentIconDef = getAllowanceIcon(at.icon ?? 'gift');
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: isEditing ? '#fff' : '#fafbfc', borderRadius: 8, border: isEditing ? `1.5px solid ${C.primary}40` : '1px solid transparent' }}>
+    <div className={isEditing ? '' : 'allowance-row'} style={{
+      padding: isEditing ? '12px 14px' : '10px 12px',
+      background: isEditing ? '#fff' : 'transparent',
+      borderRadius: isEditing ? 8 : 0,
+      border: isEditing ? `1.5px solid ${C.primary}40` : 'none',
+      borderBottom: isEditing ? `1.5px solid ${C.primary}40` : '1px solid #f1f5f9',
+    }}>
       {isEditing ? (
-        <>
-          <input style={{ ...s.cellInput, flex: 1 }} value={name} onChange={e => setName(e.target.value)} autoFocus
-            onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); }} />
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 11, color: C.muted, whiteSpace: 'nowrap' }}>
-            <input type="checkbox" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} />
-            Default for all
-          </label>
-          <button onClick={save} style={s.saveBtnSm}>Save</button>
-          <button onClick={cancel} style={s.cancelBtnSm}>Cancel</button>
-        </>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Name */}
+          <input
+            style={{ ...s.cellInput, fontSize: 14, fontWeight: 500 }}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            autoFocus
+            onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); }}
+          />
+          {/* Icon picker */}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Icon</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6 }}>
+              {ALLOWANCE_ICONS.map(opt => {
+                const selected = icon === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setIcon(opt.key)}
+                    title={opt.label}
+                    style={{
+                      width: '100%', height: 36,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: selected ? `${C.primary}14` : '#fff',
+                      border: `1px solid ${selected ? C.primary : '#e5e7eb'}`,
+                      borderRadius: 8, cursor: 'pointer',
+                      color: selected ? C.primary : C.muted,
+                    }}
+                  >
+                    <FontAwesomeIcon icon={opt.icon} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {/* Guarantee status — only on top-level types. Sub-allowances
+              roll up under their parent on the Compensation page, so
+              the parent's status drives the badge there; per-child
+              status would be unused. */}
+          {!isChild && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Status</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => setIsGuaranteed(true)}
+                style={{
+                  padding: '6px 12px', borderRadius: 6,
+                  fontSize: 12, fontWeight: 600,
+                  border: `1px solid ${isGuaranteed ? '#059669' : '#e5e7eb'}`,
+                  background: isGuaranteed ? '#ecfdf5' : '#fff',
+                  color: isGuaranteed ? '#059669' : C.muted,
+                  cursor: 'pointer',
+                }}
+              >Guaranteed</button>
+              <button
+                type="button"
+                onClick={() => setIsGuaranteed(false)}
+                style={{
+                  padding: '6px 12px', borderRadius: 6,
+                  fontSize: 12, fontWeight: 600,
+                  border: `1px solid ${!isGuaranteed ? C.primary : '#e5e7eb'}`,
+                  background: !isGuaranteed ? '#eef2ff' : '#fff',
+                  color: !isGuaranteed ? C.primary : C.muted,
+                  cursor: 'pointer',
+                }}
+              >Has conditions</button>
+            </div>
+          </div>
+          )}
+          {/* Save / Cancel */}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button onClick={cancel} style={s.cancelBtnSm}>Cancel</button>
+            <button onClick={save} style={s.saveBtnSm}>Save</button>
+          </div>
+        </div>
       ) : (
-        <>
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: C.text }}>{at.name}</span>
-          {at.isDefault && <span style={{ fontSize: 10, fontWeight: 600, color: C.primary, background: '#eef0fa', padding: '2px 7px', borderRadius: 4 }}>Default</span>}
-          <button onClick={onStartEdit} style={s.actionBtn} title="Edit"><FontAwesomeIcon icon={faPen} style={{ fontSize: 10 }} /></button>
-          <button onClick={onDelete} style={{ ...s.actionBtn, color: C.danger, opacity: 0.5 }} title="Delete"><FontAwesomeIcon icon={faTrash} style={{ fontSize: 10 }} /></button>
-        </>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 32 }}>
+          <span style={{
+            width: 26, height: 26, borderRadius: 6,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            background: '#eef0fa', color: C.primary,
+            flexShrink: 0,
+          }}>
+            <FontAwesomeIcon icon={currentIconDef} style={{ fontSize: 11 }} />
+          </span>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: isChild ? C.sub : C.text,
+            }}>
+              {at.name}
+            </span>
+            {!isChild && (
+              <span style={{
+                fontSize: 10, fontWeight: 600,
+                color: at.isGuaranteed ? '#059669' : C.primary,
+                background: at.isGuaranteed ? '#ecfdf5' : '#eef2ff',
+                padding: '2px 7px', borderRadius: 4,
+                flexShrink: 0,
+              }}>
+                {at.isGuaranteed ? 'Guaranteed' : 'Has conditions'}
+              </span>
+            )}
+          </div>
+          <div className="row-actions" style={{ display: 'inline-flex', gap: 2 }}>
+            <button
+              onClick={onStartEdit}
+              className="allowance-action"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+              aria-label={`Edit ${at.name}`}
+              title="Edit"
+            >
+              <FontAwesomeIcon icon={faPen} style={{ fontSize: 10 }} />
+            </button>
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="allowance-action danger"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                aria-label={`Delete ${at.name}`}
+                title="Delete"
+              >
+                <FontAwesomeIcon icon={faTrash} style={{ fontSize: 10 }} />
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -660,6 +902,87 @@ const s: Record<string, React.CSSProperties> = {
   iconBtn: { background: 'none', border: 'none', cursor: 'pointer', color: C.danger, fontSize: 12, padding: '4px 6px' },
   actionBtn: { background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: '6px 8px', borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.1s' },
 };
+
+// Preset star colors mapped to common tier reads (silver → gold → blue
+// → ...). Admin can pick any preset or input a custom hex via the input.
+const STAR_COLOR_PRESETS: { color: string; label: string }[] = [
+  { color: '#C0C0C0', label: 'Silver' },
+  { color: '#FFD700', label: 'Gold' },
+  { color: '#3B82F6', label: 'Blue' },
+  { color: '#A855F7', label: 'Purple' },
+  { color: '#10B981', label: 'Emerald' },
+  { color: '#EF4444', label: 'Red' },
+  { color: '#CD7F32', label: 'Bronze' },
+  { color: '#1E293B', label: 'Onyx' },
+];
+
+function StarColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Preview star with the current color (or grey when unset) */}
+      <div style={{
+        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#fff', border: `1px solid ${C.border}`,
+      }}>
+        <FontAwesomeIcon
+          icon={faStar}
+          style={{
+            fontSize: 14,
+            color: value || '#cbd5e1',
+            filter: value ? `drop-shadow(0 1px 2px ${value}66)` : 'none',
+          }}
+        />
+      </div>
+      {/* Preset swatches */}
+      <div style={{ display: 'flex', gap: 4 }}>
+        {STAR_COLOR_PRESETS.map(p => {
+          const active = value.toLowerCase() === p.color.toLowerCase();
+          return (
+            <button
+              key={p.color}
+              type="button"
+              title={p.label}
+              onClick={() => onChange(p.color)}
+              style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: p.color, cursor: 'pointer',
+                border: active ? `2px solid ${C.text}` : `1px solid ${C.border}`,
+                outline: 'none', padding: 0,
+              }}
+            />
+          );
+        })}
+      </div>
+      {/* Custom hex input */}
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="#FFD700"
+        style={{
+          width: 90, padding: '4px 8px', fontSize: 11,
+          fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+          border: `1px solid ${C.border}`, borderRadius: 6,
+          color: C.text, background: '#fff',
+        }}
+      />
+      {/* Clear button */}
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          style={{
+            fontSize: 11, fontWeight: 600, color: C.danger,
+            background: 'transparent', border: 'none', cursor: 'pointer', padding: 4,
+          }}
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
 
 function MoreMenuTrigger({ isOpen, onToggle, onDelete, onClose, disabled, disabledReason }: {
   isOpen: boolean; onToggle: () => void; onDelete: () => void; onClose: () => void;

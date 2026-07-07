@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
-import { TP_C, TP_MOTION, TP_RADIUS } from './tokens.js';
+import { TP_C, TP_RADIUS } from './tokens.js';
 import {
   minutesToTime, fmtRM, computeDailyHours, formatResignedDate, hexAlpha,
 } from './helpers.js';
@@ -29,6 +29,9 @@ interface PositionLike {
   positionId: string;
   name: string;
   maxLevel: number;
+  /** False for non-career-progression roles (e.g. Staff). Drives the
+   *  disabled state on Career / Appraisal / Compensation menu items. */
+  inCareerProgression?: boolean;
 }
 
 interface SalaryLike {
@@ -40,12 +43,22 @@ interface TeacherRowProps {
   teacher: TeacherLike;
   position: PositionLike | null | undefined;
   salary: SalaryLike | undefined;
-  onClick: () => void;
+  onEdit: () => void;
+  onCareer: () => void;
+  onAppraisal: () => void;
+  onCompensation: () => void;
   onResign: () => void;
+  /** Optional dev-only handler — forwarded to ActionMenu so the
+   *  "My Compensation (Dev)" entry only renders when the page
+   *  supplies it (gated by env in TeachersPage). */
+  onMyCompensationDev?: () => void;
+  /** Same env-gated pattern, for the teacher-facing career hub. */
+  onMyCareerDev?: () => void;
 }
 
 export const TeacherRow = memo(function TeacherRow({
-  teacher: t, position: pos, salary: sal, onClick, onResign,
+  teacher: t, position: pos, salary: sal,
+  onEdit, onCareer, onAppraisal, onCompensation, onResign, onMyCompensationDev, onMyCareerDev,
 }: TeacherRowProps) {
   const initial = (t.name ?? '?').trim().charAt(0).toUpperCase();
   const hasSalary = !!sal && sal.calculatedSalary > 0;
@@ -66,7 +79,7 @@ export const TeacherRow = memo(function TeacherRow({
   const isPartTime = weeklyHours > 0 && weeklyHours < 35;
 
   return (
-    <tr className="tp-row" onClick={onClick}>
+    <tr className="tp-row">
       {/* Teacher */}
       <td style={styles.td}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
@@ -130,14 +143,24 @@ export const TeacherRow = memo(function TeacherRow({
         <div
           className="tp-actions"
           onClick={e => e.stopPropagation()}
-          style={{
-            display: 'inline-flex',
-            gap: 2,
-            opacity: 0,
-            transition: `opacity ${TP_MOTION.fast}`,
-          }}
+          style={{ display: 'inline-flex', gap: 2 }}
         >
-          {isCurrentlyActive && <ActionMenu onResign={onResign} />}
+          <ActionMenu
+            onEdit={onEdit}
+            onCareer={onCareer}
+            onAppraisal={onAppraisal}
+            onCompensation={onCompensation}
+            onResign={isCurrentlyActive ? onResign : undefined}
+            careerDisabledReason={
+              !pos
+                ? 'Assign a position first to unlock career, appraisal, and compensation.'
+                : pos.inCareerProgression === false
+                  ? `${pos.name} is not on the career progression track — these actions don't apply.`
+                  : undefined
+            }
+            onMyCompensationDev={onMyCompensationDev}
+            onMyCareerDev={onMyCareerDev}
+          />
         </div>
       </td>
     </tr>

@@ -3,3 +3,4 @@ dist/
 public_html/
 .env
 .env.local
+public/Title Badge/

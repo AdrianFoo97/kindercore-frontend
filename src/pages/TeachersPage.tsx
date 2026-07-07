@@ -241,8 +241,22 @@ export default function TeachersPage() {
                     teacher={t}
                     position={t.positionId ? posMap.get(t.positionId) : null}
                     salary={salaryMap.get(t.id)}
-                    onClick={() => navigate(`/teachers/${t.id}`)}
+                    onEdit={() => navigate(`/teachers/${t.id}`)}
+                    onCareer={() => navigate(`/teachers/${t.id}/career`)}
+                    onAppraisal={() => navigate(`/teachers/${t.id}/appraisal`)}
+                    onCompensation={() => navigate(`/teachers/${t.id}/compensation`)}
                     onResign={() => setResignTarget(t)}
+                    // Dev-only entries — the teacher-facing mobile
+                    // hubs are works-in-progress. Vite's
+                    // `import.meta.env.DEV` is true under `npm run
+                    // dev` and false in production builds, so these
+                    // entries are invisible to admins on the live app.
+                    onMyCompensationDev={import.meta.env.DEV
+                      ? () => navigate(`/teachers/${t.id}/my-compensation`)
+                      : undefined}
+                    onMyCareerDev={import.meta.env.DEV
+                      ? () => navigate(`/teachers/${t.id}/my-career`)
+                      : undefined}
                   />
                 ))}
               </tbody>
@@ -263,13 +277,12 @@ export default function TeachersPage() {
 }
 
 const css = `
-  .tp-row { transition: background ${TP_MOTION.fast}; cursor: pointer; }
+  .tp-row { transition: background ${TP_MOTION.fast}; }
   .tp-row > td { transition: box-shadow ${TP_MOTION.fast}; }
   .tp-row:hover { background: #f7f9fc; }
   .tp-row:hover > td:first-child { box-shadow: inset 3px 0 0 ${TP_C.primary}; }
-  .tp-row:hover .tp-actions { opacity: 1 !important; }
   .tp-more:hover { background: #e2e8f0 !important; color: ${TP_C.text} !important; }
-  .tp-menu-item:hover { background: #f8fafc !important; }
+  .tp-menu-item:not(:disabled):hover { background: #f8fafc !important; }
   .tp-menu-danger:hover { background: ${TP_C.redBg} !important; }
   .tp-search:focus-within { border-color: ${TP_C.primary} !important; box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.12) !important; }
   .tp-search:focus-within svg { color: ${TP_C.primary} !important; }

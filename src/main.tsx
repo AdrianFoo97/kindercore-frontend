@@ -32,7 +32,9 @@ const queryClient = new QueryClient({
 // Global styles
 const globalStyle = document.createElement('style');
 globalStyle.textContent = `
-  *, *::before, *::after { font-family: system-ui, -apple-system, sans-serif; }
+  *, *::before, *::after {
+    font-family: 'Nunito', ui-rounded, -apple-system, 'SF Pro Rounded', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+  }
 
   input, textarea, select {
     border: 1px solid #e2e8f0 !important;

@@ -136,6 +136,9 @@ export interface Student {
   onboardingCompleted: boolean;
   withdrawnAt: string | null;
   withdrawReason: string | null;
+  /** RFID card identifier — taps on a physical reader create an
+   *  attendance row by looking up the student via this field. */
+  rfid: string | null;
   status: 'enrolled' | 'active' | 'graduated' | 'withdrawn';
   createdAt: string;
   siblings: { id: string; childName: string }[];
@@ -163,6 +166,19 @@ export interface Position {
   basicSalary: number;
   maxLevel: number;
   sortOrder: number;
+  inCareerProgression: boolean;
+  badgeUrl: string | null;
+  /** Hex color (e.g. "#C0C0C0" silver, "#FFD700" gold) used when an
+   *  achievement is fully earned at this position. Each tier feels
+   *  distinct (silver → gold → blue → ...). */
+  starColor: string | null;
+  /** Short headline summarising what this rank is mainly responsible
+   *  for (e.g. "Overall School Management"). Rendered bold above the
+   *  description on the teacher career page. */
+  roleFocus: string | null;
+  /** Free-form description of the rank — shown on the position edit
+   *  page and (later) on the teacher-facing career journey. */
+  description: string | null;
 }
 
 // ── Recruitment / Candidates ─────────────────────────────────────────────────
@@ -259,6 +275,12 @@ export interface AllowanceType {
   name: string;
   isDefault: boolean;
   sortOrder: number;
+  /** FontAwesome icon name (without `fa` prefix), e.g. "gauge-high" */
+  icon: string;
+  /** True = always paid (Guaranteed badge). False = conditional/confirmed-when-met. */
+  isGuaranteed: boolean;
+  /** Parent allowance type's id — null for top-level types. */
+  parentId: string | null;
 }
 
 export interface TeacherAllowance {

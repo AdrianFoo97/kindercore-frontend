@@ -5,7 +5,7 @@ export function fetchPositions() {
   return apiFetch<Position[]>('/api/salary/positions');
 }
 
-export function upsertPosition(positionId: string, data: { name: string; titleWeight: number; basicSalary: number; maxLevel: number; sortOrder?: number }) {
+export function upsertPosition(positionId: string, data: { name: string; titleWeight: number; basicSalary: number; maxLevel: number; sortOrder?: number; inCareerProgression?: boolean; badgeUrl?: string | null; starColor?: string | null; description?: string | null; roleFocus?: string | null }) {
   return apiFetch<Position>(`/api/salary/positions/${positionId}`, { method: 'PUT', body: JSON.stringify(data) });
 }
 
@@ -34,7 +34,7 @@ export interface TeacherWithSalary {
   fixedSalaryAmount: number | null;
   position: Position | null;
   calculatedSalary: number;
-  breakdown: { basic: number; levelIncentive: number; allowances: { typeId: string; typeName: string; amount: number }[]; totalAllowances: number } | null;
+  breakdown: { basic: number; levelIncentive: number; allowances: { typeId: string; typeName: string; amount: number; icon?: string; isGuaranteed?: boolean; parentId?: string | null }[]; totalAllowances: number } | null;
 }
 
 export function fetchTeachersWithSalary() {

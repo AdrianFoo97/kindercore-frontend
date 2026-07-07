@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faUser, faBoxesStacked, faClipboardList, faPenToSquare, faArrowRightArrowLeft, faXmark, faCircle, faRightFromBracket, faArrowRotateLeft, faChildren, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faUser, faBoxesStacked, faClipboardList, faPenToSquare, faArrowRightArrowLeft, faXmark, faCircle, faRightFromBracket, faArrowRotateLeft, faChildren, faPlus, faTrash, faIdCard, faCalendarCheck, faCheckCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { fetchStudents, updateStudent, fetchEnrollments, createEnrollment, updateEnrollment, deleteEnrollment, withdrawStudent, reactivateStudent, createSibling } from '../api/students.js';
+import { fetchStudentAttendance, deleteAttendance, scanAttendance, AttendanceRecord } from '../api/attendance.js';
 import { fetchPackages, fetchPackageYears } from '../api/packages.js';
 import { useToast } from '../components/common/Toast.js';
 import { useDeleteDialog } from '../components/common/DeleteDialog.js';
@@ -16,7 +17,7 @@ const C = {
   muted: '#94a3b8', sub: '#475569', border: '#e2e8f0', green: '#059669',
 };
 
-type Tab = 'personal' | 'enrolments' | 'dates';
+type Tab = 'personal' | 'enrolments' | 'dates' | 'attendance';
 
 function formatExactAge(dob: string): string {
   if (!dob) return '';
@@ -99,6 +100,7 @@ export default function EditStudentPage() {
   const [childName, setChildName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
   const [dob, setDob] = useState('');
+  const [rfid, setRfid] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(1);
   const [packageId, setPackageId] = useState('');
@@ -148,6 +150,7 @@ export default function EditStudentPage() {
     setChildName(student.lead.childName);
     setParentPhone(student.lead.parentPhone);
     setDob(student.lead.childDob.split('T')[0]);
+    setRfid(student.rfid ?? '');
     setYear(new Date().getFullYear());
     setMonth(student.enrolmentMonth);
     setPackageId(student.packageId);
@@ -384,6 +387,7 @@ export default function EditStudentPage() {
           monthlyFee,
           feeOverridden,
           ageOffset: classAgeOverridden ? classAge - calculatedAge : 0,
+          rfid: rfid.trim() || null,
         });
         // If the inline Edit-current path also moved the open period's
         // startDate, push that to the enrollment row separately (the
@@ -444,6 +448,10 @@ export default function EditStudentPage() {
     { key: 'personal',   label: 'Personal',   icon: faUser },
     { key: 'enrolments', label: 'Enrolments', icon: faBoxesStacked },
     { key: 'dates',      label: 'Dates',      icon: faClipboardList },
+    // Attendance tab — only meaningful for existing students (an unsaved
+    // new student has no id to query against). Hide for create + sibling
+    // flows, show in edit mode.
+    ...(isNew ? [] : [{ key: 'attendance' as Tab, label: 'Attendance', icon: faCalendarCheck }]),
   ];
 
   // Filter packages to those matching the child's class age. In edit mode
@@ -579,6 +587,29 @@ export default function EditStudentPage() {
                       />
                       {!classAgeOverridden && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Auto-calculated from date of birth.</div>}
                     </div>
+                    {/* RFID card identifier — used by the physical reader
+                        on the Attendance tab. Optional; assign one card
+                        per student. */}
+                    {!isCreateSibling && (
+                      <div style={{ marginTop: 16 }}>
+                        <label style={s.label} htmlFor="student-rfid">
+                          <FontAwesomeIcon icon={faIdCard} style={{ marginRight: 6, color: C.muted }} />
+                          RFID Card
+                        </label>
+                        <input
+                          id="student-rfid"
+                          style={{ ...s.input, maxWidth: 320, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}
+                          value={rfid}
+                          onChange={e => setRfid(e.target.value)}
+                          placeholder="Tap card or type ID (e.g. 0006129321)"
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                          When this card is tapped on the reader, the student is marked present automatically.
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Siblings section — edit mode only. Lists siblings under
@@ -898,13 +929,18 @@ export default function EditStudentPage() {
                 </div>
               )}
 
+              {tab === 'attendance' && !isNew && student && (
+                <AttendanceTab student={student} />
+              )}
+
               {error && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 0, marginBottom: 12 }}>{error}</p>}
 
               {/* Page-level Save+Cancel — only relevant for tabs with editable
                   fields. The Enrolments tab uses self-contained actions
                   (Edit current's own Save, Change Package, Withdraw), so
-                  the global Save isn't shown there to avoid confusion. */}
-              {tab !== 'enrolments' && (
+                  the global Save isn't shown there to avoid confusion.
+                  The Attendance tab has its own per-row actions. */}
+              {tab !== 'enrolments' && tab !== 'attendance' && (
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
                   <button type="button" onClick={() => navigate(isCreateSibling && sourceSibling ? `/students/${sourceSibling.id}` : '/students')} style={s.cancelBtn}>
                     Cancel
@@ -1329,6 +1365,241 @@ const modal: Record<string, React.CSSProperties> = {
   title: { margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' },
   closeBtn: { background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: '#94a3b8', lineHeight: 1, padding: 4 },
 };
+
+// ── Attendance tab ───────────────────────────────────────────────────────
+// Lists scan history (newest first), supports manual back-fill via the
+// student's RFID, and lets admins delete erroneous records. The physical
+// reader writes to the same /api/attendance/scan endpoint we use here.
+function AttendanceTab({ student }: { student: Student }) {
+  const qc = useQueryClient();
+  const { showToast } = useToast();
+  const { confirm: confirmDelete } = useDeleteDialog();
+  const [marking, setMarking] = useState(false);
+
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ['student-attendance', student.id],
+    queryFn: () => fetchStudentAttendance(student.id),
+    refetchInterval: 30_000, // refresh while reader is in use
+  });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['student-attendance', student.id] });
+
+  const handleMarkPresent = async () => {
+    if (!student.rfid) {
+      showToast('Assign an RFID card on the Personal tab first.', 'error');
+      return;
+    }
+    setMarking(true);
+    try {
+      const res = await scanAttendance({ rfid: student.rfid, source: 'manual', notes: 'Marked manually from admin' });
+      if (res.deduplicated) {
+        showToast('Already marked present in the last minute');
+      } else {
+        showToast(`Marked present at ${formatScanTime(res.attendance.scannedAt)}`);
+      }
+      invalidate();
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to mark attendance', 'error');
+    }
+    setMarking(false);
+  };
+
+  const handleDelete = async (rec: AttendanceRecord) => {
+    const ok = await confirmDelete({
+      entityType: 'attendance record',
+      entityName: formatScanTime(rec.scannedAt),
+      title: 'Delete this attendance entry?',
+      consequence: <>This entry will be permanently removed.</>,
+      onConfirm: async () => {
+        await deleteAttendance(rec.id);
+        invalidate();
+      },
+    });
+    if (ok) showToast('Attendance record deleted');
+  };
+
+  // Group by YYYY-MM-DD for visual day-banding so a long list is scannable.
+  const grouped = useMemo(() => {
+    const map = new Map<string, AttendanceRecord[]>();
+    for (const r of records) {
+      const day = r.scannedAt.slice(0, 10);
+      if (!map.has(day)) map.set(day, []);
+      map.get(day)!.push(r);
+    }
+    return [...map.entries()];
+  }, [records]);
+
+  const noRfid = !student.rfid;
+
+  return (
+    <div style={s.card}>
+      {/* Header — title + manual mark-present action. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ ...s.sectionTitle, margin: 0 }}>Attendance</h2>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+            Records appear automatically when the student taps their RFID card on the reader.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleMarkPresent}
+          disabled={marking || noRfid}
+          title={noRfid ? 'Assign an RFID card on the Personal tab first' : 'Manually record a present scan now'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', borderRadius: 8,
+            background: noRfid ? '#e2e8f0' : '#5a67d8',
+            color: noRfid ? '#94a3b8' : '#fff',
+            border: 'none', cursor: noRfid || marking ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
+            opacity: marking ? 0.7 : 1,
+          }}
+        >
+          <FontAwesomeIcon
+            icon={marking ? faSpinner : faCheckCircle}
+            spin={marking}
+            style={{ fontSize: 12 }}
+          />
+          Mark Present
+        </button>
+      </div>
+
+      {/* RFID status banner. */}
+      {noRfid ? (
+        <div style={{
+          padding: '10px 12px', borderRadius: 10,
+          background: '#fef3c7', border: '1px solid #fcd34d',
+          color: '#92400e', fontSize: 12, fontWeight: 500,
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
+        }}>
+          <FontAwesomeIcon icon={faIdCard} style={{ fontSize: 13 }} />
+          <span>
+            No RFID card assigned. Add one on the <strong>Personal</strong> tab so the student can be marked present automatically when they tap.
+          </span>
+        </div>
+      ) : (
+        <div style={{
+          padding: '8px 12px', borderRadius: 10,
+          background: '#eef2ff', border: '1px solid #c7d2fe',
+          color: '#3730a3', fontSize: 12, fontWeight: 500,
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
+        }}>
+          <FontAwesomeIcon icon={faIdCard} style={{ fontSize: 13 }} />
+          <span>
+            Card&nbsp;<code style={{ background: '#fff', padding: '1px 6px', borderRadius: 4, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>{student.rfid}</code>
+          </span>
+        </div>
+      )}
+
+      {/* Records list — grouped by day. */}
+      {isLoading ? (
+        <div style={{ padding: 24, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>Loading…</div>
+      ) : records.length === 0 ? (
+        <div style={{
+          padding: 32, textAlign: 'center', color: '#64748b',
+          background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 12,
+        }}>
+          <FontAwesomeIcon icon={faCalendarCheck} style={{ fontSize: 22, color: '#cbd5e1', marginBottom: 8, display: 'block' }} />
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', marginBottom: 4 }}>No attendance yet</div>
+          <div style={{ fontSize: 12 }}>
+            Records will appear here when the student taps their card.
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {grouped.map(([day, rows]) => (
+            <div key={day}>
+              <div style={{
+                fontSize: 11, fontWeight: 700, color: '#64748b',
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+                marginBottom: 8,
+              }}>
+                {formatDayLabel(day)}<span style={{ color: '#cbd5e1', fontWeight: 500, marginLeft: 6 }}>· {rows.length} scan{rows.length === 1 ? '' : 's'}</span>
+              </div>
+              <div style={{
+                background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
+                overflow: 'hidden',
+              }}>
+                {rows.map((r, i) => (
+                  <div key={r.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 14px',
+                    borderTop: i === 0 ? 'none' : '1px solid #eef0f3',
+                  }}>
+                    {/* Time */}
+                    <div style={{
+                      fontSize: 13, fontWeight: 700, color: '#1e293b',
+                      fontVariantNumeric: 'tabular-nums', minWidth: 70,
+                    }}>
+                      {formatTimeOnly(r.scannedAt)}
+                    </div>
+                    {/* Source pill */}
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '2px 8px', borderRadius: 999,
+                      fontSize: 10, fontWeight: 700,
+                      background: r.source === 'rfid' ? '#dbeafe' : '#f1f5f9',
+                      color: r.source === 'rfid' ? '#1d4ed8' : '#64748b',
+                      textTransform: 'uppercase', letterSpacing: '0.05em',
+                    }}>
+                      <FontAwesomeIcon icon={r.source === 'rfid' ? faIdCard : faPenToSquare} style={{ fontSize: 9 }} />
+                      {r.source === 'rfid' ? 'RFID' : 'Manual'}
+                    </span>
+                    {/* Notes */}
+                    {r.notes && (
+                      <div style={{ flex: 1, fontSize: 12, color: '#64748b', lineHeight: 1.4 }}>
+                        {r.notes}
+                      </div>
+                    )}
+                    {!r.notes && <div style={{ flex: 1 }} />}
+                    {/* Delete */}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(r)}
+                      title="Delete this entry"
+                      style={{
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        color: '#cbd5e1', padding: 6, borderRadius: 6,
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faTrash} style={{ fontSize: 11 }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatScanTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString('en-MY', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function formatTimeOnly(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDayLabel(day: string): string {
+  // day = YYYY-MM-DD; show "Today" / "Yesterday" / "DD MMM YYYY" for clarity.
+  const d = new Date(day + 'T00:00:00');
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const ms = today.getTime() - d.getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+  if (ms === 0) return 'Today';
+  if (ms === dayMs) return 'Yesterday';
+  return d.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: '#1e293b' },
