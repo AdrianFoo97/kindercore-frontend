@@ -927,22 +927,28 @@ export default function CandidatesPage() {
         <div style={S.reviewOverlay}>
 
           {queueSnapshot.length === 0 ? (
-            // Show a loading placeholder while items are still fetching
-            // for this tab, so the "Nothing to review" state doesn't
-            // flash between tab-switch and the query resolving.
+            // Empty state matches the list-view's shape (same outer
+            // bordered surface + centered content) so the two view
+            // modes feel like the same page, just different densities.
+            // Loading placeholder shown while items are still fetching
+            // to prevent a "Nothing to review" flash on tab switch.
             isLoading || items.length > 0 ? (
-              <div style={S.reviewDone}>
-                <FontAwesomeIcon icon={faCircleNotch} spin style={{ fontSize: 20, color: C.mutedSoft }} />
+              <div style={S.tableWrap}>
+                <div style={S.empty}>
+                  <FontAwesomeIcon icon={faCircleNotch} spin style={{ fontSize: 20, color: C.mutedSoft }} />
+                </div>
               </div>
             ) : (
-              <div style={S.reviewDone}>
-                <div style={S.reviewDoneIcon}>
-                  <FontAwesomeIcon icon={faInbox} />
+              <div style={S.tableWrap}>
+                <div style={S.empty}>
+                  <div style={S.emptyIcon}>
+                    <FontAwesomeIcon icon={faInbox} />
+                  </div>
+                  <div style={S.emptyTitle}>Nothing to review</div>
+                  <p style={S.emptyLine}>
+                    No new applications right now. When candidates apply, they'll appear here.
+                  </p>
                 </div>
-                <div style={S.emptyTitle}>Nothing to review</div>
-                <p style={S.emptyLine}>
-                  No new applications right now. When candidates apply, they'll appear here.
-                </p>
               </div>
             )
           ) : (
@@ -2694,14 +2700,19 @@ function InterviewSchedulerModal(props: {
     queryFn: fetchUpcomingAppointments,
     staleTime: 30_000,
   });
-  // Google Calendar connection status — drives the red/green dot next
-  // to the candidate name and controls whether we surface the "save
-  // without calendar" fallback in the error block.
-  const { data: googleStatus } = useQuery({
+  // Google Calendar connection status. Force a fresh check when the
+  // modal opens (staleTime: 0) — a cached "connected: true" from
+  // earlier can be a lie if the token has since been revoked
+  // (invalid_grant). The pre-flight lets us disable the Schedule
+  // button + show the connect-first banner instead of failing on
+  // save with a cryptic Google error.
+  const { data: googleStatus, isLoading: googleLoading } = useQuery({
     queryKey: ['google-status'],
     queryFn: () => import('../api/google.js').then(m => m.getGoogleStatus()),
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
+  const calendarDisconnected = !googleLoading && googleStatus?.connected === false;
 
 
   // Normalize both feeds to a common { id, label, start, end } shape.
@@ -3005,6 +3016,29 @@ function InterviewSchedulerModal(props: {
           </div>
         </div>
 
+        {/* Preflight — surfaced when Google Calendar is disconnected
+            (or the token was revoked). Blocks the primary save so the
+            admin isn't left staring at a cryptic error after the fact,
+            while still offering the "no calendar" escape hatch. */}
+        {calendarDisconnected && (
+          <div style={ISM.warnRow}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>Google Calendar isn't connected</div>
+            <div style={{ lineHeight: 1.5 }}>
+              <a href="/settings/calendar" style={{ color: '#92400e', fontWeight: 600, textDecoration: 'underline' }}>
+                Connect it in Settings
+              </a>
+              {' '}before scheduling, or{' '}
+              <button
+                type="button"
+                onClick={handleSaveNoCalendar}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#92400e', fontWeight: 600, fontSize: 12, textDecoration: 'underline' }}
+              >
+                save the interview without calendar sync
+              </button>.
+            </div>
+          </div>
+        )}
+
         {error && (
           <div style={ISM.errorRow}>
             {/Google/i.test(error) ? (
@@ -3033,9 +3067,8 @@ function InterviewSchedulerModal(props: {
           {candidate.phone && selected && (
             <button
               type="button"
-              style={ISM.waBtn}
-              title="Save and open WhatsApp with the message"
-              disabled={saving}
+              style={{ ...ISM.waBtn, opacity: calendarDisconnected ? 0.55 : 1 }}
+              disabled={saving || calendarDisconnected}
               onClick={async () => {
                 await handleSave();
                 const href = `${waLink(candidate.phone)}?text=${encodeURIComponent(message)}`;
@@ -3049,7 +3082,11 @@ function InterviewSchedulerModal(props: {
                   : 'Schedule & Open WhatsApp'}
             </button>
           )}
-          <button onClick={handleSave} disabled={saving} style={ISM.saveBtn}>
+          <button
+            onClick={handleSave}
+            disabled={saving || calendarDisconnected}
+            style={{ ...ISM.saveBtn, opacity: calendarDisconnected ? 0.55 : 1 }}
+          >
             {saving ? 'Saving…' : candidate.interviewStart ? 'Reschedule' : 'Schedule'}
           </button>
         </div>
@@ -3189,6 +3226,14 @@ const ISM = {
   errorRow: {
     margin: '0 24px 12px', padding: '8px 12px', borderRadius: 8,
     background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
+    fontSize: 12,
+  } as React.CSSProperties,
+  // Amber-toned pre-flight banner. Distinct from the red errorRow so
+  // the admin reads it as "you need to do something first" rather
+  // than "a save just failed".
+  warnRow: {
+    margin: '0 24px 12px', padding: '8px 12px', borderRadius: 8,
+    background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e',
     fontSize: 12,
   } as React.CSSProperties,
 
