@@ -2110,6 +2110,22 @@ function InboxReviewCard(props: {
     ? c.qualificationOther
     : (c.qualification ?? null);
 
+  // Header kebab — opens a small popover with row-scoped actions.
+  // Currently just "Open full details" so admins have a consistent
+  // top-right menu shape even for the card view.
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!headerMenuOpen) return;
+    const onAway = (e: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
+        setHeaderMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onAway);
+    return () => document.removeEventListener('mousedown', onAway);
+  }, [headerMenuOpen]);
+
   return (
     <div style={S.reviewCard}>
       {/* Header — identity + applying-for chip in top-right */}
@@ -2168,6 +2184,29 @@ function InboxReviewCard(props: {
             <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 11 }} />
             Applying for <strong>{c.desiredPosition ?? '—'}</strong>
           </span>
+          <div ref={headerMenuRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setHeaderMenuOpen(o => !o)}
+              style={S.kebabBtn}
+              aria-label="More actions"
+            >
+              <FontAwesomeIcon icon={faEllipsisVertical} />
+            </button>
+            {headerMenuOpen && (
+              <div style={S.reviewHeaderMenu}>
+                <button
+                  type="button"
+                  className="kc-row-menu-item"
+                  style={S.menuItemBtn}
+                  onClick={() => { props.onOpenModal(); setHeaderMenuOpen(false); }}
+                >
+                  <FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: C.primary, fontSize: 12 }} />
+                  Open full details
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2267,7 +2306,8 @@ function InboxReviewCard(props: {
         )}
       </div>
 
-      {/* Footer — Applied date + waiting badge · Open Resume · Open full details */}
+      {/* Footer — meta clusters (timing / start / source) · Open Resume.
+          "Open full details" moved to the header kebab menu. */}
       {(() => {
         const wait = waitingSince(c.submittedAt);
         // Compact start-date formatter — omits the year when it's the
@@ -2332,7 +2372,7 @@ function InboxReviewCard(props: {
                 </>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
               {(c.resumeUrl || c.resumePath) ? (
                 <button
                   onClick={() => {
@@ -2361,7 +2401,6 @@ function InboxReviewCard(props: {
                   <FontAwesomeIcon icon={faFileLines} /> No resume attached
                 </span>
               )}
-              <button onClick={props.onOpenModal} style={S.linkTextBtn}>Open full details ↗</button>
             </div>
           </div>
         );
@@ -3496,6 +3535,15 @@ const S = {
     padding: '8px 6px',
     boxShadow: '0 12px 32px rgba(15,23,42,0.14)',
   } as React.CSSProperties,
+  // Same shape as linkPopover but tuned for the smaller kebab in the
+  // review-card header — narrower and closer to the trigger.
+  reviewHeaderMenu: {
+    position: 'absolute' as const, top: 36, right: 0, zIndex: 30,
+    minWidth: 200, background: C.surface,
+    border: `1px solid ${C.border}`, borderRadius: 10,
+    padding: '6px 4px',
+    boxShadow: '0 12px 32px rgba(15,23,42,0.14)',
+  } as React.CSSProperties,
   linkPopoverLabel: {
     fontSize: 10, fontWeight: 700, letterSpacing: 0.6,
     textTransform: 'uppercase' as const, color: C.muted,
@@ -4301,7 +4349,9 @@ const S = {
   reviewFooterMeta: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     fontSize: 12, color: C.muted, gap: 12,
-    flexWrap: 'wrap' as const, rowGap: 10,
+    // Deliberately NOT wrapping — the button cluster on the right must
+    // stay top-right; on tight widths the meta clusters wrap internally
+    // (see footerMetaClusters below) instead of the whole row breaking.
     paddingTop: 10, borderTop: `1px solid ${C.borderSoft}`,
   } as React.CSSProperties,
   // Wrapping row of icon-prefixed clusters. Each cluster stays
@@ -4311,6 +4361,10 @@ const S = {
   footerMetaClusters: {
     display: 'flex', flexWrap: 'wrap' as const, alignItems: 'center',
     rowGap: 6, columnGap: 10,
+    // Take the full remaining row width so the button cluster on the
+    // right sits flush against the edge. `minWidth: 0` lets long meta
+    // strings wrap internally instead of pushing the buttons off-screen.
+    flex: 1, minWidth: 0,
   } as React.CSSProperties,
   footerMetaCluster: {
     display: 'inline-flex', alignItems: 'center', gap: 6,
