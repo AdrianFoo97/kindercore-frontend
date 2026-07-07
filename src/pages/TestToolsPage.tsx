@@ -4,7 +4,7 @@ import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../api/client.js';
 import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
-type Tool = 'reset-leads' | 'reset-students' | 'seed-dummy';
+type Tool = 'reset-leads' | 'reset-students' | 'seed-dummy' | 'seed-candidates';
 
 export default function TestToolsPage({ tool }: { tool: Tool }) {
   const [status, setStatus] = useState<'idle' | 'confirming' | 'loading' | 'done' | 'error'>('idle');
@@ -33,6 +33,15 @@ export default function TestToolsPage({ tool }: { tool: Tool }) {
         return { message: res.message, note: res.note ?? '' };
       },
     },
+    'seed-candidates': {
+      title: 'Seed Dummy Candidates',
+      description: 'Inserts ~25 realistic Malaysian kindergarten teacher candidates covering every pipeline status, mixed positions, qualifications and experience levels — plus a few that trigger the red/yellow flags so you can see them in action.',
+      confirmLabel: 'Yes, seed dummy candidates',
+      action: async () => {
+        const res = await apiFetch<{ message: string; inserted: number }>('/api/candidates/seed-dummy', { method: 'POST' });
+        return { message: res.message, note: '' };
+      },
+    },
   }[tool];
 
   async function handleConfirm() {
@@ -57,7 +66,7 @@ export default function TestToolsPage({ tool }: { tool: Tool }) {
       {status === 'idle' && (
         <button
           onClick={() => setStatus('confirming')}
-          style={{ padding: '10px 20px', background: tool === 'seed-dummy' ? '#38a169' : '#e53e3e', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
+          style={{ padding: '10px 20px', background: tool === 'seed-dummy' || tool === 'seed-candidates' ? '#38a169' : '#e53e3e', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
         >
           {config.title}
         </button>

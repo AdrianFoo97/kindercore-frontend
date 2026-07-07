@@ -29,7 +29,11 @@ export async function apiFetch<T>(
       },
     });
   } catch {
-    alert('Unable to connect to server.\n\nPlease check:\n1. Your internet connection\n2. The server may be down or restarting\n\nTry refreshing the page. If the problem persists, contact your administrator.');
+    // Bubble the network error to the caller — do NOT open a native
+    // alert() here. Public surfaces (apply form, landing) render their
+    // own candidate-friendly copy; admin surfaces show toasts / inline
+    // error state. An admin-toned "contact your administrator" alert
+    // would be wildly wrong voice on the apply page.
     throw new ApiError('Unable to connect to server.', 0, 'NETWORK_ERROR');
   }
 

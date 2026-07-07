@@ -1,7 +1,15 @@
 import { apiFetch } from './client.js';
 
 export function getGoogleStatus() {
-  return apiFetch<{ connected: boolean; email: string | null; calendarName: string | null; calendarId: string | null }>('/api/google/status');
+  return apiFetch<{
+    connected: boolean;
+    email: string | null;
+    calendarName: string | null;
+    calendarId: string | null;
+    /** Interview-specific override. `null` → interviews use `calendarId`. */
+    interviewCalendarId: string | null;
+    interviewCalendarName: string | null;
+  }>('/api/google/status');
 }
 
 export function getConnectToken() {
@@ -16,6 +24,14 @@ export function listGoogleCalendars() {
 
 export function setGoogleCalendar(calendarId: string) {
   return apiFetch<{ calendarId: string }>('/api/google/calendar', {
+    method: 'PATCH',
+    body: JSON.stringify({ calendarId }),
+  });
+}
+
+/** Pass an empty string to clear (interviews then fall back to shared calendar). */
+export function setInterviewCalendar(calendarId: string) {
+  return apiFetch<{ calendarId: string | null }>('/api/google/interview-calendar', {
     method: 'PATCH',
     body: JSON.stringify({ calendarId }),
   });

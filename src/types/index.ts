@@ -165,6 +165,88 @@ export interface Position {
   sortOrder: number;
 }
 
+// ── Recruitment / Candidates ─────────────────────────────────────────────────
+
+export type CandidateStatus =
+  | 'NEW'
+  | 'CONTACTED'
+  | 'INTERVIEWING'
+  | 'PENDING_DECISION'
+  | 'OFFER_SENT'
+  | 'HIRED'
+  | 'REJECTED';
+
+/** Self-reported one-way commute time buckets (see schema). */
+export type CommuteTime =
+  | 'UNDER_15'
+  | 'MIN_15_30'
+  | 'MIN_30_45'
+  | 'MIN_45_60'
+  | 'OVER_60'
+  | 'WILL_MOVE';
+
+export interface Candidate {
+  id: string;
+  submittedAt: string;
+  fullName: string;
+  phone: string;
+  dob: string | null;
+  addressLocation: string | null;
+  commuteTime: CommuteTime | null;
+  /** Role name string from the admin-curated `recruitment_positions`
+   *  setting. Not a FK to Position. */
+  desiredPosition: string | null;
+  expectedSalary: number | null;
+  availableFrom: string | null;
+  /** Preferred-start bucket label from `recruitment_preferred_start_dates`. */
+  preferredStartDate: string | null;
+  /** Experience bucket label from `recruitment_experience_ranges`. */
+  experienceRange: string | null;
+  /** Qualification bucket label. */
+  qualification: string | null;
+  /** Free-text — only meaningful when `qualification === 'Others'`. */
+  qualificationOther: string | null;
+  /** Justification for the expected-salary number. Required when
+   *  `expectedSalary` is set. */
+  salaryJustification: string | null;
+  /** Screening question — required on the form. */
+  careerGoals: string | null;
+  /** Screening question — required on the form. */
+  whyKindergartenTeacher: string | null;
+  /** Whether a resume is on file. Path itself is never sent to the
+   *  client — admin downloads via GET /api/candidates/:id/resume. */
+  resumePath: string | null;
+  resumeOriginalName: string | null;
+  howDidYouKnow: string | null;
+  status: CandidateStatus;
+  /** Admin's "worth interviewing" star, decoupled from status. */
+  isShortlisted: boolean;
+  statusChangedAt: string | null;
+  interviewStart: string | null;
+  interviewEnd: string | null;
+  interviewLocation: string | null;
+  interviewNotes: string | null;
+  /** Google Calendar bookkeeping — set when scheduled, cleared on unschedule. */
+  interviewEventId: string | null;
+  interviewEventLink: string | null;
+  /** Which Google calendar the event lives on. Null → tenant default. */
+  interviewCalendarId: string | null;
+  rejectionReason: string | null;
+  hiredAt: string | null;
+  /** Candidate's own submission ("Anything else you'd like us to know?"). */
+  notes: string | null;
+  /** Private admin scribble edited from the row's kebab menu. */
+  adminNotes: string | null;
+  deletedAt: string | null;
+}
+
+export interface CandidatesResponse {
+  items: Candidate[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface LevelIncentive {
   id: string;
   positionId: string;

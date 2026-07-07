@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getGoogleStatus, getConnectToken, listGoogleCalendars, setGoogleCalendar } from '../api/google.js';
+import { getGoogleStatus, getConnectToken, listGoogleCalendars, setGoogleCalendar, setInterviewCalendar } from '../api/google.js';
 import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 function CheckIcon() {
@@ -27,6 +27,10 @@ export default function GoogleCalendarSettingsPage() {
   const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedCalendarId, setSavedCalendarId] = useState<string | null>(null);
+  // Interview-specific override — empty string means "same as default".
+  const [selectedInterviewCal, setSelectedInterviewCal] = useState<string | null>(null);
+  const [savedInterviewCal, setSavedInterviewCal] = useState<string | null>(null);
+  const [isSavingInterview, setIsSavingInterview] = useState(false);
 
   const { data: googleStatus, refetch } = useQuery({
     queryKey: ['googleStatus'],
@@ -65,6 +69,11 @@ export default function GoogleCalendarSettingsPage() {
       setSelectedCalendarId(fallbackId);
       setSavedCalendarId(fallbackId);
     }
+    // Seed the interview-specific selection from what's already stored.
+    // Empty string = "use the default" (no override configured).
+    const iv = googleStatus.interviewCalendarId ?? '';
+    setSelectedInterviewCal(iv);
+    setSavedInterviewCal(iv);
   }, [calendarList, googleStatus]);
 
   const handleSaveCalendar = async () => {
@@ -76,6 +85,19 @@ export default function GoogleCalendarSettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['googleStatus'] });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveInterviewCalendar = async () => {
+    if (selectedInterviewCal === null) return;
+    setIsSavingInterview(true);
+    try {
+      await setInterviewCalendar(selectedInterviewCal);
+      setSavedInterviewCal(selectedInterviewCal);
+      queryClient.invalidateQueries({ queryKey: ['googleStatus'] });
+      queryClient.invalidateQueries({ queryKey: ['google-status'] });
+    } finally {
+      setIsSavingInterview(false);
     }
   };
 
@@ -171,8 +193,11 @@ export default function GoogleCalendarSettingsPage() {
             {googleStatus?.connected && (
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-                  Create events in
+                  Default calendar
                 </label>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: -3, marginBottom: 6 }}>
+                  Used for enquiry appointments and any event without a more specific setting.
+                </div>
                 {calendarsLoading ? (
                   <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading calendars…</div>
                 ) : calendarsError ? (
@@ -201,6 +226,38 @@ export default function GoogleCalendarSettingsPage() {
                 ) : (
                   <div style={{ fontSize: 13, color: '#9ca3af' }}>No calendars found.</div>
                 )}
+              </div>
+            )}
+
+            {googleStatus?.connected && calendarList && calendarList.length > 0 && (
+              <div style={{ marginBottom: 16, paddingTop: 14, borderTop: '1px dashed #e5e7eb' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                  Candidate interviews calendar
+                </label>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: -3, marginBottom: 6 }}>
+                  Route interview events to a different calendar (e.g. HR-only). Leave as "Same as default" to keep them together.
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <select
+                    value={selectedInterviewCal ?? ''}
+                    onChange={e => setSelectedInterviewCal(e.target.value)}
+                    style={{ flex: 1, padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 13, color: '#1a202c', background: '#fff', cursor: 'pointer' }}
+                  >
+                    <option value="">Same as default</option>
+                    {calendarList.map(c => (
+                      <option key={c.id} value={c.id ?? ''}>
+                        {c.name}{c.primary ? ' (primary)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleSaveInterviewCalendar}
+                    disabled={isSavingInterview || selectedInterviewCal === savedInterviewCal}
+                    style={{ padding: '8px 16px', background: selectedInterviewCal === savedInterviewCal ? '#f1f5f9' : '#2b6cb0', color: selectedInterviewCal === savedInterviewCal ? '#9ca3af' : '#fff', border: 'none', borderRadius: 7, cursor: isSavingInterview || selectedInterviewCal === savedInterviewCal ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}
+                  >
+                    {isSavingInterview ? 'Saving…' : savedInterviewCal === selectedInterviewCal ? 'Saved' : 'Save'}
+                  </button>
+                </div>
               </div>
             )}
 

@@ -43,6 +43,9 @@ import SetupAccountPage from './pages/SetupAccountPage.js';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage.js';
 import TermsOfServicePage from './pages/TermsOfServicePage.js';
 import HomePage from './pages/HomePage.js';
+import ApplyPage from './pages/ApplyPage.js';
+import CandidatesPage from './pages/CandidatesPage.js';
+import RecruitmentSettingsPage from './pages/settings/RecruitmentSettingsPage.js';
 import { APP_VERSION, LAST_UPDATED } from './version.js';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -103,6 +106,7 @@ export default function App() {
             Google OAuth verification reviewer can open them. */}
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/apply" element={<ApplyPage />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/leads" element={<ErrorBoundary><LeadsPage /></ErrorBoundary>} />
           <Route path="/leads/import" element={<ErrorBoundary><ImportLeadsPage /></ErrorBoundary>} />
@@ -126,11 +130,14 @@ export default function App() {
           <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers" element={<ErrorBoundary><TeachersPage /></ErrorBoundary>} />
           <Route path="/teachers/:id" element={<ErrorBoundary><EditTeacherPage /></ErrorBoundary>} />
+          <Route path="/hr/candidates" element={<ErrorBoundary><CandidatesPage /></ErrorBoundary>} />
+          <Route path="/settings/recruitment" element={<ErrorBoundary><RecruitmentSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/employee-salary" element={<ErrorBoundary><EmployeeSalaryPage /></ErrorBoundary>} />
           <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage key="reset-leads" tool="reset-leads" /></ErrorBoundary>} />
           <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
           <Route path="/settings/test/seed-dummy" element={<ErrorBoundary><TestToolsPage key="seed-dummy" tool="seed-dummy" /></ErrorBoundary>} />
+          <Route path="/settings/test/seed-candidates" element={<ErrorBoundary><TestToolsPage key="seed-candidates" tool="seed-candidates" /></ErrorBoundary>} />
           <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
           <Route path="/admin/year-rollover" element={<ErrorBoundary><YearRolloverPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<ErrorBoundary><OperationsPlannerPage /></ErrorBoundary>} />

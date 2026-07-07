@@ -15,20 +15,25 @@ interface CustomTemplate {
   content_zh: string;
 }
 
+type VariableGroup = { label: string; items: { label: string; value: string }[] };
+
 interface SystemTemplate {
-  id: 'enquiry' | 'follow_up' | 'confirm_appointment';
+  id: 'enquiry' | 'follow_up' | 'confirm_appointment' | 'interview_invite' | 'offer_letter';
   name: string;
   settingKey_en: string;
   settingKey_zh: string;
+  /** Placeholder inserts shown to admins editing this template. Each
+   *  system template speaks to a different pipeline (enquiry vs
+   *  recruitment) with a different set of resolved tokens, so we scope
+   *  the "click to insert" chips per-template rather than one shared
+   *  set that would show tokens that don't work in this context. */
+  variables: VariableGroup[];
 }
 
-const SYSTEM_TEMPLATES: SystemTemplate[] = [
-  { id: 'enquiry', name: 'Enquiry', settingKey_en: 'whatsapp_template', settingKey_zh: 'whatsapp_template_zh' },
-  { id: 'follow_up', name: 'Follow Up', settingKey_en: 'whatsapp_followup_template', settingKey_zh: 'whatsapp_followup_template_zh' },
-  { id: 'confirm_appointment', name: 'Confirm Appointment', settingKey_en: 'whatsapp_confirm_appt_template', settingKey_zh: 'whatsapp_confirm_appt_template_zh' },
-];
-
-const VARIABLE_GROUPS = [
+// ── Placeholder sets ──────────────────────────────────────────────────
+// LEADS_VARIABLES → resolved by leads-side code (child, appointment, kg)
+// RECRUITMENT_VARIABLES → resolved by CandidatesPage template resolvers
+const LEADS_VARIABLES: VariableGroup[] = [
   { label: 'Contact', items: [
     { label: 'Child Name', value: '{{childName}}' },
     { label: 'Relationship', value: '{{relationship}}' },
@@ -43,21 +48,57 @@ const VARIABLE_GROUPS = [
     { label: 'Address', value: '{{address}}' },
   ]},
 ];
+const INTERVIEW_VARIABLES: VariableGroup[] = [
+  { label: 'Candidate', items: [
+    { label: 'First Name', value: '{{firstName}}' },
+    { label: 'Full Name', value: '{{candidateName}}' },
+    { label: 'Position', value: '{{position}}' },
+  ]},
+  { label: 'Interview', items: [
+    { label: 'Day', value: '{{interviewDay}}' },
+    { label: 'Date', value: '{{interviewDate}}' },
+    { label: 'Start Time', value: '{{interviewTime}}' },
+    { label: 'End Time', value: '{{interviewEndTime}}' },
+  ]},
+];
+const OFFER_VARIABLES: VariableGroup[] = [
+  { label: 'Candidate', items: [
+    { label: 'First Name', value: '{{firstName}}' },
+    { label: 'Full Name', value: '{{candidateName}}' },
+    { label: 'Position', value: '{{position}}' },
+  ]},
+  { label: 'Offer', items: [
+    { label: 'Start Date', value: '{{startDate}}' },
+    { label: 'Salary', value: '{{salary}}' },
+  ]},
+];
+
+const SYSTEM_TEMPLATES: SystemTemplate[] = [
+  { id: 'enquiry',             name: 'Enquiry',              settingKey_en: 'whatsapp_template',                 settingKey_zh: 'whatsapp_template_zh',                 variables: LEADS_VARIABLES },
+  { id: 'follow_up',           name: 'Follow Up',            settingKey_en: 'whatsapp_followup_template',        settingKey_zh: 'whatsapp_followup_template_zh',        variables: LEADS_VARIABLES },
+  { id: 'confirm_appointment', name: 'Confirm Appointment',  settingKey_en: 'whatsapp_confirm_appt_template',    settingKey_zh: 'whatsapp_confirm_appt_template_zh',    variables: LEADS_VARIABLES },
+  { id: 'interview_invite',    name: 'Interview Invitation', settingKey_en: 'interview_wa_template',             settingKey_zh: 'interview_wa_template_zh',             variables: INTERVIEW_VARIABLES },
+  { id: 'offer_letter',        name: 'Offer Letter',         settingKey_en: 'offer_wa_template',                 settingKey_zh: 'offer_wa_template_zh',                 variables: OFFER_VARIABLES },
+];
 
 const CUSTOM_TEMPLATES_KEY = 'whatsapp_custom_templates';
 
 // ── Template Editor ────────────────────────────────────────────────────────────
 
-function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, onSave, onCancel, saving }: {
+function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, variables, onSave, onCancel, saving }: {
   name: string;
   contentEn: string;
   contentZh: string;
   isSystem: boolean;
   isAdmin: boolean;
+  /** Placeholder chips shown above the textarea. System templates pass
+   *  their scoped set; custom templates fall back to the leads set. */
+  variables?: VariableGroup[];
   onSave: (name: string, en: string, zh: string) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
+  const groups: VariableGroup[] = variables ?? LEADS_VARIABLES;
   const [draftName, setDraftName] = useState(name);
   const [draftEn, setDraftEn] = useState(contentEn);
   const [draftZh, setDraftZh] = useState(contentZh);
@@ -118,7 +159,7 @@ function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, onSave,
             Click to insert variable
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
-            {VARIABLE_GROUPS.map(group => (
+            {groups.map(group => (
               <div key={group.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', minWidth: 72, flexShrink: 0 }}>{group.label}</span>
                 <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 5 }}>
@@ -268,6 +309,7 @@ export default function WhatsAppTemplatesPage() {
           <TemplateEditor
             name={st.name} contentEn={content.en} contentZh={content.zh}
             isSystem isAdmin={isAdmin} saving={saving}
+            variables={st.variables}
             onSave={(_, en, zh) => saveSystemTemplate(st, st.name, en, zh)}
             onCancel={() => setEditing(null)}
           />
