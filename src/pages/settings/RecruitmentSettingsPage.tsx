@@ -80,14 +80,29 @@ const DEFAULT_EXPERIENCE_RANGES = [
   '3 – 5 years',
   'More than 5 years',
 ];
+// Keep in sync with DEFAULT_REFERRAL_SOURCES in
+// kindercore-backend/src/controllers/candidates.controller.ts —
+// both are fallbacks when no `recruitment_referral_sources` DB row
+// exists yet, and if they drift the Settings page and the /apply
+// dropdown show different lists.
+/** Same slug rule as CandidatesPage's Copy-apply-link picker — keep in
+ *  sync. Renders "Facebook Ads" → "facebook_ads" while preserving CJK. */
+function toUtmSlug(label: string): string {
+  return String(label ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w一-鿿]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 const DEFAULT_REFERRAL_SOURCES = [
-  'Facebook',
-  'Instagram',
-  '小红书',
-  'Google',
+  'Transfer from other Ten Toes branch',
   'JobStreet',
-  'Walk-in',
-  'Friend Referral',
+  'Indeed',
+  'Maukerja',
+  'Facebook Group',
+  'Facebook Ads',
+  'MyFuture Job',
   'Other',
 ];
 
@@ -157,12 +172,13 @@ export default function RecruitmentSettingsPage() {
         <ListEditor
           icon={faBullhorn}
           title="How did you hear about us?"
-          description="Sources candidates can pick to tell you where they found the job posting."
+          description="Sources candidates can pick to tell you where they found the job posting. Each source auto-derives a utm_source slug used by the Candidates page's tracked apply links."
           settingKey="recruitment_referral_sources"
           initial={referralSources}
           placeholder="e.g. LinkedIn"
           isAdmin={isAdmin}
           lockedValues={['Other']}
+          showUtmSlug
         />
 
         <NumberEditor
@@ -459,6 +475,10 @@ function ListEditor(props: {
    *  on their presence (e.g. "Other" is the sentinel that triggers the
    *  free-text fallback). Matched case-insensitively. */
   lockedValues?: string[];
+  /** When true, renders a small monospace preview of the derived utm
+   *  slug next to each entry (used on the referral-sources card so the
+   *  admin can see what /apply?utm_source=... will be generated). */
+  showUtmSlug?: boolean;
 }) {
   const qc = useQueryClient();
   const { showToast } = useToast();
@@ -566,6 +586,19 @@ function ListEditor(props: {
                 setItems(prev => prev.map((x, i) => i === idx ? v : x));
               }}
             />
+            {props.showUtmSlug && !locked && label && (
+              <span
+                title={`Tracked link: /apply?utm_source=${toUtmSlug(label)}`}
+                style={{
+                  fontSize: 10, fontFamily: 'monospace',
+                  color: '#64748b', background: '#f1f5f9',
+                  padding: '2px 6px', borderRadius: 4,
+                  whiteSpace: 'nowrap' as const, flexShrink: 0,
+                }}
+              >
+                utm: {toUtmSlug(label)}
+              </span>
+            )}
             {locked && (
               <span
                 style={{

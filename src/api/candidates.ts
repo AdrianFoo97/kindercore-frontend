@@ -184,6 +184,9 @@ export interface CreateCandidateInput {
   qualificationOther?: string;
   howDidYouKnow?: string;
   notes?: string;
+  /** utm_source URL param at apply-form load — the job-board /
+   *  channel the applicant clicked from. */
+  utmSource?: string;
   /** Honeypot — leave empty. */
   company?: string;
 }

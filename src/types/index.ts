@@ -256,6 +256,10 @@ export interface Candidate {
   /** Channel this application came in through. Null on legacy rows;
    *  rendered as apply_form for display purposes. */
   submissionSource: 'apply_form' | 'google_form' | null;
+  /** Marketing attribution — utm_source URL param at apply-form load.
+   *  Distinct from howDidYouKnow (self-report); this is the source of
+   *  truth for which link the applicant clicked. */
+  utmSource: string | null;
   deletedAt: string | null;
 }
 

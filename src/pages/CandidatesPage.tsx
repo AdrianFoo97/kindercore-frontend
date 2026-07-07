@@ -152,6 +152,17 @@ const isExperiencedRange = (r: string | null): boolean => {
   return s.includes('3') || s.includes('5') || s.includes('more');
 };
 
+/** Normalises a human-readable label into a URL-safe utm_source
+ *  value. "Facebook Ads" → "facebook_ads", "小红书" → "小红书" (kept
+ *  as-is), spaces / punctuation collapsed to underscores. */
+function toUtmSlug(label: string): string {
+  return String(label ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w一-鿿]+/g, '_')  // preserve CJK
+    .replace(/^_+|_+$/g, '');
+}
+
 function computeFlags(c: Candidate, positions: { name: string; minSalary: number | null; maxSalary: number | null }[]): Flag[] {
   const flags: Flag[] = [];
   const band = c.desiredPosition ? positions.find(p => p.name === c.desiredPosition) : null;
@@ -327,6 +338,21 @@ export default function CandidatesPage() {
   const [search, setSearch] = useState('');
   const [desiredPosition, setDesiredPosition] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
+  // Small popover for the apply-link picker: lists the admin-managed
+  // referral sources. Each option copies /apply?utm_source=<slug>
+  // where slug is derived from the source's label.
+  const [linkMenuOpen, setLinkMenuOpen] = useState(false);
+  const linkMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!linkMenuOpen) return;
+    const onClickAway = (e: MouseEvent) => {
+      if (linkMenuRef.current && !linkMenuRef.current.contains(e.target as Node)) {
+        setLinkMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickAway);
+    return () => document.removeEventListener('mousedown', onClickAway);
+  }, [linkMenuOpen]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Candidate | null>(null);
   const [reopenTarget, setReopenTarget] = useState<Candidate | null>(null);
@@ -405,6 +431,7 @@ export default function CandidatesPage() {
   const { data: stats } = useQuery({
     queryKey: ['candidate-stats'],
     queryFn: fetchCandidateStats,
+    refetchInterval: 60_000,
   });
 
   const { data: list, isLoading } = useQuery({
@@ -415,6 +442,10 @@ export default function CandidatesPage() {
       desiredPosition: desiredPosition || undefined,
       pageSize: 100,
     }),
+    // Poll every minute so applications arriving via the Google Form
+    // bridge (or any other background source) surface without the
+    // admin needing to switch tabs or refresh.
+    refetchInterval: 60_000,
   });
 
   const rawItems = list?.items ?? [];
@@ -744,17 +775,30 @@ export default function CandidatesPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [reviewOpen, currentCandidate?.id, canBack]);
 
-  const copyApplyLink = async () => {
-    const url = `${window.location.origin}/apply`;
+  const copyApplyLink = async (source?: string) => {
+    const cleaned = toUtmSlug(source ?? '');
+    const url = cleaned
+      ? `${window.location.origin}/apply?utm_source=${encodeURIComponent(cleaned)}`
+      : `${window.location.origin}/apply`;
     try {
       await navigator.clipboard.writeText(url);
       setLinkCopied(true);
-      showToast('Apply link copied');
+      showToast(cleaned ? `Link copied · tagged “${cleaned}”` : 'Apply link copied');
+      setLinkMenuOpen(false);
       setTimeout(() => setLinkCopied(false), 2000);
     } catch {
       showToast('Could not copy link', 'error');
     }
   };
+  // Referral-source list drives the picker options — same list the
+  // applicant sees on step 3 of /apply, minus "Other" (which is a
+  // free-text sentinel, not a real channel).
+  const { data: pageSettings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  const referralSourcesForPicker = (() => {
+    const raw = pageSettings?.recruitment_referral_sources;
+    const list = Array.isArray(raw) ? raw as string[] : [];
+    return list.filter(s => s.toLowerCase() !== 'other');
+  })();
 
   return (
     <div style={S.shell}>
@@ -772,10 +816,46 @@ export default function CandidatesPage() {
           <h1 style={S.h1}>Candidates</h1>
           <p style={S.subtitle}>Review applicants and manage your hiring pipeline.</p>
         </div>
-        <button style={S.linkBtn(linkCopied)} onClick={copyApplyLink}>
-          <FontAwesomeIcon icon={linkCopied ? faCheck : faLink} style={{ fontSize: 12 }} />
-          {linkCopied ? 'Link copied' : 'Copy apply link'}
-        </button>
+        <div ref={linkMenuRef} style={{ position: 'relative' }}>
+          <button style={S.linkBtn(linkCopied)} onClick={() => setLinkMenuOpen(o => !o)}>
+            <FontAwesomeIcon icon={linkCopied ? faCheck : faLink} style={{ fontSize: 12 }} />
+            {linkCopied ? 'Link copied' : 'Copy apply link'}
+          </button>
+          {linkMenuOpen && (
+            <div style={S.linkPopover}>
+              <div style={S.linkPopoverLabel}>Plain link</div>
+              <button
+                type="button"
+                className="kc-row-menu-item"
+                style={{ ...S.menuItemBtn, marginBottom: 4 }}
+                onClick={() => copyApplyLink()}
+              >
+                <FontAwesomeIcon icon={faLink} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+                /apply
+              </button>
+              <div style={S.linkPopoverLabel}>
+                Tracked — referral sources
+              </div>
+              {referralSourcesForPicker.length === 0 && (
+                <div style={{ padding: '6px 10px', fontSize: 11, color: C.mutedSoft }}>
+                  Add sources in Settings → Recruitment.
+                </div>
+              )}
+              {referralSourcesForPicker.map(label => (
+                <button
+                  key={label}
+                  type="button"
+                  className="kc-row-menu-item"
+                  style={S.menuItemBtn}
+                  onClick={() => copyApplyLink(label)}
+                >
+                  <FontAwesomeIcon icon={faLink} fixedWidth style={{ marginRight: 8, color: C.primary, fontSize: 12 }} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Pipeline stage tabs — one row from NEW to Rejected. */}
@@ -1961,16 +2041,7 @@ function ReviewSidebarItem(props: {
            : idx + 1}
         </span>
         <div style={S.reviewSidebarTextCol}>
-          <span style={S.reviewSidebarName(isRejected)}>
-            {c.fullName}
-            {c.submissionSource === 'google_form' && (
-              <FontAwesomeIcon
-                icon={faGoogle}
-                title="Submitted via Google Form"
-                style={{ marginLeft: 6, color: '#4285F4', fontSize: 10 }}
-              />
-            )}
-          </span>
+          <span style={S.reviewSidebarName(isRejected)}>{c.fullName}</span>
           {subtitle && (
             <span style={S.reviewSidebarSub}>
               {subtitle}
@@ -2186,6 +2257,11 @@ function InboxReviewCard(props: {
         if (c.availableFrom)      logistics.push(`Earliest ${startFmt(c.availableFrom)}`);
         if (c.preferredStartDate) logistics.push(`Preferred ${startFmt(c.preferredStartDate)}`);
         if (c.howDidYouKnow)      logistics.push(`Heard via ${c.howDidYouKnow}`);
+        // Marketing attribution — where they clicked from (?utm_source=).
+        // "Submitted by" phrases it as "which channel handed us this
+        // application" so it reads distinct from "Heard via" (the
+        // applicant's self-report).
+        if (c.utmSource)          logistics.push(`Submitted by ${c.utmSource}`);
         return (
           <div style={S.reviewFooterMeta}>
             <span>
@@ -3349,6 +3425,18 @@ const S = {
     cursor: 'pointer', height: 36,
     boxShadow: SHADOW.sm,
   }),
+  linkPopover: {
+    position: 'absolute' as const, top: 44, right: 0, zIndex: 30,
+    minWidth: 240, background: C.surface,
+    border: `1px solid ${C.border}`, borderRadius: 10,
+    padding: '8px 6px',
+    boxShadow: '0 12px 32px rgba(15,23,42,0.14)',
+  } as React.CSSProperties,
+  linkPopoverLabel: {
+    fontSize: 10, fontWeight: 700, letterSpacing: 0.6,
+    textTransform: 'uppercase' as const, color: C.muted,
+    padding: '6px 10px 4px',
+  } as React.CSSProperties,
   tabBar: {
     display: 'flex', alignItems: 'center', gap: 4,
     background: C.surface, border: `1px solid ${C.border}`,
@@ -3967,13 +4055,18 @@ const S = {
     width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 11, fontWeight: 700,
-    background: shortlisted ? '#fef3c7'
+    // Priority: current > rejected > shortlisted > default. The
+    // selected row always shows the solid indigo highlight so the
+    // admin can see at a glance which one they're on — a favourited
+    // candidate that happens to also be selected still reads as
+    // "selected" first.
+    background: current     ? C.primary
               : rejected    ? C.dangerSoft
-              : current     ? C.primary
+              : shortlisted ? '#fef3c7'
               : C.borderSoft,
-    color:      shortlisted ? '#a16207'
+    color:      current     ? '#fff'
               : rejected    ? C.danger
-              : current     ? '#fff'
+              : shortlisted ? '#a16207'
               : C.muted,
   }),
   reviewSidebarTextCol: {

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -207,6 +208,12 @@ const WELCOME_REASONS: Array<{
 export default function ApplyPage() {
   const { isMobile } = useIsMobile();
   const S = makeStyles(!isMobile);
+  // Marketing attribution — captured once from ?utm_source= in the URL
+  // and sent along with the application. Job-board links can be built
+  // like /apply?utm_source=jobstreet so the admin knows which channel
+  // brought each candidate, independent of what they self-report.
+  const [searchParams] = useSearchParams();
+  const utmSourceRef = useRef<string>(searchParams.get('utm_source') || '');
   // Dev-mode: prefill the form with plausible dummy data so we don't
   // retype the same fields on every hot reload. Production builds always
   // start empty.
@@ -215,6 +222,9 @@ export default function ApplyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [phase, setPhase] = useState<Phase>('welcome');
   const [error, setError] = useState<string | null>(null);
+  // Counts failed submit attempts so we can escalate the error copy —
+  // gentle "try again" first, then a screenshot-and-WhatsApp fallback.
+  const [failedAttempts, setFailedAttempts] = useState(0);
   // Resume file chosen by the candidate. Held in memory until form
   // submit; uploaded as a second request after the candidate is created.
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -411,6 +421,7 @@ export default function ApplyPage() {
           ? howDidYouKnowOther.trim()
           : form.howDidYouKnow) || undefined,
         notes: form.notes.trim() || undefined,
+        utmSource: utmSourceRef.current || undefined,
         company: form.company, // honeypot
       });
 
@@ -432,6 +443,7 @@ export default function ApplyPage() {
       setPhase('done');
     } catch (err: any) {
       setError(err?.message ?? 'Submission failed. Please try again.');
+      setFailedAttempts(n => n + 1);
     }
     setSubmitting(false);
   };
@@ -835,8 +847,33 @@ export default function ApplyPage() {
 
         {error && (
           <div style={S.errorBox}>
-            <FontAwesomeIcon icon={faTriangleExclamation} />
-            <span>{error}</span>
+            <FontAwesomeIcon icon={faTriangleExclamation} style={{ marginTop: 2 }} />
+            <div>
+              {failedAttempts < 2 ? (
+                <div>Something went wrong. Please try again.</div>
+              ) : (
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                    Still not working?
+                  </div>
+                  <div style={{ lineHeight: 1.5 }}>
+                    Screenshot this page and WhatsApp us at{' '}
+                    <a
+                      href="https://wa.me/60115837769"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: '#b91c1c', fontWeight: 600, textDecoration: 'underline' }}
+                    >
+                      011-5583 7769
+                    </a>
+                    {' '}so we can help.
+                  </div>
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: '#991b1b', marginTop: 6, opacity: 0.8 }}>
+                Error: {error}
+              </div>
+            </div>
           </div>
         )}
 
@@ -1174,7 +1211,7 @@ const makeStyles = (m: boolean) => ({
     width: '100%', boxSizing: 'border-box',
   } as React.CSSProperties,
   errorBox: {
-    display: 'flex', alignItems: 'center', gap: 8,
+    display: 'flex', alignItems: 'flex-start', gap: 8,
     background: C.dangerSoft, color: C.danger, padding: '10px 12px',
     borderRadius: 8, fontSize: 14, border: `1px solid #fecaca`,
   } as React.CSSProperties,
