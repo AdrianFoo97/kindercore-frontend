@@ -10,7 +10,7 @@ import {
   faStar, faInbox, faListCheck, faArrowUpWideShort, faTriangleExclamation,
   faExclamation, faFilter, faXmark, faCircleInfo, faArrowLeft, faArrowRight,
   faFileLines, faCalendarDays, faEllipsisVertical, faNoteSticky, faPaperPlane, faClock,
-  faList, faIdCard, faBolt, faScaleBalanced, faPen, faArrowRotateLeft, faBullhorn,
+  faList, faIdCard, faBolt, faScaleBalanced, faPen, faArrowRotateLeft, faBullhorn, faTrash,
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { CommuteTime } from '../types/index.js';
@@ -1441,10 +1441,14 @@ export default function CandidatesPage() {
                           </button>
                         </div>
                         {renderDecisionButtons(row2)}
-                        {/* Recovery path for terminal candidates —
-                            "accidentally rejected the wrong person" is
-                            common enough to surface as a first-class
-                            menu item, not a details-page detour. */}
+                        {/* Recovery + destructive actions on terminal
+                            rows — "accidentally rejected the wrong
+                            person" is common enough to surface Reopen
+                            as a first-class menu item, and Delete
+                            (with confirmation) sits alongside for the
+                            case where the row should just go away
+                            (test data, duplicate, spam). Both are
+                            hidden for active-pipeline candidates. */}
                         {(row2.status === 'HIRED' || row2.status === 'REJECTED') && (
                           <>
                             {sep}
@@ -1457,6 +1461,15 @@ export default function CandidatesPage() {
                               >
                                 <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
                                 Reopen candidate
+                              </button>
+                              <button
+                                type="button"
+                                className="kc-row-menu-item"
+                                style={{ ...S.menuItemBtn, color: C.danger }}
+                                onClick={() => { setDeleteTarget(row2); closeMenu(); }}
+                              >
+                                <FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8, color: C.danger, fontSize: 12 }} />
+                                Delete candidate
                               </button>
                             </div>
                           </>
