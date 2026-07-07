@@ -12,7 +12,7 @@ import {
   faFileLines, faCalendarDays, faEllipsisVertical, faNoteSticky, faPaperPlane, faClock,
   faList, faIdCard, faBolt, faScaleBalanced, faPen, faArrowRotateLeft,
 } from '@fortawesome/free-solid-svg-icons';
-import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { faWhatsapp, faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { CommuteTime } from '../types/index.js';
 import {
   fetchCandidates, fetchCandidateStats, deleteCandidate, fetchCandidateFormOptions,
@@ -1427,6 +1427,15 @@ export default function CandidatesPage() {
                             <span style={S.nameText}>{c.fullName}</span>
                             {age != null && (
                               <span title={`${age} years old`} style={S.ageText}>{age} yrs</span>
+                            )}
+                            {c.submissionSource === 'google_form' && (
+                              <span
+                                style={S.sourceBadge}
+                                title="Submitted via Google Form"
+                                aria-label="Submitted via Google Form"
+                              >
+                                <FontAwesomeIcon icon={faGoogle} />
+                              </span>
                             )}
                             {flagIcons}
                             {(c.careerGoals || c.whyKindergartenTeacher || c.adminNotes) && (
@@ -3628,6 +3637,16 @@ const S = {
     fontSize: 12, fontWeight: 600, color: C.primaryDeep,
     background: C.primarySoft, padding: '2px 8px', borderRadius: 999,
     cursor: 'default',
+  } as React.CSSProperties,
+  // Small G-logo chip next to the candidate's name/age indicating the
+  // application came from an external Google Form (via the Apps
+  // Script bridge), rather than the native /apply flow.
+  sourceBadge: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 18, height: 18, borderRadius: '50%',
+    background: '#fff', border: '1px solid #e2e8f0',
+    color: '#4285F4', fontSize: 10,
+    cursor: 'default', flexShrink: 0,
   } as React.CSSProperties,
   nameText: {
     fontSize: 14.5, fontWeight: 650, color: C.text,

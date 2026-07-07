@@ -253,6 +253,9 @@ export interface Candidate {
   notes: string | null;
   /** Private admin scribble edited from the row's kebab menu. */
   adminNotes: string | null;
+  /** Channel this application came in through. Null on legacy rows;
+   *  rendered as apply_form for display purposes. */
+  submissionSource: 'apply_form' | 'google_form' | null;
   deletedAt: string | null;
 }
 
