@@ -10,7 +10,7 @@ import {
   faStar, faInbox, faListCheck, faArrowUpWideShort, faTriangleExclamation,
   faExclamation, faFilter, faXmark, faCircleInfo, faArrowLeft, faArrowRight,
   faFileLines, faCalendarDays, faEllipsisVertical, faNoteSticky, faPaperPlane, faClock,
-  faList, faIdCard, faBolt, faScaleBalanced, faPen, faArrowRotateLeft,
+  faList, faIdCard, faBolt, faScaleBalanced, faPen, faArrowRotateLeft, faBullhorn,
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { CommuteTime } from '../types/index.js';
@@ -2244,35 +2244,68 @@ function InboxReviewCard(props: {
       {/* Footer — Applied date + waiting badge · Open Resume · Open full details */}
       {(() => {
         const wait = waitingSince(c.submittedAt);
-        const startFmt = (v: string | null) => v
-          ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-          : null;
-        // Logistics — earliest / preferred start + how they heard.
-        // Deliberately quiet: muted inline meta on the footer strip
-        // rather than a card block, so it doesn't compete with the
-        // salary / motivation / goals sections for attention.
-        const logistics: string[] = [];
-        if (c.availableFrom)      logistics.push(`Earliest ${startFmt(c.availableFrom)}`);
-        if (c.preferredStartDate) logistics.push(`Preferred ${startFmt(c.preferredStartDate)}`);
-        if (c.howDidYouKnow)      logistics.push(`Heard via ${c.howDidYouKnow}`);
-        // Marketing attribution — where they clicked from (?utm_source=).
-        // "Submitted by" phrases it as "which channel handed us this
-        // application" so it reads distinct from "Heard via" (the
-        // applicant's self-report).
-        if (c.utmSource)          logistics.push(`Submitted by ${c.utmSource}`);
+        // Compact start-date formatter — omits the year when it's the
+        // current year (the vast majority of cases), keeping the row
+        // scannable. "23 Jul 2027" only shown for out-of-year dates.
+        const thisYear = new Date().getFullYear();
+        const startFmt = (v: string | null) => {
+          if (!v) return null;
+          const d = new Date(v);
+          return d.toLocaleDateString('en-GB', {
+            day: '2-digit', month: 'short',
+            ...(d.getFullYear() !== thisYear ? { year: 'numeric' } : {}),
+          });
+        };
+        // Three logical groups rendered as icon-prefixed clusters with
+        // subtle vertical dividers between them:
+        //   1. Timing     — when they applied + how long it's been
+        //   2. Start      — earliest → preferred availability
+        //   3. Source     — self-report ("heard via") + utm attribution
+        // Each cluster is independently visible / hidden based on data
+        // presence, and the whole row wraps naturally on narrow widths.
+        const availStart = startFmt(c.availableFrom);
+        const availPref  = startFmt(c.preferredStartDate);
+        const hasStart   = availStart || availPref;
+        const hasSource  = c.howDidYouKnow || c.utmSource;
         return (
           <div style={S.reviewFooterMeta}>
-            <span>
-              Applied {fmtDate(c.submittedAt)}
-              <span style={{ ...S.waitBadge(wait.level), marginLeft: 8 }}>
-                waiting {wait.text}
-              </span>
-              {logistics.length > 0 && (
-                <span style={{ color: C.mutedSoft, marginLeft: 10 }}>
-                  · {logistics.join(' · ')}
+            <div style={S.footerMetaClusters}>
+              {/* Cluster 1 — timing */}
+              <span style={S.footerMetaCluster} title={`Applied ${fmtDate(c.submittedAt)}`}>
+                <FontAwesomeIcon icon={faClock} style={{ fontSize: 11, color: C.mutedSoft, flexShrink: 0 }} />
+                Applied {fmtDate(c.submittedAt)}
+                <span style={{ ...S.waitBadge(wait.level), marginLeft: 8 }}>
+                  waiting {wait.text}
                 </span>
+              </span>
+
+              {/* Cluster 2 — start availability */}
+              {hasStart && (
+                <>
+                  <span style={S.footerMetaSep} aria-hidden />
+                  <span style={S.footerMetaCluster} title="Earliest available → Preferred start">
+                    <FontAwesomeIcon icon={faCalendarDays} style={{ fontSize: 11, color: C.mutedSoft, flexShrink: 0 }} />
+                    {availStart ?? '—'}
+                    <span style={{ margin: '0 6px', color: C.mutedSoft }}>→</span>
+                    {availPref ?? '—'}
+                  </span>
+                </>
               )}
-            </span>
+
+              {/* Cluster 3 — source (self-report + utm) */}
+              {hasSource && (
+                <>
+                  <span style={S.footerMetaSep} aria-hidden />
+                  <span style={S.footerMetaCluster} title="Heard via (self-report) · via <utm_source>">
+                    <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 11, color: C.mutedSoft, flexShrink: 0 }} />
+                    {c.howDidYouKnow ?? 'Unknown source'}
+                    {c.utmSource && (
+                      <span style={S.footerMetaUtm}>via {c.utmSource}</span>
+                    )}
+                  </span>
+                </>
+              )}
+            </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               {c.resumePath ? (
                 <button
@@ -4234,8 +4267,29 @@ const S = {
   } as React.CSSProperties,
   reviewFooterMeta: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    fontSize: 12, color: C.muted,
+    fontSize: 12, color: C.muted, gap: 12,
     paddingTop: 10, borderTop: `1px solid ${C.borderSoft}`,
+  } as React.CSSProperties,
+  // Wrapping row of icon-prefixed clusters. Each cluster stays
+  // together on wrap; the vertical dividers between them are
+  // hidden by CSS at narrow widths where clusters collapse to their
+  // own line (dividers only make sense on the same row).
+  footerMetaClusters: {
+    display: 'flex', flexWrap: 'wrap' as const, alignItems: 'center',
+    rowGap: 6, columnGap: 10,
+  } as React.CSSProperties,
+  footerMetaCluster: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    color: C.muted, whiteSpace: 'nowrap' as const,
+  } as React.CSSProperties,
+  footerMetaSep: {
+    display: 'inline-block', width: 1, height: 12,
+    background: C.border, flexShrink: 0,
+  } as React.CSSProperties,
+  footerMetaUtm: {
+    fontSize: 11, color: C.mutedSoft, marginLeft: 6,
+    padding: '1px 6px', borderRadius: 999,
+    border: `1px solid ${C.borderSoft}`, background: C.bgSoft,
   } as React.CSSProperties,
   linkTextBtn: {
     background: 'transparent', border: 'none', color: C.primary,
