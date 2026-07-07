@@ -186,10 +186,11 @@ export function CandidateQuickViewModal(props: Props) {
                           : candidate.qualification
                       } />
                   )}
-                  {candidate.resumePath && (
+                  {(candidate.resumeUrl || candidate.resumePath) && (
                     <ResumeRow
                       candidateId={candidate.id}
                       fileName={candidate.resumeOriginalName ?? 'resume'}
+                      externalUrl={candidate.resumeUrl}
                     />
                   )}
                 </Section>
@@ -465,8 +466,10 @@ const S = {
 
 // Resume download row — fetches the auth-gated endpoint, builds a blob URL
 // and triggers a download. The actual file never goes through a static
-// route so the admin must be logged in to retrieve it.
-function ResumeRow(props: { candidateId: string; fileName: string }) {
+// route so the admin must be logged in to retrieve it. When the row has
+// an externalUrl (Google Drive from the Apps Script bridge), that URL
+// wins and we skip the internal fetch entirely.
+function ResumeRow(props: { candidateId: string; fileName: string; externalUrl: string | null }) {
   const [busy, setBusy] = useState(false);
   return (
     <div style={S.infoRow}>
@@ -479,6 +482,10 @@ function ResumeRow(props: { candidateId: string; fileName: string }) {
           type="button"
           disabled={busy}
           onClick={() => {
+            if (props.externalUrl) {
+              window.open(props.externalUrl, '_blank', 'noopener,noreferrer');
+              return;
+            }
             // 'noopener' would force window.open to return null, breaking
             // the handoff to downloadCandidateResume.
             const win = window.open('', '_blank');

@@ -260,6 +260,11 @@ export interface Candidate {
    *  Distinct from howDidYouKnow (self-report); this is the source of
    *  truth for which link the applicant clicked. */
   utmSource: string | null;
+  /** External resume URL — populated by the Google Form / Apps Script
+   *  bridge (Drive-hosted). When set, the admin "Open Resume" button
+   *  opens this in a new tab instead of hitting the internal
+   *  auth-gated resume endpoint. */
+  resumeUrl: string | null;
   deletedAt: string | null;
 }
 

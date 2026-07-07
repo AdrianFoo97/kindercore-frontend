@@ -1417,28 +1417,41 @@ export default function CandidatesPage() {
                             <FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
                             {row2.adminNotes ? 'Edit note' : 'Add note'}
                           </button>
-                          <button
-                            type="button"
-                            disabled={!row2.resumePath}
-                            title={row2.resumePath ? undefined : 'This candidate did not attach a resume.'}
-                            className="kc-row-menu-item"
-                            style={{
-                              ...S.menuItemBtn,
-                              opacity: row2.resumePath ? 1 : 0.45,
-                              cursor: row2.resumePath ? 'pointer' : 'default',
-                            }}
-                            onClick={() => {
-                              if (!row2.resumePath) return;
-                              const win = window.open('', '_blank');
-                              closeMenu();
-                              downloadCandidateResume(row2.id, win).catch((e: any) => {
-                                showToast(e?.message ?? 'Could not open resume.', 'error');
-                              });
-                            }}
-                          >
-                            <FontAwesomeIcon icon={faFileLines} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
-                            View resume
-                          </button>
+                          {(() => {
+                            const hasResume = !!row2.resumeUrl || !!row2.resumePath;
+                            return (
+                              <button
+                                type="button"
+                                disabled={!hasResume}
+                                title={hasResume ? undefined : 'This candidate did not attach a resume.'}
+                                className="kc-row-menu-item"
+                                style={{
+                                  ...S.menuItemBtn,
+                                  opacity: hasResume ? 1 : 0.45,
+                                  cursor: hasResume ? 'pointer' : 'default',
+                                }}
+                                onClick={() => {
+                                  if (!hasResume) return;
+                                  closeMenu();
+                                  // Prefer the external URL (Google Drive-hosted
+                                  // resume from the Apps Script bridge). Falls
+                                  // back to the auth-gated internal fetch for
+                                  // native /apply uploads.
+                                  if (row2.resumeUrl) {
+                                    window.open(row2.resumeUrl, '_blank', 'noopener,noreferrer');
+                                  } else {
+                                    const win = window.open('', '_blank');
+                                    downloadCandidateResume(row2.id, win).catch((e: any) => {
+                                      showToast(e?.message ?? 'Could not open resume.', 'error');
+                                    });
+                                  }
+                                }}
+                              >
+                                <FontAwesomeIcon icon={faFileLines} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+                                View resume
+                              </button>
+                            );
+                          })()}
                         </div>
                         {renderDecisionButtons(row2)}
                         {/* Recovery + destructive actions on terminal
@@ -2320,13 +2333,20 @@ function InboxReviewCard(props: {
               )}
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              {c.resumePath ? (
+              {(c.resumeUrl || c.resumePath) ? (
                 <button
                   onClick={() => {
-                    const win = window.open('', '_blank');
-                    downloadCandidateResume(c.id, win).catch((e: any) => {
-                      alert(e?.message ?? 'Could not open resume.');
-                    });
+                    // Same precedence as the kebab: prefer the external
+                    // URL (Google Drive from the Apps Script bridge),
+                    // fall back to the auth-gated internal fetch.
+                    if (c.resumeUrl) {
+                      window.open(c.resumeUrl, '_blank', 'noopener,noreferrer');
+                    } else {
+                      const win = window.open('', '_blank');
+                      downloadCandidateResume(c.id, win).catch((e: any) => {
+                        alert(e?.message ?? 'Could not open resume.');
+                      });
+                    }
                   }}
                   style={S.resumeBtn}
                   title={c.resumeOriginalName ? `Open ${c.resumeOriginalName}` : 'Open resume'}
