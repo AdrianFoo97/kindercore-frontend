@@ -4171,12 +4171,14 @@ const S = {
     transition: 'all 0.12s ease',
   }),
 
-  // ── Review "done" empty state ─────────────────────────────────────
+  // ── Review "done" recap card ──────────────────────────────────────
+  // Fills the main column (matches the width of a normal candidate
+  // review card) so it doesn't float as a small island in the
+  // wide 1fr slot beside the sidebar.
   reviewDone: {
     background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
     padding: '56px 32px', display: 'flex', flexDirection: 'column',
     alignItems: 'center', gap: 14, textAlign: 'center',
-    maxWidth: 520, margin: '0 auto',
     boxShadow: SHADOW.sm,
   } as React.CSSProperties,
   reviewDoneIcon: {
