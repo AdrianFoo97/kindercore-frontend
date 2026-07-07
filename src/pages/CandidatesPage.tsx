@@ -4301,6 +4301,7 @@ const S = {
   reviewFooterMeta: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     fontSize: 12, color: C.muted, gap: 12,
+    flexWrap: 'wrap' as const, rowGap: 10,
     paddingTop: 10, borderTop: `1px solid ${C.borderSoft}`,
   } as React.CSSProperties,
   // Wrapping row of icon-prefixed clusters. Each cluster stays
@@ -4335,6 +4336,7 @@ const S = {
     border: `1px solid ${C.border}`,
     fontSize: 12, fontWeight: 600, cursor: 'pointer',
     boxShadow: SHADOW.sm,
+    whiteSpace: 'nowrap' as const, flexShrink: 0,
   } as React.CSSProperties,
   whatsappBtn: {
     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -4351,6 +4353,7 @@ const S = {
     background: C.bgSoft, color: C.mutedSoft,
     border: `1px dashed ${C.border}`,
     fontSize: 12, fontWeight: 600, cursor: 'default',
+    whiteSpace: 'nowrap' as const, flexShrink: 0,
   } as React.CSSProperties,
 
   // ── Sticky decision bar ────────────────────────────────────────────
