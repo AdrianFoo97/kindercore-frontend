@@ -659,13 +659,18 @@ export default function ApplyPage() {
           </div>
         </div>
 
-        {/* Honeypot — hidden from real users, bots fill it */}
+        {/* Honeypot — hidden from real users, bots fill it. The
+            `name` attribute deliberately avoids common autofill
+            categories (name/email/phone/address/company) because Chrome
+            was ignoring autoComplete="off" and helpfully filling
+            `name="company"` with the applicant's employer from their
+            Google profile, tripping the honeypot for real humans. */}
         <input
           type="text"
-          name="company"
+          name="hp_website"
           value={form.company}
           onChange={e => update('company', e.target.value)}
-          autoComplete="off"
+          autoComplete="new-password"
           tabIndex={-1}
           style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }}
           aria-hidden="true"
