@@ -289,6 +289,20 @@ export default function ApplyPage() {
     ? `You need to be at least ${MIN_AGE_YEARS} to apply.`
     : '';
 
+  // Start-date guard — earliest and preferred start dates can't be in
+  // the past. Both use the same today-onwards floor (native date
+  // picker's `min` attribute, plus JS runtime check because some
+  // browsers accept anything the user types).
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const availableFromValid = !form.availableFrom || form.availableFrom >= todayStr;
+  const preferredStartValid = !form.preferredStartDate || form.preferredStartDate >= todayStr;
+  const availableFromError = form.availableFrom && !availableFromValid
+    ? "Earliest start date can't be in the past."
+    : '';
+  const preferredStartError = form.preferredStartDate && !preferredStartValid
+    ? "Preferred start date can't be in the past."
+    : '';
+
   // validators mirror the same required set as a safety net.
   const stepValid = (() => {
     if (step === 'about') {
@@ -298,7 +312,9 @@ export default function ApplyPage() {
         && form.addressLocation.trim().length > 0
         && form.commuteTime.length > 0
         && form.availableFrom.trim().length > 0
-        && form.preferredStartDate.trim().length > 0;
+        && form.preferredStartDate.trim().length > 0
+        && availableFromValid
+        && preferredStartValid;
     }
     if (step === 'role') {
       return form.desiredPosition.trim().length > 0
@@ -375,6 +391,8 @@ export default function ApplyPage() {
     && form.commuteTime.length > 0
     && form.availableFrom.trim().length > 0
     && form.preferredStartDate.trim().length > 0
+    && availableFromValid
+    && preferredStartValid
     && form.desiredPosition.trim().length > 0
     && form.experienceRange.trim().length > 0
     && form.qualification.trim().length > 0
@@ -701,12 +719,40 @@ export default function ApplyPage() {
             </Field>
             <div style={S.row2}>
               <Field {...fp} label="Earliest start date" required>
-                <input style={S.input} value={form.availableFrom} type="date" required
-                  onChange={e => update('availableFrom', e.target.value)} />
+                <input
+                  style={{
+                    ...S.input,
+                    ...(availableFromError ? { borderColor: '#dc2626' } : null),
+                  }}
+                  value={form.availableFrom}
+                  type="date"
+                  required
+                  min={todayStr}
+                  onChange={e => update('availableFrom', e.target.value)}
+                />
+                {availableFromError && (
+                  <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>
+                    {availableFromError}
+                  </div>
+                )}
               </Field>
               <Field {...fp} label="Preferred start date" required>
-                <input style={S.input} value={form.preferredStartDate} type="date" required
-                  onChange={e => update('preferredStartDate', e.target.value)} />
+                <input
+                  style={{
+                    ...S.input,
+                    ...(preferredStartError ? { borderColor: '#dc2626' } : null),
+                  }}
+                  value={form.preferredStartDate}
+                  type="date"
+                  required
+                  min={todayStr}
+                  onChange={e => update('preferredStartDate', e.target.value)}
+                />
+                {preferredStartError && (
+                  <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>
+                    {preferredStartError}
+                  </div>
+                )}
               </Field>
             </div>
           </>
