@@ -74,7 +74,10 @@ const DEFAULT_QUALIFICATIONS = [
   "Bachelor's degree",
   'Others',
 ];
+// Keep in sync with DEFAULT_EXPERIENCE_RANGES in
+// kindercore-backend/src/controllers/candidates.controller.ts.
 const DEFAULT_EXPERIENCE_RANGES = [
+  'No experience',
   'Less than 1 year',
   '1 – 2 years',
   '3 – 5 years',

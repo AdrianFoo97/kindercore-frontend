@@ -790,15 +790,13 @@ export default function CandidatesPage() {
       showToast('Could not copy link', 'error');
     }
   };
-  // Referral-source list drives the picker options — same list the
-  // applicant sees on step 3 of /apply, minus "Other" (which is a
-  // free-text sentinel, not a real channel).
-  const { data: pageSettings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
-  const referralSourcesForPicker = (() => {
-    const raw = pageSettings?.recruitment_referral_sources;
-    const list = Array.isArray(raw) ? raw as string[] : [];
-    return list.filter(s => s.toLowerCase() !== 'other');
-  })();
+  // Referral-source list drives the picker options — reads from the
+  // same public /api/candidates/form-options endpoint the apply form
+  // uses, so the two surfaces can never drift. Backend handles the
+  // "no DB row → use defaults" fallback. "Other" is filtered out
+  // because it's a free-text sentinel, not a real channel.
+  const referralSourcesForPicker = (formOptions?.referralSources ?? [])
+    .filter(s => s.toLowerCase() !== 'other');
 
   return (
     <div style={S.shell}>
