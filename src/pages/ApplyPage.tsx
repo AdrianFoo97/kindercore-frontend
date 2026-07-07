@@ -257,12 +257,34 @@ export default function ApplyPage() {
 
   // Per-step gate. Step 1: name + phone. Step 2: expected salary +
   // Every field is required except `notes` ("anything else"). Backend
+  // Applicants must be 18+. Native date pickers let anyone type a
+  // recent date past our max attribute in some browsers, so we
+  // re-check in JS as well.
+  const MIN_AGE_YEARS = 18;
+  const maxDobStr = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - MIN_AGE_YEARS);
+    return d.toISOString().slice(0, 10);
+  })();
+  const minDobStr = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 100);
+    return d.toISOString().slice(0, 10);
+  })();
+  const dobIsValid = (() => {
+    if (!form.dob) return false;
+    return form.dob >= minDobStr && form.dob <= maxDobStr;
+  })();
+  const dobError = form.dob && !dobIsValid
+    ? `You need to be at least ${MIN_AGE_YEARS} to apply.`
+    : '';
+
   // validators mirror the same required set as a safety net.
   const stepValid = (() => {
     if (step === 'about') {
       return form.fullName.trim().length > 0
         && form.phone.trim().length > 0
-        && form.dob.trim().length > 0
+        && dobIsValid
         && form.addressLocation.trim().length > 0
         && form.commuteTime.length > 0
         && form.availableFrom.trim().length > 0
@@ -338,7 +360,7 @@ export default function ApplyPage() {
 
   const canSubmit = form.fullName.trim().length > 0
     && form.phone.trim().length > 0
-    && form.dob.trim().length > 0
+    && dobIsValid
     && form.addressLocation.trim().length > 0
     && form.commuteTime.length > 0
     && form.availableFrom.trim().length > 0
@@ -633,8 +655,23 @@ export default function ApplyPage() {
               </Field>
             </div>
             <Field {...fp} label="Date of birth" required>
-              <input style={S.input} value={form.dob} type="date" required
-                onChange={e => update('dob', e.target.value)} />
+              <input
+                style={{
+                  ...S.input,
+                  ...(dobError ? { borderColor: '#dc2626' } : null),
+                }}
+                value={form.dob}
+                type="date"
+                required
+                max={maxDobStr}
+                min={minDobStr}
+                onChange={e => update('dob', e.target.value)}
+              />
+              {dobError && (
+                <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>
+                  {dobError}
+                </div>
+              )}
             </Field>
             <Field {...fp} label="Where do you live?" required>
               <input style={S.input} value={form.addressLocation} required

@@ -1961,7 +1961,16 @@ function ReviewSidebarItem(props: {
            : idx + 1}
         </span>
         <div style={S.reviewSidebarTextCol}>
-          <span style={S.reviewSidebarName(isRejected)}>{c.fullName}</span>
+          <span style={S.reviewSidebarName(isRejected)}>
+            {c.fullName}
+            {c.submissionSource === 'google_form' && (
+              <FontAwesomeIcon
+                icon={faGoogle}
+                title="Submitted via Google Form"
+                style={{ marginLeft: 6, color: '#4285F4', fontSize: 10 }}
+              />
+            )}
+          </span>
           {subtitle && (
             <span style={S.reviewSidebarSub}>
               {subtitle}
@@ -2017,6 +2026,15 @@ function InboxReviewCard(props: {
           <div style={S.reviewName}>
             {c.fullName}
             {age != null && <span style={S.reviewAge}>· {age} yrs</span>}
+            {c.submissionSource === 'google_form' && (
+              <span
+                style={{ ...S.sourceBadge, marginLeft: 8 }}
+                title="Submitted via Google Form"
+                aria-label="Submitted via Google Form"
+              >
+                <FontAwesomeIcon icon={faGoogle} />
+              </span>
+            )}
           </div>
           <div style={S.reviewSub}>
             {c.addressLocation && (
