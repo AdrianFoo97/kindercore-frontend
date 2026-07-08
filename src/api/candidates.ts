@@ -28,6 +28,13 @@ export function fetchCandidateStats() {
   return apiFetch<CandidateStats>('/api/candidates/stats');
 }
 
+/** Raw phone list across ALL non-deleted candidates — used to flag
+ *  repeat applicants regardless of which pipeline tab they land on.
+ *  Frontend normalises + counts (`phoneKey` in CandidatesPage). */
+export function fetchCandidatePhoneIndex() {
+  return apiFetch<string[]>('/api/candidates/phone-index');
+}
+
 // Upcoming scheduled interviews — used by the interview scheduler modal
 // to detect clashes when the admin picks a slot.
 export interface UpcomingInterview {
@@ -171,6 +178,8 @@ export interface CreateCandidateInput {
   whyKindergartenTeacher: string;
   /** Required. */
   expectedSalary: number;
+  /** Upper bound when the applicant gave a range (import path only). */
+  expectedSalaryMax?: number;
   /** Required. */
   salaryJustification: string;
   dob?: string;
@@ -238,4 +247,29 @@ export function updateCandidate(id: string, patch: UpdateCandidateInput) {
 
 export function deleteCandidate(id: string) {
   return apiFetch<{ ok: true }>(`/api/candidates/${id}`, { method: 'DELETE' });
+}
+
+// Admin bulk import — accepts the same CreateCandidateInput shape as the
+// public /apply POST. Server sets submissionSource='imported' on each row.
+export interface ImportResultItem {
+  index: number;
+  id?: string;
+  error?: string;
+}
+export interface ImportResult {
+  inserted: number;
+  total: number;
+  results: ImportResultItem[];
+}
+export function importCandidates(rows: Partial<CreateCandidateInput>[]) {
+  return apiFetch<ImportResult>('/api/candidates/import', {
+    method: 'POST',
+    body: JSON.stringify({ rows }),
+  });
+}
+
+export function resetAllCandidates() {
+  return apiFetch<{ deleted: number; filesRemoved: number }>('/api/candidates/reset-all', {
+    method: 'POST',
+  });
 }

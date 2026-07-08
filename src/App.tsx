@@ -67,6 +67,7 @@ import TermsOfServicePage from './pages/TermsOfServicePage.js';
 import HomePage from './pages/HomePage.js';
 import ApplyPage from './pages/ApplyPage.js';
 import CandidatesPage from './pages/CandidatesPage.js';
+import ImportCandidatesPage from './pages/candidates/ImportCandidatesPage.js';
 import RecruitmentSettingsPage from './pages/settings/RecruitmentSettingsPage.js';
 import { APP_VERSION, LAST_UPDATED } from './version.js';
 
@@ -176,6 +177,7 @@ export default function App() {
           <Route path="/teachers" element={<ErrorBoundary><TeachersPage /></ErrorBoundary>} />
           <Route path="/teachers/:id" element={<ErrorBoundary><EditTeacherPage /></ErrorBoundary>} />
           <Route path="/hr/candidates" element={<ErrorBoundary><CandidatesPage /></ErrorBoundary>} />
+          <Route path="/hr/candidates/import" element={<ErrorBoundary><ImportCandidatesPage /></ErrorBoundary>} />
           <Route path="/settings/recruitment" element={<ErrorBoundary><RecruitmentSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/career" element={<ErrorBoundary><TeacherCareerPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-career" element={<ErrorBoundary><TeacherMyCareerPage /></ErrorBoundary>} />
@@ -204,6 +206,7 @@ export default function App() {
           <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage key="reset-leads" tool="reset-leads" /></ErrorBoundary>} />
           <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
+          <Route path="/settings/test/reset-candidates" element={<ErrorBoundary><TestToolsPage key="reset-candidates" tool="reset-candidates" /></ErrorBoundary>} />
           <Route path="/settings/test/seed-dummy" element={<ErrorBoundary><TestToolsPage key="seed-dummy" tool="seed-dummy" /></ErrorBoundary>} />
           <Route path="/settings/test/seed-candidates" element={<ErrorBoundary><TestToolsPage key="seed-candidates" tool="seed-candidates" /></ErrorBoundary>} />
           <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />

@@ -8,14 +8,14 @@ import {
   faBook, faUser, faGraduationCap, faQuestion,
   faSackDollar, faPhone,
   faStar, faInbox, faListCheck, faArrowUpWideShort, faTriangleExclamation,
-  faExclamation, faFilter, faXmark, faCircleInfo, faArrowLeft, faArrowRight,
+  faExclamation, faFilter, faXmark, faCircleInfo, faArrowLeft, faArrowRight, faChevronLeft, faChevronRight,
   faFileLines, faCalendarDays, faEllipsisVertical, faNoteSticky, faPaperPlane, faClock,
-  faList, faIdCard, faBolt, faScaleBalanced, faPen, faArrowRotateLeft, faBullhorn, faTrash,
+  faList, faIdCard, faBolt, faScaleBalanced, faPen, faArrowRotateLeft, faBullhorn, faTrash, faArrowsRotate,
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { CommuteTime } from '../types/index.js';
 import {
-  fetchCandidates, fetchCandidateStats, deleteCandidate, fetchCandidateFormOptions,
+  fetchCandidates, fetchCandidateStats, fetchCandidatePhoneIndex, deleteCandidate, fetchCandidateFormOptions,
   updateCandidate, downloadCandidateResume, fetchUpcomingInterviews,
   scheduleCandidateInterview,
 } from '../api/candidates.js';
@@ -143,6 +143,19 @@ function waLink(phone: string): string {
 // number as an anchor.
 type FlagKey = 'ABOVE_BAND' | 'UNDER_BAND' | 'LONG_COMMUTE';
 interface Flag { key: FlagKey; level: 'red' | 'yellow'; label: string; detail: string }
+
+/** Canonical phone key for cross-record matching. Strips non-digits,
+ *  drops a leading `60` country code or `0` national prefix so
+ *  `+60 12 345 6789`, `6012 345 6789`, and `012-3456789` all collapse
+ *  to the same string. Used to flag repeat applicants — same phone,
+ *  multiple submissions. Returns '' when there's nothing usable. */
+function phoneKey(phone: string | null | undefined): string {
+  if (!phone) return '';
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.startsWith('60')) return digits.slice(2);
+  if (digits.startsWith('0')) return digits.slice(1);
+  return digits;
+}
 
 /** "3+ years" bucket matcher — used by UNDER_BAND so we don't tag a
  *  fresh SPM graduate asking below the band as "underpricing themselves." */
@@ -380,11 +393,17 @@ export default function CandidatesPage() {
   const [maxSalary, setMaxSalary] = useState<string>('');
   const [shortCommute, setShortCommute] = useState<boolean>(false);
   const [shortlistedOnly, setShortlistedOnly] = useState<boolean>(false);
+  // Rejection-reason subsets — useful on Rejected / All-closed after a
+  // bulk import lands hundreds of rows at once. Sentinels kept in sync
+  // with REJECTION_SENTINELS in ImportCandidatesPage.
+  const [noShowOnly, setNoShowOnly] = useState<boolean>(false);
+  const [declinedOfferOnly, setDeclinedOfferOnly] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'salary_asc' | 'salary_desc' | 'name_asc'>('newest');
-  // Client-side pagination — currently only kicks in on the "All closed"
-  // tab, where lists grow indefinitely as hires and rejections
-  // accumulate. Other tabs stay unpaginated because their volumes are
-  // naturally bounded by the pipeline.
+  // Client-side pagination for the terminal tabs (Hired / Rejected /
+  // All closed) — those lists grow indefinitely as hires and rejections
+  // accumulate (a bulk import can drop 800 rows at once), so they need
+  // paging. Active-pipeline tabs stay unpaginated because their volumes
+  // are naturally bounded.
   const CLOSED_PAGE_SIZE = 10;
   const [closedPage, setClosedPage] = useState(1);
   // Two view modes: 'list' (spreadsheet-style rows) and 'card' (sidebar
@@ -407,7 +426,7 @@ export default function CandidatesPage() {
   // after a filter shrinks the list to 12 items.
   useEffect(() => {
     setClosedPage(1);
-  }, [tab, search, desiredPosition, experienceFilter, qualFilter, maxSalary, shortCommute, shortlistedOnly, sortBy]);
+  }, [tab, search, desiredPosition, experienceFilter, qualFilter, maxSalary, shortCommute, shortlistedOnly, noShowOnly, declinedOfferOnly, sortBy]);
 
 
   // Focused review view — sidebar + card + decision bar interface.
@@ -440,7 +459,7 @@ export default function CandidatesPage() {
       status: tab as any,
       search: search || undefined,
       desiredPosition: desiredPosition || undefined,
-      pageSize: 100,
+      pageSize: 2000,
     }),
     // Poll every minute so applications arriving via the Google Form
     // bridge (or any other background source) surface without the
@@ -450,12 +469,36 @@ export default function CandidatesPage() {
 
   const rawItems = list?.items ?? [];
 
+  // Cross-tab phone index so the repeat-applicant flag surfaces on
+  // NEW even when the prior applications sit in Rejected. Backend
+  // returns a raw phone array; we normalise + count here.
+  const { data: phoneIndex } = useQuery({
+    queryKey: ['candidate-phone-index'],
+    queryFn: fetchCandidatePhoneIndex,
+    refetchInterval: 60_000,
+  });
+  const dupeCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of (phoneIndex ?? [])) {
+      const key = phoneKey(p);
+      if (!key) continue;
+      m.set(key, (m.get(key) ?? 0) + 1);
+    }
+    return m;
+  }, [phoneIndex]);
+  const repeatCountFor = (c: Candidate) => dupeCounts.get(phoneKey(c.phone)) ?? 1;
+
   // Client-side filter + sort. All new advanced filters live here so the
   // backend stays simple. Positions are memoised through `formOptions`.
   const items = useMemo(() => {
     const maxSal = maxSalary ? Number(maxSalary) : null;
     let out = rawItems.filter(c => {
       if (shortlistedOnly && !c.isShortlisted) return false;
+      // No-show sentinel written by the bulk importer when a row's
+      // "Didn't Attend" column is truthy — keep in sync with
+      // REJECTION_SENTINELS in ImportCandidatesPage.
+      if (noShowOnly && (c.status !== 'REJECTED' || c.rejectionReason !== 'Candidate did not attend the interview.')) return false;
+      if (declinedOfferOnly && (c.status !== 'REJECTED' || c.rejectionReason !== 'Candidate declined the offer.')) return false;
       if (experienceFilter.size > 0 && (!c.experienceRange || !experienceFilter.has(c.experienceRange))) return false;
       if (qualFilter.size > 0 && !qualFilter.has(qualKey(c.qualification))) return false;
       if (maxSal != null && (c.expectedSalary == null || c.expectedSalary > maxSal)) return false;
@@ -478,10 +521,18 @@ export default function CandidatesPage() {
     // not a resort trigger — clicking it shouldn't shuffle the list
     // under the admin's cursor.
     return out;
-  }, [rawItems, shortlistedOnly, experienceFilter, qualFilter, maxSalary, shortCommute, sortBy]);
+  }, [rawItems, shortlistedOnly, noShowOnly, declinedOfferOnly, experienceFilter, qualFilter, maxSalary, shortCommute, sortBy]);
 
-  // Slice for the paginated tabs. Only the closed tab paginates today.
-  const showClosedPagination = tab === 'closed' && items.length > CLOSED_PAGE_SIZE;
+  // Terminal tabs — the list swaps its "Scheduled" column for a
+  // "Status" column since scheduling is irrelevant once the candidate
+  // is closed out; the outcome (Hired / Rejected / Declined offer) is
+  // the useful column at that point.
+  const isTerminalTab = tab === 'HIRED' || tab === 'REJECTED' || tab === 'closed';
+
+  // Paginate the terminal tabs — a bulk import can drop hundreds of
+  // rows onto Rejected in one go, and rendering that unpaginated melts
+  // both the DOM and the eye. Active-pipeline tabs stay unpaginated.
+  const showClosedPagination = isTerminalTab && items.length > CLOSED_PAGE_SIZE;
   const closedTotalPages = showClosedPagination
     ? Math.max(1, Math.ceil(items.length / CLOSED_PAGE_SIZE))
     : 1;
@@ -492,17 +543,14 @@ export default function CandidatesPage() {
 
   const counts = stats?.counts;
   const closedTotal = counts ? counts.HIRED + counts.REJECTED : 0;
-  // Terminal tabs — the list swaps its "Scheduled" column for a
-  // "Status" column since scheduling is irrelevant once the candidate
-  // is closed out; the outcome (Hired / Rejected / Declined offer) is
-  // the useful column at that point.
-  const isTerminalTab = tab === 'HIRED' || tab === 'REJECTED' || tab === 'closed';
   const activeFilterCount =
     (experienceFilter.size > 0 ? 1 : 0)
     + (qualFilter.size > 0 ? 1 : 0)
     + (maxSalary ? 1 : 0)
     + (shortCommute ? 1 : 0)
-    + (shortlistedOnly ? 1 : 0);
+    + (shortlistedOnly ? 1 : 0)
+    + (noShowOnly ? 1 : 0)
+    + (declinedOfferOnly ? 1 : 0);
 
   const delMut = useMutation({
     mutationFn: deleteCandidate,
@@ -712,7 +760,7 @@ export default function CandidatesPage() {
     shortCommute ? '1' : '0',
     shortlistedOnly ? '1' : '0',
     sortBy,
-  ].join('|'), [tab, search, desiredPosition, experienceFilter, qualFilter, maxSalary, shortCommute, shortlistedOnly, sortBy]);
+  ].join('|'), [tab, search, desiredPosition, experienceFilter, qualFilter, maxSalary, shortCommute, shortlistedOnly, noShowOnly, declinedOfferOnly, sortBy]);
 
   useEffect(() => {
     if (!reviewOpen) return;
@@ -814,6 +862,7 @@ export default function CandidatesPage() {
           <h1 style={S.h1}>Candidates</h1>
           <p style={S.subtitle}>Review applicants and manage your hiring pipeline.</p>
         </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <div ref={linkMenuRef} style={{ position: 'relative' }}>
           <button style={S.linkBtn(linkCopied)} onClick={() => setLinkMenuOpen(o => !o)}>
             <FontAwesomeIcon icon={linkCopied ? faCheck : faLink} style={{ fontSize: 12 }} />
@@ -854,6 +903,7 @@ export default function CandidatesPage() {
             </div>
           )}
         </div>
+        </div>
       </div>
 
       {/* Pipeline stage tabs — one row from NEW to Rejected. */}
@@ -882,6 +932,17 @@ export default function CandidatesPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              title="Clear search"
+              aria-label="Clear search"
+              style={S.searchClearBtn}
+            >
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
+          )}
         </div>
         <select
           style={S.select}
@@ -978,6 +1039,14 @@ export default function CandidatesPage() {
               <input type="checkbox" checked={shortlistedOnly} onChange={e => setShortlistedOnly(e.target.checked)} style={{ display: 'none' }} />
               <FontAwesomeIcon icon={faStar} /> Favourites only
             </label>
+            <label style={S.toggleChip(noShowOnly)}>
+              <input type="checkbox" checked={noShowOnly} onChange={e => setNoShowOnly(e.target.checked)} style={{ display: 'none' }} />
+              No-show only
+            </label>
+            <label style={S.toggleChip(declinedOfferOnly)}>
+              <input type="checkbox" checked={declinedOfferOnly} onChange={e => setDeclinedOfferOnly(e.target.checked)} style={{ display: 'none' }} />
+              Declined offer only
+            </label>
             {activeFilterCount > 0 && (
               <button
                 onClick={() => {
@@ -986,6 +1055,8 @@ export default function CandidatesPage() {
                   setMaxSalary('');
                   setShortCommute(false);
                   setShortlistedOnly(false);
+                  setNoShowOnly(false);
+                  setDeclinedOfferOnly(false);
                 }}
                 style={S.clearFiltersBtn}
               >
@@ -1038,6 +1109,7 @@ export default function CandidatesPage() {
                 sessionActioned={sessionActioned}
                 sessionShortlisted={sessionShortlisted}
                 sessionRejected={sessionRejected}
+                isRepeat={c => repeatCountFor(c) > 1}
                 onJump={jumpTo}
               />
 
@@ -1073,6 +1145,15 @@ export default function CandidatesPage() {
                     <InboxReviewCard
                       c={currentCandidate}
                       positions={positions}
+                      repeatCount={repeatCountFor(currentCandidate)}
+                      onRepeatSearch={() => {
+                        // Jump to All closed and pre-fill the search
+                        // bar with this candidate's phone. Matches how
+                        // the admin would manually investigate a repeat
+                        // — "what did we do the last few times?"
+                        setTab('closed');
+                        setSearch(currentCandidate.phone ?? '');
+                      }}
                       onOpenModal={() => setOpenId(currentCandidate.id)}
                       onScheduleInterview={() => setSchedulingCandidate(currentCandidate)}
                       onToggleShortlist={onShortlist}
@@ -1234,17 +1315,19 @@ export default function CandidatesPage() {
             <div style={S.divList}>
               <div style={S.divHeader}>
                 <div style={isTerminalTab ? S.rowGridTerminal : S.rowGrid}>
+                  <div style={{ ...S.thLabel, textAlign: 'center' as const, justifySelf: 'center' }}>#</div>
                   <div style={S.thLabel}>Candidate</div>
                   <div style={{ ...S.thLabel, textAlign: 'center' as const, justifySelf: 'center' }}>Qual</div>
                   <div style={S.thLabel}>Salary ask</div>
                   <div style={S.thLabel}>Location</div>
+                  {isTerminalTab && <div style={S.thLabel}>Submitted</div>}
                   <div style={S.thLabel}>
                     {isTerminalTab ? 'Status' : 'Scheduled'}
                   </div>
                   <div style={{ ...S.thLabel, textAlign: 'right' as const, justifySelf: 'end' }}>Actions</div>
                 </div>
               </div>
-              {displayItems.map(c => {
+              {displayItems.map((c, idx) => {
                 const meta = STATUS_META[c.status];
                 const q = QUAL_STYLES[qualKey(c.qualification)];
                 const age = calcAge(c.dob);
@@ -1525,6 +1608,8 @@ export default function CandidatesPage() {
                         e.currentTarget.style.background = c.isShortlisted ? '#fcfaf3' : 'transparent';
                       }}>
                       <div style={isTerminalTab ? S.rowGridTerminal : S.rowGrid}>
+                        {/* Col 0 — row index (1-based, as displayed after sort/filter) */}
+                        <div style={S.rowNumCell}>{idx + 1}</div>
                         {/* Col 1 — identity + role */}
                         <div style={S.colIdentity}>
                           <div style={S.rowHeader}>
@@ -1541,8 +1626,24 @@ export default function CandidatesPage() {
                                 <FontAwesomeIcon icon={faGoogle} />
                               </span>
                             )}
+                            {repeatCountFor(c) > 1 && (
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setTab('closed');
+                                  setSearch(c.phone ?? '');
+                                }}
+                                style={S.repeatIconBtn}
+                                title={`Applied ${repeatCountFor(c)}× — click to search this phone in All closed.`}
+                                aria-label={`Repeat applicant — search phone in All closed`}
+                              >
+                                <FontAwesomeIcon icon={faArrowsRotate} />
+                                <span style={S.repeatCount}>{repeatCountFor(c)}×</span>
+                              </button>
+                            )}
                             {flagIcons}
-                            {(c.careerGoals || c.whyKindergartenTeacher || c.adminNotes) && (
+                            {(c.careerGoals || c.whyKindergartenTeacher || c.desiredPosition || c.adminNotes) && (
                               <span style={S.hoverIconGroup}>
                                 {c.careerGoals && (
                                   <span title={c.careerGoals} style={S.hoverIcon}>
@@ -1552,6 +1653,15 @@ export default function CandidatesPage() {
                                 {c.whyKindergartenTeacher && (
                                   <span title={c.whyKindergartenTeacher} style={S.hoverIcon}>
                                     <FontAwesomeIcon icon={faHeart} />
+                                  </span>
+                                )}
+                                {/* Role — was a text pill on the bottom row.
+                                    Collapsed to an icon-only glyph beside
+                                    the heart; the full role name lives in
+                                    the tooltip. */}
+                                {c.desiredPosition && (
+                                  <span title={`Applying for: ${c.desiredPosition}`} style={S.hoverIcon}>
+                                    <FontAwesomeIcon icon={faChalkboardUser} />
                                   </span>
                                 )}
                                 {c.adminNotes && (
@@ -1566,20 +1676,13 @@ export default function CandidatesPage() {
                               </span>
                             )}
                           </div>
-                          <div style={S.identityMeta}>
-                            <span style={S.rolePill}>
-                              <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 10 }} />
-                              {c.desiredPosition ?? 'No role'}
-                            </span>
-                            {c.experienceRange && (
-                              <>
-                                <span style={S.metaSep}>·</span>
-                                <span title="Years of teaching experience" style={S.expText}>
-                                  {c.experienceRange}
-                                </span>
-                              </>
-                            )}
-                          </div>
+                          {c.experienceRange && (
+                            <div style={S.identityMeta}>
+                              <span title="Years of teaching experience" style={S.expText}>
+                                {c.experienceRange}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Col 3 — qualification icon (leads-source style,
@@ -1598,6 +1701,9 @@ export default function CandidatesPage() {
                             <div style={S.salaryValue}>
                               <span style={S.currencyLabel}>RM</span>
                               {c.expectedSalary.toLocaleString()}
+                              {c.expectedSalaryMax != null && c.expectedSalaryMax !== c.expectedSalary && (
+                                <> – {c.expectedSalaryMax.toLocaleString()}</>
+                              )}
                               {c.salaryJustification && (
                                 <span
                                   title={c.salaryJustification}
@@ -1652,6 +1758,16 @@ export default function CandidatesPage() {
                           )}
                         </div>
 
+                        {/* Col 5.5 — original submission date. Only on
+                            terminal tabs (Hired / Rejected / All closed),
+                            where "when did this land" is the piece of
+                            context the admin scans against once the
+                            interview slot no longer matters. */}
+                        {isTerminalTab && (
+                          <div style={S.colSubmitted} title={`Submitted ${fmtDate(c.submittedAt)}`}>
+                            {fmtDate(c.submittedAt)}
+                          </div>
+                        )}
                         {/* Col 6 — swaps between "Scheduled" (interview
                             date) on active tabs and "Status" (terminal
                             outcome pill) on Hired / Rejected / closed. */}
@@ -1863,6 +1979,7 @@ export default function CandidatesPage() {
         />
       )}
 
+
       {rejectingCandidate && (
         <RejectCandidateModal
           candidate={rejectingCandidate}
@@ -1962,23 +2079,49 @@ export default function CandidatesPage() {
 // (rejected × / actioned ✓ / shortlist tint). Auto-scrolls the current
 // row into view when it changes (keeps the viewport centered around the
 // person being reviewed as the admin walks the queue with ← / →).
+const SIDEBAR_PAGE_SIZE = 20;
 function ReviewSidebar(props: {
   items: Candidate[];
   currentIdx: number;
   sessionActioned: Set<string>;
   sessionShortlisted: Set<string>;
   sessionRejected: Set<string>;
+  isRepeat: (c: Candidate) => boolean;
   onJump: (idx: number) => void;
 }) {
-  const { items, currentIdx, sessionActioned, sessionShortlisted, sessionRejected, onJump } = props;
+  const { items, currentIdx, sessionActioned, sessionShortlisted, sessionRejected, isRepeat, onJump } = props;
   const listRef = useRef<HTMLUListElement | null>(null);
+
+  // Filter out rejected candidates so the sidebar clears them out
+  // immediately — no strike-through leftovers cluttering the queue.
+  // `origIdx` is kept so we can still map clicks + the auto-scroll
+  // target back to the parent's queueSnapshot index.
+  const liveItems = useMemo(
+    () => items
+      .map((c, origIdx) => ({ c, origIdx }))
+      .filter(({ c }) => !sessionRejected.has(c.id)),
+    [items, sessionRejected],
+  );
+
+  // Client-side paging for long queues (bulk imports easily produce
+  // 800+). Auto-flip to the page containing the current candidate so
+  // ← / → in the main pane keeps the sidebar aligned with what's shown.
+  const totalPages = Math.max(1, Math.ceil(liveItems.length / SIDEBAR_PAGE_SIZE));
+  const currentLiveIdx = liveItems.findIndex(x => x.origIdx === currentIdx);
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    if (currentLiveIdx >= 0) setPage(Math.floor(currentLiveIdx / SIDEBAR_PAGE_SIZE));
+  }, [currentLiveIdx]);
+  const pageClamped = Math.min(page, totalPages - 1);
+  const start = pageClamped * SIDEBAR_PAGE_SIZE;
+  const visibleItems = liveItems.slice(start, start + SIDEBAR_PAGE_SIZE);
 
   // Keep the current row in view as the admin navigates. `nearest`
   // avoids scrolling when the row is already visible.
   useEffect(() => {
     const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${currentIdx}"]`);
     if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [currentIdx]);
+  }, [currentIdx, pageClamped]);
 
   return (
     <aside style={S.reviewSidebar} aria-label="Candidate review queue">
@@ -1986,19 +2129,52 @@ function ReviewSidebar(props: {
         <span style={S.reviewSidebarLabel}>Candidates</span>
       </div>
       <ul ref={listRef} style={S.reviewSidebarList} role="listbox" aria-activedescendant={`review-item-${currentIdx}`}>
-        {items.map((c, idx) => (
-          <ReviewSidebarItem
-            key={c.id}
-            candidate={c}
-            idx={idx}
-            isCurrent={idx === currentIdx}
-            isShortlisted={c.isShortlisted || sessionShortlisted.has(c.id)}
-            isRejected={sessionRejected.has(c.id)}
-            isActioned={sessionActioned.has(c.id)}
-            onSelect={() => onJump(idx)}
-          />
-        ))}
+        {visibleItems.map(({ c, origIdx }, offset) => {
+          // Sidebar number is 1-based over the LIVE list (after
+          // rejections drop out) so the admin sees "1, 2, 3…" without
+          // holes where rejected rows used to be.
+          const displayNum = start + offset + 1;
+          return (
+            <ReviewSidebarItem
+              key={c.id}
+              candidate={c}
+              idx={origIdx}
+              displayNum={displayNum}
+              isCurrent={origIdx === currentIdx}
+              isShortlisted={c.isShortlisted || sessionShortlisted.has(c.id)}
+              isRejected={false}
+              isActioned={sessionActioned.has(c.id)}
+              isRepeat={isRepeat(c)}
+              onSelect={() => onJump(origIdx)}
+            />
+          );
+        })}
       </ul>
+      {totalPages > 1 && (
+        <div style={S.reviewSidebarPager}>
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={pageClamped === 0}
+            style={S.reviewSidebarPagerBtn(pageClamped === 0)}
+            aria-label="Previous page"
+          >
+            <FontAwesomeIcon icon={faChevronLeft} />
+          </button>
+          <span style={S.reviewSidebarPagerLabel}>
+            {pageClamped + 1} / {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={pageClamped === totalPages - 1}
+            style={S.reviewSidebarPagerBtn(pageClamped === totalPages - 1)}
+            aria-label="Next page"
+          >
+            <FontAwesomeIcon icon={faChevronRight} />
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
@@ -2006,13 +2182,15 @@ function ReviewSidebar(props: {
 function ReviewSidebarItem(props: {
   candidate: Candidate;
   idx: number;
+  displayNum: number;
   isCurrent: boolean;
   isShortlisted: boolean;
   isRejected: boolean;
   isActioned: boolean;
+  isRepeat: boolean;
   onSelect: () => void;
 }) {
-  const { candidate: c, idx, isCurrent, isShortlisted, isRejected, isActioned, onSelect } = props;
+  const { candidate: c, idx, displayNum, isCurrent, isShortlisted, isRejected, isActioned, isRepeat, onSelect } = props;
   const wait = waitingSince(c.submittedAt);
   const qual = QUAL_STYLES[qualKey(c.qualification)];
   const qualTooltip = c.qualification
@@ -2022,7 +2200,13 @@ function ReviewSidebarItem(props: {
   // Build the subtitle string declaratively so JSX below stays tidy.
   const subtitleParts: string[] = [];
   if (c.desiredPosition) subtitleParts.push(c.desiredPosition);
-  if (c.expectedSalary != null) subtitleParts.push(`RM ${c.expectedSalary.toLocaleString()}`);
+  if (c.expectedSalary != null) {
+    subtitleParts.push(
+      c.expectedSalaryMax != null && c.expectedSalaryMax !== c.expectedSalary
+        ? `RM ${c.expectedSalary.toLocaleString()} – ${c.expectedSalaryMax.toLocaleString()}`
+        : `RM ${c.expectedSalary.toLocaleString()}`,
+    );
+  }
   const subtitle = subtitleParts.join(' · ');
 
   // Actioned-but-not-rejected candidates (i.e. moved to CONTACTED via
@@ -2059,10 +2243,13 @@ function ReviewSidebarItem(props: {
           e.currentTarget.style.borderColor = 'transparent';
         }}
       >
-        <span style={S.reviewSidebarNum(isCurrent, isShortlisted, isRejected)}>
+        <span
+          style={S.reviewSidebarNum(isCurrent, isShortlisted, isRejected, isRepeat)}
+          title={isRepeat ? 'Repeat applicant — this phone has applied more than once.' : undefined}
+        >
           {isRejected ? <FontAwesomeIcon icon={faXmark} />
            : showChecked ? <FontAwesomeIcon icon={faCheck} />
-           : idx + 1}
+           : displayNum}
         </span>
         <div style={S.reviewSidebarTextCol}>
           <span style={S.reviewSidebarName(isRejected)}>{c.fullName}</span>
@@ -2097,12 +2284,14 @@ function ReviewSidebarItem(props: {
 function InboxReviewCard(props: {
   c: Candidate;
   positions: { name: string; minSalary: number | null; maxSalary: number | null }[];
+  repeatCount: number;
+  onRepeatSearch: () => void;
   onOpenModal: () => void;
   onScheduleInterview: () => void;
   onToggleShortlist: () => void;
   shortlistPending: boolean;
 }) {
-  const { c } = props;
+  const { c, repeatCount, onRepeatSearch } = props;
   const q = QUAL_STYLES[qualKey(c.qualification)];
   const age = calcAge(c.dob);
   const flags = computeFlags(c, props.positions);
@@ -2146,17 +2335,48 @@ function InboxReviewCard(props: {
                 <FontAwesomeIcon icon={faGoogle} />
               </span>
             )}
+            {repeatCount > 1 && (
+              <button
+                type="button"
+                onClick={onRepeatSearch}
+                style={{ ...S.repeatIconBtn, marginLeft: 8 }}
+                title={`Applied ${repeatCount}× — click to search this phone in All closed.`}
+                aria-label={`Repeat applicant — search phone in All closed`}
+              >
+                <FontAwesomeIcon icon={faArrowsRotate} />
+                <span style={S.repeatCount}>{repeatCount}×</span>
+              </button>
+            )}
           </div>
           <div style={S.reviewSub}>
-            {c.addressLocation && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <FontAwesomeIcon icon={faLocationDot} style={{ fontSize: 11, color: C.mutedSoft }} />
-                {c.addressLocation}
-                {c.commuteTime && (
-                  <span style={S.commuteInlineChip}>{COMMUTE_LABEL[c.commuteTime]}</span>
-                )}
-              </span>
-            )}
+            {c.addressLocation && (() => {
+              // Same Maps deep-link the list view uses — omitting the
+              // origin lets Maps pick the viewer's current location.
+              const mapsHref = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(c.addressLocation + ', Malaysia')}`;
+              return (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <a
+                    href={mapsHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    title={`Open in Google Maps — directions from your location to ${c.addressLocation}`}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      color: C.textSub, textDecoration: 'none',
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faLocationDot} style={{ fontSize: 11, color: C.mutedSoft }} />
+                    <span style={{ textDecoration: 'underline', textDecorationColor: C.borderSoft, textUnderlineOffset: 3 }}>
+                      {c.addressLocation}
+                    </span>
+                  </a>
+                  {c.commuteTime && (
+                    <span style={S.commuteInlineChip}>{COMMUTE_LABEL[c.commuteTime]}</span>
+                  )}
+                </span>
+              );
+            })()}
             {flags.length > 0 && (
               <>
                 <span style={S.subDot}>·</span>
@@ -2180,6 +2400,33 @@ function InboxReviewCard(props: {
           >
             <FontAwesomeIcon icon={faStar} />
           </button>
+          {(c.resumeUrl || c.resumePath) ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (c.resumeUrl) {
+                  window.open(c.resumeUrl, '_blank', 'noopener,noreferrer');
+                } else {
+                  const win = window.open('', '_blank');
+                  downloadCandidateResume(c.id, win).catch((e: any) => {
+                    alert(e?.message ?? 'Could not open resume.');
+                  });
+                }
+              }}
+              title={c.resumeOriginalName ? `Open ${c.resumeOriginalName}` : 'Open resume'}
+              style={S.resumeIconBtn}
+            >
+              <FontAwesomeIcon icon={faFileLines} />
+            </button>
+          ) : (
+            <span
+              title="This candidate did not attach a resume."
+              style={S.resumeIconMissing}
+              aria-label="No resume attached"
+            >
+              <FontAwesomeIcon icon={faFileLines} />
+            </span>
+          )}
           <span style={S.applyingChip}>
             <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 11 }} />
             Applying for <strong>{c.desiredPosition ?? '—'}</strong>
@@ -2224,7 +2471,12 @@ function InboxReviewCard(props: {
                   <FontAwesomeIcon icon={faSackDollar} /> Salary Ask
                 </div>
                 {c.expectedSalary != null && (
-                  <div style={S.reviewSalary}>RM {c.expectedSalary.toLocaleString()}</div>
+                  <div style={S.reviewSalary}>
+                    RM {c.expectedSalary.toLocaleString()}
+                    {c.expectedSalaryMax != null && c.expectedSalaryMax !== c.expectedSalary && (
+                      <> – {c.expectedSalaryMax.toLocaleString()}</>
+                    )}
+                  </div>
                 )}
               </div>
               {c.salaryJustification && (
@@ -2370,36 +2622,6 @@ function InboxReviewCard(props: {
                     )}
                   </span>
                 </>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-              {(c.resumeUrl || c.resumePath) ? (
-                <button
-                  onClick={() => {
-                    // Same precedence as the kebab: prefer the external
-                    // URL (Google Drive from the Apps Script bridge),
-                    // fall back to the auth-gated internal fetch.
-                    if (c.resumeUrl) {
-                      window.open(c.resumeUrl, '_blank', 'noopener,noreferrer');
-                    } else {
-                      const win = window.open('', '_blank');
-                      downloadCandidateResume(c.id, win).catch((e: any) => {
-                        alert(e?.message ?? 'Could not open resume.');
-                      });
-                    }
-                  }}
-                  style={S.resumeBtn}
-                  title={c.resumeOriginalName ? `Open ${c.resumeOriginalName}` : 'Open resume'}
-                >
-                  <FontAwesomeIcon icon={faFileLines} /> Open Resume
-                </button>
-              ) : (
-                <span
-                  style={S.resumeMissing}
-                  title="This candidate did not attach a resume."
-                >
-                  <FontAwesomeIcon icon={faFileLines} /> No resume attached
-                </span>
               )}
             </div>
           </div>
@@ -3582,10 +3804,20 @@ const S = {
     color: C.mutedSoft, fontSize: 13,
   } as React.CSSProperties,
   search: {
+    // Right padding widened to 36px so the value never runs under the
+    // clear (×) button when the input has content.
     width: '100%', border: `1px solid ${C.border}`, borderRadius: 10,
-    padding: '0 14px 0 38px', fontSize: 14, background: C.surface,
+    padding: '0 36px 0 38px', fontSize: 14, background: C.surface,
     color: C.text, outline: 'none', height: 40,
     boxShadow: SHADOW.sm,
+  } as React.CSSProperties,
+  searchClearBtn: {
+    position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+    width: 22, height: 22, borderRadius: 6,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    background: 'transparent', color: C.mutedSoft,
+    border: 'none', fontSize: 12, cursor: 'pointer',
+    padding: 0,
   } as React.CSSProperties,
   select: {
     border: `1px solid ${C.border}`, borderRadius: 10, padding: '0 12px',
@@ -3720,7 +3952,7 @@ const S = {
   // under what the original (with the star column) required.
   rowGrid: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(200px, 1.6fr) 40px 120px minmax(160px, 1.1fr) 180px 320px',
+    gridTemplateColumns: '44px minmax(200px, 1.6fr) 40px 120px minmax(160px, 1.1fr) 180px 320px',
     gap: 20, alignItems: 'center',
   } as React.CSSProperties,
   // Terminal tabs (Hired / Rejected / All closed) never render row
@@ -3730,8 +3962,41 @@ const S = {
   // column expand (via 2fr) to consume the freed width.
   rowGridTerminal: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(200px, 1.6fr) 40px 120px minmax(160px, 1.1fr) minmax(200px, 2fr) 50px',
+    // Extra "Submitted" column between Location and Status — only
+    // shown on Hired / Rejected / All-closed, where "when did we
+    // close this out" is the piece of context the admin actually
+    // scans against once scheduling is behind us.
+    gridTemplateColumns: '44px minmax(200px, 1.6fr) 40px 120px minmax(160px, 1.1fr) 110px minmax(200px, 1.5fr) 50px',
     gap: 20, alignItems: 'center',
+  } as React.CSSProperties,
+  colSubmitted: {
+    fontSize: 13, color: C.textSub, fontWeight: 500,
+    fontVariantNumeric: 'tabular-nums' as const,
+    whiteSpace: 'nowrap' as const,
+  } as React.CSSProperties,
+  rowNumCell: {
+    fontSize: 12, fontWeight: 700, color: '#94a3b8',
+    fontVariantNumeric: 'tabular-nums' as const,
+    textAlign: 'center' as const,
+    justifySelf: 'center',
+  } as React.CSSProperties,
+  // Repeat-applicant marker — compact amber pill with the ↻ icon and
+  // the count ("3×") inline. Clicking jumps to All closed and populates
+  // the search bar with this candidate's phone number so the admin can
+  // see the prior applications in one click.
+  repeatIconBtn: {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    padding: '2px 7px', borderRadius: 999,
+    background: '#fef3c7', color: '#92400e',
+    border: '1px solid #fde68a',
+    fontSize: 10, cursor: 'pointer',
+    flexShrink: 0,
+    transition: 'background 0.12s',
+  } as React.CSSProperties,
+  repeatCount: {
+    fontSize: 11, fontWeight: 700,
+    letterSpacing: 0.2,
+    fontVariantNumeric: 'tabular-nums' as const,
   } as React.CSSProperties,
   colIdentity: {
     display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0,
@@ -4152,6 +4417,23 @@ const S = {
     listStyle: 'none', padding: 0, margin: 0,
     display: 'flex', flexDirection: 'column', gap: 2,
   } as React.CSSProperties,
+  reviewSidebarPager: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    gap: 8, padding: '10px 8px 2px', marginTop: 8,
+    borderTop: `1px solid ${C.borderSoft}`,
+  } as React.CSSProperties,
+  reviewSidebarPagerBtn: (disabled: boolean): React.CSSProperties => ({
+    width: 28, height: 28, borderRadius: 6,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    background: C.surface, color: disabled ? C.mutedSoft : C.textSub,
+    border: `1px solid ${C.border}`,
+    fontSize: 11, cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+  }),
+  reviewSidebarPagerLabel: {
+    fontSize: 11, fontWeight: 600, color: C.mutedSoft,
+    fontVariantNumeric: 'tabular-nums' as const,
+  } as React.CSSProperties,
   reviewSidebarItem: (current: boolean, rejected: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 10,
     width: '100%', padding: '10px 10px', borderRadius: 10,
@@ -4162,22 +4444,25 @@ const S = {
     transition: 'background 0.12s, border-color 0.12s',
   }),
   reviewSidebarNum: (
-    current: boolean, shortlisted: boolean, rejected: boolean,
+    current: boolean, shortlisted: boolean, rejected: boolean, repeat: boolean,
   ): React.CSSProperties => ({
     width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 11, fontWeight: 700,
-    // Priority: current > rejected > shortlisted > default. The
-    // selected row always shows the solid indigo highlight so the
-    // admin can see at a glance which one they're on — a favourited
-    // candidate that happens to also be selected still reads as
-    // "selected" first.
-    background: current     ? C.primary
-              : rejected    ? C.dangerSoft
+    // Priority: rejected > repeat > current > shortlisted > default.
+    // Repeat wins over selection so the "this person has applied before"
+    // signal survives even when the row is the currently-selected one
+    // (the row's own background tint still marks selection separately).
+    // The red is red-400 (`#f87171`) — bright + saturated but light
+    // enough not to feel like a hard system-error state.
+    background: rejected    ? C.dangerSoft
+              : repeat      ? '#ef4444'
+              : current     ? C.primary
               : shortlisted ? '#fef3c7'
               : C.borderSoft,
-    color:      current     ? '#fff'
-              : rejected    ? C.danger
+    color:      rejected    ? C.danger
+              : repeat      ? '#fff'
+              : current     ? '#fff'
               : shortlisted ? '#a16207'
               : C.muted,
   }),
@@ -4430,6 +4715,26 @@ const S = {
     background: C.primary, color: '#fff',
     fontSize: 14, fontWeight: 600, cursor: 'pointer',
     boxShadow: SHADOW.sm,
+  } as React.CSSProperties,
+  // Compact resume icon that sits beside the star in the card header.
+  // Matches starToggle dimensions so the two buttons form a visually
+  // balanced pair. Neutral slate tint — a resume is common enough not
+  // to need an accent colour.
+  resumeIconBtn: {
+    width: 32, height: 32, borderRadius: 8,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 13, cursor: 'pointer',
+    background: C.surface, color: C.textSub,
+    border: `1px solid ${C.border}`,
+    transition: 'all 0.12s ease',
+  } as React.CSSProperties,
+  // No-resume variant — dashed border, muted colour, non-interactive.
+  resumeIconMissing: {
+    width: 32, height: 32, borderRadius: 8,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 13, cursor: 'default',
+    background: C.bgSoft, color: C.mutedSoft,
+    border: `1px dashed ${C.border}`,
   } as React.CSSProperties,
   // Small marker star in the card header — click to add / remove from
   // shortlist. On = gold filled, Off = outlined grey.

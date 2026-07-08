@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export default function Navbar() {
@@ -306,7 +306,7 @@ export default function Navbar() {
                 { key: 'finance',      node: <>{section(faMoneyBillTrendUp, 'Finance')}{link('/settings/finance', 'Targets & Thresholds')}</> },
                 { key: 'comm',         node: <>{section(faMessage, 'Communication')}{link('/settings/whatsapp-templates', 'Message Templates')}</> },
                 { key: 'integrations', node: <>{section(faPlug, 'Integrations')}{link('/settings/calendar', 'Google Calendar')}</> },
-                { key: 'data',         node: <>{section(faFileImport, 'Data')}{link('/leads/import', 'Import Leads')}{link('/students/import', 'Import Students')}</> },
+                { key: 'data',         node: <>{section(faFileImport, 'Data')}{link('/leads/import', 'Import Leads')}{link('/students/import', 'Import Students')}{link('/hr/candidates/import', 'Import Candidates')}</> },
               ];
 
               const renderGroups = (gs: typeof groups) => gs.map((g, i) => (
@@ -373,6 +373,21 @@ export default function Navbar() {
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
                   <FontAwesomeIcon icon={faCalendarDays} style={{ fontSize: 12, color: '#94a3b8' }} /> Year Rollover
+                </NavLink>
+                {/* Destructive — coloured red so it doesn't blend in
+                    with the safe admin actions above. Route is
+                    role-gated at the wrapper (only ADMIN / SUPERADMIN
+                    render this whole dropdown), and the backend
+                    /api/candidates/reset-all endpoint also enforces
+                    adminMiddleware — belt + braces. */}
+                <NavLink to="/settings/test/reset-candidates" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
+                    color: isActive ? '#9b1c1c' : '#c53030', fontWeight: isActive ? 700 : 600,
+                    background: isActive ? '#fef2f2' : 'none', borderRadius: 6,
+                  })}>
+                  <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12, color: '#c53030' }} /> Reset All Candidates
                 </NavLink>
               </div>
             )}

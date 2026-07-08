@@ -213,6 +213,8 @@ export interface Candidate {
    *  setting. Not a FK to Position. */
   desiredPosition: string | null;
   expectedSalary: number | null;
+  /** Upper bound when the applicant gave a range (e.g. RM 2,500 – 2,800). */
+  expectedSalaryMax: number | null;
   availableFrom: string | null;
   /** Preferred-start bucket label from `recruitment_preferred_start_dates`. */
   preferredStartDate: string | null;

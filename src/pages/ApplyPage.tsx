@@ -305,11 +305,20 @@ export default function ApplyPage() {
     ? "Preferred start date can't be in the past."
     : '';
 
+  // Phone guard — the onChange handler already strips letters, but a
+  // real phone still needs some digits. 8 covers a Malaysian mobile
+  // (01X-XXXXXXX = 10 digits, but some inputs shorten "01" → 8 min).
+  const phoneDigitCount = (form.phone.match(/\d/g) ?? []).length;
+  const phoneValid = phoneDigitCount >= 8;
+  const phoneError = form.phone.trim().length > 0 && !phoneValid
+    ? 'Enter a valid phone number (digits only).'
+    : '';
+
   // validators mirror the same required set as a safety net.
   const stepValid = (() => {
     if (step === 'about') {
       return form.fullName.trim().length > 0
-        && form.phone.trim().length > 0
+        && phoneValid
         && dobIsValid
         && form.addressLocation.trim().length > 0
         && form.commuteTime.length > 0
@@ -387,7 +396,7 @@ export default function ApplyPage() {
     setForm(f => ({ ...f, [k]: v }));
 
   const canSubmit = form.fullName.trim().length > 0
-    && form.phone.trim().length > 0
+    && phoneValid
     && dobIsValid
     && form.addressLocation.trim().length > 0
     && form.commuteTime.length > 0
@@ -686,9 +695,34 @@ export default function ApplyPage() {
                   onChange={e => update('fullName', e.target.value)} required />
               </Field>
               <Field {...fp} label="WhatsApp / Phone" required>
-                <input style={S.input} value={form.phone} type="tel"
-                  onChange={e => update('phone', e.target.value)} required
-                  placeholder="01X-XXXXXXX" />
+                <input
+                  style={{
+                    ...S.input,
+                    ...(phoneError ? { borderColor: '#dc2626' } : null),
+                  }}
+                  value={form.phone}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  // Strip anything that isn't a digit, plus, space, dash,
+                  // or parenthesis so the input can't ever hold letters.
+                  // (`type="tel"` alone does not enforce this — it only
+                  // hints the mobile keyboard.)
+                  onChange={e => update('phone', e.target.value.replace(/[^\d+\-()\s]/g, ''))}
+                  onKeyDown={e => {
+                    // Also swallow alpha keys pre-emptively so paste of
+                    // letters doesn't briefly flash before the onChange
+                    // filter kicks in.
+                    if (/^[A-Za-z]$/.test(e.key)) e.preventDefault();
+                  }}
+                  required
+                  placeholder="01X-XXXXXXX"
+                />
+                {phoneError && (
+                  <div style={{ fontSize: 12, color: '#dc2626', marginTop: 4 }}>
+                    {phoneError}
+                  </div>
+                )}
               </Field>
             </div>
             <Field {...fp} label="Date of birth" required>

@@ -4,7 +4,7 @@ import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../api/client.js';
 import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
-type Tool = 'reset-leads' | 'reset-students' | 'seed-dummy' | 'seed-candidates';
+type Tool = 'reset-leads' | 'reset-students' | 'reset-candidates' | 'seed-dummy' | 'seed-candidates';
 
 export default function TestToolsPage({ tool }: { tool: Tool }) {
   const [status, setStatus] = useState<'idle' | 'confirming' | 'loading' | 'done' | 'error'>('idle');
@@ -23,6 +23,15 @@ export default function TestToolsPage({ tool }: { tool: Tool }) {
       description: 'Permanently deletes every student record in the database. This cannot be undone.',
       confirmLabel: 'Yes, delete all students',
       action: async () => { await apiFetch('/api/students/reset', { method: 'DELETE' }); return { message: 'All students have been deleted.', note: '' }; },
+    },
+    'reset-candidates': {
+      title: 'Reset All Candidates',
+      description: 'Permanently deletes every candidate row in the database plus their resume files on disk. Meant for import iteration on a fresh env; not for regular use. This cannot be undone.',
+      confirmLabel: 'Yes, delete all candidates',
+      action: async () => {
+        const res = await apiFetch<{ deleted: number; filesRemoved: number }>('/api/candidates/reset-all', { method: 'POST' });
+        return { message: `Deleted ${res.deleted} candidate${res.deleted === 1 ? '' : 's'} and removed ${res.filesRemoved} resume file${res.filesRemoved === 1 ? '' : 's'}.`, note: '' };
+      },
     },
     'seed-dummy': {
       title: 'Seed Dummy Leads',
