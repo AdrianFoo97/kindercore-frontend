@@ -225,6 +225,8 @@ export default function ApplyPage() {
   // Counts failed submit attempts so we can escalate the error copy —
   // gentle "try again" first, then a screenshot-and-WhatsApp fallback.
   const [failedAttempts, setFailedAttempts] = useState(0);
+  // Modal for the compare-roles table on step 2 (Position dropdown).
+  const [compareRolesOpen, setCompareRolesOpen] = useState(false);
   // Resume file chosen by the candidate. Held in memory until form
   // submit; uploaded as a second request after the candidate is created.
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -779,6 +781,13 @@ export default function ApplyPage() {
                   <option key={p.name} value={p.name}>{p.name}</option>
                 ))}
               </select>
+              <button
+                type="button"
+                onClick={() => setCompareRolesOpen(true)}
+                style={S.compareRolesLink}
+              >
+                Not sure? Compare roles →
+              </button>
               {hasBand && pickedPosition && (
                 <span style={S.hint}>
                   Typical salary range for this role:
@@ -961,6 +970,198 @@ export default function ApplyPage() {
           By submitting, you agree to be contacted by our HR team.
         </p>
       </form>
+      {compareRolesOpen && (
+        <CompareRolesModal onClose={() => setCompareRolesOpen(false)} isMobile={isMobile} />
+      )}
+    </div>
+  );
+}
+
+// ── Compare-roles helper (step 2 Position picker) ─────────────────────────
+// Data-driven so a Settings page could later drive the copy without
+// touching this component. Each attribute is a row; each role is a column.
+const ROLE_COMPARE_ATTRS: Array<{ label: string; values: [string, string, string] }> = [
+  {
+    label: 'Support role',
+    values: [
+      'Provides support to the lead teacher.',
+      'Collaborates closely with the team.',
+      'Provides guidance and leadership to teachers.',
+    ],
+  },
+  {
+    label: 'Independence',
+    values: [
+      'Works with direction, learning the ropes.',
+      'Runs day-to-day tasks without close supervision.',
+      'Leads with a high level of autonomy.',
+    ],
+  },
+  {
+    label: 'Mentorship',
+    values: [
+      'Typically not involved in mentoring others.',
+      'Guides and mentors assistant teachers.',
+      'Provides mentorship and coaching across the team.',
+    ],
+  },
+  {
+    label: 'Classroom management',
+    values: [
+      'Supports the lead teacher with classroom routines.',
+      'Contributes to daily classroom management.',
+      'Owns effective classroom management outcomes.',
+    ],
+  },
+  {
+    label: 'Team collaboration',
+    values: [
+      'Works within a small teaching team.',
+      'Collaborates actively with colleagues.',
+      'Leads collaboration across teachers and helpers.',
+    ],
+  },
+];
+const ROLE_COMPARE_HEADS: [string, string, string] = ['Assistant Teacher', 'Junior Teacher', 'Senior Teacher'];
+
+function CompareRolesModal(props: { onClose: () => void; isMobile: boolean }) {
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') props.onClose(); };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, [props]);
+  const m = !props.isMobile;
+  return (
+    <div
+      onClick={props.onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1000, padding: 16,
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 16, width: 'min(760px, 100%)',
+          maxHeight: 'calc(100vh - 32px)', display: 'flex',
+          flexDirection: 'column', overflow: 'hidden',
+          boxShadow: '0 24px 60px rgba(15,23,42,0.25)',
+        }}
+      >
+        <div style={{
+          padding: '18px 22px 12px', borderBottom: '1px solid #f1f5f9',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+        }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: m ? 20 : 17, fontWeight: 700, color: C.text }}>
+              Which role fits you?
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: C.textSub, lineHeight: 1.5 }}>
+              A quick guide to how the three teaching roles differ day-to-day.
+              Not sure? Pick the closest match — we'll talk it through in the interview.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={props.onClose}
+            aria-label="Close"
+            style={{
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: C.muted, fontSize: 18, padding: 4, lineHeight: 1,
+            }}
+          >
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </div>
+        <div style={{ overflowY: 'auto', padding: m ? '16px 22px 22px' : '12px 16px 18px' }}>
+          {m ? (
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '20%', padding: '10px 8px', textAlign: 'left', color: C.muted, fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }} />
+                  {ROLE_COMPARE_HEADS.map((h, i) => (
+                    <th key={h} style={{
+                      padding: '10px 12px', textAlign: 'left', fontWeight: 700,
+                      color: C.text, background: [C.primarySoft, '#dbeafe', C.successSoft][i],
+                      borderTopLeftRadius: 8, borderTopRightRadius: 8,
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {ROLE_COMPARE_ATTRS.map((row, ri) => (
+                  <tr key={row.label} style={{ borderBottom: ri === ROLE_COMPARE_ATTRS.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '12px 8px', color: C.textSub, fontWeight: 600, verticalAlign: 'top' }}>
+                      {row.label}
+                    </td>
+                    {row.values.map((v, ci) => (
+                      <td key={ci} style={{ padding: '12px 12px', color: C.text, lineHeight: 1.5, verticalAlign: 'top' }}>
+                        {v}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            /* Attribute-first grouping — one card per attribute, three
+               role rows inside. Lets the reader see "Support role" once
+               and compare the three roles at a glance without having
+               to scroll and remember. */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {ROLE_COMPARE_ATTRS.map(row => (
+                <div key={row.label} style={{
+                  border: `1px solid ${C.borderSoft}`, borderRadius: 12, overflow: 'hidden',
+                }}>
+                  <div style={{
+                    padding: '10px 14px', fontWeight: 700, color: C.text, fontSize: 14,
+                    background: '#f8fafc', borderBottom: `1px solid ${C.borderSoft}`,
+                  }}>{row.label}</div>
+                  <div>
+                    {ROLE_COMPARE_HEADS.map((h, i) => {
+                      const tint = [C.primarySoft, '#dbeafe', C.successSoft][i];
+                      const chipText = ['#4338ca', '#0369a1', '#047857'][i];
+                      return (
+                        <div key={h} style={{
+                          display: 'flex', gap: 10, padding: '10px 14px',
+                          borderBottom: i === ROLE_COMPARE_HEADS.length - 1 ? 'none' : '1px solid #f1f5f9',
+                        }}>
+                          <span style={{
+                            flexShrink: 0, alignSelf: 'flex-start',
+                            fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999,
+                            background: tint, color: chipText,
+                            whiteSpace: 'nowrap' as const,
+                          }}>{h}</span>
+                          <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5, flex: 1 }}>
+                            {row.values[i]}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{
+          padding: '12px 22px', borderTop: '1px solid #f1f5f9',
+          display: 'flex', justifyContent: 'flex-end',
+        }}>
+          <button
+            type="button"
+            onClick={props.onClose}
+            style={{
+              padding: '9px 18px', borderRadius: 10,
+              background: C.primary, color: '#fff', border: 'none',
+              fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            Got it
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1136,6 +1337,15 @@ const makeStyles = (m: boolean) => ({
   } as React.CSSProperties,
   hint: {
     fontSize: 12, color: C.muted, marginTop: 6, lineHeight: 1.4,
+  } as React.CSSProperties,
+  // Small in-line trigger under the Position dropdown that opens the
+  // compare-roles modal. Kept subtle so confident candidates skim past
+  // it; only draws attention when the applicant is undecided.
+  compareRolesLink: {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    background: 'transparent', border: 'none', padding: 0,
+    marginTop: 6, color: C.primary,
+    fontSize: 12, fontWeight: 600, cursor: 'pointer',
   } as React.CSSProperties,
   // ── Welcome view ─────────────────────────────────────────────────────
   // Card overrides for the welcome view: full border, top accent bar,
