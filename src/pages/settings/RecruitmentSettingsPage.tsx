@@ -196,6 +196,19 @@ export default function RecruitmentSettingsPage() {
           step={5}
           isAdmin={isAdmin}
         />
+
+        <NumberEditor
+          icon={faClock}
+          title="Confirm-by lead time"
+          description="How many calendar days after today the candidate has to confirm their interview slot. Used by the {{confirmByDate}} placeholder in the Interview Invitation WhatsApp template."
+          settingKey="recruitment_interview_confirm_lead_days"
+          initial={Number(data?.recruitment_interview_confirm_lead_days) || 2}
+          suffix="days"
+          min={1}
+          max={30}
+          step={1}
+          isAdmin={isAdmin}
+        />
       </div>
     </div>
   );

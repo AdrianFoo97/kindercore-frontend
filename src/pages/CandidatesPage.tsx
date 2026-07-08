@@ -32,6 +32,10 @@ function applyInterviewTemplate(
   start: Date,
   end: Date,
   isZh = false,
+  /** Calendar-day offset for the {{confirmByDate}} placeholder — set
+   *  from the `recruitment_interview_confirm_lead_days` system setting.
+   *  Falls back to 2 when the setting is missing / not-yet-loaded. */
+  confirmLeadDays = 2,
 ): string {
   const first = (candidate.fullName || '').trim().split(/\s+/)[0] || '';
   const position = candidate.desiredPosition ?? '';
@@ -41,6 +45,18 @@ function applyInterviewTemplate(
   const date = start.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' });
   const time = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  // Confirm-by = today + N calendar days, capped at the interview
+  // date — a deadline that lands after the interview is nonsense. If
+  // today+N would fall on or after the interview date, use the
+  // interview date itself so the message reads "confirm before <day
+  // of interview>" instead of "confirm after your interview already
+  // happened".
+  const confirmBy = new Date();
+  confirmBy.setDate(confirmBy.getDate() + Math.max(1, confirmLeadDays));
+  const startMidnight = new Date(start);
+  startMidnight.setHours(0, 0, 0, 0);
+  if (confirmBy >= startMidnight) confirmBy.setTime(startMidnight.getTime());
+  const confirmByStr = confirmBy.toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' });
   return template
     .replace(/\{\{candidateName\}\}/g, candidate.fullName ?? '')
     .replace(/\{\{firstName\}\}/g, first)
@@ -50,7 +66,8 @@ function applyInterviewTemplate(
     .replace(/\{\{interviewDay\}\}/g, day)
     .replace(/\{\{interviewDate\}\}/g, date)
     .replace(/\{\{interviewTime\}\}/g, time)
-    .replace(/\{\{interviewEndTime\}\}/g, endTime);
+    .replace(/\{\{interviewEndTime\}\}/g, endTime)
+    .replace(/\{\{confirmByDate\}\}/g, confirmByStr);
 }
 
 // Offer WhatsApp template placeholders — resolves the message sent when
@@ -452,6 +469,11 @@ export default function CandidatesPage() {
   // previews the WhatsApp message, saves the candidate as OFFER_SENT and
   // (optionally) fires WhatsApp with the offer text.
   const [offeringCandidate, setOfferingCandidate] = useState<Candidate | null>(null);
+  // Confirm-interview modal — opened from the CONTACTED row primary CTA.
+  // Shows the interview slot + a WhatsApp confirmation-message preview so
+  // the admin can send the "your interview is confirmed for X at Y" note
+  // and move the candidate to INTERVIEWING in one flow.
+  const [confirmingCandidate, setConfirmingCandidate] = useState<Candidate | null>(null);
 
   // Advanced filters — all client-side. Kept as sets/booleans so the
   // filter-chip row can toggle values without heavy state juggling.
@@ -560,6 +582,11 @@ export default function CandidatesPage() {
   const items = useMemo(() => {
     const maxSal = maxSalary ? Number(maxSalary) : null;
     let out = rawItems.filter(c => {
+      // NEW tab is triage — the moment an interview has been scheduled
+      // the candidate is out of triage (they now belong on Contacted /
+      // Interview). Defensive filter for cases where the row's status
+      // hasn't caught up to its interviewStart yet.
+      if (tab === 'NEW' && c.interviewStart) return false;
       if (shortlistedOnly && !c.isShortlisted) return false;
       // No-show sentinel written by the bulk importer when a row's
       // "Didn't Attend" column is truthy — keep in sync with
@@ -1266,7 +1293,7 @@ export default function CandidatesPage() {
                           <FontAwesomeIcon icon={faCalendarDays} /> Reschedule
                         </button>
                         <button
-                          onClick={() => advanceStageMut.mutate({ id: currentCandidate.id, status: 'INTERVIEWING' })}
+                          onClick={() => setConfirmingCandidate(currentCandidate)}
                           disabled={advanceStageMut.isPending}
                           style={S.scheduleDecisionBtn}
                         >
@@ -1969,7 +1996,7 @@ export default function CandidatesPage() {
                                 <FontAwesomeIcon icon={faCalendarDays} /> Reschedule
                               </button>
                               <button
-                                onClick={e => { e.stopPropagation(); advanceStageMut.mutate({ id: c.id, status: 'INTERVIEWING' }); }}
+                                onClick={e => { e.stopPropagation(); setConfirmingCandidate(c); }}
                                 disabled={advanceStageMut.isPending}
                                 style={S.contactBtn}
                               >
@@ -2172,6 +2199,18 @@ export default function CandidatesPage() {
         />
       )}
 
+      {confirmingCandidate && (
+        <ConfirmInterviewModal
+          candidate={confirmingCandidate}
+          onClose={() => setConfirmingCandidate(null)}
+          onConfirmed={() => {
+            qc.invalidateQueries({ queryKey: ['candidates'] });
+            qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+            setConfirmingCandidate(null);
+          }}
+        />
+      )}
+
       {schedulingCandidate && (
         <InterviewSchedulerModal
           candidate={schedulingCandidate}
@@ -2233,7 +2272,12 @@ function ReviewSidebar(props: {
   const liveItems = useMemo(
     () => items
       .map((c, origIdx) => ({ c, origIdx }))
-      .filter(({ c }) => !sessionRejected.has(c.id)),
+      .filter(({ c }) =>
+        !sessionRejected.has(c.id)
+        // Scheduled candidates are no longer NEW-tab triage material.
+        // Drop them the same way rejected rows drop — the sidebar is
+        // the "still needs a decision" queue.
+        && !c.interviewStart),
     [items, sessionRejected],
   );
 
@@ -3193,6 +3237,239 @@ function SendOfferModal(props: {
   );
 }
 
+// ─── Confirm interview modal ────────────────────────────────────────────
+// Fired from the CONTACTED row's primary CTA. Shows the interview slot
+// summary (from candidate.interviewStart / End) + a WhatsApp confirmation
+// message preview so the admin can send "your interview is confirmed for
+// X at Y" and advance the candidate to INTERVIEWING in one flow. Mirrors
+// the SendOfferModal layout so admins have one mental model for
+// "compose + send + status change" moments.
+const DEFAULT_CONFIRM_INTERVIEW_TEMPLATE_EN = `Hi Ms. {{firstName}},
+
+*Interview Details:*
+
+Date: *{{interviewDate}} ({{interviewDay}})*
+Time: {{interviewTime}}
+Location: 2, Jalan Indah 19/3, Taman Bukit Indah, 81200 JB, Johor
+
+https://maps.app.goo.gl/oEcyAyiNHyqFfNEG7
+
+We're looking forward to meeting you and discussing this opportunity further.`;
+const DEFAULT_CONFIRM_INTERVIEW_TEMPLATE_ZH = `{{firstName}}老师您好，
+
+*面试详情：*
+
+日期：*{{interviewDate}} ({{interviewDay}})*
+时间：{{interviewTime}}
+地点：2, Jalan Indah 19/3, Taman Bukit Indah, 81200 JB, Johor
+
+https://maps.app.goo.gl/oEcyAyiNHyqFfNEG7
+
+期待与您见面，进一步讨论这个机会。`;
+
+function ConfirmInterviewModal(props: {
+  candidate: Candidate;
+  onClose: () => void;
+  onConfirmed: () => void;
+}) {
+  const { candidate, onClose, onConfirmed } = props;
+  const { showToast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [msgEditing, setMsgEditing] = useState(false);
+  const [lang, setLang] = useState<'en' | 'zh'>('en');
+  const [messageEn, setMessageEn] = useState('');
+  const [messageZh, setMessageZh] = useState('');
+  const [messageEnEdited, setMessageEnEdited] = useState(false);
+  const [messageZhEdited, setMessageZhEdited] = useState(false);
+
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  const templateEn = (settings?.interview_confirm_wa_template as string | undefined)?.trim() || DEFAULT_CONFIRM_INTERVIEW_TEMPLATE_EN;
+  const templateZh = (settings?.interview_confirm_wa_template_zh as string | undefined)?.trim() || DEFAULT_CONFIRM_INTERVIEW_TEMPLATE_ZH;
+  const confirmLeadDays = Number(settings?.recruitment_interview_confirm_lead_days) || 2;
+  const message = lang === 'en' ? messageEn : messageZh;
+  const setMessage = (v: string) => {
+    if (lang === 'en') { setMessageEn(v); setMessageEnEdited(true); }
+    else               { setMessageZh(v); setMessageZhEdited(true); }
+  };
+
+  // Slot is fixed for this modal — read from the candidate's stored
+  // interview times. If missing (unusual for a CONTACTED row), fall
+  // back to "now" so the preview still renders something sane; the
+  // admin can hand-edit the message before sending.
+  const start = candidate.interviewStart ? new Date(candidate.interviewStart) : new Date();
+  const end = candidate.interviewEnd
+    ? new Date(candidate.interviewEnd)
+    : new Date(start.getTime() + 45 * 60_000);
+  const hasSlot = !!candidate.interviewStart;
+
+  useEffect(() => {
+    if (!messageEnEdited) setMessageEn(applyInterviewTemplate(templateEn, candidate, start, end, false, confirmLeadDays));
+    if (!messageZhEdited) setMessageZh(applyInterviewTemplate(templateZh, candidate, start, end, true, confirmLeadDays));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateEn, templateZh, messageEnEdited, messageZhEdited, candidate.id]);
+
+  const persist = async () => {
+    setSaving(true); setError('');
+    try {
+      await updateCandidate(candidate.id, { status: 'INTERVIEWING' });
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to confirm interview.');
+      setSaving(false);
+      throw e;
+    }
+    setSaving(false);
+  };
+
+  const handleConfirm = async () => {
+    try { await persist(); showToast('Interview confirmed'); onConfirmed(); } catch { /* surfaced */ }
+  };
+
+  const handleConfirmAndWa = async () => {
+    if (!candidate.phone) { setError('No phone on file.'); return; }
+    try {
+      await persist();
+      const href = `${waLink(candidate.phone)}?text=${encodeURIComponent(message)}`;
+      window.open(href, '_blank', 'noopener,noreferrer');
+      showToast('Interview confirmed');
+      onConfirmed();
+    } catch { /* surfaced */ }
+  };
+
+  const fmtTime = (d: Date) =>
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+  const durationMin = Math.round((end.getTime() - start.getTime()) / 60_000);
+
+
+  return (
+    <div style={ISM.backdrop} onClick={onClose}>
+      <div style={ISM.card} onClick={e => e.stopPropagation()}>
+        <div style={ISM.header}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={ISM.headerIcon}>
+              <FontAwesomeIcon icon={faCalendarDays} />
+            </div>
+            <div>
+              <h2 style={ISM.title}>Confirm interview</h2>
+              <div style={ISM.subtitle}>
+                {candidate.fullName} · {candidate.desiredPosition ?? 'No position'}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} style={ISM.closeBtn} title="Close">
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </div>
+
+        {/* Slot summary */}
+        <div style={ISM.summaryWrap}>
+          <div style={{
+            ...ISM.summary,
+            background: hasSlot ? '#f0f9ff' : '#fffbeb',
+            borderColor: hasSlot ? '#bae6fd' : '#fde68a',
+          }}>
+            <div style={ISM.summaryDate}>
+              <span style={ISM.summaryDow}>{start.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+              <span style={ISM.summaryDay}>{start.getDate()}</span>
+              <span style={ISM.summaryMonth}>{start.toLocaleDateString('en-US', { month: 'short' })}</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={ISM.summaryTime}>{fmtTime(start)} – {fmtTime(end)}</div>
+              <div style={ISM.summaryFullDate}>
+                {start.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {' · '}{durationMin} min
+                {!hasSlot && ' · No slot on file'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Body — single column since the slot is fixed and there's
+            nothing else to collect. Matches the Schedule modal's message
+            preview card exactly. Generous top padding pushes the "1
+            Message preview" section label well clear of the summary
+            card above so the header isn't crammed against it. */}
+        <div style={{ ...ISM.body, paddingTop: 32 }}>
+          <div style={{ ...ISM.rightCol, flex: 1 }}>
+            {/* Align to the bottom of the flex row so the label and
+                the toggle buttons all sit on the same baseline right
+                above the message box — the label reads as the box's
+                own header instead of floating above it. */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div style={ISM.sectionLabel}>
+                <span style={ISM.stepChip}>1</span> Message preview
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={ISM.langSwitch}>
+                  {(['en', 'zh'] as const).map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setLang(t)}
+                      style={{
+                        ...ISM.langBtn,
+                        background: lang === t ? '#fff' : 'transparent',
+                        color: lang === t ? '#1e293b' : '#94a3b8',
+                        boxShadow: lang === t ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                      }}
+                    >
+                      {t === 'en' ? 'EN' : '中文'}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMsgEditing(v => !v)}
+                  style={ISM.editToggle}
+                >
+                  {msgEditing ? 'Done' : 'Edit'}
+                </button>
+              </div>
+            </div>
+            {msgEditing ? (
+              <textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                style={{ ...ISM.msgEdit, minHeight: 260 }}
+              />
+            ) : (
+              <div style={{ ...ISM.msgPreview, minHeight: 260 }}>
+                {message || <span style={{ color: C.mutedSoft, fontStyle: 'italic' }}>Fill in the slot to preview</span>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {error && <div style={ISM.errorRow}>{error}</div>}
+
+        <div style={ISM.footer}>
+          <button onClick={onClose} style={ISM.cancelBtn}>Cancel</button>
+          <div style={{ flex: 1 }} />
+          {candidate.phone && (
+            <button
+              type="button"
+              style={ISM.waBtn}
+              title="Move to Interviewing and open WhatsApp with the confirmation message"
+              disabled={saving}
+              onClick={handleConfirmAndWa}
+            >
+              <FontAwesomeIcon icon={faWhatsapp} /> {saving ? 'Confirming…' : 'Confirm & Open WhatsApp'}
+            </button>
+          )}
+          <button
+            onClick={handleConfirm}
+            disabled={saving}
+            style={{ ...ISM.saveBtn, opacity: saving ? 0.6 : 1 }}
+          >
+            {saving ? 'Confirming…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NoteEditorModal(props: {
   candidate: Candidate;
   onClose: () => void;
@@ -3308,6 +3585,9 @@ function InterviewSchedulerModal(props: {
   // Admin-configurable interview duration (fallback to the module-level
   // constant when settings haven't resolved yet).
   const durationMin = Number(settings?.interview_duration_minutes) || INTERVIEW_DURATION_MIN;
+  // How many calendar days after "now" the candidate has to confirm the
+  // interview — feeds {{confirmByDate}} in the invitation template.
+  const confirmLeadDays = Number(settings?.recruitment_interview_confirm_lead_days) || 2;
   const message = lang === 'en' ? messageEn : messageZh;
   const setMessage = (v: string) => {
     if (lang === 'en') { setMessageEn(v); setMessageEnEdited(true); }
@@ -3403,10 +3683,10 @@ function InterviewSchedulerModal(props: {
   // the admin has hand-edited that language (then leave it alone).
   useEffect(() => {
     if (!selected || !selectedEnd) return;
-    if (!messageEnEdited) setMessageEn(applyInterviewTemplate(templateEn, candidate, selected, selectedEnd, false));
-    if (!messageZhEdited) setMessageZh(applyInterviewTemplate(templateZh, candidate, selected, selectedEnd, true));
+    if (!messageEnEdited) setMessageEn(applyInterviewTemplate(templateEn, candidate, selected, selectedEnd, false, confirmLeadDays));
+    if (!messageZhEdited) setMessageZh(applyInterviewTemplate(templateZh, candidate, selected, selectedEnd, true, confirmLeadDays));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateTime, templateEn, templateZh, messageEnEdited, messageZhEdited]);
+  }, [dateTime, templateEn, templateZh, messageEnEdited, messageZhEdited, confirmLeadDays]);
 
   // Persist to the DB via the calendar-sync endpoint. `skipCalendar`
   // is set when the admin explicitly chose the fallback link after a
@@ -3625,10 +3905,10 @@ function InterviewSchedulerModal(props: {
                 onClick={() => {
                   if (lang === 'en') {
                     setMessageEnEdited(false);
-                    if (selected && selectedEnd) setMessageEn(applyInterviewTemplate(templateEn, candidate, selected, selectedEnd, false));
+                    if (selected && selectedEnd) setMessageEn(applyInterviewTemplate(templateEn, candidate, selected, selectedEnd, false, confirmLeadDays));
                   } else {
                     setMessageZhEdited(false);
-                    if (selected && selectedEnd) setMessageZh(applyInterviewTemplate(templateZh, candidate, selected, selectedEnd, true));
+                    if (selected && selectedEnd) setMessageZh(applyInterviewTemplate(templateZh, candidate, selected, selectedEnd, true, confirmLeadDays));
                   }
                 }}
                 style={ISM.resetLink}

@@ -18,7 +18,7 @@ interface CustomTemplate {
 type VariableGroup = { label: string; items: { label: string; value: string }[] };
 
 interface SystemTemplate {
-  id: 'enquiry' | 'follow_up' | 'confirm_appointment' | 'interview_invite' | 'offer_letter';
+  id: 'enquiry' | 'follow_up' | 'confirm_appointment' | 'interview_invite' | 'interview_confirm' | 'offer_letter';
   name: string;
   settingKey_en: string;
   settingKey_zh: string;
@@ -59,6 +59,10 @@ const INTERVIEW_VARIABLES: VariableGroup[] = [
     { label: 'Date', value: '{{interviewDate}}' },
     { label: 'Start Time', value: '{{interviewTime}}' },
     { label: 'End Time', value: '{{interviewEndTime}}' },
+    // Today + N calendar days, N is the
+    // `recruitment_interview_confirm_lead_days` setting under
+    // Recruitment settings. Resolved at message-compose time.
+    { label: 'Confirm By Date', value: '{{confirmByDate}}' },
   ]},
 ];
 const OFFER_VARIABLES: VariableGroup[] = [
@@ -78,6 +82,7 @@ const SYSTEM_TEMPLATES: SystemTemplate[] = [
   { id: 'follow_up',           name: 'Follow Up',            settingKey_en: 'whatsapp_followup_template',        settingKey_zh: 'whatsapp_followup_template_zh',        variables: LEADS_VARIABLES },
   { id: 'confirm_appointment', name: 'Confirm Appointment',  settingKey_en: 'whatsapp_confirm_appt_template',    settingKey_zh: 'whatsapp_confirm_appt_template_zh',    variables: LEADS_VARIABLES },
   { id: 'interview_invite',    name: 'Interview Invitation', settingKey_en: 'interview_wa_template',             settingKey_zh: 'interview_wa_template_zh',             variables: INTERVIEW_VARIABLES },
+  { id: 'interview_confirm',   name: 'Interview Confirmation', settingKey_en: 'interview_confirm_wa_template',    settingKey_zh: 'interview_confirm_wa_template_zh',    variables: INTERVIEW_VARIABLES },
   { id: 'offer_letter',        name: 'Offer Letter',         settingKey_en: 'offer_wa_template',                 settingKey_zh: 'offer_wa_template_zh',                 variables: OFFER_VARIABLES },
 ];
 
