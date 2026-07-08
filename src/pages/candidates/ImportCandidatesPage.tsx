@@ -49,7 +49,7 @@ type FieldKey =
   | 'desiredPosition' | 'experienceRange' | 'qualification' | 'qualificationOther'
   | 'expectedSalary' | 'salaryJustification' | 'availableFrom' | 'preferredStartDate'
   | 'careerGoals' | 'whyKindergartenTeacher' | 'howDidYouKnow' | 'notes'
-  | 'utmSource' | 'resumeUrl' | 'submittedAt'
+  | 'utmSource' | 'resumeUrl' | 'submittedAt' | 'interviewStart'
   | StatusMarkerKey
   | 'skip';
 
@@ -83,13 +83,18 @@ const FIELDS: FieldSpec[] = [
   { key: 'utmSource',             label: 'UTM source',           required: false, aliases: ['utm source', 'utm_source', 'utm', 'campaign'] },
   { key: 'resumeUrl',             label: 'Resume URL',           required: false, hint: 'Full https:// URL (e.g. Google Drive)', aliases: ['resume url', 'resume link', 'resume', 'cv url'] },
   { key: 'submittedAt',           label: 'Original submission date', required: false, hint: 'Preserves the applicant\'s original submit timestamp instead of defaulting to now.', aliases: ['timestamp', 'submitted at', 'submitted on', 'submission date', 'date submitted'] },
+  // Appointment column in the source sheet — actually a date, not a
+  // boolean. A parseable value here sets the interview datetime AND
+  // promotes the row to INTERVIEWING (unless a stronger status marker
+  // downstream — Hired, Rejected, etc. — wins).
+  { key: 'interviewStart',        label: 'Interview date',       required: false, hint: 'Parseable date → sets the interview slot and promotes status to INTERVIEWING.', aliases: ['appointment', 'appointment date', 'interview date', 'interview scheduled at', 'interview start', 'scheduled date'] },
 
   // Status-marker fields — boolean columns from workflow-tracking
   // sheets (Attended / Offered / Rejected / etc.). Truthy value on
   // any of these promotes the row to the matching pipeline stage.
   // Multiple markers on the same row → highest-priority stage wins
   // (see STATUS_PRIORITY below).
-  { key: 'statusMarker_CONTACTED',                label: 'Marker: Contacted',            required: false, hint: 'Truthy value in this column → status becomes CONTACTED (has appointment scheduled).', aliases: ['appointment', 'contacted', 'has appointment'] },
+  { key: 'statusMarker_CONTACTED',                label: 'Marker: Contacted',            required: false, hint: 'Truthy value in this column → status becomes CONTACTED (has appointment scheduled).', aliases: ['contacted', 'has appointment'] },
   { key: 'statusMarker_INTERVIEWING',              label: 'Marker: Interviewing',          required: false, hint: 'Truthy value → status becomes INTERVIEWING.', aliases: ['interviewing', 'interview scheduled'] },
   { key: 'statusMarker_PENDING_DECISION',          label: 'Marker: Attended (Pending decision)', required: false, hint: 'Truthy value → status becomes PENDING_DECISION.', aliases: ['attended', 'interviewed'] },
   { key: 'statusMarker_OFFER_SENT',                label: 'Marker: Offered',              required: false, hint: 'Truthy value → status becomes OFFER_SENT.', aliases: ['offered', 'offer sent'] },
@@ -539,6 +544,16 @@ export default function ImportCandidatesPage() {
           // lands with its original submission time.
           p.submittedAt = normalizeTimestamp(raw);
           break;
+        case 'interviewStart': {
+          // Source cell can be date-only ("10/03/2025") or a full
+          // timestamp — try timestamp first (keeps HH:MM if present),
+          // fall back to date-only which stores as midnight local.
+          const t = normalizeTimestamp(raw);
+          if (t) { p.interviewStart = t; break; }
+          const d = normalizeDate(raw);
+          if (d) p.interviewStart = d;
+          break;
+        }
         case 'expectedSalary': {
           const range = normalizeSalary(raw);
           if (range.min !== undefined) p.expectedSalary = range.min;
@@ -570,6 +585,10 @@ export default function ImportCandidatesPage() {
         break;
       }
     }
+    // Interview-date auto-promotion — if the source row has a
+    // parseable Appointment date and no stronger marker won above,
+    // the row is at least at the INTERVIEWING stage.
+    if (p.interviewStart && !p.status) p.status = 'INTERVIEWING';
     // Fill sensible defaults for required backend fields the source
     // sheet doesn't carry. Historical imports are triage-later data;
     // dropping rows just because the applicant's original form never
@@ -647,6 +666,11 @@ export default function ImportCandidatesPage() {
       setResult(merged);
       qc.invalidateQueries({ queryKey: ['candidates'] });
       qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+      // Repeat-applicant detection reads from a separate cross-tab
+      // phone-index query — refresh it too, otherwise newly-imported
+      // phones don't count towards the "Applied Nx" pill until the
+      // next 60-second poll and the red sidebar circle stays grey.
+      qc.invalidateQueries({ queryKey: ['candidate-phone-index'] });
       setPhase('result');
     } catch (e: any) {
       // Partial imports may have landed already — surface the count

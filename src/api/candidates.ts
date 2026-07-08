@@ -198,6 +198,9 @@ export interface CreateCandidateInput {
   utmSource?: string;
   /** Honeypot — leave empty. */
   company?: string;
+  /** Interview datetime — import-only. When set, the row lands as
+   *  INTERVIEWING (unless a stronger status marker outranks it). */
+  interviewStart?: string;
 }
 
 /** Public — no auth required (apply link can be shared). */

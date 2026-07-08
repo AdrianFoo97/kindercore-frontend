@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -312,6 +312,73 @@ function calcAge(dob: string | null): number | null {
   return age >= 0 ? age : null;
 }
 
+// Interview-tab time bucketing. Groups candidates by when their
+// interview is scheduled: today (bordered/prominent), this week
+// (Mon–Sun of the current calendar week, minus today), later, and
+// no-date (INTERVIEWING rows without an interviewStart — e.g.
+// imported without an Appointment column).
+type InterviewBucket = 'past' | 'today' | 'this-week' | 'later' | 'no-date';
+function interviewBucket(iso: string | null): InterviewBucket {
+  if (!iso) return 'no-date';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'no-date';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Monday of the current calendar week — JS Sunday=0, so shift.
+  const startOfWeek = new Date(today);
+  const dow = (today.getDay() + 6) % 7; // 0 = Mon
+  startOfWeek.setDate(today.getDate() - dow);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 7); // exclusive
+  if (d < today) return 'past';
+  if (d < tomorrow) return 'today';
+  if (d < endOfWeek) return 'this-week';
+  return 'later';
+}
+const INTERVIEW_BUCKET_LABEL: Record<InterviewBucket, string> = {
+  past: 'Overdue — mark outcome',
+  today: 'Today',
+  'this-week': 'This week',
+  later: 'Later',
+  'no-date': 'No date set',
+};
+// Overdue comes first — those rows need attention before anything else.
+const INTERVIEW_BUCKET_ORDER: InterviewBucket[] = ['past', 'today', 'this-week', 'later', 'no-date'];
+// Per-bucket colour tokens (accent bar + subtle bg tint + text). Past
+// uses danger red so "you owe an outcome" reads at a glance. Today
+// gets the app's indigo primary. This week is sky. Later steps down to
+// muted slate. No-date renders in amber for imported rows without a slot.
+const INTERVIEW_BUCKET_STYLE: Record<InterviewBucket, { accent: string; tint: string; text: string }> = {
+  'past':      { accent: '#dc2626', tint: '#fef2f2', text: '#991b1b' },
+  'today':     { accent: '#5a67d8', tint: '#eef2ff', text: '#3c339a' },
+  'this-week': { accent: '#0ea5e9', tint: '#f0f9ff', text: '#0369a1' },
+  'later':     { accent: '#94a3b8', tint: '#f8fafc', text: '#475569' },
+  'no-date':   { accent: '#d97706', tint: '#fffbeb', text: '#92400e' },
+};
+// Contextual date subtitle for each header — anchors abstract labels
+// against a real calendar date so there's no ambiguity.
+function interviewBucketSubtitle(bucket: InterviewBucket): string {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const fmt = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+  if (bucket === 'past') return 'Interview date has passed — attended or no-show?';
+  if (bucket === 'today') return fmt(today);
+  if (bucket === 'this-week') {
+    const endOfWeek = new Date(today);
+    const dow = (today.getDay() + 6) % 7;
+    endOfWeek.setDate(today.getDate() + (6 - dow));
+    return `through ${fmt(endOfWeek)}`;
+  }
+  if (bucket === 'later') {
+    const nextMon = new Date(today);
+    const dow = (today.getDay() + 6) % 7;
+    nextMon.setDate(today.getDate() + (7 - dow));
+    return `from ${fmt(nextMon)}`;
+  }
+  return 'No appointment on record';
+}
+
 /** How long since an application was submitted, in the most compact form
  *  ("5m" / "3h" / "2d" / "1w"). Also returns an urgency level so the
  *  sidebar can colour aged candidates — anything past 3 days probably
@@ -511,7 +578,16 @@ export default function CandidatesPage() {
     });
     // Sort
     const byDate = (a: Candidate, b: Candidate) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
-    if (sortBy === 'newest') out = out.sort(byDate);
+    if (tab === 'INTERVIEWING') {
+      // On the Interview tab we group by interviewStart bucket, so the
+      // underlying sort has to be bucket-then-time-ascending; the
+      // sortBy selector doesn't apply here (it's about applications,
+      // not scheduled slots).
+      const bucketRank = (c: Candidate) => INTERVIEW_BUCKET_ORDER.indexOf(interviewBucket(c.interviewStart));
+      const timeOf = (c: Candidate) => c.interviewStart ? new Date(c.interviewStart).getTime() : Infinity;
+      out = out.sort((a, b) => bucketRank(a) - bucketRank(b) || timeOf(a) - timeOf(b));
+    }
+    else if (sortBy === 'newest') out = out.sort(byDate);
     else if (sortBy === 'oldest') out = out.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
     else if (sortBy === 'salary_asc') out = out.sort((a, b) => (a.expectedSalary ?? Infinity) - (b.expectedSalary ?? Infinity));
     else if (sortBy === 'salary_desc') out = out.sort((a, b) => (b.expectedSalary ?? -Infinity) - (a.expectedSalary ?? -Infinity));
@@ -521,7 +597,7 @@ export default function CandidatesPage() {
     // not a resort trigger — clicking it shouldn't shuffle the list
     // under the admin's cursor.
     return out;
-  }, [rawItems, shortlistedOnly, noShowOnly, declinedOfferOnly, experienceFilter, qualFilter, maxSalary, shortCommute, sortBy]);
+  }, [rawItems, shortlistedOnly, noShowOnly, declinedOfferOnly, experienceFilter, qualFilter, maxSalary, shortCommute, sortBy, tab]);
 
   // Terminal tabs — the list swaps its "Scheduled" column for a
   // "Status" column since scheduling is irrelevant once the candidate
@@ -1110,6 +1186,7 @@ export default function CandidatesPage() {
                 sessionShortlisted={sessionShortlisted}
                 sessionRejected={sessionRejected}
                 isRepeat={c => repeatCountFor(c) > 1}
+                groupByInterviewBucket={tab === 'INTERVIEWING'}
                 onJump={jumpTo}
               />
 
@@ -1335,6 +1412,43 @@ export default function CandidatesPage() {
                 const qualDisplay = c.qualification?.toLowerCase() === 'others' && c.qualificationOther
                   ? c.qualificationOther : c.qualification;
 
+                // Interview tab — insert a section header before the
+                // first row of each bucket (Today / This week / Later /
+                // No date). Because items are already sorted by bucket,
+                // detecting the transition just needs a lookup at
+                // idx-1.
+                const groupHeader = (() => {
+                  if (tab !== 'INTERVIEWING') return null;
+                  const currBucket = interviewBucket(c.interviewStart);
+                  const prev = displayItems[idx - 1];
+                  const prevBucket = prev ? interviewBucket(prev.interviewStart) : null;
+                  if (currBucket === prevBucket) return null;
+                  const groupCount = displayItems.filter(x => interviewBucket(x.interviewStart) === currBucket).length;
+                  const palette = INTERVIEW_BUCKET_STYLE[currBucket];
+                  const isFirst = idx === 0;
+                  return (
+                    <div
+                      key={`hdr-${currBucket}`}
+                      style={{
+                        ...S.interviewGroupHeader,
+                        background: palette.tint,
+                        borderLeft: `3px solid ${palette.accent}`,
+                        marginTop: isFirst ? 0 : 24,
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ ...S.interviewGroupLabel, color: palette.text }}>
+                          {INTERVIEW_BUCKET_LABEL[currBucket]}
+                        </span>
+                        <span style={S.interviewGroupSubtitle}>{interviewBucketSubtitle(currBucket)}</span>
+                      </div>
+                      <span style={{ ...S.interviewGroupCount, background: palette.accent, color: '#fff' }}>
+                        {groupCount}
+                      </span>
+                    </div>
+                  );
+                })();
+
                 // Flags — small icons that only show when the flag is
                 // triggered. Hover shows the detail sentence.
                 const flagIcons = flags.length > 0 && (
@@ -1535,6 +1649,23 @@ export default function CandidatesPage() {
                               </button>
                             );
                           })()}
+                          {/* Schedule / Reschedule interview — only on
+                              active-pipeline rows. Reuses the same
+                              modal the row's primary CTA opens; wiring
+                              is the setSchedulingCandidate state. Label
+                              switches based on whether a slot is
+                              already booked. */}
+                          {row2.status !== 'HIRED' && row2.status !== 'REJECTED' && (
+                            <button
+                              type="button"
+                              className="kc-row-menu-item"
+                              style={S.menuItemBtn}
+                              onClick={() => { setSchedulingCandidate(row2); closeMenu(); }}
+                            >
+                              <FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+                              {row2.interviewStart ? 'Reschedule interview' : 'Schedule interview'}
+                            </button>
+                          )}
                         </div>
                         {renderDecisionButtons(row2)}
                         {/* Recovery + destructive actions on terminal
@@ -1593,8 +1724,9 @@ export default function CandidatesPage() {
                 // share this exact wrapper structure, the inner grid's
                 // columns line up perfectly (no table quirks).
                 return (
+                  <Fragment key={c.id}>
+                  {groupHeader}
                   <div
-                      key={c.id}
                       style={{
                         ...S.divRow,
                         background: c.isShortlisted ? '#fcfaf3' : 'transparent',
@@ -1907,6 +2039,7 @@ export default function CandidatesPage() {
                         </div>
                       </div>
                   </div>
+                  </Fragment>
                 );
               })}
               {showClosedPagination && (
@@ -2087,9 +2220,10 @@ function ReviewSidebar(props: {
   sessionShortlisted: Set<string>;
   sessionRejected: Set<string>;
   isRepeat: (c: Candidate) => boolean;
+  groupByInterviewBucket: boolean;
   onJump: (idx: number) => void;
 }) {
-  const { items, currentIdx, sessionActioned, sessionShortlisted, sessionRejected, isRepeat, onJump } = props;
+  const { items, currentIdx, sessionActioned, sessionShortlisted, sessionRejected, isRepeat, groupByInterviewBucket, onJump } = props;
   const listRef = useRef<HTMLUListElement | null>(null);
 
   // Filter out rejected candidates so the sidebar clears them out
@@ -2106,15 +2240,22 @@ function ReviewSidebar(props: {
   // Client-side paging for long queues (bulk imports easily produce
   // 800+). Auto-flip to the page containing the current candidate so
   // ← / → in the main pane keeps the sidebar aligned with what's shown.
-  const totalPages = Math.max(1, Math.ceil(liveItems.length / SIDEBAR_PAGE_SIZE));
+  // Disabled when grouping by interview bucket — headers + pagination
+  // compose poorly, and Interview queues are short enough to fit.
+  const totalPages = groupByInterviewBucket
+    ? 1
+    : Math.max(1, Math.ceil(liveItems.length / SIDEBAR_PAGE_SIZE));
   const currentLiveIdx = liveItems.findIndex(x => x.origIdx === currentIdx);
   const [page, setPage] = useState(0);
   useEffect(() => {
+    if (groupByInterviewBucket) return;
     if (currentLiveIdx >= 0) setPage(Math.floor(currentLiveIdx / SIDEBAR_PAGE_SIZE));
-  }, [currentLiveIdx]);
+  }, [currentLiveIdx, groupByInterviewBucket]);
   const pageClamped = Math.min(page, totalPages - 1);
-  const start = pageClamped * SIDEBAR_PAGE_SIZE;
-  const visibleItems = liveItems.slice(start, start + SIDEBAR_PAGE_SIZE);
+  const start = groupByInterviewBucket ? 0 : pageClamped * SIDEBAR_PAGE_SIZE;
+  const visibleItems = groupByInterviewBucket
+    ? liveItems
+    : liveItems.slice(start, start + SIDEBAR_PAGE_SIZE);
 
   // Keep the current row in view as the admin navigates. `nearest`
   // avoids scrolling when the row is already visible.
@@ -2134,19 +2275,56 @@ function ReviewSidebar(props: {
           // rejections drop out) so the admin sees "1, 2, 3…" without
           // holes where rejected rows used to be.
           const displayNum = start + offset + 1;
+          // Insert a group header before the first row of each
+          // interview bucket. Uses the same buckets as the list view
+          // so the two surfaces read consistently.
+          const groupHeader = (() => {
+            if (!groupByInterviewBucket) return null;
+            const currBucket = interviewBucket(c.interviewStart);
+            const prev = visibleItems[offset - 1];
+            const prevBucket = prev ? interviewBucket(prev.c.interviewStart) : null;
+            if (currBucket === prevBucket) return null;
+            const count = visibleItems.filter(x => interviewBucket(x.c.interviewStart) === currBucket).length;
+            const palette = INTERVIEW_BUCKET_STYLE[currBucket];
+            const isFirstGroup = offset === 0;
+            return (
+              <li
+                key={`hdr-${currBucket}`}
+                style={{
+                  ...S.sidebarGroupHeader,
+                  background: palette.tint,
+                  borderLeft: `3px solid ${palette.accent}`,
+                  marginTop: isFirstGroup ? 8 : 14,
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                  <span style={{ ...S.sidebarGroupLabel, color: palette.text }}>
+                    {INTERVIEW_BUCKET_LABEL[currBucket]}
+                  </span>
+                  <span style={S.sidebarGroupSubtitle}>{interviewBucketSubtitle(currBucket)}</span>
+                </div>
+                <span style={{ ...S.sidebarGroupCount, background: palette.accent, color: '#fff' }}>
+                  {count}
+                </span>
+              </li>
+            );
+          })();
           return (
-            <ReviewSidebarItem
-              key={c.id}
-              candidate={c}
-              idx={origIdx}
-              displayNum={displayNum}
-              isCurrent={origIdx === currentIdx}
-              isShortlisted={c.isShortlisted || sessionShortlisted.has(c.id)}
-              isRejected={false}
-              isActioned={sessionActioned.has(c.id)}
-              isRepeat={isRepeat(c)}
-              onSelect={() => onJump(origIdx)}
-            />
+            <Fragment key={c.id}>
+              {groupHeader}
+              <ReviewSidebarItem
+                candidate={c}
+                idx={origIdx}
+                displayNum={displayNum}
+                isCurrent={origIdx === currentIdx}
+                isShortlisted={c.isShortlisted || sessionShortlisted.has(c.id)}
+                isRejected={false}
+                isActioned={sessionActioned.has(c.id)}
+                isRepeat={isRepeat(c)}
+                showInterviewSlot={groupByInterviewBucket}
+                onSelect={() => onJump(origIdx)}
+              />
+            </Fragment>
           );
         })}
       </ul>
@@ -2188,9 +2366,10 @@ function ReviewSidebarItem(props: {
   isRejected: boolean;
   isActioned: boolean;
   isRepeat: boolean;
+  showInterviewSlot: boolean;
   onSelect: () => void;
 }) {
-  const { candidate: c, idx, displayNum, isCurrent, isShortlisted, isRejected, isActioned, isRepeat, onSelect } = props;
+  const { candidate: c, idx, displayNum, isCurrent, isShortlisted, isRejected, isActioned, isRepeat, showInterviewSlot, onSelect } = props;
   const wait = waitingSince(c.submittedAt);
   const qual = QUAL_STYLES[qualKey(c.qualification)];
   const qualTooltip = c.qualification
@@ -2270,12 +2449,29 @@ function ReviewSidebarItem(props: {
             </span>
           )}
         </div>
-        <span
-          title={`Waiting since ${fmtDate(c.submittedAt)}`}
-          style={S.waitBadge(wait.level)}
-        >
-          {wait.text}
-        </span>
+        {showInterviewSlot ? (
+          // Interview tab — the meaningful timestamp is the interview
+          // slot, not "waiting since applied". Show it as a neutral
+          // chip; the group header already colour-codes the bucket.
+          (() => {
+            if (!c.interviewStart) return null;
+            const d = new Date(c.interviewStart);
+            if (isNaN(d.getTime())) return null;
+            const slot = `${d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit' })} · ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+            return (
+              <span title={`Interview: ${d.toLocaleString('en-GB')}`} style={S.sidebarInterviewSlot}>
+                {slot}
+              </span>
+            );
+          })()
+        ) : (
+          <span
+            title={`Waiting since ${fmtDate(c.submittedAt)}`}
+            style={S.waitBadge(wait.level)}
+          >
+            {wait.text}
+          </span>
+        )}
       </button>
     </li>
   );
@@ -3980,6 +4176,32 @@ const S = {
     textAlign: 'center' as const,
     justifySelf: 'center',
   } as React.CSSProperties,
+  // Interview-tab section header — appears between bucketed groups.
+  // Per-bucket palette applied at the callsite (tint / accent / text)
+  // so each bucket reads as its own visual lane, not just another row.
+  interviewGroupHeader: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    gap: 12, padding: '14px 18px',
+    borderTopRightRadius: 8, borderBottomRightRadius: 8,
+    borderTop: `1px solid ${C.borderSoft}`,
+    borderRight: `1px solid ${C.borderSoft}`,
+    borderBottom: `1px solid ${C.borderSoft}`,
+  } as React.CSSProperties,
+  interviewGroupLabel: {
+    fontSize: 13, fontWeight: 700,
+    textTransform: 'uppercase' as const, letterSpacing: 0.7,
+    lineHeight: 1.1,
+  } as React.CSSProperties,
+  interviewGroupSubtitle: {
+    fontSize: 11, fontWeight: 500, color: C.mutedSoft,
+    letterSpacing: 0.1,
+  } as React.CSSProperties,
+  interviewGroupCount: {
+    fontSize: 12, fontWeight: 700,
+    padding: '3px 10px', borderRadius: 999,
+    fontVariantNumeric: 'tabular-nums' as const,
+    minWidth: 22, textAlign: 'center' as const,
+  } as React.CSSProperties,
   // Repeat-applicant marker — compact amber pill with the ↻ icon and
   // the count ("3×") inline. Clicking jumps to All closed and populates
   // the search bar with this candidate's phone number so the admin can
@@ -4416,6 +4638,38 @@ const S = {
   reviewSidebarList: {
     listStyle: 'none', padding: 0, margin: 0,
     display: 'flex', flexDirection: 'column', gap: 2,
+  } as React.CSSProperties,
+  sidebarGroupHeader: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    gap: 8, padding: '8px 10px', borderRadius: 6,
+  } as React.CSSProperties,
+  sidebarGroupLabel: {
+    fontSize: 10, fontWeight: 700,
+    textTransform: 'uppercase' as const, letterSpacing: 0.6,
+    lineHeight: 1.15,
+  } as React.CSSProperties,
+  sidebarGroupSubtitle: {
+    fontSize: 10, fontWeight: 500, color: C.mutedSoft,
+    lineHeight: 1.2,
+  } as React.CSSProperties,
+  sidebarGroupCount: {
+    fontSize: 10, fontWeight: 700,
+    padding: '1px 7px', borderRadius: 999,
+    fontVariantNumeric: 'tabular-nums' as const,
+    minWidth: 18, textAlign: 'center' as const,
+    flexShrink: 0,
+  } as React.CSSProperties,
+  // Interview-context badge on sidebar rows — replaces the
+  // "waiting since applied" badge with the actual interview slot time
+  // (e.g. "Tue 08 · 09:00"). Colour-neutral so it doesn't compete with
+  // the group palette; the group header already carries urgency.
+  sidebarInterviewSlot: {
+    fontSize: 10, fontWeight: 600, color: '#475569',
+    background: '#f1f5f9',
+    padding: '3px 7px', borderRadius: 6,
+    fontVariantNumeric: 'tabular-nums' as const,
+    whiteSpace: 'nowrap' as const,
+    flexShrink: 0,
   } as React.CSSProperties,
   reviewSidebarPager: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
