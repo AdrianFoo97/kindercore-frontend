@@ -317,6 +317,32 @@ const COMMUTE_LABEL: Record<CommuteTime, string> = {
   WILL_MOVE: 'Will move',
 };
 
+/** Best-effort display casing for a candidate's fullName. Historical
+ *  imports + a few Google Form submissions arrive in ALL CAPS which
+ *  reads as SHOUTING in the UI. If the string has no lowercase letters
+ *  at all, title-case it (each word's first letter capitalised, rest
+ *  lowered). Otherwise the name is left untouched — mixed-case entries
+ *  reflect deliberate typing (e.g. "A/P Ravi" initialism) and we don't
+ *  want to steamroll them. */
+function displayName(name: string | null | undefined): string {
+  if (!name) return '';
+  const trimmed = name.trim();
+  if (!trimmed) return '';
+  // If there's any lowercase letter, leave it alone.
+  if (/[a-z]/.test(trimmed)) return trimmed;
+  return trimmed
+    .toLowerCase()
+    .split(/(\s+)/) // keep whitespace runs so multi-space stays intact
+    .map(chunk => {
+      if (/^\s+$/.test(chunk) || chunk.length === 0) return chunk;
+      // Handle A/P, S/O, D/O style initialisms verbatim — uppercase
+      // the whole token if it's short and slash-delimited.
+      if (/^[a-z]\/[a-z]$/i.test(chunk)) return chunk.toUpperCase();
+      return chunk.charAt(0).toUpperCase() + chunk.slice(1);
+    })
+    .join('');
+}
+
 /** Whole-year age from an ISO date-of-birth. */
 function calcAge(dob: string | null): number | null {
   if (!dob) return null;
@@ -1772,7 +1798,7 @@ export default function CandidatesPage() {
                         {/* Col 1 — identity + role */}
                         <div style={S.colIdentity}>
                           <div style={S.rowHeader}>
-                            <span style={S.nameText}>{c.fullName}</span>
+                            <span style={S.nameText}>{displayName(c.fullName)}</span>
                             {age != null && (
                               <span title={`${age} years old`} style={S.ageText}>{age} yrs</span>
                             )}
@@ -2420,17 +2446,13 @@ function ReviewSidebarItem(props: {
     ? `Qualification: ${c.qualification === 'Others' && c.qualificationOther ? c.qualificationOther : c.qualification}`
     : 'Qualification not specified';
 
-  // Build the subtitle string declaratively so JSX below stays tidy.
-  const subtitleParts: string[] = [];
-  if (c.desiredPosition) subtitleParts.push(c.desiredPosition);
-  if (c.expectedSalary != null) {
-    subtitleParts.push(
-      c.expectedSalaryMax != null && c.expectedSalaryMax !== c.expectedSalary
-        ? `RM ${c.expectedSalary.toLocaleString()} – ${c.expectedSalaryMax.toLocaleString()}`
-        : `RM ${c.expectedSalary.toLocaleString()}`,
-    );
-  }
-  const subtitle = subtitleParts.join(' · ');
+  // Salary tooltip — the amount lives on the sack icon so it can lead
+  // the subtitle line without eating horizontal room in the sidebar.
+  const salaryTooltip = c.expectedSalary != null
+    ? (c.expectedSalaryMax != null && c.expectedSalaryMax !== c.expectedSalary
+        ? `Expected salary: RM ${c.expectedSalary.toLocaleString()} – ${c.expectedSalaryMax.toLocaleString()}`
+        : `Expected salary: RM ${c.expectedSalary.toLocaleString()}`)
+    : 'Expected salary not specified';
 
   // Actioned-but-not-rejected candidates (i.e. moved to CONTACTED via
   // Schedule Interview) get a small green check inside the medallion so
@@ -2475,21 +2497,42 @@ function ReviewSidebarItem(props: {
            : displayNum}
         </span>
         <div style={S.reviewSidebarTextCol}>
-          <span style={S.reviewSidebarName(isRejected)}>{c.fullName}</span>
-          {subtitle && (
+          {/* Name line — flex row so the coloured qualification glyph
+              sits inline with the name at the same vertical baseline.
+              minWidth: 0 on both the row and the name span is what
+              lets the name ellipsis-truncate instead of pushing the
+              icon to its own line when the row is narrow. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <FontAwesomeIcon
+              icon={qual.icon}
+              title={qualTooltip}
+              style={{ color: qual.fg, fontSize: 11, flexShrink: 0, cursor: 'help' }}
+            />
+            <span style={{ ...S.reviewSidebarName(isRejected), minWidth: 0, flex: 1 }}>{displayName(c.fullName)}</span>
+          </div>
+          {/* Subtitle — RM amount (as digits, not icon) then years of
+              experience. The role the candidate applied for is dropped
+              here because it's already visible on the main card. */}
+          {(c.expectedSalary != null || c.experienceRange) && (
             <span style={S.reviewSidebarSub}>
-              {subtitle}
-              <span style={{ color: C.mutedSoft, margin: '0 5px' }}>·</span>
-              <span
-                title={qualTooltip}
-                style={{
-                  color: C.mutedSoft, fontSize: 9,
-                  cursor: 'help', flexShrink: 0,
-                  display: 'inline-flex', alignItems: 'center',
-                }}
-              >
-                <FontAwesomeIcon icon={qual.icon} />
-              </span>
+              {c.expectedSalary != null && (
+                <span title={salaryTooltip} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {c.expectedSalaryMax != null && c.expectedSalaryMax !== c.expectedSalary
+                    ? `RM ${c.expectedSalary.toLocaleString()} – ${c.expectedSalaryMax.toLocaleString()}`
+                    : `RM ${c.expectedSalary.toLocaleString()}`}
+                </span>
+              )}
+              {c.expectedSalary != null && c.experienceRange && (
+                <span style={{ color: C.mutedSoft, margin: '0 5px' }}>·</span>
+              )}
+              {c.experienceRange && (
+                <span
+                  title={`Experience: ${c.experienceRange}`}
+                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {c.experienceRange}
+                </span>
+              )}
             </span>
           )}
         </div>
@@ -2564,7 +2607,7 @@ function InboxReviewCard(props: {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={S.reviewName}>
-            {c.fullName}
+            {displayName(c.fullName)}
             {age != null && <span style={S.reviewAge}>· {age} yrs</span>}
             {c.submissionSource === 'google_form' && (
               <span

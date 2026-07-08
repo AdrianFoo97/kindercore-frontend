@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchLeads, updateLead, deleteLead, fetchTrashedLeads, restoreLead, permanentDeleteLead, createAppointment, confirmAppointment, confirmAppointmentNoCalendar, fetchUpcomingAppointments, fetchLeadStats, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
+import { fetchUpcomingInterviews, UpcomingInterview } from '../api/candidates.js';
 import { fetchSettings } from '../api/settings.js';
 import { getConnectToken } from '../api/google.js';
 import { fetchPackages, fetchPackageYears } from '../api/packages.js';
@@ -819,10 +820,14 @@ function applyWaTemplate(template: string, childName: string, relationship: stri
 }
 
 function AppointmentModal({
-  lead, intent = 'book', waTemplate, waTemplateZh, address, durationMinutes, upcomingAppts, onClose, onConfirm, onConfirmNoCalendar,
+  lead, intent = 'book', waTemplate, waTemplateZh, address, durationMinutes, upcomingAppts, upcomingInterviews = [], onClose, onConfirm, onConfirmNoCalendar,
 }: {
   lead: Lead; intent?: 'book' | 'reschedule'; waTemplate: string; waTemplateZh: string; address: string; durationMinutes: number;
   upcomingAppts: UpcomingAppointment[];
+  /** Candidate interviews scheduled for the same admin/room. Optional
+   *  so callers that don't have the feed still work; passing it enables
+   *  cross-feed clash detection against the interview calendar. */
+  upcomingInterviews?: UpcomingInterview[];
   onClose: () => void;
   onConfirm: (appointmentStart: string, waMessage: string, isPlaceholder: boolean) => Promise<void>;
   onConfirmNoCalendar: (appointmentStart: string, waMessage: string, isPlaceholder: boolean) => Promise<void>;
@@ -871,15 +876,33 @@ function AppointmentModal({
     return `${fmtDate} · ${fmt(start)} – ${fmt(end)}`;
   })() : null;
 
+  // Unified busy-block list: enquiry appointments + candidate interviews
+  // in one shape so the slot picker and the clash summary card can
+  // reason about both feeds. Own lead is excluded so a reschedule
+  // doesn't collide with itself.
+  type BusyBlock = { id: string; kind: 'enquiry' | 'interview'; label: string; start: Date; end: Date };
+  const busyBlocks: BusyBlock[] = [
+    ...upcomingAppts
+      .filter(a => a.id !== lead.id)
+      .map(a => ({
+        id: `lead:${a.id}`,
+        kind: 'enquiry' as const,
+        label: a.childName,
+        start: new Date(a.appointmentStart),
+        end: a.appointmentEnd ? new Date(a.appointmentEnd) : new Date(new Date(a.appointmentStart).getTime() + durationMinutes * 60_000),
+      })),
+    ...upcomingInterviews.map(i => ({
+      id: `iv:${i.id}`,
+      kind: 'interview' as const,
+      label: `${i.fullName} (interview)`,
+      start: new Date(i.interviewStart),
+      end: i.interviewEnd ? new Date(i.interviewEnd) : new Date(new Date(i.interviewStart).getTime() + durationMinutes * 60_000),
+    })),
+  ];
   const clashes = dateTime ? (() => {
     const start = new Date(dateTime);
     const end = new Date(start.getTime() + durationMinutes * 60_000);
-    return upcomingAppts.filter(a => {
-      if (a.id === lead.id) return false;
-      const aStart = new Date(a.appointmentStart);
-      const aEnd = a.appointmentEnd ? new Date(a.appointmentEnd) : new Date(aStart.getTime() + durationMinutes * 60_000);
-      return aStart < end && aEnd > start;
-    });
+    return busyBlocks.filter(b => b.start < end && b.end > start);
   })() : [];
 
   const [msgExpanded, setMsgExpanded] = useState(false);
@@ -948,15 +971,11 @@ function AppointmentModal({
                   <FontAwesomeIcon icon={faTriangleExclamation} style={{ color: '#f59e0b', fontSize: 11 }} />
                   Conflicts with another booking
                 </div>
-                {clashes.map(c => {
-                  const cStart = new Date(c.appointmentStart);
-                  const cEnd = c.appointmentEnd ? new Date(c.appointmentEnd) : new Date(cStart.getTime() + durationMinutes * 60_000);
-                  return (
-                    <div key={c.id} style={{ fontSize: 11, color: '#92400e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {c.childName} · {fmtTime(cStart)}–{fmtTime(cEnd)}
-                    </div>
-                  );
-                })}
+                {clashes.map(c => (
+                  <div key={c.id} style={{ fontSize: 11, color: '#92400e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.label} · {fmtTime(c.start)}–{fmtTime(c.end)}
+                  </div>
+                ))}
               </div>
             </>) : (
               <span style={{ fontSize: 13, color: '#9ca3af' }}>Select a date and time below</span>
@@ -984,14 +1003,11 @@ function AppointmentModal({
 
               const dateStr = dateTime.split('T')[0];
               const clashingSlots = new Set<string>();
-              for (const a of upcomingAppts) {
-                if (a.id === lead.id) continue;
-                const aStart = new Date(a.appointmentStart);
-                const aEnd = a.appointmentEnd ? new Date(a.appointmentEnd) : new Date(aStart.getTime() + durationMinutes * 60_000);
+              for (const b of busyBlocks) {
                 for (const slot of [...morning, ...afternoon]) {
                   const sStart = new Date(`${dateStr}T${slot}`);
                   const sEnd = new Date(sStart.getTime() + durationMinutes * 60_000);
-                  if (sStart < aEnd && sEnd > aStart) clashingSlots.add(slot);
+                  if (sStart < b.end && sEnd > b.start) clashingSlots.add(slot);
                 }
               }
 
@@ -2150,6 +2166,16 @@ export default function LeadsPage() {
     queryKey: ['upcomingAppointments'], queryFn: fetchUpcomingAppointments, refetchInterval: 60_000,
   });
 
+  // Interviews live in a separate feed but block the calendar for the
+  // same admin/room, so the appointment picker must know about them too.
+  // Cross-feed clash detection matches what InterviewSchedulerModal
+  // does in the other direction.
+  const { data: upcomingInterviews = [] } = useQuery({
+    queryKey: ['upcoming-interviews'],
+    queryFn: fetchUpcomingInterviews,
+    refetchInterval: 60_000,
+  });
+
   const { data: followUpData } = useQuery({
     queryKey: ['leads-follow-up'],
     queryFn: () => fetchLeads(1, 50, 'FOLLOW_UP', 'submittedAt', 'asc'),
@@ -2632,7 +2658,7 @@ export default function LeadsPage() {
       )}
       {bookingLead && (
         <AppointmentModal lead={bookingLead} intent={bookingIntent} waTemplate={waTemplate} waTemplateZh={waTemplateZh}
-          address={kinderAddress} durationMinutes={apptDuration} upcomingAppts={upcomingAppts}
+          address={kinderAddress} durationMinutes={apptDuration} upcomingAppts={upcomingAppts} upcomingInterviews={upcomingInterviews}
           onClose={() => setBookingLead(null)}
           onConfirm={(start, msg, isPlaceholder) => handleConfirmAppointment(bookingLead, start, msg, isPlaceholder)}
           onConfirmNoCalendar={(start, msg, isPlaceholder) => handleConfirmAppointmentNoCalendar(bookingLead, start, msg, isPlaceholder)} />
