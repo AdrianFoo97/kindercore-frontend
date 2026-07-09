@@ -592,6 +592,77 @@ export default function CandidatesPage() {
     queryFn: fetchCandidatePhoneIndex,
     refetchInterval: 60_000,
   });
+
+  // ── Right context panel data ─────────────────────────────────────
+  // Three feeds keep the panel usable independent of which tab the
+  // admin is currently viewing.
+  const { data: upcomingInterviewsFeed = [] } = useQuery({
+    queryKey: ['upcoming-interviews'],
+    queryFn: fetchUpcomingInterviews,
+    refetchInterval: 60_000,
+  });
+  // Deciding — candidates who've been interviewed and are now awaiting
+  // hire/reject. Kept in a dedicated fetch so it works regardless of
+  // the active tab / filters.
+  const { data: decidingList } = useQuery({
+    queryKey: ['candidates-pending-decision'],
+    queryFn: () => fetchCandidates({ status: 'PENDING_DECISION', pageSize: 100 }),
+    refetchInterval: 60_000,
+  });
+  // Offer sent — candidates who received an offer and haven't responded.
+  // Actionable: might need a follow-up nudge if too much time passed.
+  const { data: offerSentList } = useQuery({
+    queryKey: ['candidates-offer-sent'],
+    queryFn: () => fetchCandidates({ status: 'OFFER_SENT', pageSize: 100 }),
+    refetchInterval: 60_000,
+  });
+  const decidingCandidates = decidingList?.items ?? [];
+  const offerSentCandidates = offerSentList?.items ?? [];
+
+  // Any status change / delete / schedule etc. affects multiple
+  // candidate feeds — the main list, the top-tab counts, the phone
+  // index for repeat detection, upcoming interviews, and the two
+  // context-panel status lists. Centralise the invalidation so
+  // mutation sites don't drift and the right panel stays in sync
+  // with the main list.
+  const invalidateCandidateFeeds = () => {
+    qc.invalidateQueries({ queryKey: ['candidates'] });
+    qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+    qc.invalidateQueries({ queryKey: ['candidate-phone-index'] });
+    qc.invalidateQueries({ queryKey: ['upcoming-interviews'] });
+    qc.invalidateQueries({ queryKey: ['candidates-pending-decision'] });
+    qc.invalidateQueries({ queryKey: ['candidates-offer-sent'] });
+  };
+
+  // Panel expand + tab state. Persisted through the session (not to
+  // localStorage) so it re-opens where the admin left off.
+  const [ctxPanelExpanded, setCtxPanelExpanded] = useState<boolean>(true);
+  const [ctxPanelTab, setCtxPanelTab] = useState<'interviews' | 'deciding' | 'offered'>('interviews');
+  // When a panel row is clicked we highlight the candidate briefly in
+  // the main list so the admin can spot it. Timer clears after a beat.
+  const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!highlightCandidateId) return;
+    const t = setTimeout(() => setHighlightCandidateId(null), 2500);
+    return () => clearTimeout(t);
+  }, [highlightCandidateId]);
+  const jumpToCandidate = (c: Candidate) => {
+    // Move to the tab that houses this candidate's status so the row
+    // actually renders; the highlight effect then draws attention.
+    const targetTab =
+      c.status === 'PENDING_DECISION' ? 'PENDING_DECISION' :
+      c.status === 'CONTACTED' ? 'CONTACTED' :
+      c.status === 'INTERVIEWING' ? 'INTERVIEWING' :
+      c.status;
+    setTab(targetTab as typeof tab);
+    setViewMode('list');
+    setHighlightCandidateId(c.id);
+    // Small delay so the row exists in the DOM by the time we scroll.
+    setTimeout(() => {
+      const el = document.querySelector(`[data-candidate-id="${c.id}"]`);
+      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 200);
+  };
   const dupeCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const p of (phoneIndex ?? [])) {
@@ -685,8 +756,7 @@ export default function CandidatesPage() {
     mutationFn: deleteCandidate,
     onSuccess: () => {
       showToast('Candidate removed');
-      qc.invalidateQueries({ queryKey: ['candidates'] });
-      qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+      invalidateCandidateFeeds();
       setDeleteTarget(null);
     },
     onError: (e: any) => showToast(e?.message ?? 'Delete failed', 'error'),
@@ -703,8 +773,7 @@ export default function CandidatesPage() {
     }),
     onSuccess: () => {
       showToast('Candidate reopened to New');
-      qc.invalidateQueries({ queryKey: ['candidates'] });
-      qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+      invalidateCandidateFeeds();
       setReopenTarget(null);
     },
     onError: (e: any) => showToast(e?.message ?? 'Reopen failed', 'error'),
@@ -716,7 +785,7 @@ export default function CandidatesPage() {
     mutationFn: ({ id, next }: { id: string; next: boolean }) =>
       updateCandidate(id, { isShortlisted: next }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['candidates'] });
+      invalidateCandidateFeeds();
     },
     onError: (e: any) => showToast(e?.message ?? 'Failed to update shortlist', 'error'),
   });
@@ -726,8 +795,7 @@ export default function CandidatesPage() {
     mutationFn: (id: string) => updateCandidate(id, { status: 'CONTACTED' }),
     onSuccess: () => {
       showToast('Moved to Contacted');
-      qc.invalidateQueries({ queryKey: ['candidates'] });
-      qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+      invalidateCandidateFeeds();
     },
     onError: (e: any) => showToast(e?.message ?? 'Update failed', 'error'),
   });
@@ -747,8 +815,7 @@ export default function CandidatesPage() {
       updateCandidate(id, { status }),
     onSuccess: (_data, vars) => {
       showToast(STAGE_LABEL[vars.status] ?? 'Stage updated');
-      qc.invalidateQueries({ queryKey: ['candidates'] });
-      qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+      invalidateCandidateFeeds();
     },
     onError: (e: any) => showToast(e?.message ?? 'Update failed', 'error'),
   });
@@ -762,8 +829,7 @@ export default function CandidatesPage() {
       rejectionReason: 'Not shortlisted during review.',
     }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['candidates'] });
-      qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+      invalidateCandidateFeeds();
       // Backend cancels the interview + deletes the calendar event when
       // rejecting someone whose slot hasn't happened yet.
       qc.invalidateQueries({ queryKey: ['upcoming-interviews'] });
@@ -781,8 +847,7 @@ export default function CandidatesPage() {
     }),
     onSuccess: () => {
       showToast('Recorded as declined offer');
-      qc.invalidateQueries({ queryKey: ['candidates'] });
-      qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+      invalidateCandidateFeeds();
     },
     onError: (e: any) => showToast(e?.message ?? 'Update failed', 'error'),
   });
@@ -797,8 +862,7 @@ export default function CandidatesPage() {
     }),
     onSuccess: () => {
       showToast('Recorded as withdrew');
-      qc.invalidateQueries({ queryKey: ['candidates'] });
-      qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+      invalidateCandidateFeeds();
     },
     onError: (e: any) => showToast(e?.message ?? 'Update failed', 'error'),
   });
@@ -814,8 +878,7 @@ export default function CandidatesPage() {
     }),
     onSuccess: () => {
       showToast('Marked as no-show');
-      qc.invalidateQueries({ queryKey: ['candidates'] });
-      qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+      invalidateCandidateFeeds();
     },
     onError: (e: any) => showToast(e?.message ?? 'Update failed', 'error'),
   });
@@ -975,7 +1038,15 @@ export default function CandidatesPage() {
   const referralSourcesForPicker = (formOptions?.referralSources ?? [])
     .filter(s => s.toLowerCase() !== 'other');
 
+  // Right context panel docks on every view — matches how the Leads
+  // page always shows its panel. Shell keeps its native `margin: 0
+  // auto` centering; the panel sits in the natural right-side
+  // whitespace on wide viewports so the main content stays visually
+  // centered (no jarring shift-left when the panel appears).
+  const showCtxPanel = true;
+
   return (
+    <>
     <div style={S.shell}>
       {/* Row-menu hover feedback — CSS-in-JS is inline everywhere else in
           this page, but for :hover state on the dropdown items a single
@@ -1240,6 +1311,7 @@ export default function CandidatesPage() {
                 sessionRejected={sessionRejected}
                 isRepeat={c => repeatCountFor(c) > 1}
                 groupByInterviewBucket={tab === 'INTERVIEWING'}
+                hideScheduled={tab === 'NEW'}
                 onJump={jumpTo}
               />
 
@@ -1776,20 +1848,27 @@ export default function CandidatesPage() {
                 // inside. Because both the header row and each body row
                 // share this exact wrapper structure, the inner grid's
                 // columns line up perfectly (no table quirks).
+                const isHighlighted = highlightCandidateId === c.id;
                 return (
                   <Fragment key={c.id}>
                   {groupHeader}
                   <div
+                      data-candidate-id={c.id}
                       style={{
                         ...S.divRow,
-                        background: c.isShortlisted ? '#fcfaf3' : 'transparent',
-                        boxShadow: c.isShortlisted ? `inset 3px 0 0 0 #d97706` : 'inset 3px 0 0 0 transparent',
+                        background: isHighlighted ? '#fef3c7' : c.isShortlisted ? '#fcfaf3' : 'transparent',
+                        boxShadow: isHighlighted
+                          ? 'inset 3px 0 0 0 #f59e0b, 0 0 0 2px #fde68a'
+                          : c.isShortlisted ? `inset 3px 0 0 0 #d97706` : 'inset 3px 0 0 0 transparent',
                         cursor: 'default',
+                        transition: isHighlighted ? 'background 0.3s, box-shadow 0.3s' : undefined,
                       } as React.CSSProperties}
                       onMouseEnter={e => {
+                        if (isHighlighted) return;
                         e.currentTarget.style.background = c.isShortlisted ? '#fdf5db' : C.primarySofter;
                       }}
                       onMouseLeave={e => {
+                        if (isHighlighted) return;
                         e.currentTarget.style.background = c.isShortlisted ? '#fcfaf3' : 'transparent';
                       }}>
                       <div style={isTerminalTab ? S.rowGridTerminal : S.rowGrid}>
@@ -2179,8 +2258,7 @@ export default function CandidatesPage() {
           onClose={() => setRejectingCandidate(null)}
           onRejected={() => {
             const id = rejectingCandidate.id;
-            qc.invalidateQueries({ queryKey: ['candidates'] });
-            qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+            invalidateCandidateFeeds();
             // Rejecting a candidate can also cancel an upcoming interview
             // (backend auto-removes the calendar event) — refresh the
             // upcoming feed so the scheduler and any clash checks reflect
@@ -2205,7 +2283,7 @@ export default function CandidatesPage() {
           candidate={notingCandidate}
           onClose={() => setNotingCandidate(null)}
           onSaved={updated => {
-            qc.invalidateQueries({ queryKey: ['candidates'] });
+            invalidateCandidateFeeds();
             // Keep the modal open with the fresh data if the caller
             // returned it, so admins can keep editing without a reopen.
             setNotingCandidate(updated ?? null);
@@ -2218,8 +2296,7 @@ export default function CandidatesPage() {
           candidate={offeringCandidate}
           onClose={() => setOfferingCandidate(null)}
           onSent={() => {
-            qc.invalidateQueries({ queryKey: ['candidates'] });
-            qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+            invalidateCandidateFeeds();
             setOfferingCandidate(null);
           }}
         />
@@ -2230,8 +2307,7 @@ export default function CandidatesPage() {
           candidate={confirmingCandidate}
           onClose={() => setConfirmingCandidate(null)}
           onConfirmed={() => {
-            qc.invalidateQueries({ queryKey: ['candidates'] });
-            qc.invalidateQueries({ queryKey: ['candidate-stats'] });
+            invalidateCandidateFeeds();
             setConfirmingCandidate(null);
           }}
         />
@@ -2262,6 +2338,32 @@ export default function CandidatesPage() {
         />
       )}
     </div>
+    {showCtxPanel && (
+      <CandidateContextPanel
+        expanded={ctxPanelExpanded}
+        activeTab={ctxPanelTab}
+        upcomingInterviews={upcomingInterviewsFeed}
+        decidingCandidates={decidingCandidates}
+        offerSentCandidates={offerSentCandidates}
+        onToggle={() => setCtxPanelExpanded(v => !v)}
+        onTabChange={t => { setCtxPanelTab(t); setCtxPanelExpanded(true); }}
+        onSelect={jumpToCandidate}
+        onSelectInterview={id => {
+          // Find the full candidate row from the list feed, or fall
+          // back to jumping to the Interview tab and highlighting.
+          const c = rawItems.find(x => x.id === id)
+            ?? decidingCandidates.find(x => x.id === id)
+            ?? offerSentCandidates.find(x => x.id === id);
+          if (c) jumpToCandidate(c);
+          else {
+            setTab('INTERVIEWING');
+            setViewMode('list');
+            setHighlightCandidateId(id);
+          }
+        }}
+      />
+    )}
+    </>
   );
 }
 
@@ -2277,6 +2379,238 @@ export default function CandidatesPage() {
 // (rejected × / actioned ✓ / shortlist tint). Auto-scrolls the current
 // row into view when it changes (keeps the viewport centered around the
 // person being reviewed as the admin walks the queue with ← / →).
+// ── Right context panel ──────────────────────────────────────────────
+// Docked, collapsible right-hand rail on the Candidates list view.
+// Mirrors the pattern used by LeadsPage's ContextPanel — three tabs
+// (Interviews / Pending / Follow-Up), each with a scrollable list.
+// Placed with `position: fixed` so it doesn't force a layout rewrite
+// of the main shell; it hugs the right side of the viewport at
+// nav-safe top offset.
+function isSameCandidateDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+function CandidateContextPanel(props: {
+  expanded: boolean;
+  activeTab: 'interviews' | 'deciding' | 'offered';
+  upcomingInterviews: { id: string; fullName: string; interviewStart: string; interviewEnd: string | null }[];
+  decidingCandidates: Candidate[];
+  offerSentCandidates: Candidate[];
+  onToggle: () => void;
+  onTabChange: (t: 'interviews' | 'deciding' | 'offered') => void;
+  onSelect: (c: Candidate) => void;
+  onSelectInterview: (interviewId: string) => void;
+}) {
+  const { expanded, activeTab, upcomingInterviews, decidingCandidates, offerSentCandidates, onToggle, onTabChange, onSelect, onSelectInterview } = props;
+  const today = new Date();
+
+  const tabs = [
+    { key: 'interviews' as const, label: 'Interviews', icon: faCalendarDays,        count: upcomingInterviews.length,   color: '#1d4ed8' },
+    { key: 'deciding' as const,   label: 'Deciding',   icon: faScaleBalanced,        count: decidingCandidates.length,   color: '#d97706', alert: decidingCandidates.length > 0 },
+    { key: 'offered' as const,    label: 'Offer sent', icon: faPaperPlane,           count: offerSentCandidates.length,  color: '#16a34a' },
+  ];
+
+  // Fixed-position wrapper: docks the panel flush against the bottom
+  // of the app-level Navbar (height 50px) so there's no daylight
+  // between them — matches how the Leads context panel sits.
+  const wrapperStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: 50, right: 0, bottom: 0,
+    zIndex: 40,
+    background: '#fff',
+    borderLeft: '1px solid #e2e8f0',
+    display: 'flex', flexDirection: 'column',
+    boxShadow: '-8px 0 24px rgba(15,23,42,0.04)',
+    transition: 'width 0.15s ease',
+  };
+
+  if (!expanded) {
+    return (
+      <div style={{ ...wrapperStyle, width: 44 }} className="kc-no-scrollbar">
+        <button onClick={onToggle}
+          title="Show context panel"
+          style={{ width: 32, height: 32, margin: '10px auto 8px', borderRadius: 8, border: 'none', background: '#f1f5f9', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 11 }}>
+          <FontAwesomeIcon icon={faChevronLeft} />
+        </button>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => onTabChange(t.key)}
+            title={`${t.label} (${t.count})`}
+            style={{
+              width: 32, height: 32, margin: '0 auto 4px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+              background: t.alert ? '#fffbeb' : 'transparent',
+              color: t.alert ? t.color : '#94a3b8', fontSize: 12,
+            }}>
+            <FontAwesomeIcon icon={t.icon} />
+            {t.count > 0 && (
+              <span style={{
+                position: 'absolute', top: -2, right: -2, fontSize: 9, fontWeight: 700,
+                background: t.alert ? t.color : '#64748b', color: '#fff',
+                borderRadius: 10, padding: '0 4px', lineHeight: '14px', minWidth: 14, textAlign: 'center' as const,
+              }}>{t.count}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ ...wrapperStyle, width: 280 }} className="kc-no-scrollbar">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px 8px' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Context</span>
+        <button onClick={onToggle}
+          title="Collapse"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 4 }}>
+          <FontAwesomeIcon icon={faChevronRight} />
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '0 8px 8px' }}>
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => onTabChange(t.key)} style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7,
+            border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: activeTab === t.key ? 600 : 500,
+            background: activeTab === t.key ? (t.alert ? '#fffbeb' : '#f1f5f9') : 'transparent',
+            color: activeTab === t.key ? t.color : '#64748b', fontFamily: 'inherit',
+            transition: 'all 0.12s',
+          }}>
+            <FontAwesomeIcon icon={t.icon} style={{ fontSize: 11, width: 14 }} />
+            {t.label}
+            <span style={{
+              marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+              background: t.count > 0 ? (t.alert ? t.color : '#e5e7eb') : '#f1f5f9',
+              color: t.count > 0 ? (t.alert ? '#fff' : '#374151') : '#cbd5e1',
+            }}>{t.count}</span>
+          </button>
+        ))}
+      </div>
+
+      <div style={{ height: 1, background: '#f1f5f9', margin: '0 14px' }} />
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+        {activeTab === 'interviews' && (() => {
+          const sorted = [...upcomingInterviews].sort((a, b) =>
+            new Date(a.interviewStart).getTime() - new Date(b.interviewStart).getTime());
+          const groups: { label: string; isToday: boolean; items: typeof sorted }[] = [];
+          for (const iv of sorted) {
+            const d = new Date(iv.interviewStart);
+            const isToday = isSameCandidateDay(d, today);
+            const datePart = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            const dayPart = d.toLocaleDateString('en-GB', { weekday: 'short' });
+            const label = isToday ? `Today · (${dayPart}) ${datePart}` : `(${dayPart}) ${datePart}`;
+            const existing = groups.find(g => g.label === label);
+            if (existing) existing.items.push(iv);
+            else groups.push({ label, isToday, items: [iv] });
+          }
+          return groups.length === 0 ? (
+            <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No upcoming interviews</div>
+          ) : groups.map((group, gi) => (
+            <div key={group.label}>
+              <div style={{
+                padding: '6px 14px', fontSize: 10, fontWeight: 700,
+                color: group.isToday ? '#1d4ed8' : '#64748b',
+                letterSpacing: '0.05em', textTransform: 'uppercase' as const,
+                background: group.isToday ? '#eff6ff' : '#f8fafc',
+                borderTop: gi > 0 ? '1px solid #e2e8f0' : 'none',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <span>{group.label}</span>
+                <span style={{
+                  fontSize: 9, fontWeight: 600,
+                  color: group.isToday ? '#3b82f6' : '#94a3b8',
+                  background: group.isToday ? '#dbeafe' : '#e2e8f0',
+                  borderRadius: 8, padding: '1px 6px',
+                }}>{group.items.length}</span>
+              </div>
+              {group.items.map(iv => {
+                const s = new Date(iv.interviewStart);
+                const e = iv.interviewEnd ? new Date(iv.interviewEnd) : null;
+                const fmtT = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
+                return (
+                  <div key={iv.id}
+                    onClick={() => onSelectInterview(iv.id)}
+                    onMouseEnter={ev => (ev.currentTarget.style.background = '#eff6ff')}
+                    onMouseLeave={ev => (ev.currentTarget.style.background = '')}
+                    style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', gap: 10, transition: 'background 0.1s' }}>
+                    <div style={{ width: 3, height: 28, borderRadius: 2, background: group.isToday ? '#3b82f6' : '#e2e8f0', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                        {displayName(iv.fullName)}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                        {fmtT(s)}{e ? ` – ${fmtT(e)}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ));
+        })()}
+
+        {activeTab === 'deciding' && (
+          <>
+            {decidingCandidates.length === 0 ? (
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>
+                <FontAwesomeIcon icon={faCheck} style={{ marginRight: 5, color: '#22c55e' }} /> No candidates awaiting a decision
+              </div>
+            ) : (
+              <>
+                <div style={{ padding: '6px 14px 4px', fontSize: 10, color: '#b45309' }}>Hire or reject after the interview</div>
+                {decidingCandidates.map(c => (
+                  <div key={c.id}
+                    onClick={() => onSelect(c)}
+                    onMouseEnter={ev => (ev.currentTarget.style.background = '#fffbeb')}
+                    onMouseLeave={ev => (ev.currentTarget.style.background = '')}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #f8fafc', cursor: 'pointer', gap: 10 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                        {displayName(c.fullName)}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{c.desiredPosition ?? 'No role'}</div>
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} style={{ color: '#d97706', fontSize: 11, flexShrink: 0 }} />
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab === 'offered' && (
+          <>
+            {offerSentCandidates.length === 0 ? (
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>
+                <FontAwesomeIcon icon={faCheck} style={{ marginRight: 5, color: '#22c55e' }} /> No open offers
+              </div>
+            ) : (
+              <>
+                <div style={{ padding: '6px 14px 4px', fontSize: 10, color: '#16a34a' }}>Waiting for the candidate to accept</div>
+                {offerSentCandidates.map(c => (
+                  <div key={c.id}
+                    onClick={() => onSelect(c)}
+                    onMouseEnter={ev => (ev.currentTarget.style.background = '#f0fdf4')}
+                    onMouseLeave={ev => (ev.currentTarget.style.background = '')}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', borderBottom: '1px solid #f8fafc', cursor: 'pointer', gap: 10 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                        {displayName(c.fullName)}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{c.desiredPosition ?? 'No role'}</div>
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} style={{ color: '#16a34a', fontSize: 11, flexShrink: 0 }} />
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const SIDEBAR_PAGE_SIZE = 20;
 function ReviewSidebar(props: {
   items: Candidate[];
@@ -2286,9 +2620,15 @@ function ReviewSidebar(props: {
   sessionRejected: Set<string>;
   isRepeat: (c: Candidate) => boolean;
   groupByInterviewBucket: boolean;
+  /** Drop rows with an interviewStart set. Only true on the NEW-tab
+   *  triage queue — those candidates have been scheduled so they no
+   *  longer belong in triage. On tabs where scheduled candidates ARE
+   *  the whole point (Interview / Contacted), pass false or every row
+   *  gets filtered out. */
+  hideScheduled: boolean;
   onJump: (idx: number) => void;
 }) {
-  const { items, currentIdx, sessionActioned, sessionShortlisted, sessionRejected, isRepeat, groupByInterviewBucket, onJump } = props;
+  const { items, currentIdx, sessionActioned, sessionShortlisted, sessionRejected, isRepeat, groupByInterviewBucket, hideScheduled, onJump } = props;
   const listRef = useRef<HTMLUListElement | null>(null);
 
   // Filter out rejected candidates so the sidebar clears them out
@@ -2300,11 +2640,12 @@ function ReviewSidebar(props: {
       .map((c, origIdx) => ({ c, origIdx }))
       .filter(({ c }) =>
         !sessionRejected.has(c.id)
-        // Scheduled candidates are no longer NEW-tab triage material.
-        // Drop them the same way rejected rows drop — the sidebar is
-        // the "still needs a decision" queue.
-        && !c.interviewStart),
-    [items, sessionRejected],
+        // On NEW-tab triage, scheduled candidates drop out of the
+        // sidebar the moment the Schedule modal saves — same rhythm
+        // as rejected rows. On tabs where scheduled candidates ARE
+        // the queue (Contacted / Interview), keep them.
+        && (!hideScheduled || !c.interviewStart)),
+    [items, sessionRejected, hideScheduled],
   );
 
   // Client-side paging for long queues (bulk imports easily produce
@@ -3746,9 +4087,14 @@ function InterviewSchedulerModal(props: {
         skipCalendar,
       });
       showToast(candidate.interviewStart ? 'Interview rescheduled' : 'Interview scheduled');
+      // Modal-scoped: helper isn't in reach here; invalidate every
+      // candidate-related feed explicitly so both the main list and
+      // the parent's right-side context panel refresh.
       qc.invalidateQueries({ queryKey: ['candidates'] });
       qc.invalidateQueries({ queryKey: ['candidate-stats'] });
       qc.invalidateQueries({ queryKey: ['upcoming-interviews'] });
+      qc.invalidateQueries({ queryKey: ['candidates-pending-decision'] });
+      qc.invalidateQueries({ queryKey: ['candidates-offer-sent'] });
       onSaved();
     } catch (e: any) {
       // Bubble the message up so the UI can offer a "save without
