@@ -41,7 +41,7 @@ export function PillSelect({ icon, value, onChange, options, disabled }: { icon?
         padding: '0 12px',
         boxShadow: disabled ? 'none' : PILL_SHADOW,
         gap: 8,
-        cursor: disabled ? 'not-allowed' : 'pointer',
+        cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.55 : 1,
         transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s',
         minWidth: icon ? 104 : 128,
@@ -69,7 +69,7 @@ export function PillSelect({ icon, value, onChange, options, disabled }: { icon?
           width: '100%',
           height: '100%',
           opacity: 0,
-          cursor: disabled ? 'not-allowed' : 'pointer',
+          cursor: disabled ? 'default' : 'pointer',
           border: 'none',
           fontFamily: 'inherit',
         }}

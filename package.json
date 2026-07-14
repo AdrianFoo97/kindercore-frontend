@@ -9,6 +9,7 @@
     "build:test": "tsc && vite build --mode test && rm -rf public_html && cp -r dist public_html",
     "preview": "vite preview",
     "test": "tsc && vite build",
+    "test:unit": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"
   },

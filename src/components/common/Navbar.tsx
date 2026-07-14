@@ -185,6 +185,12 @@ export default function Navbar() {
                 <FontAwesomeIcon icon={faUsers} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
                 Staff
               </NavLink>
+              <NavLink to="/analysis/operating-cost" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faReceipt} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Operating Cost
+              </NavLink>
               <NavLink to="/analysis/finance" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>

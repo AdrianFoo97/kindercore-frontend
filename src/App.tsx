@@ -11,6 +11,7 @@ import SalesMarketingPage from './pages/analysis/SalesMarketingPage.js';
 import SalesAnalysisPage from './pages/analysis/SalesAnalysisPage.js';
 import RevenueAnalysisPage from './pages/analysis/RevenueAnalysisPage.js';
 import EmployeeCostPage from './pages/analysis/EmployeeCostPage.js';
+import OperatingCostAnalysisPage from './pages/analysis/operating-cost/OperatingCostAnalysisPage.js';
 import FinanceAnalysisPage from './pages/analysis/FinanceAnalysisPage.js';
 import LandingPage from './pages/LandingPage.js';
 import EnquiryFormPage from './pages/EnquiryFormPage.js';
@@ -222,6 +223,7 @@ export default function App() {
           <Route path="/analysis/sales" element={<ErrorBoundary><SalesAnalysisPage /></ErrorBoundary>} />
           <Route path="/analysis/revenue" element={<ErrorBoundary><RevenueAnalysisPage /></ErrorBoundary>} />
           <Route path="/analysis/employee-cost" element={<ErrorBoundary><EmployeeCostPage /></ErrorBoundary>} />
+          <Route path="/analysis/operating-cost" element={<ErrorBoundary><OperatingCostAnalysisPage /></ErrorBoundary>} />
           <Route path="/analysis/finance" element={<ErrorBoundary><FinanceAnalysisPage /></ErrorBoundary>} />
           <Route path="/analysis/profit-sharing" element={<ErrorBoundary><ProfitSharingPage /></ErrorBoundary>} />
           <Route path="/analysis/annual-bonus" element={<ErrorBoundary><AnnualBonusPage /></ErrorBoundary>} />
