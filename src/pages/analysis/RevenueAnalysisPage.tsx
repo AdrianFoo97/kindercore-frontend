@@ -763,6 +763,7 @@ function EnrollmentEventsList({
 
   const newCount = filtered.filter(e => e.type === 'new').length;
   const changeCount = filtered.filter(e => e.type === 'change').length;
+  const withdrawnCount = filtered.filter(e => e.type === 'withdrawn').length;
 
   const title = selectedMonth !== null
     ? `Enrolment Events — ${MONTH_NAMES[selectedMonth]} ${data.selectedYear}`
@@ -782,7 +783,7 @@ function EnrollmentEventsList({
             </span>
           )}
           <span style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>
-            {newCount} new · {changeCount} change{changeCount === 1 ? '' : 's'}
+            {newCount} new · {changeCount} change{changeCount === 1 ? '' : 's'} · {withdrawnCount} withdrawn
           </span>
         </div>
         <div style={{ fontSize: 11, color: '#94a3b8' }}>
@@ -857,6 +858,7 @@ function EnrollmentEventsList({
                       )}
                       {rows.map(ev => {
                         const isChange = ev.type === 'change';
+                        const isWithdrawn = ev.type === 'withdrawn';
                         const feeDelta = isChange && ev.prevMonthlyFee != null
                           ? ev.monthlyFee - ev.prevMonthlyFee : null;
                         return (
@@ -867,15 +869,20 @@ function EnrollmentEventsList({
                             <td style={evTd}>
                               <span style={{
                                 padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700,
-                                background: isChange ? '#fef3c7' : '#dcfce7',
-                                color: isChange ? '#92400e' : '#14532d',
+                                background: isWithdrawn ? '#fee2e2' : isChange ? '#fef3c7' : '#dcfce7',
+                                color: isWithdrawn ? '#991b1b' : isChange ? '#92400e' : '#14532d',
                                 textTransform: 'uppercase', letterSpacing: '0.04em',
                               }}>
-                                {isChange ? 'Change' : 'New'}
+                                {isWithdrawn ? 'Withdrawn' : isChange ? 'Change' : 'New'}
                               </span>
                             </td>
                             <td style={{ ...evTd, fontWeight: 600, color: '#0f172a' }}>
                               {ev.studentName}
+                              {isWithdrawn && ev.withdrawReason && (
+                                <div style={{ fontWeight: 400, fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                                  {ev.withdrawReason}
+                                </div>
+                              )}
                             </td>
                             <td style={evTd}>
                               {isChange && ev.prevProgramme && ev.prevProgramme !== ev.programme && (
@@ -891,8 +898,8 @@ function EnrollmentEventsList({
                                 <span style={{ color: '#94a3b8', marginLeft: 4 }}>· {ev.packageAge}y</span>
                               )}
                             </td>
-                            <td style={{ ...evTd, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#5b21b6', fontWeight: 600 }}>
-                              {fmtCurrency(ev.monthlyFee)}
+                            <td style={{ ...evTd, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: isWithdrawn ? '#dc2626' : '#5b21b6', fontWeight: 600 }}>
+                              {isWithdrawn ? '-' : ''}{fmtCurrency(ev.monthlyFee)}
                               {feeDelta != null && feeDelta !== 0 && (
                                 <span style={{
                                   marginLeft: 6, fontSize: 11, fontWeight: 600,

@@ -194,7 +194,7 @@ export interface RevenueAnalyticsData {
       studentId: string;
       studentName: string;
       effectiveDate: string;
-      type: 'new' | 'change';
+      type: 'new' | 'change' | 'withdrawn';
       packageName: string | null;
       programme: string | null;
       packageAge: number | null;
@@ -202,6 +202,7 @@ export interface RevenueAnalyticsData {
       prevPackageName: string | null;
       prevProgramme: string | null;
       prevMonthlyFee: number | null;
+      withdrawReason: string | null;
     }>;
   }>;
   revenueByProgramme: Array<{ programme: string; revenue: number; studentCount: number }>;
