@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faUser, faBoxesStacked, faClipboardList, faPenToSquare, faArrowRightArrowLeft, faXmark, faCircle, faRightFromBracket, faArrowRotateLeft, faChildren, faPlus, faTrash, faIdCard, faCalendarCheck, faCheckCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faUser, faBoxesStacked, faClipboardList, faPenToSquare, faArrowRightArrowLeft, faXmark, faCircle, faRightFromBracket, faArrowRotateLeft, faChildren, faPlus, faTrash, faIdCard, faCalendarCheck, faCheckCircle, faSpinner, faVolumeHigh } from '@fortawesome/free-solid-svg-icons';
 import { fetchStudents, updateStudent, fetchEnrollments, createEnrollment, updateEnrollment, deleteEnrollment, withdrawStudent, reactivateStudent, createSibling } from '../api/students.js';
 import { fetchStudentAttendance, deleteAttendance, scanAttendance, AttendanceRecord } from '../api/attendance.js';
+import { fetchStudentSpeech, generateStudentSpeech } from '../api/tts.js';
+import { uploadUrl } from '../api/upload.js';
 import { fetchPackages, fetchPackageYears } from '../api/packages.js';
 import { useToast } from '../components/common/Toast.js';
 import { useDeleteDialog } from '../components/common/DeleteDialog.js';
@@ -1382,6 +1384,19 @@ function AttendanceTab({ student }: { student: Student }) {
     refetchInterval: 30_000, // refresh while reader is in use
   });
 
+  const { data: speechData } = useQuery({
+    queryKey: ['student-speech', student.id],
+    queryFn: () => fetchStudentSpeech(student.id),
+  });
+  const clip = speechData?.clip ?? null;
+  const [greetingText, setGreetingText] = useState('');
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    setGreetingText(clip?.text ?? `Good morning, ${student.lead.childName}!`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clip?.text, student.lead.childName]);
+
   const invalidate = () => qc.invalidateQueries({ queryKey: ['student-attendance', student.id] });
 
   const handleMarkPresent = async () => {
@@ -1402,6 +1417,18 @@ function AttendanceTab({ student }: { student: Student }) {
       showToast(e?.message ?? 'Failed to mark attendance', 'error');
     }
     setMarking(false);
+  };
+
+  const handleGenerateGreeting = async () => {
+    setGenerating(true);
+    try {
+      await generateStudentSpeech(student.id, greetingText);
+      showToast(clip ? 'Greeting regenerated' : 'Greeting generated');
+      qc.invalidateQueries({ queryKey: ['student-speech', student.id] });
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to generate greeting', 'error');
+    }
+    setGenerating(false);
   };
 
   const handleDelete = async (rec: AttendanceRecord) => {
@@ -1491,6 +1518,59 @@ function AttendanceTab({ student }: { student: Student }) {
           </span>
         </div>
       )}
+
+      {/* Attendance greeting — TTS clip played by the reader's speaker on scan. */}
+      <div style={{
+        padding: 12, borderRadius: 10,
+        background: '#f8fafc', border: '1px solid #e2e8f0',
+        marginBottom: 16,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <FontAwesomeIcon icon={faVolumeHigh} style={{ fontSize: 13, color: '#5a67d8' }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>Attendance Greeting</span>
+        </div>
+        <p style={{ margin: '0 0 8px', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+          Generated once and played by the reader's speaker whenever this student's card is scanned.
+        </p>
+        <input
+          type="text"
+          value={greetingText}
+          onChange={(e) => setGreetingText(e.target.value)}
+          maxLength={200}
+          placeholder={`Good morning, ${student.lead.childName}!`}
+          style={{
+            width: '100%', padding: '8px 10px', borderRadius: 8,
+            border: '1px solid #cbd5e1', fontSize: 13, fontFamily: 'inherit',
+            marginBottom: 8, boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={handleGenerateGreeting}
+            disabled={generating || !greetingText.trim()}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 8,
+              background: !greetingText.trim() ? '#e2e8f0' : '#5a67d8',
+              color: !greetingText.trim() ? '#94a3b8' : '#fff',
+              border: 'none', cursor: generating || !greetingText.trim() ? 'default' : 'pointer',
+              fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
+              opacity: generating ? 0.7 : 1,
+            }}
+          >
+            <FontAwesomeIcon
+              icon={generating ? faSpinner : faVolumeHigh}
+              spin={generating}
+              style={{ fontSize: 12 }}
+            />
+            {clip ? 'Regenerate' : 'Generate Greeting'}
+          </button>
+          {clip && (
+            <audio controls src={uploadUrl(clip.filePath)} style={{ height: 32 }} />
+          )}
+        </div>
+      </div>
 
       {/* Records list — grouped by day. */}
       {isLoading ? (
