@@ -416,12 +416,14 @@ interface FilterProps {
   period: Period;
   periodOptions: PillOption[];
   onPeriod: (p: Period) => void;
+  includeStaffCost: boolean;
+  onIncludeStaffCost: (v: boolean) => void;
 }
 
-/** The period controls — the only two that scope the whole page. Rendered twice
- *  (page header, floating bar), so they must not own any state. Stack-by is NOT
- *  here: it only changes how one chart is drawn, so it lives on that chart. */
-function FilterControls({ year, years, onYear, period, periodOptions, onPeriod }: FilterProps) {
+/** The controls that scope the whole page. Rendered twice (page header,
+ *  floating bar), so they must not own any state. Stack-by/sort-by are NOT
+ *  here: they only change how one chart/table is drawn, so they live there. */
+function FilterControls({ year, years, onYear, period, periodOptions, onPeriod, includeStaffCost, onIncludeStaffCost }: FilterProps) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: SP.sm }}>
       <PillSelect
@@ -435,6 +437,11 @@ function FilterControls({ year, years, onYear, period, periodOptions, onPeriod }
         value={period === 'all' ? 'all' : String(period)}
         onChange={v => onPeriod(v === 'all' ? 'all' : Number(v))}
         options={periodOptions}
+      />
+      <PillToggle
+        value={includeStaffCost ? 'incl' : 'excl'}
+        onChange={v => onIncludeStaffCost(v === 'incl')}
+        options={[{ value: 'excl', label: 'Operating only' }, { value: 'incl', label: '+ Staff cost' }]}
       />
     </div>
   );
@@ -481,6 +488,9 @@ export default function OperatingCostAnalysisPage() {
   const [year, setYear] = useState<number>(currentYear);
   const [stackBy, setStackBy] = useState<StackBy>('group');
   const [sortBy, setSortBy] = useState<SortBy>('spend');
+  // Off by default — folding payroll into "operating cost" changes what every
+  // KPI on the page means, so it's an opt-in lens rather than the default view.
+  const [includeStaffCost, setIncludeStaffCost] = useState(false);
   // null = nothing picked yet, so fall back to the latest month with entries (see
   // `period` below). A month index scopes the summary numbers to that month alone;
   // the charts stay full-year regardless, because a trend of one point isn't a trend.
@@ -526,6 +536,12 @@ export default function OperatingCostAnalysisPage() {
   const { data: finance } = useQuery({
     queryKey: ['finance-summary', year],
     queryFn: () => fetchFinanceSummary(year),
+  });
+  // Only consulted when includeStaffCost is on (for the "vs last year" KPI),
+  // but React Query hooks must run unconditionally like the other queries here.
+  const { data: financePrev } = useQuery({
+    queryKey: ['finance-summary', year - 1],
+    queryFn: () => fetchFinanceSummary(year - 1),
   });
 
   // Entries and categories are both load-bearing: without either, every figure on
@@ -576,7 +592,19 @@ export default function OperatingCostAnalysisPage() {
   // ── KPIs (scoped months only — never mix actual with not-yet-recorded) ──
   const ytd = rows.reduce((s, r) => s + r.ytd, 0);
   const prevYtd = rows.reduce((s, r) => s + r.prevYtd, 0);
-  const yoyPct = prevYtd > 0 ? (ytd - prevYtd) / prevYtd : null;
+
+  // Staff cost isn't a category (no OperatingCost rows), so it's summed
+  // straight from the finance summary rather than through categoryRows —
+  // same reduction shape monthRatios below uses for revenue/students.
+  const scopedStaffCost = scope.reduce((s, i) => s + (finance?.months[i]?.staffCost ?? 0), 0);
+  const prevScopedStaffCost = scope.reduce((s, i) => s + (financePrev?.months[i]?.staffCost ?? 0), 0);
+
+  // "Effective" = what the page shows when the staff-cost toggle is on. Only
+  // the figures in the table below switch to these; "vs budget" deliberately
+  // keeps using the plain ytd/prevYtd, since no budget exists for staff cost.
+  const effectiveYtd = ytd + (includeStaffCost ? scopedStaffCost : 0);
+  const effectivePrevYtd = prevYtd + (includeStaffCost ? prevScopedStaffCost : 0);
+  const yoyPct = effectivePrevYtd > 0 ? (effectiveYtd - effectivePrevYtd) / effectivePrevYtd : null;
 
   const budgeted = rows.filter(r => r.ytdBudget != null);
   const ytdBudget = budgeted.length > 0 ? budgeted.reduce((s, r) => s + (r.ytdBudget ?? 0), 0) : null;
@@ -585,12 +613,12 @@ export default function OperatingCostAnalysisPage() {
   const budgetVariancePct = ytdBudget != null && ytdBudget > 0 ? budgetVariance! / ytdBudget : null;
 
   const scopedRevenue = scope.reduce((s, i) => s + (monthRatios[i]?.revenue ?? 0), 0);
-  const pctOfRevenue = scopedRevenue > 0 ? ytd / scopedRevenue : null;
+  const pctOfRevenue = scopedRevenue > 0 ? effectiveYtd / scopedRevenue : null;
   // scopedStudents is student-months (sum of each month's headcount), which is
   // what makes ytd / scopedStudents a per-student-per-month figure. The number
   // worth showing a human is the average headcount those months were carrying.
   const scopedStudents = scope.reduce((s, i) => s + (monthRatios[i]?.studentCount ?? 0), 0);
-  const costPerStudent = scopedStudents > 0 ? ytd / scopedStudents : null;
+  const costPerStudent = scopedStudents > 0 ? effectiveYtd / scopedStudents : null;
   const avgStudents = scope.length > 0 ? scopedStudents / scope.length : 0;
   const latestStudents = scope.length > 0 ? monthRatios[scope[scope.length - 1]]?.studentCount ?? 0 : 0;
 
@@ -600,24 +628,33 @@ export default function OperatingCostAnalysisPage() {
   const periodShort = scopedToMonth ? MONTHS[period as number] : `${scope.length} month${scope.length === 1 ? '' : 's'}`;
 
   // ── Composition chart ──
+  // Amber, deliberately off the slate/indigo SERIES ramp — it's not a real
+  // OperatingCost category, so it shouldn't read as one.
+  const STAFF_COST_COLOR = '#d97706';
+
   const stackKeys = useMemo<{ key: string; color: string }[]>(() => {
-    if (stackBy === 'group') {
-      return groupRows.map((g, i) => ({ key: g.name, color: SERIES[i % SERIES.length] }));
-    }
-    const top = [...rows].filter(r => r.ytd > 0).sort((a, b) => b.ytd - a.ytd).slice(0, MAX_STACK_SERIES);
-    const keys = top.map((r, i) => ({ key: r.name, color: SERIES[i % SERIES.length] }));
-    if (rows.filter(r => r.ytd > 0).length > MAX_STACK_SERIES) keys.push({ key: 'Other', color: OTHER_COLOR });
-    return keys;
-  }, [stackBy, groupRows, rows]);
+    const base: { key: string; color: string }[] = stackBy === 'group'
+      ? groupRows.map((g, i) => ({ key: g.name, color: SERIES[i % SERIES.length] }))
+      : (() => {
+          const top = [...rows].filter(r => r.ytd > 0).sort((a, b) => b.ytd - a.ytd).slice(0, MAX_STACK_SERIES);
+          const keys = top.map((r, i) => ({ key: r.name, color: SERIES[i % SERIES.length] }));
+          if (rows.filter(r => r.ytd > 0).length > MAX_STACK_SERIES) keys.push({ key: 'Other', color: OTHER_COLOR });
+          return keys;
+        })();
+    if (includeStaffCost) base.push({ key: 'Staff Cost', color: STAFF_COST_COLOR });
+    return base;
+  }, [stackBy, groupRows, rows, includeStaffCost]);
 
   const chartData = useMemo<StackDatum[]>(() => {
     const topNames = new Set(stackKeys.map(k => k.key));
     return MONTHS.map((label, i) => {
+      const staffCost = finance?.months[i]?.staffCost ?? 0;
+      const prevStaffCost = financePrev?.months[i]?.staffCost ?? 0;
       const d: StackDatum = {
         month: label,
         monthIdx: i,
-        prevTotal: prevTotals[i],
-        total: totals[i],
+        prevTotal: prevTotals[i] + (includeStaffCost ? prevStaffCost : 0),
+        total: totals[i] + (includeStaffCost ? staffCost : 0),
         hasData: recorded.has(i),
       };
       if (stackBy === 'group') {
@@ -630,9 +667,10 @@ export default function OperatingCostAnalysisPage() {
         }
         if (topNames.has('Other')) d['Other'] = other;
       }
+      if (includeStaffCost) d['Staff Cost'] = staffCost;
       return d;
     });
-  }, [stackKeys, stackBy, groupRows, rows, totals, prevTotals, recorded]);
+  }, [stackKeys, stackBy, groupRows, rows, totals, prevTotals, recorded, includeStaffCost, finance, financePrev]);
 
   /** Contiguous runs of not-recorded months, drawn as a single band each. */
   const noDataBands = useMemo(() => {
@@ -661,9 +699,12 @@ export default function OperatingCostAnalysisPage() {
   // The breakdown covers the scoped period — the whole year to date, or the one
   // month you picked. `r.ytd` and `r.ytdBudget` are already scoped, so this is
   // just a read; no second notion of "selected month" to fall out of sync.
-  const breakdownTotal = scopedToMonth ? totals[period as number] : ytd;
+  // scopedStaffCost already sums over `scope`, which is [period] when
+  // scopedToMonth and `elapsed` otherwise — so it lines up with totals[period]/ytd
+  // in both branches without a second scoping notion.
+  const breakdownTotal = (scopedToMonth ? totals[period as number] : ytd) + (includeStaffCost ? scopedStaffCost : 0);
   const breakdownItems = useMemo<BreakdownItem[]>(() => {
-    return rows
+    const items = rows
       .map(r => ({
         id: r.id,
         name: r.name,
@@ -672,9 +713,19 @@ export default function OperatingCostAnalysisPage() {
         budget: r.ytdBudget,
         share: breakdownTotal > 0 ? r.ytd / breakdownTotal : 0,
       }))
-      .filter(i => i.amount > 0)
-      .sort((a, b) => b.amount - a.amount);
-  }, [rows, breakdownTotal]);
+      .filter(i => i.amount > 0);
+    if (includeStaffCost && scopedStaffCost > 0) {
+      items.push({
+        id: '__staff_cost__',
+        name: 'Staff Cost',
+        groupName: 'Payroll',
+        amount: scopedStaffCost,
+        budget: null,
+        share: breakdownTotal > 0 ? scopedStaffCost / breakdownTotal : 0,
+      });
+    }
+    return items.sort((a, b) => b.amount - a.amount);
+  }, [rows, breakdownTotal, includeStaffCost, scopedStaffCost]);
   const breakdownMax = breakdownItems.length > 0
     ? Math.max(...breakdownItems.map(i => Math.max(i.amount, i.budget ?? 0)))
     : 0;
@@ -779,6 +830,8 @@ export default function OperatingCostAnalysisPage() {
             period={period}
             periodOptions={periodOptions}
             onPeriod={setPeriodChoice}
+            includeStaffCost={includeStaffCost}
+            onIncludeStaffCost={setIncludeStaffCost}
           />
         </div>
       )}
@@ -803,6 +856,8 @@ export default function OperatingCostAnalysisPage() {
             period={period}
             periodOptions={periodOptions}
             onPeriod={setPeriodChoice}
+            includeStaffCost={includeStaffCost}
+            onIncludeStaffCost={setIncludeStaffCost}
           />
         </div>
 
@@ -853,14 +908,14 @@ export default function OperatingCostAnalysisPage() {
               <Kpi
                 icon={faSackDollar}
                 label={scopedToMonth ? `Spend · ${MONTHS[period as number]}` : 'Spend to date'}
-                value={fmtRM(ytd)}
+                value={fmtRM(effectiveYtd)}
                 hint={scopedToMonth ? `${MONTHS[period as number]} ${year} only` : `across ${scope.length} month${scope.length === 1 ? '' : 's'}`}
               />
               <Kpi
                 icon={faScaleBalanced}
                 label="vs budget"
                 value={budgetVariance == null ? '—' : `${budgetVariance > 0 ? '+' : '−'}${fmtRM(Math.abs(budgetVariance)).replace('RM ', 'RM ')}`}
-                hint={ytdBudget == null ? 'no budgets set' : `${fmtRM(budgetedSpend)} of ${fmtRM(ytdBudget)} · ${periodShort}${budgetVariancePct != null ? ` · ${fmtSignedPct(budgetVariancePct)}` : ''}`}
+                hint={ytdBudget == null ? 'no budgets set' : `${fmtRM(budgetedSpend)} of ${fmtRM(ytdBudget)} · ${periodShort}${budgetVariancePct != null ? ` · ${fmtSignedPct(budgetVariancePct)}` : ''}${includeStaffCost ? ' · operating costs only' : ''}`}
                 tone={budgetVariance == null ? 'neutral' : budgetVariance > 0 ? 'over' : 'under'}
               />
               <Kpi
@@ -868,8 +923,8 @@ export default function OperatingCostAnalysisPage() {
                 label="vs last year"
                 value={yoyPct == null ? '—' : fmtSignedPct(yoyPct)}
                 hint={
-                  prevYtd > 0
-                    ? `${fmtRM(prevYtd)} · ${scopedToMonth ? `${MONTHS[period as number]} ${year - 1}` : `same months ${year - 1}`}`
+                  effectivePrevYtd > 0
+                    ? `${fmtRM(effectivePrevYtd)} · ${scopedToMonth ? `${MONTHS[period as number]} ${year - 1}` : `same months ${year - 1}`}`
                     : `nothing recorded in ${scopedToMonth ? `${MONTHS[period as number]} ` : ''}${year - 1}`
                 }
                 tone={yoyPct == null ? 'neutral' : yoyPct > 0 ? 'over' : 'under'}
@@ -897,7 +952,7 @@ export default function OperatingCostAnalysisPage() {
             {/* Composition over time */}
             <Card
               title="Monthly spend"
-              subtitle={`Stacked by ${stackBy === 'group' ? 'main category' : `category (top ${MAX_STACK_SERIES})`}. The dashed line is ${year - 1}. Click a bar to scope the page to that month.`}
+              subtitle={`Stacked by ${stackBy === 'group' ? 'main category' : `category (top ${MAX_STACK_SERIES})`}${includeStaffCost ? ', plus staff cost' : ''}. The dashed line is ${year - 1}. Click a bar to scope the page to that month.`}
               right={
                 <div style={{ display: 'flex', alignItems: 'center', gap: SP.md }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.muted, whiteSpace: 'nowrap' }}>
