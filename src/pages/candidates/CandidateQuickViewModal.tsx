@@ -55,6 +55,7 @@ const STATUS_META: Record<CandidateStatus, { label: string; bg: string; fg: stri
   OFFER_SENT:       { label: 'Offer sent',   bg: '#fef3c7',     fg: '#a16207' },
   HIRED:            { label: 'Hired',        bg: C.successSoft, fg: C.success },
   REJECTED:         { label: 'Rejected',     bg: C.dangerSoft,  fg: C.danger },
+  TALENT_BANK:      { label: 'Talent Bank',  bg: '#e0e7ff',     fg: '#4338ca' },
 };
 
 interface Props {

@@ -11,6 +11,7 @@ import {
   faExclamation, faFilter, faXmark, faCircleInfo, faArrowLeft, faArrowRight, faChevronLeft, faChevronRight,
   faFileLines, faCalendarDays, faEllipsisVertical, faNoteSticky, faPaperPlane, faClock,
   faList, faIdCard, faBolt, faScaleBalanced, faPen, faArrowRotateLeft, faBullhorn, faTrash, faArrowsRotate,
+  faBoxArchive,
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faGoogle } from '@fortawesome/free-brands-svg-icons';
 import { CommuteTime } from '../types/index.js';
@@ -234,6 +235,7 @@ const STATUS_META: Record<CandidateStatus, { label: string; bg: string; fg: stri
   OFFER_SENT:       { label: 'Offer sent',   bg: '#fef3c7',      fg: '#a16207', icon: faPaperPlane },
   HIRED:            { label: 'Hired',        bg: C.successSoft, fg: C.success, icon: faUserCheck },
   REJECTED:         { label: 'Rejected',     bg: C.dangerSoft,  fg: C.danger,  icon: faUserXmark },
+  TALENT_BANK:      { label: 'Talent Bank',  bg: '#e0e7ff',     fg: '#4338ca', icon: faBoxArchive },
 };
 
 // Sentinel rejection reasons — kept as constants so the terminal-status
@@ -456,7 +458,7 @@ export default function CandidatesPage() {
   // Single-mode pipeline. Every stage (NEW → CONTACTED → INTERVIEWING →
   // HIRED / REJECTED) is a sub-tab; "closed" is a convenience for
   // hired + rejected together.
-  const [tab, setTab] = useState<'NEW' | 'CONTACTED' | 'INTERVIEWING' | 'PENDING_DECISION' | 'OFFER_SENT' | 'HIRED' | 'REJECTED' | 'closed'>('NEW');
+  const [tab, setTab] = useState<'NEW' | 'CONTACTED' | 'INTERVIEWING' | 'PENDING_DECISION' | 'OFFER_SENT' | 'HIRED' | 'REJECTED' | 'TALENT_BANK' | 'closed'>('NEW');
 
   const [search, setSearch] = useState('');
   const [desiredPosition, setDesiredPosition] = useState('');
@@ -491,6 +493,7 @@ export default function CandidatesPage() {
   // candidate to REJECTED. Used from the Deciding stage where a plain
   // one-click reject would lose important context.
   const [rejectingCandidate, setRejectingCandidate] = useState<Candidate | null>(null);
+  const [talentBankingCandidate, setTalentBankingCandidate] = useState<Candidate | null>(null);
   // Modal for the "Send offer" action — collects final salary/start date,
   // previews the WhatsApp message, saves the candidate as OFFER_SENT and
   // (optionally) fires WhatsApp with the offer text.
@@ -727,7 +730,7 @@ export default function CandidatesPage() {
   // "Status" column since scheduling is irrelevant once the candidate
   // is closed out; the outcome (Hired / Rejected / Declined offer) is
   // the useful column at that point.
-  const isTerminalTab = tab === 'HIRED' || tab === 'REJECTED' || tab === 'closed';
+  const isTerminalTab = tab === 'HIRED' || tab === 'REJECTED' || tab === 'TALENT_BANK' || tab === 'closed';
 
   // Paginate the terminal tabs — a bulk import can drop hundreds of
   // rows onto Rejected in one go, and rendering that unpaginated melts
@@ -1114,9 +1117,10 @@ export default function CandidatesPage() {
         <TabBtn label="Deciding"   count={counts?.PENDING_DECISION} active={tab === 'PENDING_DECISION'} onClick={() => setTab('PENDING_DECISION')} />
         <TabBtn label="Offer sent" count={counts?.OFFER_SENT}       active={tab === 'OFFER_SENT'}       onClick={() => setTab('OFFER_SENT')} />
         <div style={S.tabSep} />
-        <TabBtn label="Hired"      count={counts?.HIRED}        active={tab === 'HIRED'}        onClick={() => setTab('HIRED')} />
-        <TabBtn label="Rejected"   count={counts?.REJECTED}     active={tab === 'REJECTED'}     onClick={() => setTab('REJECTED')} />
-        <TabBtn label="All closed" count={closedTotal}          active={tab === 'closed'}       onClick={() => setTab('closed')} />
+        <TabBtn label="Hired"       count={counts?.HIRED}        active={tab === 'HIRED'}        onClick={() => setTab('HIRED')} />
+        <TabBtn label="Rejected"    count={counts?.REJECTED}     active={tab === 'REJECTED'}     onClick={() => setTab('REJECTED')} />
+        <TabBtn label="Talent Bank" count={counts?.TALENT_BANK}  active={tab === 'TALENT_BANK'}  onClick={() => setTab('TALENT_BANK')} />
+        <TabBtn label="All closed"  count={closedTotal}          active={tab === 'closed'}       onClick={() => setTab('closed')} />
       </div>
 
       {/* Toolbar — search + position + filter button + sort + density */}
@@ -1639,7 +1643,7 @@ export default function CandidatesPage() {
                 const renderDecisionButtons = (row: Candidate) => {
                   const s = row.status;
                   // Terminal stages have nothing to decide.
-                  if (s === 'HIRED' || s === 'REJECTED') return null;
+                  if (s === 'HIRED' || s === 'REJECTED' || s === 'TALENT_BANK') return null;
                   // Positive advance (green) is per-stage; Decline (red)
                   // is universal — an admin can close a candidate out at
                   // any stage. Both the row's primary CTA and this menu
@@ -1664,6 +1668,10 @@ export default function CandidatesPage() {
                         <button className="kc-row-menu-item" style={S.menuItemBtn} onClick={() => { setRejectingCandidate(row); closeMenu(); }}>
                           {menuMedallion(faXmark, '#ffe4e6', '#e11d48')}
                           <span style={{ color: '#9f1239' }}>Reject candidate</span>
+                        </button>
+                        <button className="kc-row-menu-item" style={S.menuItemBtn} onClick={() => { setTalentBankingCandidate(row); closeMenu(); }}>
+                          {menuMedallion(faBoxArchive, '#e0e7ff', '#4338ca')}
+                          <span style={{ color: '#4338ca' }}>Add to Talent Bank</span>
                         </button>
                       </div>
                     </>
@@ -1780,7 +1788,7 @@ export default function CandidatesPage() {
                               is the setSchedulingCandidate state. Label
                               switches based on whether a slot is
                               already booked. */}
-                          {row2.status !== 'HIRED' && row2.status !== 'REJECTED' && (
+                          {row2.status !== 'HIRED' && row2.status !== 'REJECTED' && row2.status !== 'TALENT_BANK' && (
                             <button
                               type="button"
                               className="kc-row-menu-item"
@@ -1801,7 +1809,7 @@ export default function CandidatesPage() {
                             case where the row should just go away
                             (test data, duplicate, spam). Both are
                             hidden for active-pipeline candidates. */}
-                        {(row2.status === 'HIRED' || row2.status === 'REJECTED') && (
+                        {(row2.status === 'HIRED' || row2.status === 'REJECTED' || row2.status === 'TALENT_BANK') && (
                           <>
                             {sep}
                             <div style={{ padding: '0 2px' }}>
@@ -2274,6 +2282,26 @@ export default function CandidatesPage() {
               goForward();
             }
             setRejectingCandidate(null);
+          }}
+        />
+      )}
+
+      {talentBankingCandidate && (
+        <TalentBankModal
+          candidate={talentBankingCandidate}
+          onClose={() => setTalentBankingCandidate(null)}
+          onBanked={() => {
+            const id = talentBankingCandidate.id;
+            invalidateCandidateFeeds();
+            // Talent-banking can also cancel an upcoming interview (same
+            // backend side effect as reject) — refresh the upcoming feed.
+            qc.invalidateQueries({ queryKey: ['upcoming-interviews'] });
+            if (reviewOpen && queueSnapshot.some(x => x.id === id)) {
+              markActioned(id);
+              setSessionShortlisted(prev => { const n = new Set(prev); n.delete(id); return n; });
+              goForward();
+            }
+            setTalentBankingCandidate(null);
           }}
         />
       )}
@@ -3392,6 +3420,97 @@ function RejectCandidateModal(props: {
               borderRadius: 8, fontSize: 13, fontWeight: 700,
               cursor: canReject ? 'pointer' : 'default',
               opacity: canReject ? 1 : 0.6,
+            }}
+          >
+            {saving ? 'Saving…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Talent Bank modal — parks a candidate who isn't being hired right now
+// but is worth reconsidering for a future opening. Distinct from Reject:
+// no mandatory reason taxonomy, just an optional note. Mirrors
+// RejectCandidateModal's shell; "Reopen candidate" (already available on
+// terminal rows) is the way back out, same as it is for Hired/Rejected.
+function TalentBankModal(props: {
+  candidate: Candidate;
+  onClose: () => void;
+  onBanked: () => void;
+}) {
+  const { candidate, onClose, onBanked } = props;
+  const { showToast } = useToast();
+  const [notes, setNotes] = useState(candidate.adminNotes ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleConfirm = async () => {
+    setSaving(true); setError('');
+    try {
+      await updateCandidate(candidate.id, {
+        status: 'TALENT_BANK',
+        adminNotes: notes.trim() || null,
+      });
+      showToast('Candidate added to Talent Bank');
+      onBanked();
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to add to Talent Bank.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={ISM.backdrop} onClick={onClose}>
+      <div style={{ ...ISM.card, width: 'min(460px, 100%)' }} onClick={e => e.stopPropagation()}>
+        <div style={ISM.header}>
+          <div>
+            <h2 style={ISM.title}>Add to Talent Bank</h2>
+            <div style={ISM.subtitle}>{candidate.fullName} · {candidate.phone}</div>
+          </div>
+          <button onClick={onClose} style={ISM.closeBtn} title="Close">
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </div>
+
+        <div style={{ padding: '18px 24px 20px', display: 'flex', flexDirection: 'column' as const, gap: 14 }}>
+          <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.5 }}>
+            Not hiring them right now, but worth revisiting for a future opening. They'll move out of the active pipeline into their own Talent Bank tab — use "Reopen candidate" later to bring them back.
+          </div>
+          <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.textSub }}>
+              Notes <span style={{ fontSize: 11, fontWeight: 400, color: C.mutedSoft }}>(optional)</span>
+            </span>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Why keep them on file? (e.g. strong candidate, no current opening for their role)"
+              style={{
+                display: 'block', width: '100%', height: 90, resize: 'vertical' as const,
+                padding: '10px 12px', border: `1px solid ${C.border}`, borderRadius: 8,
+                fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' as const,
+                lineHeight: 1.5, background: '#fafafa', color: C.text,
+              }}
+            />
+          </label>
+        </div>
+
+        {error && <div style={ISM.errorRow}>{error}</div>}
+
+        <div style={ISM.footer}>
+          <button onClick={onClose} style={ISM.cancelBtn}>Cancel</button>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={handleConfirm}
+            disabled={saving}
+            style={{
+              padding: '9px 20px',
+              background: '#4338ca', color: '#fff', border: 'none',
+              borderRadius: 8, fontSize: 13, fontWeight: 700,
+              cursor: saving ? 'default' : 'pointer',
+              opacity: saving ? 0.6 : 1,
             }}
           >
             {saving ? 'Saving…' : 'Confirm'}
