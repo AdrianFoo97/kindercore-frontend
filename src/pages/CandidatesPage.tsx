@@ -571,7 +571,7 @@ export default function CandidatesPage() {
     refetchInterval: 60_000,
   });
 
-  const { data: list, isLoading } = useQuery({
+  const { data: list, isLoading, isFetching: listIsFetching } = useQuery({
     queryKey: ['candidates', tab, search, desiredPosition],
     queryFn: () => fetchCandidates({
       status: tab as any,
@@ -959,6 +959,14 @@ export default function CandidatesPage() {
 
   useEffect(() => {
     if (!reviewOpen) return;
+    // Re-entering review mode for a (tab + filters) combo React Query has
+    // cached before serves the cached — possibly stale — data first and
+    // revalidates in the background (standard stale-while-revalidate).
+    // Snapshotting immediately on that first render would freeze the
+    // *stale* pool and never pick up the fresh one once it lands (e.g. a
+    // candidate reopened into NEW while the admin was on another tab).
+    // Wait for the in-flight fetch to settle before freezing.
+    if (listIsFetching) return;
     // First time this (tab + filter combo) is seen in card view, and
     // items have loaded: freeze a snapshot so mutations don't reshuffle
     // mid-review. Filter changes invalidate the snapshot so the sidebar
@@ -971,7 +979,7 @@ export default function CandidatesPage() {
       setSessionRejected(new Set());
       setSnapshottedFor(sessionKey);
     }
-  }, [sessionKey, reviewOpen, items, snapshottedFor]);
+  }, [sessionKey, reviewOpen, items, snapshottedFor, listIsFetching]);
 
   // Leaving card view (switch to list, or terminal tab default) wipes
   // the session state so the next card-view visit starts fresh.
@@ -2240,9 +2248,11 @@ export default function CandidatesPage() {
           title={`Reopen ${reopenTarget.fullName}?`}
           message={
             <span>
-              They'll return to <strong>New</strong> and any rejection reason
-              or hire date will be cleared. You'll then be able to re-triage
-              them from the top of the pipeline.
+              They'll return to <strong>New</strong>
+              {reopenTarget.status === 'TALENT_BANK'
+                ? '. '
+                : ' and any rejection reason or hire date will be cleared. '}
+              You'll then be able to re-triage them from the top of the pipeline.
             </span>
           }
           confirmLabel="Reopen candidate"
