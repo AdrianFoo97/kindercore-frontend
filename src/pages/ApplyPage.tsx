@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCircleCheck, faPaperPlane, faTriangleExclamation,
   faArrowLeft, faArrowRight, faFileLines, faXmark,
-  faChartLine, faHandHoldingDollar, faGift, faLocationDot,
+  faChartLine, faHandHoldingDollar, faGift, faLocationDot, faHandshake,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchCandidateFormOptions, submitCandidateApplication, uploadCandidateResume, RecruitmentPosition } from '../api/candidates.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
@@ -42,6 +42,11 @@ const C = {
   // large fills) — never as text or on small elements, where #fcee21
   // reads poorly against white.
   brandYellow: '#fcee21',
+  // Fourth benefit-icon tint (leadership/partnership) — same violet the
+  // app already uses for teacher-facing surfaces elsewhere, so it reads
+  // as consistent with the rest of the product, not a one-off pick.
+  violet: '#7c3aed',
+  violetSoft: '#f3effe',
   danger: '#dc2626',
   dangerSoft: '#fef2f2',
 };
@@ -192,24 +197,29 @@ const KINDERGARTEN_PLACE = 'Johor Bahru';
 // above so each card reads as the "how" for one promise.
 const WELCOME_REASONS: Array<{
   icon: typeof faChartLine;
-  tint: 'primary' | 'gold' | 'success';
+  tint: 'primary' | 'gold' | 'success' | 'violet';
   title: string;
   body: string;
 }> = [
   {
     icon: faChartLine, tint: 'primary',
-    title: 'Clear career path',
-    body: 'Assistant → Junior → Senior with published salary bands on every rung.',
+    title: 'A clear path from teacher to leader',
+    body: 'Progress through six defined career levels—from Assistant Teacher to Principal—with clear expectations, promotion criteria, and salary progression.',
   },
   {
     icon: faGift, tint: 'gold',
-    title: 'Space to do your best work',
-    body: 'Semi-flexible hours and additional leave beyond statutory.',
+    title: 'Rewards that grow with your contribution',
+    body: 'Earn more as you grow through performance rewards, attendance incentives, seniority recognition, training allowances, and profit sharing.',
   },
   {
     icon: faHandHoldingDollar, tint: 'success',
-    title: 'Profit sharing',
-    body: 'When the school does well, you do too — on top of your salary.',
+    title: 'A culture where you can thrive',
+    body: 'Work in a children-first team that values care, collaboration, recognition, and continuous improvement.',
+  },
+  {
+    icon: faHandshake, tint: 'violet',
+    title: 'A pathway to leadership and partnership',
+    body: 'High-performing team members committed to growing with us may progress into leadership and long-term partnership opportunities.',
   },
 ];
 
@@ -500,8 +510,9 @@ export default function ApplyPage() {
           <div style={S.welcomeHero}>
             <img src="/logo.png" alt="Ten Toes Preschool" style={S.welcomeLogo} />
             <h1 style={S.welcomeH1}>
-              Joyful growth for all,<br />
-              a brighter future together.
+              Grow as a teacher.<br />
+              Lead with purpose.<br />
+              Share in success.
             </h1>
           </div>
 
@@ -510,9 +521,8 @@ export default function ApplyPage() {
               block visually reinforces "these things go together, and
               here's why." */}
           <div style={S.forTeachersPanel}>
-            <div style={S.forTeachersLabel}>For our teachers</div>
             <p style={S.forTeachersLead}>
-              Our mission is to empower teachers to <strong>continuously grow, unleash their potential, and share in success</strong>. Here's how:
+              At Ten Toes, teaching is more than a job. Build a long-term career through clear progression, continuous development, fair rewards, and opportunities to lead.
             </p>
             <div style={S.reasonsGrid}>
               {WELCOME_REASONS.map((r, idx) => (
@@ -535,7 +545,7 @@ export default function ApplyPage() {
             style={S.welcomeCta}
             onClick={() => { setPhase('form'); window.scrollTo({ top: 0 }); }}
           >
-            Start my application <FontAwesomeIcon icon={faArrowRight} />
+            Start my career journey <FontAwesomeIcon icon={faArrowRight} />
           </button>
           <p style={S.ctaSub}>
             Takes about 5 minutes
@@ -1431,7 +1441,10 @@ const makeStyles = (m: boolean) => ({
   } as React.CSSProperties,
   welcomeH1: {
     fontSize: m ? 24 : 20, fontWeight: 800, margin: 0, color: C.text,
-    lineHeight: 1.25, letterSpacing: -0.2,
+    // Tighter leading than a single-line headline needs — three short
+    // stacked lines read as one deliberate statement, not three loose
+    // sentences, when the lines sit close together.
+    lineHeight: 1.18, letterSpacing: -0.2,
     maxWidth: 480,
   } as React.CSSProperties,
   // Reasons — vertical rows separated by hairline dividers. Dividers
@@ -1442,8 +1455,10 @@ const makeStyles = (m: boolean) => ({
   } as React.CSSProperties,
   reasonRow: {
     display: 'flex', alignItems: 'flex-start', gap: 14,
-    padding: m ? '12px 0' : '10px 0',
-    borderTop: `1px solid rgba(90,103,216,0.10)`,
+    padding: m ? '14px 0' : '12px 0',
+    // Neutral hairline, not a leftover tint from the pre-rebrand indigo
+    // palette — dividers should be quiet, not colored.
+    borderTop: `1px solid ${C.borderSoft}`,
   } as React.CSSProperties,
   // First row shouldn't carry the top border — it sits right under the
   // "we provide:" lead-in and doesn't need visual separation there.
@@ -1453,11 +1468,12 @@ const makeStyles = (m: boolean) => ({
   // Soft tint badge — pale fill, colored glyph. Reads calmer than a
   // solid saturated square with a white icon, which looks more like an
   // app icon than a detail inside a form.
-  reasonIcon: (tint: 'primary' | 'success' | 'gold'): React.CSSProperties => {
+  reasonIcon: (tint: 'primary' | 'success' | 'gold' | 'violet'): React.CSSProperties => {
     const map = {
       primary: { soft: C.primarySoft, deep: C.primary },
       success: { soft: C.successSoft, deep: C.success },
       gold:    { soft: C.goldSoft,    deep: C.gold },
+      violet:  { soft: C.violetSoft,  deep: C.violet },
     }[tint];
     return {
       width: 44, height: 44, borderRadius: 12, flexShrink: 0,
@@ -1486,12 +1502,11 @@ const makeStyles = (m: boolean) => ({
     padding: m ? '20px 22px' : '16px 16px',
     display: 'flex', flexDirection: 'column', gap: m ? 12 : 10,
   } as React.CSSProperties,
-  forTeachersLabel: {
-    fontSize: 11, fontWeight: 700, color: C.primaryDeep,
-    textTransform: 'uppercase', letterSpacing: 0.7,
-  } as React.CSSProperties,
   forTeachersLead: {
-    fontSize: m ? 14 : 13, color: C.text, lineHeight: 1.5,
+    // Secondary text color — the headline should be the darkest thing
+    // on screen; a lead paragraph at full-strength black competes with
+    // it instead of supporting it.
+    fontSize: m ? 14 : 13, color: C.textSub, lineHeight: 1.5,
     margin: '-2px 0 4px',
   } as React.CSSProperties,
   // Bigger, more prominent CTA than the form's regular submit button.
