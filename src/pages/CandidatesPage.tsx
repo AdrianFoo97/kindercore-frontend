@@ -639,7 +639,7 @@ export default function CandidatesPage() {
 
   // Panel expand + tab state. Persisted through the session (not to
   // localStorage) so it re-opens where the admin left off.
-  const [ctxPanelExpanded, setCtxPanelExpanded] = useState<boolean>(true);
+  const [ctxPanelExpanded, setCtxPanelExpanded] = useState<boolean>(false);
   const [ctxPanelTab, setCtxPanelTab] = useState<'interviews' | 'deciding' | 'offered'>('interviews');
   // When a panel row is clicked we highlight the candidate briefly in
   // the main list so the admin can spot it. Timer clears after a beat.
@@ -1372,6 +1372,12 @@ export default function CandidatesPage() {
                       onScheduleInterview={() => setSchedulingCandidate(currentCandidate)}
                       onToggleShortlist={onShortlist}
                       shortlistPending={shortlistMut.isPending}
+                      onNote={() => setNotingCandidate(currentCandidate)}
+                      onSendOffer={() => setOfferingCandidate(currentCandidate)}
+                      onReject={() => setRejectingCandidate(currentCandidate)}
+                      onTalentBank={() => setTalentBankingCandidate(currentCandidate)}
+                      onReopen={() => setReopenTarget(currentCandidate)}
+                      onDelete={() => setDeleteTarget(currentCandidate)}
                     />
 
                     {/* Sticky decision bar — stage-appropriate actions.
@@ -1623,68 +1629,13 @@ export default function CandidatesPage() {
 
                 void bgIdle; void bgHover; // Only compact needs these; comfortable renders in its own branch below.
 
-                // Local helper: the kebab-with-fixed-positioned-menu block
-                // used at every pipeline stage. Rendered inline via a
-                // callback so it closes over `c` and the shared row-menu
-                // state without a full component-factoring effort.
-                // Reusable pieces so the menu below stays scannable.
+                // Kebab trigger + positioned wrapper for the shared
+                // CandidateActionsMenu (see module-scope definition) —
+                // same actions as the card-view header kebab, just
+                // anchored to the row's own bounding rect since this
+                // list scrolls and a plain `position: absolute` menu
+                // could get clipped.
                 const closeMenu = () => { setRowMenuOpenId(null); setRowMenuAnchor(null); };
-                const sep = <div style={S.menuSep} />;
-                const sectionLabel = (label: string, icon?: any) => (
-                  <div style={S.menuSectionLabel}>
-                    {icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}
-                    {label}
-                  </div>
-                );
-                // Small tinted-square icon "medallion" for decision items —
-                // borrowed from the leads menu so decisions read as more
-                // consequential than the neutral action rows.
-                const menuMedallion = (icon: any, bg: string, fg: string) => (
-                  <span style={{ ...S.menuMedallion, background: bg }}>
-                    <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: fg }} />
-                  </span>
-                );
-
-                // Stage-appropriate decision buttons, mirroring the row's
-                // primary CTAs. Same handlers, just surfaced through the
-                // menu as a secondary entry point.
-                const renderDecisionButtons = (row: Candidate) => {
-                  const s = row.status;
-                  // Terminal stages have nothing to decide.
-                  if (s === 'HIRED' || s === 'REJECTED' || s === 'TALENT_BANK') return null;
-                  // Positive advance (green) is per-stage; Decline (red)
-                  // is universal — an admin can close a candidate out at
-                  // any stage. Both the row's primary CTA and this menu
-                  // route Reject/Decline through the same modal so a
-                  // reason is always captured.
-                  // Same three final decisions on every non-terminal
-                  // stage — a candidate can be offered, withdraw, or be
-                  // rejected at any point in the funnel. Stage-specific
-                  // bookkeeping (Mark interviewed / Didn't attend /
-                  // Accepted) lives on the row's primary CTAs; the
-                  // context menu is reserved for these terminal outcomes.
-                  void s; // Same menu contents on every non-terminal stage.
-                  return (
-                    <>
-                      {sep}
-                      {sectionLabel('Decision', faScaleBalanced)}
-                      <div style={{ padding: '0 2px' }}>
-                        <button className="kc-row-menu-item" style={S.menuItemBtn} onClick={() => { setOfferingCandidate(row); closeMenu(); }}>
-                          {menuMedallion(faPaperPlane, '#dcfce7', '#16a34a')}
-                          <span style={{ color: '#15803d', fontWeight: 600 }}>Send offer</span>
-                        </button>
-                        <button className="kc-row-menu-item" style={S.menuItemBtn} onClick={() => { setRejectingCandidate(row); closeMenu(); }}>
-                          {menuMedallion(faXmark, '#ffe4e6', '#e11d48')}
-                          <span style={{ color: '#9f1239' }}>Reject candidate</span>
-                        </button>
-                        <button className="kc-row-menu-item" style={S.menuItemBtn} onClick={() => { setTalentBankingCandidate(row); closeMenu(); }}>
-                          {menuMedallion(faBoxArchive, '#e0e7ff', '#4338ca')}
-                          <span style={{ color: '#4338ca' }}>Add to Talent Bank</span>
-                        </button>
-                      </div>
-                    </>
-                  );
-                };
 
                 const renderRowKebab = (row2: Candidate) => (
                   <div data-row-menu style={{ position: 'relative' }}>
@@ -1708,153 +1659,20 @@ export default function CandidatesPage() {
                       <FontAwesomeIcon icon={faEllipsisVertical} />
                     </button>
                     {rowMenuOpenId === row2.id && rowMenuAnchor && (
-                      <div
-                        style={{
-                          ...S.rowMenu,
-                          position: 'fixed',
-                          top: rowMenuAnchor.top,
-                          right: rowMenuAnchor.right,
-                        }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {sectionLabel('Actions', faBolt)}
-                        <div style={{ padding: '0 2px' }}>
-                          <button
-                            type="button"
-                            className="kc-row-menu-item"
-                            style={S.menuItemBtn}
-                            onClick={() => {
-                              shortlistMut.mutate({ id: row2.id, next: !row2.isShortlisted });
-                              closeMenu();
-                            }}
-                          >
-                            <FontAwesomeIcon
-                              icon={faStar}
-                              fixedWidth
-                              style={{ marginRight: 8, color: row2.isShortlisted ? '#eab308' : '#94a3b8', fontSize: 12 }}
-                            />
-                            {row2.isShortlisted ? 'Remove from favourites' : 'Mark as favourite'}
-                          </button>
-                          <a
-                            href={waLink(row2.phone)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="kc-row-menu-item"
-                            style={S.menuItemLink}
-                            onClick={closeMenu}
-                          >
-                            <FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} />
-                            Send WhatsApp
-                          </a>
-                          <button
-                            type="button"
-                            className="kc-row-menu-item"
-                            style={S.menuItemBtn}
-                            onClick={() => { setNotingCandidate(row2); closeMenu(); }}
-                          >
-                            <FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
-                            {row2.adminNotes ? 'Edit note' : 'Add note'}
-                          </button>
-                          {(() => {
-                            const hasResume = !!row2.resumeUrl || !!row2.resumePath;
-                            return (
-                              <button
-                                type="button"
-                                disabled={!hasResume}
-                                title={hasResume ? undefined : 'This candidate did not attach a resume.'}
-                                className="kc-row-menu-item"
-                                style={{
-                                  ...S.menuItemBtn,
-                                  opacity: hasResume ? 1 : 0.45,
-                                  cursor: hasResume ? 'pointer' : 'default',
-                                }}
-                                onClick={() => {
-                                  if (!hasResume) return;
-                                  closeMenu();
-                                  // Prefer the external URL (Google Drive-hosted
-                                  // resume from the Apps Script bridge). Falls
-                                  // back to the auth-gated internal fetch for
-                                  // native /apply uploads.
-                                  if (row2.resumeUrl) {
-                                    window.open(row2.resumeUrl, '_blank', 'noopener,noreferrer');
-                                  } else {
-                                    const win = window.open('', '_blank');
-                                    downloadCandidateResume(row2.id, win).catch((e: any) => {
-                                      showToast(e?.message ?? 'Could not open resume.', 'error');
-                                    });
-                                  }
-                                }}
-                              >
-                                <FontAwesomeIcon icon={faFileLines} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
-                                View resume
-                              </button>
-                            );
-                          })()}
-                          {/* Schedule / Reschedule interview — only on
-                              active-pipeline rows. Reuses the same
-                              modal the row's primary CTA opens; wiring
-                              is the setSchedulingCandidate state. Label
-                              switches based on whether a slot is
-                              already booked. */}
-                          {row2.status !== 'HIRED' && row2.status !== 'REJECTED' && row2.status !== 'TALENT_BANK' && (
-                            <button
-                              type="button"
-                              className="kc-row-menu-item"
-                              style={S.menuItemBtn}
-                              onClick={() => { setSchedulingCandidate(row2); closeMenu(); }}
-                            >
-                              <FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
-                              {row2.interviewStart ? 'Reschedule interview' : 'Schedule interview'}
-                            </button>
-                          )}
-                        </div>
-                        {renderDecisionButtons(row2)}
-                        {/* Recovery + destructive actions on terminal
-                            rows — "accidentally rejected the wrong
-                            person" is common enough to surface Reopen
-                            as a first-class menu item, and Delete
-                            (with confirmation) sits alongside for the
-                            case where the row should just go away
-                            (test data, duplicate, spam). Both are
-                            hidden for active-pipeline candidates. */}
-                        {(row2.status === 'HIRED' || row2.status === 'REJECTED' || row2.status === 'TALENT_BANK') && (
-                          <>
-                            {sep}
-                            <div style={{ padding: '0 2px' }}>
-                              <button
-                                type="button"
-                                className="kc-row-menu-item"
-                                style={S.menuItemBtn}
-                                onClick={() => { setReopenTarget(row2); closeMenu(); }}
-                              >
-                                <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
-                                Reopen candidate
-                              </button>
-                              <button
-                                type="button"
-                                className="kc-row-menu-item"
-                                style={{ ...S.menuItemBtn, color: C.danger }}
-                                onClick={() => { setDeleteTarget(row2); closeMenu(); }}
-                              >
-                                <FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8, color: C.danger, fontSize: 12 }} />
-                                Delete candidate
-                              </button>
-                            </div>
-                          </>
-                        )}
-                        {sep}
-                        <div style={{ padding: '0 2px' }}>
-                          <button
-                            type="button"
-                            className="kc-row-menu-item"
-                            style={S.menuItemBtn}
-                            onClick={() => { setOpenId(row2.id); closeMenu(); }}
-                          >
-                            <FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: C.primary, fontSize: 12 }} />
-                            View candidate details
-                          </button>
-                        </div>
-                      </div>
+                      <CandidateActionsMenu
+                        candidate={row2}
+                        style={{ position: 'fixed', top: rowMenuAnchor.top, right: rowMenuAnchor.right }}
+                        onClose={closeMenu}
+                        onToggleShortlist={() => shortlistMut.mutate({ id: row2.id, next: !row2.isShortlisted })}
+                        onNote={() => setNotingCandidate(row2)}
+                        onSchedule={() => setSchedulingCandidate(row2)}
+                        onSendOffer={() => setOfferingCandidate(row2)}
+                        onReject={() => setRejectingCandidate(row2)}
+                        onTalentBank={() => setTalentBankingCandidate(row2)}
+                        onReopen={() => setReopenTarget(row2)}
+                        onDelete={() => setDeleteTarget(row2)}
+                        onViewDetails={() => setOpenId(row2.id)}
+                      />
                     )}
                   </div>
                 );
@@ -2943,6 +2761,193 @@ function ReviewSidebarItem(props: {
   );
 }
 
+// Shared kebab-menu content — used by both the list-view row kebab and
+// the card-view (InboxReviewCard) header kebab, so switching density
+// doesn't change what actions are available. Positioning is the
+// caller's job (list anchors it fixed to the row's rect; card view
+// just needs S.rowMenu's default absolute-under-the-button position),
+// hence the optional `style` override.
+function CandidateActionsMenu(props: {
+  candidate: Candidate;
+  style?: React.CSSProperties;
+  onClose: () => void;
+  onToggleShortlist: () => void;
+  onNote: () => void;
+  onSchedule: () => void;
+  onSendOffer: () => void;
+  onReject: () => void;
+  onTalentBank: () => void;
+  onReopen: () => void;
+  onDelete: () => void;
+  onViewDetails: () => void;
+}) {
+  const { candidate: c, onClose } = props;
+  const { showToast } = useToast();
+  const sep = <div style={S.menuSep} />;
+  const sectionLabel = (label: string, icon?: any) => (
+    <div style={S.menuSectionLabel}>
+      {icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}
+      {label}
+    </div>
+  );
+  const menuMedallion = (icon: any, bg: string, fg: string) => (
+    <span style={{ ...S.menuMedallion, background: bg }}>
+      <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: fg }} />
+    </span>
+  );
+  const isTerminal = c.status === 'HIRED' || c.status === 'REJECTED' || c.status === 'TALENT_BANK';
+  const hasResume = !!c.resumeUrl || !!c.resumePath;
+
+  return (
+    <div style={{ ...S.rowMenu, ...props.style }} onClick={e => e.stopPropagation()}>
+      {sectionLabel('Actions', faBolt)}
+      <div style={{ padding: '0 2px' }}>
+        <button
+          type="button"
+          className="kc-row-menu-item"
+          style={S.menuItemBtn}
+          onClick={() => { props.onToggleShortlist(); onClose(); }}
+        >
+          <FontAwesomeIcon
+            icon={faStar}
+            fixedWidth
+            style={{ marginRight: 8, color: c.isShortlisted ? '#eab308' : '#94a3b8', fontSize: 12 }}
+          />
+          {c.isShortlisted ? 'Remove from favourites' : 'Mark as favourite'}
+        </button>
+        <a
+          href={waLink(c.phone)}
+          target="_blank"
+          rel="noreferrer"
+          className="kc-row-menu-item"
+          style={S.menuItemLink}
+          onClick={onClose}
+        >
+          <FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} />
+          Send WhatsApp
+        </a>
+        <button
+          type="button"
+          className="kc-row-menu-item"
+          style={S.menuItemBtn}
+          onClick={() => { props.onNote(); onClose(); }}
+        >
+          <FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+          {c.adminNotes ? 'Edit note' : 'Add note'}
+        </button>
+        <button
+          type="button"
+          disabled={!hasResume}
+          title={hasResume ? undefined : 'This candidate did not attach a resume.'}
+          className="kc-row-menu-item"
+          style={{
+            ...S.menuItemBtn,
+            opacity: hasResume ? 1 : 0.45,
+            cursor: hasResume ? 'pointer' : 'default',
+          }}
+          onClick={() => {
+            if (!hasResume) return;
+            onClose();
+            // Prefer the external URL (Google Drive-hosted resume from
+            // the Apps Script bridge). Falls back to the auth-gated
+            // internal fetch for native /apply uploads.
+            if (c.resumeUrl) {
+              window.open(c.resumeUrl, '_blank', 'noopener,noreferrer');
+            } else {
+              const win = window.open('', '_blank');
+              downloadCandidateResume(c.id, win).catch((e: any) => {
+                showToast(e?.message ?? 'Could not open resume.', 'error');
+              });
+            }
+          }}
+        >
+          <FontAwesomeIcon icon={faFileLines} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+          View resume
+        </button>
+        {/* Schedule / Reschedule interview — only on active-pipeline
+            candidates. Label switches based on whether a slot is
+            already booked. */}
+        {!isTerminal && (
+          <button
+            type="button"
+            className="kc-row-menu-item"
+            style={S.menuItemBtn}
+            onClick={() => { props.onSchedule(); onClose(); }}
+          >
+            <FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+            {c.interviewStart ? 'Reschedule interview' : 'Schedule interview'}
+          </button>
+        )}
+      </div>
+      {/* Decision — terminal stages have nothing left to decide. Same
+          three final decisions on every non-terminal stage. */}
+      {!isTerminal && (
+        <>
+          {sep}
+          {sectionLabel('Decision', faScaleBalanced)}
+          <div style={{ padding: '0 2px' }}>
+            <button className="kc-row-menu-item" style={S.menuItemBtn} onClick={() => { props.onSendOffer(); onClose(); }}>
+              {menuMedallion(faPaperPlane, '#dcfce7', '#16a34a')}
+              <span style={{ color: '#15803d', fontWeight: 600 }}>Send offer</span>
+            </button>
+            <button className="kc-row-menu-item" style={S.menuItemBtn} onClick={() => { props.onReject(); onClose(); }}>
+              {menuMedallion(faXmark, '#ffe4e6', '#e11d48')}
+              <span style={{ color: '#9f1239' }}>Reject candidate</span>
+            </button>
+            <button className="kc-row-menu-item" style={S.menuItemBtn} onClick={() => { props.onTalentBank(); onClose(); }}>
+              {menuMedallion(faBoxArchive, '#e0e7ff', '#4338ca')}
+              <span style={{ color: '#4338ca' }}>Add to Talent Bank</span>
+            </button>
+          </div>
+        </>
+      )}
+      {/* Recovery + destructive actions on terminal rows — "accidentally
+          rejected the wrong person" is common enough to surface Reopen
+          as a first-class menu item, and Delete (with confirmation)
+          sits alongside for the case where the row should just go away
+          (test data, duplicate, spam). Both are hidden for
+          active-pipeline candidates. */}
+      {isTerminal && (
+        <>
+          {sep}
+          <div style={{ padding: '0 2px' }}>
+            <button
+              type="button"
+              className="kc-row-menu-item"
+              style={S.menuItemBtn}
+              onClick={() => { props.onReopen(); onClose(); }}
+            >
+              <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+              Reopen candidate
+            </button>
+            <button
+              type="button"
+              className="kc-row-menu-item"
+              style={{ ...S.menuItemBtn, color: C.danger }}
+              onClick={() => { props.onDelete(); onClose(); }}
+            >
+              <FontAwesomeIcon icon={faTrash} fixedWidth style={{ marginRight: 8, color: C.danger, fontSize: 12 }} />
+              Delete candidate
+            </button>
+          </div>
+        </>
+      )}
+      {sep}
+      <div style={{ padding: '0 2px' }}>
+        <button
+          type="button"
+          className="kc-row-menu-item"
+          style={S.menuItemBtn}
+          onClick={() => { props.onViewDetails(); onClose(); }}
+        >
+          <FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: C.primary, fontSize: 12 }} />
+          View candidate details
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function InboxReviewCard(props: {
   c: Candidate;
   positions: { name: string; minSalary: number | null; maxSalary: number | null }[];
@@ -2952,6 +2957,12 @@ function InboxReviewCard(props: {
   onScheduleInterview: () => void;
   onToggleShortlist: () => void;
   shortlistPending: boolean;
+  onNote: () => void;
+  onSendOffer: () => void;
+  onReject: () => void;
+  onTalentBank: () => void;
+  onReopen: () => void;
+  onDelete: () => void;
 }) {
   const { c, repeatCount, onRepeatSearch } = props;
   const q = QUAL_STYLES[qualKey(c.qualification)];
@@ -2961,9 +2972,8 @@ function InboxReviewCard(props: {
     ? c.qualificationOther
     : (c.qualification ?? null);
 
-  // Header kebab — opens a small popover with row-scoped actions.
-  // Currently just "Open full details" so admins have a consistent
-  // top-right menu shape even for the card view.
+  // Header kebab — same CandidateActionsMenu the list-view row kebab
+  // uses, so switching density doesn't change what actions are here.
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const headerMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -3103,17 +3113,20 @@ function InboxReviewCard(props: {
               <FontAwesomeIcon icon={faEllipsisVertical} />
             </button>
             {headerMenuOpen && (
-              <div style={S.reviewHeaderMenu}>
-                <button
-                  type="button"
-                  className="kc-row-menu-item"
-                  style={S.menuItemBtn}
-                  onClick={() => { props.onOpenModal(); setHeaderMenuOpen(false); }}
-                >
-                  <FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: C.primary, fontSize: 12 }} />
-                  Open full details
-                </button>
-              </div>
+              <CandidateActionsMenu
+                candidate={c}
+                style={S.reviewHeaderMenu}
+                onClose={() => setHeaderMenuOpen(false)}
+                onToggleShortlist={props.onToggleShortlist}
+                onNote={props.onNote}
+                onSchedule={props.onScheduleInterview}
+                onSendOffer={props.onSendOffer}
+                onReject={props.onReject}
+                onTalentBank={props.onTalentBank}
+                onReopen={props.onReopen}
+                onDelete={props.onDelete}
+                onViewDetails={props.onOpenModal}
+              />
             )}
           </div>
         </div>
