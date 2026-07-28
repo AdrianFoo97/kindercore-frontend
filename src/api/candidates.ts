@@ -89,6 +89,8 @@ export interface CandidateFormOptions {
   qualifications: string[];
   experienceRanges: string[];
   referralSources: string[];
+  /** The school's address, so "Commute time to our school" is answerable. */
+  address: string;
 }
 
 /** Public — apply form reads this without auth. */

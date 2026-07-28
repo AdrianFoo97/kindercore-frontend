@@ -3,11 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCircleCheck, faPaperPlane, faTriangleExclamation, faChalkboardUser,
+  faCircleCheck, faPaperPlane, faTriangleExclamation,
   faArrowLeft, faArrowRight, faFileLines, faXmark,
-  faChartLine, faHandHoldingDollar, faGift,
+  faChartLine, faHandHoldingDollar, faGift, faLocationDot,
 } from '@fortawesome/free-solid-svg-icons';
-import { fetchCandidateFormOptions, submitCandidateApplication, uploadCandidateResume } from '../api/candidates.js';
+import { fetchCandidateFormOptions, submitCandidateApplication, uploadCandidateResume, RecruitmentPosition } from '../api/candidates.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 
 // Public application form — shared via a link with prospective teachers.
@@ -16,23 +16,32 @@ import { useIsMobile } from '../hooks/useIsMobile.js';
 // conversation. Everything else (interview details, references, salary
 // negotiation) is captured by the admin during the pipeline.
 
+// Brand colors sampled directly from the Ten Toes Preschool logo
+// (public/logo.png): #0000a8 blue, #fcee21 yellow. Blue carries the
+// structural/interactive weight (buttons, links, progress, borders);
+// yellow is reserved for accents (the card's top stripe, decorative
+// medallions) since large blocks of it read poorly as text/backgrounds.
 const C = {
-  bg: '#f8fafc',
+  bg: '#f5f6fc',
   surface: '#ffffff',
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  border: '#e2e8f0',
-  borderSoft: '#eef0f3',
-  primary: '#5a67d8',
-  primaryDeep: '#3c339a',
-  primarySoft: '#eef2ff',
+  border: '#dde1f5',
+  borderSoft: '#eef0fa',
+  primary: '#0000a8',
+  primaryDeep: '#00006e',
+  primarySoft: '#e4e6fa',
   success: '#059669',
   successSoft: '#ecfdf5',
-  // Warm gold for the "team/culture" reason — differentiates it from the
-  // indigo/green pair without being too loud.
-  gold: '#b45309',
-  goldSoft: '#fef3c7',
+  // Deepened for legible text/icon contrast — the true brand yellow
+  // (brandYellow, below) is reserved for flat decorative fills.
+  gold: '#c99700',
+  goldSoft: '#fff8db',
+  // The exact brand yellow. Flat/decorative use only (gradient stripes,
+  // large fills) — never as text or on small elements, where #fcee21
+  // reads poorly against white.
+  brandYellow: '#fcee21',
   danger: '#dc2626',
   dangerSoft: '#fef2f2',
 };
@@ -363,6 +372,7 @@ export default function ApplyPage() {
   const qualifications = formOptions?.qualifications ?? [];
   const experienceRanges = formOptions?.experienceRanges ?? [];
   const referralSources = formOptions?.referralSources ?? [];
+  const schoolAddress = formOptions?.address ?? '';
 
   // Dev-mode: finish the prefill once the dropdown options land. We
   // couldn't pick these at useState-init time because they're loaded
@@ -488,10 +498,7 @@ export default function ApplyPage() {
           {/* Hero — vision leads. "Join us" becomes the small kicker;
               the H1 weight is spent on the actual reason to apply. */}
           <div style={S.welcomeHero}>
-            <div style={S.welcomeIconLg}>
-              <FontAwesomeIcon icon={faChalkboardUser} />
-            </div>
-            <div style={S.welcomeKicker}>Our vision</div>
+            <img src="/logo.png" alt="Ten Toes Preschool" style={S.welcomeLogo} />
             <h1 style={S.welcomeH1}>
               Joyful growth for all,<br />
               a brighter future together.
@@ -757,6 +764,16 @@ export default function ApplyPage() {
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
+              {schoolAddress && (
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 6,
+                  fontSize: 12.5, color: C.muted, lineHeight: 1.4,
+                  marginTop: -3,
+                }}>
+                  <FontAwesomeIcon icon={faLocationDot} style={{ marginTop: 2, flexShrink: 0, color: C.primary }} />
+                  <span>Our school is at <strong style={{ color: C.text }}>{schoolAddress}</strong> — estimate your commute from there.</span>
+                </div>
+              )}
             </Field>
             <div style={S.row2}>
               <Field {...fp} label="Earliest start date" required>
@@ -822,13 +839,6 @@ export default function ApplyPage() {
               >
                 Not sure? Compare roles →
               </button>
-              {hasBand && pickedPosition && (
-                <span style={S.hint}>
-                  Typical salary range for this role:
-                  {' '}<strong>RM {pickedPosition.minSalary!.toLocaleString()} – RM {pickedPosition.maxSalary!.toLocaleString()}</strong>
-                  , depending on experience and skills.
-                </span>
-              )}
             </Field>
             <Field {...fp} label="Years of teaching experience" required>
               <select style={S.input} value={form.experienceRange} required
@@ -862,9 +872,12 @@ export default function ApplyPage() {
             <Field {...fp} label="Expected monthly salary (RM)" required>
               <input style={S.input} value={form.expectedSalary} type="number" min={0} required
                 onChange={e => update('expectedSalary', e.target.value)} />
+              {/* Mirrors the old Google Form, which showed the band right
+                  next to the salary question. */}
+              {hasBand && pickedPosition && <SalaryBandHint position={pickedPosition} />}
             </Field>
             <Field {...fp}
-              label="What early childhood related experience justifies your expected salary?"
+              label="Please share any early childhood experience that supports your expected salary"
               required>
               <textarea style={{ ...S.input, minHeight: 100, fontFamily: 'inherit', resize: 'vertical' }}
                 value={form.salaryJustification}
@@ -1222,6 +1235,19 @@ function Field(props: {
   );
 }
 
+// Shown under Expected salary, right where the candidate is typing a
+// number — mirrors the old Google Form, which showed the band next to
+// the same question.
+function SalaryBandHint({ position }: { position: RecruitmentPosition }) {
+  return (
+    <span style={{ fontSize: 12.5, color: C.muted, lineHeight: 1.4, marginTop: -3 }}>
+      Typical salary range for {position.name}:
+      {' '}<strong style={{ fontWeight: 700 }}>RM {position.minSalary!.toLocaleString()} – RM {position.maxSalary!.toLocaleString()}</strong>
+      , depending on experience, skills and qualification.
+    </span>
+  );
+}
+
 // Resume picker — drop-target shape on desktop, big tap target on mobile.
 // Doesn't upload by itself; just hands the chosen File back via onPick.
 function ResumePicker(props: {
@@ -1335,7 +1361,7 @@ const makeStyles = (m: boolean) => ({
   // any card. Reused by the welcome card, the form card and the done view.
   cardAccent: {
     position: 'absolute', top: 0, left: 0, right: 0, height: 5,
-    background: `linear-gradient(90deg, ${C.primary} 0%, ${C.success} 60%, ${C.gold} 100%)`,
+    background: C.primary,
   } as React.CSSProperties,
   header: {
     display: 'flex', alignItems: 'center', gap: m ? 14 : 12,
@@ -1369,16 +1395,13 @@ const makeStyles = (m: boolean) => ({
   labelText: {
     fontSize: m ? 13 : 13, fontWeight: 600, color: C.textSub,
   } as React.CSSProperties,
-  hint: {
-    fontSize: 12, color: C.muted, marginTop: 6, lineHeight: 1.4,
-  } as React.CSSProperties,
   // Small in-line trigger under the Position dropdown that opens the
   // compare-roles modal. Kept subtle so confident candidates skim past
   // it; only draws attention when the applicant is undecided.
   compareRolesLink: {
     display: 'inline-flex', alignItems: 'center', gap: 4,
     background: 'transparent', border: 'none', padding: 0,
-    marginTop: 6, color: C.primary,
+    color: C.primary,
     fontSize: 12, fontWeight: 600, cursor: 'pointer',
   } as React.CSSProperties,
   // ── Welcome view ─────────────────────────────────────────────────────
@@ -1398,24 +1421,13 @@ const makeStyles = (m: boolean) => ({
     textAlign: 'center', gap: m ? 12 : 10,
     padding: m ? '6px 0 4px' : '2px 0 2px',
   } as React.CSSProperties,
-  // Bigger icon medallion — soft gradient bg, ring border, subtle shadow.
-  // Reads as a brand mark and sets the visual anchor of the hero.
-  welcomeIconLg: {
-    width: m ? 72 : 64, height: m ? 72 : 64, borderRadius: '50%',
-    background: `linear-gradient(135deg, #eef2ff, #dbe4ff)`,
-    color: C.primaryDeep,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: m ? 30 : 26,
-    border: `1px solid ${C.primarySoft}`,
-    boxShadow: '0 4px 14px rgba(90,103,216,0.15)',
+  // Brand mark that anchors the hero — the actual Ten Toes logo, not an
+  // icon standing in for it. Height-constrained like the other logo
+  // placements in the app (LandingPage, EnquiryFormPage) so its native
+  // wordmark aspect ratio scales naturally instead of being cropped.
+  welcomeLogo: {
+    height: m ? 72 : 64,
     marginBottom: 2,
-  } as React.CSSProperties,
-  // Small uppercase kicker sitting above the vision headline — makes it
-  // clear the big line below IS an invitation, without stealing type
-  // weight from the vision itself.
-  welcomeKicker: {
-    fontSize: 12, fontWeight: 700, color: C.primaryDeep,
-    textTransform: 'uppercase', letterSpacing: 1,
   } as React.CSSProperties,
   welcomeH1: {
     fontSize: m ? 24 : 20, fontWeight: 800, margin: 0, color: C.text,
@@ -1438,22 +1450,21 @@ const makeStyles = (m: boolean) => ({
   reasonRowFirst: {
     borderTop: 'none', paddingTop: m ? 6 : 4,
   } as React.CSSProperties,
-  // Solid-fill medallions with a soft gradient inside for a hint of
-  // depth. The surrounding panel is tinted, so soft-bg icons would
-  // disappear.
+  // Soft tint badge — pale fill, colored glyph. Reads calmer than a
+  // solid saturated square with a white icon, which looks more like an
+  // app icon than a detail inside a form.
   reasonIcon: (tint: 'primary' | 'success' | 'gold'): React.CSSProperties => {
     const map = {
-      primary: { base: C.primary, deep: C.primaryDeep },
-      success: { base: C.success, deep: '#065f46' },
-      gold:    { base: C.gold,    deep: '#78350f' },
+      primary: { soft: C.primarySoft, deep: C.primary },
+      success: { soft: C.successSoft, deep: C.success },
+      gold:    { soft: C.goldSoft,    deep: C.gold },
     }[tint];
     return {
       width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-      background: `linear-gradient(135deg, ${map.base}, ${map.deep})`,
-      color: '#fff',
+      background: map.soft,
+      color: map.deep,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: 17,
-      boxShadow: `0 3px 8px ${map.base}33`,
     };
   },
   reasonTitle: {
@@ -1462,12 +1473,15 @@ const makeStyles = (m: boolean) => ({
   reasonBody: {
     fontSize: m ? 13 : 13, color: C.textSub, marginTop: 2, lineHeight: 1.5,
   } as React.CSSProperties,
-  // "For our teachers" grouped panel — soft primary tint so it reads as
-  // a distinct block of proof, not just three loose bullets. Bridge line
-  // sits at the top of the panel as its intro.
+  // "For our teachers" grouped panel — a quiet card (soft shadow, no
+  // colored border) so it reads as a distinct block of proof without
+  // competing with the button or icons for attention. A colored accent
+  // border here was a Material-style move, not an Apple one — depth
+  // comes from shadow, not from a stripe of brand color.
   forTeachersPanel: {
-    background: `linear-gradient(180deg, ${C.primarySoft} 0%, #f5f7ff 100%)`,
-    border: `1px solid ${C.primarySoft}`,
+    background: '#fbfbfe',
+    border: `1px solid ${C.borderSoft}`,
+    boxShadow: '0 1px 3px rgba(15,23,42,0.04)',
     borderRadius: m ? 16 : 14,
     padding: m ? '20px 22px' : '16px 16px',
     display: 'flex', flexDirection: 'column', gap: m ? 12 : 10,
@@ -1481,16 +1495,17 @@ const makeStyles = (m: boolean) => ({
     margin: '-2px 0 4px',
   } as React.CSSProperties,
   // Bigger, more prominent CTA than the form's regular submit button.
-  // Uses a gradient primary → deep for a small visual pop without
-  // adding transitions the CLAUDE.md rules forbid.
+  // Solid brand blue — the loud brand yellow reads as harsh/novelty at
+  // this size and this is a professional application form, not a toy
+  // brand's storefront. Yellow stays where it belongs: the logo mark.
   welcomeCta: {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
     padding: m ? '14px 24px' : '14px 20px',
     borderRadius: 12, border: 'none',
-    background: `linear-gradient(135deg, ${C.primary}, ${C.primaryDeep})`,
+    background: C.primary,
     color: '#fff', fontSize: m ? 16 : 15, fontWeight: 700,
     cursor: 'pointer', marginTop: 6,
-    boxShadow: '0 4px 14px rgba(90,103,216,0.30)',
+    boxShadow: '0 4px 14px rgba(0,0,168,0.25)',
     letterSpacing: 0.2,
   } as React.CSSProperties,
   ctaSub: {
@@ -1552,18 +1567,16 @@ const makeStyles = (m: boolean) => ({
     flex: m ? '0 0 auto' : '0 0 auto',
     minWidth: m ? undefined : 92,
   }),
-  // Next + Submit share the welcome CTA's gradient + shadow so the
+  // Next + Submit share the welcome CTA's solid brand blue so the
   // primary action feels the same across every page.
   nextBtn: (active: boolean): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
     padding: m ? '12px 22px' : '14px 22px',
     borderRadius: 12, fontSize: m ? 14 : 15, fontWeight: 700,
-    background: active
-      ? `linear-gradient(135deg, ${C.primary}, ${C.primaryDeep})`
-      : '#cbd5e1',
+    background: active ? C.primary : '#cbd5e1',
     color: '#fff', border: 'none',
     cursor: active ? 'pointer' : 'default',
-    boxShadow: active ? '0 4px 14px rgba(90,103,216,0.30)' : 'none',
+    boxShadow: active ? '0 4px 14px rgba(0,0,168,0.25)' : 'none',
     letterSpacing: 0.2,
     marginLeft: m ? 'auto' : undefined,
     flex: m ? undefined : 1,
@@ -1572,12 +1585,10 @@ const makeStyles = (m: boolean) => ({
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
     padding: m ? '12px 22px' : '14px 22px',
     borderRadius: 12, fontSize: m ? 15 : 15, fontWeight: 700,
-    background: active
-      ? `linear-gradient(135deg, ${C.primary}, ${C.primaryDeep})`
-      : '#cbd5e1',
+    background: active ? C.primary : '#cbd5e1',
     color: '#fff', border: 'none',
     cursor: active ? 'pointer' : 'default',
-    boxShadow: active ? '0 4px 14px rgba(90,103,216,0.30)' : 'none',
+    boxShadow: active ? '0 4px 14px rgba(0,0,168,0.25)' : 'none',
     letterSpacing: 0.2,
     marginLeft: m ? 'auto' : undefined,
     flex: m ? undefined : 1,
@@ -1593,7 +1604,7 @@ const makeStyles = (m: boolean) => ({
   } as React.CSSProperties,
   doneMedallion: {
     width: m ? 72 : 64, height: m ? 72 : 64, borderRadius: '50%',
-    background: `linear-gradient(135deg, #ecfdf5, #d1fae5)`,
+    background: C.successSoft,
     color: C.success,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: m ? 32 : 28,
