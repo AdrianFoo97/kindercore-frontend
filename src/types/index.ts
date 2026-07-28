@@ -190,7 +190,8 @@ export type CandidateStatus =
   | 'PENDING_DECISION'
   | 'OFFER_SENT'
   | 'HIRED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'TALENT_BANK';
 
 /** Self-reported one-way commute time buckets (see schema). */
 export type CommuteTime =
