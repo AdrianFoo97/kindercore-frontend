@@ -118,7 +118,7 @@ export default function StudentsPage() {
   const [withdrawingStudent, setWithdrawingStudent] = useState<Student | null>(null);
   const [viewingReasonStudent, setViewingReasonStudent] = useState<Student | null>(null);
   const [deletingStudent, setDeletingStudent] = useState<Student | null>(null);
-  const [groupBy,          setGroupBy]          = useState<'none' | 'programme' | 'age'>('age');
+  const [groupBy,          setGroupBy]          = useState<'none' | 'programme' | 'age' | 'year'>('age');
   const [filterAge,        setFilterAge]        = useState<string>('all');
   const [filterProgramme,  setFilterProgramme]  = useState<string>('all');
   const [sortKey,          setSortKey]          = useState<SortKey>('age');
@@ -210,8 +210,16 @@ export default function StudentsPage() {
     return true;
   });
 
-  const PAGE_SIZE  = 15;
+  const PAGE_SIZE  = tab === 'withdrawn' ? 20 : 15;
   const sorted     = [...filtered].sort((a, b) => {
+    // Withdrawn + year grouping: bucket latest-year-first before falling
+    // back to the Age/Name sort control as a same-year tiebreaker, so page
+    // slicing below naturally lands whole years together in the right order.
+    if (tab === 'withdrawn' && groupBy === 'year') {
+      const ay = a.withdrawnAt ? new Date(a.withdrawnAt).getFullYear() : 0;
+      const by = b.withdrawnAt ? new Date(b.withdrawnAt).getFullYear() : 0;
+      if (ay !== by) return by - ay;
+    }
     const p = sortKey === 'name' ? a.lead.childName.localeCompare(b.lead.childName) : studentAge(a) - studentAge(b);
     const s = sortKey === 'name' ? studentAge(a) - studentAge(b) : a.lead.childName.localeCompare(b.lead.childName);
     const d = sortDir === 'asc' ? 1 : -1;
@@ -221,11 +229,16 @@ export default function StudentsPage() {
   const safePage   = Math.min(page, totalPages);
   const paginated  = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
+  const groupKey = (s: Student) =>
+    groupBy === 'programme' ? s.package.programme
+    : groupBy === 'year'    ? (s.withdrawnAt ? String(new Date(s.withdrawnAt).getFullYear()) : 'Unknown')
+    : `Age ${studentAge(s)}`;
+
   // Total counts per group (from full filtered set, not paginated)
   const groupTotals = new Map<string, number>();
   if (groupBy !== 'none') {
     for (const s of filtered) {
-      const key = groupBy === 'programme' ? s.package.programme : `Age ${studentAge(s)}`;
+      const key = groupKey(s);
       groupTotals.set(key, (groupTotals.get(key) || 0) + 1);
     }
   }
@@ -234,17 +247,20 @@ export default function StudentsPage() {
     if (groupBy === 'none') return [{ label: '', rows: paginated }];
     const map = new Map<string, Student[]>();
     for (const s of paginated) {
-      const key = groupBy === 'programme' ? s.package.programme : `Age ${studentAge(s)}`;
+      const key = groupKey(s);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(s);
     }
     return [...map.entries()]
-      .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+      // Year groups read latest → oldest; everything else stays ascending.
+      .sort(([a], [b]) => groupBy === 'year' ? b.localeCompare(a, undefined, { numeric: true }) : a.localeCompare(b, undefined, { numeric: true }))
       .map(([label, rows]) => ({ label, rows }));
   })();
 
   const handleTabSelect = (t: FilterTab) => {
     setTab(t); setFilterAge('all'); setFilterProgramme('all'); setSearch(''); setPage(1);
+    if (t === 'withdrawn') setGroupBy('year');
+    else setGroupBy(prev => prev === 'year' ? 'age' : prev);
   };
 
   const currentStage = LIFECYCLE_STAGES.find(s => s.tab === tab)!;
@@ -451,6 +467,7 @@ export default function StudentsPage() {
               <option value="none">No grouping</option>
               <option value="programme">Group by programme</option>
               <option value="age">Group by age</option>
+              {tab === 'withdrawn' && <option value="year">Group by year</option>}
             </select>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
               style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: groupBy !== 'none' ? '#3b82f6' : '#94a3b8', pointerEvents: 'none' }}>

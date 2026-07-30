@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faSearch, faLink, faCheck, faLocationDot,
+  faSearch, faCheck, faLocationDot,
   faChalkboardUser, faUserClock, faUserCheck, faUserXmark,
   faCircleNotch, faBullseye, faHeart,
   faBook, faUser, faGraduationCap, faQuestion,
@@ -18,10 +18,12 @@ import { CommuteTime } from '../types/index.js';
 import {
   fetchCandidates, fetchCandidateStats, fetchCandidatePhoneIndex, deleteCandidate, fetchCandidateFormOptions,
   updateCandidate, downloadCandidateResume, fetchUpcomingInterviews,
-  scheduleCandidateInterview,
+  scheduleCandidateInterview, hireCandidate,
 } from '../api/candidates.js';
 import { fetchUpcomingAppointments } from '../api/leads.js';
 import { fetchSettings } from '../api/settings.js';
+import { fetchPositions, fetchLevelIncentives } from '../api/salary.js';
+import { fetchAllowanceTypes } from '../api/allowance.js';
 
 // Interview WhatsApp template placeholder resolver. Template strings come
 // from settings.interview_wa_template / interview_wa_template_zh (seeded
@@ -182,17 +184,6 @@ const isExperiencedRange = (r: string | null): boolean => {
   const s = r.toLowerCase();
   return s.includes('3') || s.includes('5') || s.includes('more');
 };
-
-/** Normalises a human-readable label into a URL-safe utm_source
- *  value. "Facebook Ads" → "facebook_ads", "小红书" → "小红书" (kept
- *  as-is), spaces / punctuation collapsed to underscores. */
-function toUtmSlug(label: string): string {
-  return String(label ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^\w一-鿿]+/g, '_')  // preserve CJK
-    .replace(/^_+|_+$/g, '');
-}
 
 function computeFlags(c: Candidate, positions: { name: string; minSalary: number | null; maxSalary: number | null }[]): Flag[] {
   const flags: Flag[] = [];
@@ -462,22 +453,6 @@ export default function CandidatesPage() {
 
   const [search, setSearch] = useState('');
   const [desiredPosition, setDesiredPosition] = useState('');
-  const [linkCopied, setLinkCopied] = useState(false);
-  // Small popover for the apply-link picker: lists the admin-managed
-  // referral sources. Each option copies /apply?utm_source=<slug>
-  // where slug is derived from the source's label.
-  const [linkMenuOpen, setLinkMenuOpen] = useState(false);
-  const linkMenuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!linkMenuOpen) return;
-    const onClickAway = (e: MouseEvent) => {
-      if (linkMenuRef.current && !linkMenuRef.current.contains(e.target as Node)) {
-        setLinkMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onClickAway);
-    return () => document.removeEventListener('mousedown', onClickAway);
-  }, [linkMenuOpen]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Candidate | null>(null);
   const [reopenTarget, setReopenTarget] = useState<Candidate | null>(null);
@@ -498,6 +473,10 @@ export default function CandidatesPage() {
   // previews the WhatsApp message, saves the candidate as OFFER_SENT and
   // (optionally) fires WhatsApp with the offer text.
   const [offeringCandidate, setOfferingCandidate] = useState<Candidate | null>(null);
+  // "Accepted" on an OFFER_SENT candidate opens this instead of an
+  // immediate status flip — it collects the details needed to actually
+  // create the Teacher record and does both atomically on confirm.
+  const [hiringCandidate, setHiringCandidate] = useState<Candidate | null>(null);
   // Confirm-interview modal — opened from the CONTACTED row primary CTA.
   // Shows the interview slot + a WhatsApp confirmation-message preview so
   // the admin can send the "your interview is confirmed for X at Y" note
@@ -890,8 +869,23 @@ export default function CandidatesPage() {
   const currentCandidate = queueSnapshot[currentIdx] ?? null;
   const canBack = currentIdx > 0;
 
-  const goBack = () => setCurrentIdx(i => Math.max(0, i - 1));
-  const goForward = () => setCurrentIdx(i => i + 1);
+  // queueSnapshot is frozen for the session, so a just-decided candidate
+  // keeps its stale pre-decision `status` (e.g. still 'NEW') in the
+  // array — the sidebar hides it via sessionActioned, but plain +1/-1
+  // navigation would happily land back on it and render its decision
+  // bar as if it were still pending ("still stay at there"). Skip over
+  // anything already actioned so Previous/Next only ever stop on
+  // candidates that genuinely still need a decision.
+  const goBack = () => setCurrentIdx(i => {
+    let next = i - 1;
+    while (next >= 0 && sessionActioned.has(queueSnapshot[next]?.id)) next--;
+    return Math.max(0, next);
+  });
+  const goForward = () => setCurrentIdx(i => {
+    let next = i + 1;
+    while (next < queueSnapshot.length && sessionActioned.has(queueSnapshot[next]?.id)) next++;
+    return next;
+  });
   const jumpTo = (idx: number) => setCurrentIdx(Math.max(0, Math.min(idx, queueSnapshot.length)));
 
   const markActioned = (id: string) =>
@@ -978,6 +972,21 @@ export default function CandidatesPage() {
       setSessionShortlisted(new Set());
       setSessionRejected(new Set());
       setSnapshottedFor(sessionKey);
+      return;
+    }
+    // Same (tab + filters) pool we're already reviewing — the 60s
+    // background poll (see the `list` query above) can still bring in
+    // candidates that weren't here a minute ago, e.g. a fresh /apply
+    // submission arriving while the admin sits on New. Merge those in
+    // without touching existing positions or the reviewer's current
+    // place, so a live submission doesn't just silently vanish until
+    // the admin happens to switch tabs and back.
+    if (snapshottedFor === sessionKey) {
+      setQueueSnapshot(prev => {
+        const known = new Set(prev.map(c => c.id));
+        const fresh = items.filter(c => !known.has(c.id));
+        return fresh.length > 0 ? [...prev, ...fresh] : prev;
+      });
     }
   }, [sessionKey, reviewOpen, items, snapshottedFor, listIsFetching]);
 
@@ -1026,29 +1035,6 @@ export default function CandidatesPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [reviewOpen, currentCandidate?.id, canBack]);
 
-  const copyApplyLink = async (source?: string) => {
-    const cleaned = toUtmSlug(source ?? '');
-    const url = cleaned
-      ? `${window.location.origin}/apply?utm_source=${encodeURIComponent(cleaned)}`
-      : `${window.location.origin}/apply`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setLinkCopied(true);
-      showToast(cleaned ? `Link copied · tagged “${cleaned}”` : 'Apply link copied');
-      setLinkMenuOpen(false);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } catch {
-      showToast('Could not copy link', 'error');
-    }
-  };
-  // Referral-source list drives the picker options — reads from the
-  // same public /api/candidates/form-options endpoint the apply form
-  // uses, so the two surfaces can never drift. Backend handles the
-  // "no DB row → use defaults" fallback. "Other" is filtered out
-  // because it's a free-text sentinel, not a real channel.
-  const referralSourcesForPicker = (formOptions?.referralSources ?? [])
-    .filter(s => s.toLowerCase() !== 'other');
-
   // Right context panel docks on every view — matches how the Leads
   // page always shows its panel. Shell keeps its native `margin: 0
   // auto` centering; the panel sits in the natural right-side
@@ -1072,48 +1058,6 @@ export default function CandidatesPage() {
         <div>
           <h1 style={S.h1}>Candidates</h1>
           <p style={S.subtitle}>Review applicants and manage your hiring pipeline.</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <div ref={linkMenuRef} style={{ position: 'relative' }}>
-          <button style={S.linkBtn(linkCopied)} onClick={() => setLinkMenuOpen(o => !o)}>
-            <FontAwesomeIcon icon={linkCopied ? faCheck : faLink} style={{ fontSize: 12 }} />
-            {linkCopied ? 'Link copied' : 'Copy apply link'}
-          </button>
-          {linkMenuOpen && (
-            <div style={S.linkPopover}>
-              <div style={S.linkPopoverLabel}>Plain link</div>
-              <button
-                type="button"
-                className="kc-row-menu-item"
-                style={{ ...S.menuItemBtn, marginBottom: 4 }}
-                onClick={() => copyApplyLink()}
-              >
-                <FontAwesomeIcon icon={faLink} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
-                /apply
-              </button>
-              <div style={S.linkPopoverLabel}>
-                Tracked — referral sources
-              </div>
-              {referralSourcesForPicker.length === 0 && (
-                <div style={{ padding: '6px 10px', fontSize: 11, color: C.mutedSoft }}>
-                  Add sources in Settings → Recruitment.
-                </div>
-              )}
-              {referralSourcesForPicker.map(label => (
-                <button
-                  key={label}
-                  type="button"
-                  className="kc-row-menu-item"
-                  style={S.menuItemBtn}
-                  onClick={() => copyApplyLink(label)}
-                >
-                  <FontAwesomeIcon icon={faLink} fixedWidth style={{ marginRight: 8, color: C.primary, fontSize: 12 }} />
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
         </div>
       </div>
 
@@ -1461,8 +1405,7 @@ export default function CandidatesPage() {
                           <FontAwesomeIcon icon={faUserXmark} /> Declined
                         </button>
                         <button
-                          onClick={() => advanceStageMut.mutate({ id: currentCandidate.id, status: 'HIRED' })}
-                          disabled={advanceStageMut.isPending}
+                          onClick={() => setHiringCandidate(currentCandidate)}
                           style={{ ...S.scheduleDecisionBtn, background: C.success }}
                         >
                           <FontAwesomeIcon icon={faUserCheck} /> Accepted
@@ -1987,8 +1930,7 @@ export default function CandidatesPage() {
                                 <FontAwesomeIcon icon={faUserXmark} /> Declined
                               </button>
                               <button
-                                onClick={e => { e.stopPropagation(); advanceStageMut.mutate({ id: c.id, status: 'HIRED' }); }}
-                                disabled={advanceStageMut.isPending}
+                                onClick={e => { e.stopPropagation(); setHiringCandidate(c); }}
                                 style={S.offerBtn}
                               >
                                 <FontAwesomeIcon icon={faUserCheck} /> Accepted
@@ -2154,6 +2096,26 @@ export default function CandidatesPage() {
           onSent={() => {
             invalidateCandidateFeeds();
             setOfferingCandidate(null);
+          }}
+        />
+      )}
+
+      {hiringCandidate && (
+        <HireCandidateModal
+          candidate={hiringCandidate}
+          onClose={() => setHiringCandidate(null)}
+          onHired={() => {
+            const id = hiringCandidate.id;
+            invalidateCandidateFeeds();
+            // A new Teacher (+ career record) was just created.
+            qc.invalidateQueries({ queryKey: ['planner-teachers'] });
+            qc.invalidateQueries({ queryKey: ['salary-teachers'] });
+            if (reviewOpen && queueSnapshot.some(x => x.id === id)) {
+              markActioned(id);
+              setSessionShortlisted(prev => { const n = new Set(prev); n.delete(id); return n; });
+              goForward();
+            }
+            setHiringCandidate(null);
           }}
         />
       )}
@@ -3763,6 +3725,414 @@ function SendOfferModal(props: {
   );
 }
 
+const EMP_TOGGLE_ON = { padding: '6px 16px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#4f46e5', color: '#fff' } as React.CSSProperties;
+const EMP_TOGGLE_OFF = { ...EMP_TOGGLE_ON, background: '#f1f5f9', color: '#94a3b8' } as React.CSSProperties;
+
+// Schedule picker constants — same shape as EditTeacherPage's Operations
+// tab (workStartMinute/workEndMinute/workDays), duplicated here rather
+// than shared since the two pages don't otherwise import from each other.
+const HIRE_WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const HIRE_TIME_SLOTS = (() => { const s: number[] = []; for (let m = 420; m <= 1080; m += 30) s.push(m); return s; })();
+function hireMinutesToTime(m: number): string {
+  const h = Math.floor(m / 60), mm = m % 60, p = h >= 12 ? 'PM' : 'AM';
+  return `${h === 0 ? 12 : h > 12 ? h - 12 : h}:${String(mm).padStart(2, '0')} ${p}`;
+}
+
+// "Accepted" on an OFFER_SENT candidate — instead of a one-click status
+// flip, this confirms the details needed to actually create the Teacher
+// record (position, salary, statutory contributions) and does both in one
+// atomic backend call. Nothing is created/changed if the admin closes
+// without confirming — the candidate stays exactly at OFFER_SENT.
+function HireCandidateModal(props: {
+  candidate: Candidate;
+  onClose: () => void;
+  onHired: () => void;
+}) {
+  const { candidate, onClose, onHired } = props;
+  const { showToast } = useToast();
+  const { data: allPositions = [] } = useQuery({ queryKey: ['salary-positions'], queryFn: fetchPositions });
+  const { data: allIncentives = [] } = useQuery({ queryKey: ['salary-incentives'], queryFn: fetchLevelIncentives });
+  const { data: allowTypes = [] } = useQuery({ queryKey: ['allowance-types'], queryFn: fetchAllowanceTypes });
+  // Every allowance type except Level Allowance, which isn't directly
+  // editable here — it's auto-derived from Position + Level, same as
+  // EditTeacherPage's Salary tab.
+  const visibleAllowTypes = allowTypes
+    .filter(t => t.name.trim().toLowerCase() !== 'level allowance')
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  const [phone, setPhone] = useState(candidate.phone ?? '');
+  const [positionId, setPositionId] = useState('');
+  const [level, setLevel] = useState(0);
+  const [employmentType, setEmploymentType] = useState<'full-time' | 'part-time'>('full-time');
+  const [joinDate, setJoinDate] = useState(candidate.preferredStartDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
+  const [workStartMinute, setWorkStartMinute] = useState<number | ''>('');
+  const [workEndMinute, setWorkEndMinute] = useState<number | ''>('');
+  const [workDays, setWorkDays] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [salaryType, setSalaryType] = useState<'formula' | 'fixed' | 'hourly'>('formula');
+  const [fixedSalaryAmount, setFixedSalaryAmount] = useState(candidate.expectedSalary ?? 0);
+  const [hourlyRate, setHourlyRate] = useState(0);
+  const [allowanceDrafts, setAllowanceDrafts] = useState<Record<string, number>>({});
+  const getAllowanceAmt = (typeId: string) => allowanceDrafts[typeId] ?? 0;
+  const setAllowanceAmt = (typeId: string, v: number) => setAllowanceDrafts(prev => ({ ...prev, [typeId]: v }));
+  const [hasEpf, setHasEpf] = useState(true);
+  const [hasSocso, setHasSocso] = useState(true);
+  const [hasEis, setHasEis] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  // Two steps instead of one long scroll — Hire details, then Salary &
+  // Statutory. Step 1 must be filled in before Next unlocks.
+  const [step, setStep] = useState<1 | 2>(1);
+
+  // A bare "0" sitting in every untouched amount field reads as data
+  // that's already been entered, not as "nothing yet" — six of them in
+  // a row is noisy. Render 0 as an empty, placeholder'd field instead;
+  // an actual 0 the admin types is indistinguishable from untouched,
+  // which is fine since both mean "no amount".
+  const zeroableNumber = (value: number, onChange: (v: number) => void) => ({
+    type: 'number' as const,
+    min: 0,
+    value: value === 0 ? '' : value,
+    placeholder: '0',
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value === '' ? 0 : Number(e.target.value)),
+  });
+
+  // Best-effort pre-fill: match the candidate's free-text desired position
+  // to a real Position by name once the list loads. Admin can still change it.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || allPositions.length === 0) return;
+    prefilled.current = true;
+    const match = candidate.desiredPosition
+      ? allPositions.find(p => p.name.toLowerCase() === candidate.desiredPosition!.toLowerCase())
+      : undefined;
+    if (match) setPositionId(match.positionId);
+  }, [allPositions, candidate.desiredPosition]);
+
+  const selectedPosition = allPositions.find(p => p.positionId === positionId);
+  const maxLevel = selectedPosition?.maxLevel ?? 5;
+  const levelIncentive = allIncentives.find(i => i.positionId === positionId && i.level === level)?.amount ?? 0;
+  const totalAllowances = visibleAllowTypes.reduce((sum, t) => sum + getAllowanceAmt(t.id), 0);
+  // Same monthly-hours formula the backend (salary.controller.ts) and
+  // EditTeacherPage use: minus a 1h lunch break once the day is 6h+.
+  const rawHoursPerDay = (workStartMinute !== '' && workEndMinute !== '') ? (Number(workEndMinute) - Number(workStartMinute)) / 60 : 0;
+  const hoursPerDay = rawHoursPerDay >= 6 ? rawHoursPerDay - 1 : rawHoursPerDay;
+  const monthlyHours = hoursPerDay * workDays.length * 4.33;
+  const totalSalary = salaryType === 'fixed'
+    ? fixedSalaryAmount + totalAllowances
+    : salaryType === 'formula'
+    ? (selectedPosition ? selectedPosition.basicSalary + levelIncentive + totalAllowances : totalAllowances)
+    // Hourly needs an actual schedule to turn a rate into a monthly figure —
+    // show the honest "not set yet" state until Start/End/Days are filled in.
+    : (workStartMinute !== '' && workEndMinute !== '' && workDays.length > 0)
+    ? hourlyRate * monthlyHours + totalAllowances
+    : null;
+
+  const step1Valid = phone.trim().length > 0 && positionId.length > 0 && joinDate.length > 0;
+  const canConfirm = !saving
+    && step1Valid
+    && (salaryType !== 'fixed' || fixedSalaryAmount > 0)
+    && (salaryType !== 'hourly' || hourlyRate > 0);
+
+  const handleConfirm = async () => {
+    if (!canConfirm) { setError('Please fill in every field before confirming.'); return; }
+    setSaving(true); setError('');
+    try {
+      await hireCandidate(candidate.id, {
+        phone: phone.trim(),
+        positionId,
+        level,
+        employmentType,
+        joinDate,
+        salaryType,
+        fixedSalaryAmount: salaryType === 'fixed' ? fixedSalaryAmount : undefined,
+        hourlyRate: salaryType === 'hourly' ? hourlyRate : undefined,
+        hasEpf, hasSocso, hasEis,
+        workStartMinute: workStartMinute !== '' ? workStartMinute : undefined,
+        workEndMinute: workEndMinute !== '' ? workEndMinute : undefined,
+        workDays: workDays.length > 0 ? workDays : undefined,
+        allowances: visibleAllowTypes
+          .map(t => ({ allowanceTypeId: t.id, amount: getAllowanceAmt(t.id) }))
+          .filter(a => a.amount > 0),
+      });
+      showToast(`${candidate.fullName} hired — teacher record created`);
+      onHired();
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to hire candidate.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    // No backdrop-click-to-close here — this form has too much entered
+    // data (position, salary, allowances) to risk losing on a stray
+    // click outside the card. Close explicitly via the X or Cancel.
+    <div style={ISM.backdrop}>
+      <div style={{ ...ISM.card, width: 'min(560px, 100%)' }}>
+        <div style={ISM.header}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ ...ISM.headerIcon, background: C.successSoft, color: C.success }}>
+              <FontAwesomeIcon icon={faUserCheck} />
+            </div>
+            <div>
+              <h2 style={ISM.title}>Confirm & hire</h2>
+              <div style={ISM.subtitle}>{candidate.fullName} · {candidate.desiredPosition ?? 'No position'}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={ISM.closeBtn} title="Close">
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </div>
+
+        {/* Step indicator — click a completed step to jump back to it.
+            Step 1 turns into a checkmark once you've moved past it, and
+            the connector fills in, so progress reads at a glance instead
+            of two same-weight numbered chips. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 24px 0' }}>
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            style={{ ...ISM.sectionLabel, marginBottom: 0, border: 'none', background: 'none', padding: 0, cursor: 'pointer', opacity: step === 1 ? 1 : 0.85 }}
+          >
+            <span style={ISM.stepChip}>
+              {step === 2 ? <FontAwesomeIcon icon={faCheck} style={{ fontSize: 9 }} /> : '1'}
+            </span>
+            Hire details
+          </button>
+          <div style={{ flex: 1, height: 2, borderRadius: 1, background: step === 2 ? ISM.stepChip.background : '#e2e8f0', transition: 'background 0.2s ease' }} />
+          <button
+            type="button"
+            onClick={() => { if (step1Valid) setStep(2); }}
+            disabled={!step1Valid}
+            style={{ ...ISM.sectionLabel, marginBottom: 0, border: 'none', background: 'none', padding: 0, cursor: step1Valid ? 'pointer' : 'default', opacity: step === 2 ? 1 : 0.55 }}
+          >
+            <span style={{ ...ISM.stepChip, background: step1Valid ? ISM.stepChip.background : '#cbd5e1' }}>2</span>
+            Salary & statutory
+          </button>
+        </div>
+
+        <div style={{ padding: '18px 24px 20px', display: 'flex', flexDirection: 'column' as const, gap: 14, maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' as const }}>
+          {step === 1 && (
+            <>
+              <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>
+                  Phone <span style={{ color: C.danger }}>*</span>
+                </span>
+                <input value={phone} onChange={e => setPhone(e.target.value)} style={ISM.dateInput} />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>
+                  Position <span style={{ color: C.danger }}>*</span>
+                </span>
+                <select
+                  value={positionId}
+                  onChange={e => { setPositionId(e.target.value); setLevel(0); }}
+                  style={{ ...ISM.dateInput, cursor: 'pointer' }}
+                >
+                  <option value="">— select position —</option>
+                  {allPositions.map(p => <option key={p.positionId} value={p.positionId}>{p.name}</option>)}
+                </select>
+                {candidate.desiredPosition && !selectedPosition && (
+                  <span style={{ fontSize: 11, color: C.mutedSoft }}>Candidate applied for "{candidate.desiredPosition}"</span>
+                )}
+              </label>
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 80 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Level</span>
+                  <select value={level} onChange={e => setLevel(Number(e.target.value))} style={{ ...ISM.dateInput, cursor: 'pointer' }}>
+                    {Array.from({ length: maxLevel + 1 }, (_, i) => <option key={i} value={i}>{i}</option>)}
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, flex: 1 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Employment type</span>
+                  <select value={employmentType} onChange={e => setEmploymentType(e.target.value as any)} style={{ ...ISM.dateInput, cursor: 'pointer' }}>
+                    <option value="full-time">Full Time</option>
+                    <option value="part-time">Part Time</option>
+                  </select>
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 150 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>
+                    Join date <span style={{ color: C.danger }}>*</span>
+                  </span>
+                  <input type="date" value={joinDate} onChange={e => setJoinDate(e.target.value)} style={ISM.dateInput} />
+                </label>
+              </div>
+              {candidate.preferredStartDate && (
+                <span style={{ fontSize: 11, color: C.mutedSoft, marginTop: -8 }}>
+                  Candidate preferred {new Date(candidate.preferredStartDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              )}
+
+              <div style={{ borderTop: `1px solid #f1f5f9`, paddingTop: 14, marginTop: 2 }}>
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.mutedSoft, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 8 }}>
+                  Schedule <span style={{ fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 }}>(optional)</span>
+                </span>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, alignItems: 'flex-end' }}>
+                  <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 130 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Start</span>
+                    <select
+                      value={workStartMinute}
+                      onChange={e => {
+                        const v = e.target.value ? Number(e.target.value) : '';
+                        setWorkStartMinute(v);
+                        // An End that's no longer after the new Start is
+                        // meaningless (would compute negative hours) —
+                        // clear it rather than leave a stale invalid pair.
+                        if (v !== '' && workEndMinute !== '' && workEndMinute <= v) setWorkEndMinute('');
+                      }}
+                      style={{ ...ISM.dateInput, cursor: 'pointer' }}
+                    >
+                      <option value="">--</option>
+                      {HIRE_TIME_SLOTS.map(m => <option key={m} value={m}>{hireMinutesToTime(m)}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 130 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>End</span>
+                    <select value={workEndMinute} onChange={e => setWorkEndMinute(e.target.value ? Number(e.target.value) : '')} style={{ ...ISM.dateInput, cursor: 'pointer' }}>
+                      <option value="">--</option>
+                      {/* Only times after Start — an End before/equal to Start
+                          isn't a valid same-day shift, so it's just not offered. */}
+                      {HIRE_TIME_SLOTS.filter(m => workStartMinute === '' || m > workStartMinute).map(m => <option key={m} value={m}>{hireMinutesToTime(m)}</option>)}
+                    </select>
+                  </label>
+                  <div>
+                    <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textSub, marginBottom: 6 }}>Days</span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {HIRE_WEEK_DAYS.map((d, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setWorkDays(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i].sort())}
+                          style={{ width: 36, height: 32, fontSize: 11, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: workDays.includes(i) ? '#4f46e5' : '#f1f5f9', color: workDays.includes(i) ? '#fff' : '#94a3b8' }}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+                <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 140 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Salary type</span>
+                  <select value={salaryType} onChange={e => setSalaryType(e.target.value as any)} style={{ ...ISM.dateInput, cursor: 'pointer' }}>
+                    <option value="fixed">Fixed</option>
+                    <option value="hourly">Hourly Rate</option>
+                    <option value="formula">Formula</option>
+                  </select>
+                </label>
+                {salaryType === 'fixed' && (
+                  <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 160 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Fixed amount (RM)</span>
+                    <input {...zeroableNumber(fixedSalaryAmount, setFixedSalaryAmount)} style={ISM.dateInput} />
+                  </label>
+                )}
+                {salaryType === 'hourly' && (
+                  <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 160 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Hourly rate (RM)</span>
+                    <input {...zeroableNumber(hourlyRate, setHourlyRate)} style={ISM.dateInput} />
+                  </label>
+                )}
+                {salaryType === 'formula' && selectedPosition && (
+                  <div style={{ fontSize: 11, color: C.mutedSoft, paddingBottom: 8, lineHeight: 1.6 }}>
+                    Basic RM {selectedPosition.basicSalary.toLocaleString()}
+                    {levelIncentive > 0 && <> + Level incentive RM {levelIncentive.toLocaleString()}</>}
+                  </div>
+                )}
+              </div>
+
+              {visibleAllowTypes.length > 0 && (
+                <div style={{ marginTop: 2, paddingTop: 14, borderTop: `1px solid #f1f5f9` }}>
+                  <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.mutedSoft, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 8 }}>
+                    Allowances <span style={{ fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 }}>(optional)</span>
+                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 12 }}>
+                    {visibleAllowTypes.map(t => (
+                      <label key={t.id} style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 150 }}>
+                        {/* Fixed height regardless of wrap, so a 2-line label
+                            (e.g. "Training Completion Allowance") doesn't push
+                            its input out of alignment with its row-mates. */}
+                        <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub, minHeight: 30, lineHeight: 1.3 }}>{t.name}</span>
+                        <input {...zeroableNumber(getAllowanceAmt(t.id), v => setAllowanceAmt(t.id, v))} style={ISM.dateInput} />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Always-visible running total — the whole point is that
+                  typing an allowance should immediately answer "is the
+                  salary I'm about to set actually right?" without the
+                  admin having to add it up themselves. */}
+              <div style={{
+                marginTop: 14, padding: '10px 14px', borderRadius: 8,
+                background: totalSalary != null ? C.successSoft : '#fffbeb',
+                border: `1px solid ${totalSalary != null ? '#bbf7d0' : '#fde68a'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: totalSalary != null ? C.success : '#92400e' }}>
+                  Total monthly salary
+                </span>
+                {totalSalary != null ? (
+                  <span style={{ fontSize: 16, fontWeight: 800, color: C.success, fontVariantNumeric: 'tabular-nums' as const }}>
+                    RM {totalSalary.toLocaleString()}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11, color: '#92400e', textAlign: 'right' as const, maxWidth: 220 }}>
+                    Set the work schedule on Step 1 to see the total
+                  </span>
+                )}
+              </div>
+
+              <div style={{ marginTop: 2, paddingTop: 14, borderTop: `1px solid #f1f5f9` }}>
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.mutedSoft, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 8 }}>
+                  Statutory contributions
+                </span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {([['EPF', hasEpf, setHasEpf], ['SOCSO', hasSocso, setHasSocso], ['EIS', hasEis, setHasEis]] as const).map(([label, val, setter]) => (
+                    <button key={label} type="button" onClick={() => setter(!val)} style={val ? EMP_TOGGLE_ON : EMP_TOGGLE_OFF}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {error && <div style={ISM.errorRow}>{error}</div>}
+
+        <div style={ISM.footer}>
+          <button onClick={step === 1 ? onClose : () => setStep(1)} style={ISM.cancelBtn}>
+            {step === 1 ? 'Cancel' : 'Back'}
+          </button>
+          <div style={{ flex: 1 }} />
+          {step === 1 ? (
+            <button
+              onClick={() => step1Valid && setStep(2)}
+              disabled={!step1Valid}
+              style={{ ...ISM.saveBtn, opacity: step1Valid ? 1 : 0.6, cursor: step1Valid ? 'pointer' : 'default' }}
+            >
+              Next
+            </button>
+          ) : (
+            <button onClick={handleConfirm} disabled={!canConfirm} style={{ ...ISM.saveBtn, background: C.success, opacity: canConfirm ? 1 : 0.6, cursor: canConfirm ? 'pointer' : 'default' }}>
+              {saving ? 'Hiring…' : 'Confirm & hire'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Confirm interview modal ────────────────────────────────────────────
 // Fired from the CONTACTED row's primary CTA. Shows the interview slot
 // summary (from candidate.interviewStart / End) + a WhatsApp confirmation
@@ -4757,26 +5127,14 @@ const S = {
     cursor: 'pointer', height: 36,
     boxShadow: SHADOW.sm,
   }),
-  linkPopover: {
-    position: 'absolute' as const, top: 44, right: 0, zIndex: 30,
-    minWidth: 240, background: C.surface,
-    border: `1px solid ${C.border}`, borderRadius: 10,
-    padding: '8px 6px',
-    boxShadow: '0 12px 32px rgba(15,23,42,0.14)',
-  } as React.CSSProperties,
-  // Same shape as linkPopover but tuned for the smaller kebab in the
-  // review-card header — narrower and closer to the trigger.
+  // Tuned for the smaller kebab in the review-card header — narrower
+  // and closer to the trigger.
   reviewHeaderMenu: {
     position: 'absolute' as const, top: 36, right: 0, zIndex: 30,
     minWidth: 200, background: C.surface,
     border: `1px solid ${C.border}`, borderRadius: 10,
     padding: '6px 4px',
     boxShadow: '0 12px 32px rgba(15,23,42,0.14)',
-  } as React.CSSProperties,
-  linkPopoverLabel: {
-    fontSize: 10, fontWeight: 700, letterSpacing: 0.6,
-    textTransform: 'uppercase' as const, color: C.muted,
-    padding: '6px 10px 4px',
   } as React.CSSProperties,
   tabBar: {
     display: 'flex', alignItems: 'center', gap: 4,

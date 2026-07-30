@@ -2,10 +2,22 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import { NavLink, useNavigate, useMatch } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
+import { fetchCandidateFormOptions } from '../../api/candidates.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+
+/** Normalises a human-readable label into a URL-safe utm_source value.
+ *  "Facebook Ads" → "facebook_ads", "小红书" → "小红书" (kept as-is),
+ *  spaces / punctuation collapsed to underscores. */
+function toApplyUtmSlug(label: string): string {
+  return String(label ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w一-鿿]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
 
 export default function Navbar() {
   const { isMobile, isTablet } = useIsMobile();
@@ -23,6 +35,8 @@ export default function Navbar() {
   const [whatsappModal, setWhatsappModal] = useState(false);
   const [shareLinksModal, setShareLinksModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState('');
+  const [applyLinksModal, setApplyLinksModal] = useState(false);
+  const [copiedApplyLink, setCopiedApplyLink] = useState('');
   const [waPhone, setWaPhone] = useState('');
   const [waMessage, setWaMessage] = useState('');
   const [waTemplate, setWaTemplate] = useState('none');
@@ -48,6 +62,16 @@ export default function Navbar() {
 
   // Templates for WhatsApp modal
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+
+  // Referral sources for the Apply Form Links modal — same public
+  // endpoint + cache key the Candidates page and apply form both use,
+  // so this list can never drift from what applicants actually see.
+  const { data: candidateFormOptions } = useQuery({
+    queryKey: ['candidate-form-options'],
+    queryFn: fetchCandidateFormOptions,
+  });
+  const applyReferralSources = (candidateFormOptions?.referralSources ?? [])
+    .filter(s => s.toLowerCase() !== 'other');
   interface TplOption { id: string; name: string; en: string; zh: string; }
   const waTemplates: TplOption[] = [
     { id: 'enquiry', name: 'Enquiry', en: String(settings?.whatsapp_template ?? ''), zh: String(settings?.whatsapp_template_zh ?? '') },
@@ -243,31 +267,45 @@ export default function Navbar() {
             style={{ ...mDropBtn, ...(!onOpsRoute && onToolsRoute && !mobile ? styles.activeLink : {}) }}>
             Tools {mobile ? (toolsOpen ? '−' : '+') : '▾'}
           </button>
-          {toolsOpen && (
-            <div style={mPanel}>
+          {toolsOpen && (() => {
+            // Divider pattern borrowed from the Settings dropdown, but section
+            // headers drop the icon: with only 3 shallow groups here (vs.
+            // Settings' 10-group mega-menu) a second icon per row next to the
+            // item's own icon reads as noise rather than a scanning aid, and
+            // it forced a 4px text-alignment mismatch between header and item
+            // labels (14px icon+8px gap vs 16px icon+10px gap). Plain
+            // uppercase labels align cleanly with the item rail below them.
+            const sep = <div style={{ height: 1, background: '#f0f0f0', margin: '6px 8px' }} />;
+            const section = (label: string, first?: boolean) => (
+              <div style={{ padding: mobile ? `${first ? 8 : 10}px 20px 6px` : `${first ? 8 : 10}px 14px 6px`, fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase' as const }}>
+                {label}
+              </div>
+            );
+            const item = (icon: any, iconColor: string, label: string, onClick: () => void) => (
               <button
+                key={label}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={{ ...mPanelItem, width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' as const, background: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10 }}
-                onClick={() => { closeAll(); setWaPhone(''); setWaMessage(''); setWaTemplate('none'); setWaLang('zh'); setWhatsappModal(true); }}>
-                <FontAwesomeIcon icon={faWhatsapp} style={{ fontSize: 14, color: '#25D366', width: 16 }} />
-                WhatsApp
+                onClick={onClick}>
+                <FontAwesomeIcon icon={icon} style={{ fontSize: 12, color: iconColor, width: 16 }} />
+                {label}
               </button>
-              <button
-                className={mobile ? '' : 'nav-drop-item'}
-                style={{ ...mPanelItem, width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' as const, background: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10 }}
-                onClick={() => { closeAll(); window.open('/enquiry', '_blank'); }}>
-                <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 11, color: '#94a3b8', width: 16 }} />
-                Landing Page
-              </button>
-              <button
-                className={mobile ? '' : 'nav-drop-item'}
-                style={{ ...mPanelItem, width: '100%', border: 'none', cursor: 'pointer', textAlign: 'left' as const, background: 'none', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10 }}
-                onClick={() => { closeAll(); setShareLinksModal(true); }}>
-                <FontAwesomeIcon icon={faLink} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                Share Links
-              </button>
-            </div>
-          )}
+            );
+            return (
+              <div style={mPanel}>
+                {section('Messaging', true)}
+                {item(faWhatsapp, '#25D366', 'WhatsApp', () => { closeAll(); setWaPhone(''); setWaMessage(''); setWaTemplate('none'); setWaLang('zh'); setWhatsappModal(true); })}
+                {sep}
+                {section('Enquiry')}
+                {item(faArrowUpRightFromSquare, '#94a3b8', 'Enquiry Form', () => { closeAll(); window.open('/enquiry', '_blank'); })}
+                {item(faLink, '#94a3b8', 'Enquiry Links', () => { closeAll(); setShareLinksModal(true); })}
+                {sep}
+                {section('Candidates')}
+                {item(faArrowUpRightFromSquare, '#94a3b8', 'Apply Form', () => { closeAll(); window.open('/apply', '_blank'); })}
+                {item(faLink, '#94a3b8', 'Apply Links', () => { closeAll(); setApplyLinksModal(true); })}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Settings dropdown — admin only */}
@@ -666,6 +704,64 @@ export default function Navbar() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Apply Form Links Modal — same shape as Share Links, but the
+        channel list is the admin-curated recruitment referral sources
+        instead of a fixed set, since that's what already drives the
+        equivalent picker on the Candidates page. */}
+    {applyLinksModal && (
+      <div style={modal.overlay}>
+        <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 16px 48px rgba(0,0,0,0.16)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Apply Form Links</h3>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Click to copy. Use for QR codes, ads, or social posts.</div>
+            </div>
+            <button onClick={() => setApplyLinksModal(false)} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#cbd5e1', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
+          </div>
+          {/* Links */}
+          <div style={{ padding: '8px 10px', maxHeight: 400, overflowY: 'auto' }}>
+            {[
+              { label: 'Direct Link', desc: 'No tracking', utm: '' },
+              ...applyReferralSources.map(label => ({ label, desc: 'Tracked to this source', utm: toApplyUtmSlug(label) })),
+            ].map(item => {
+              const baseUrl = window.location.origin;
+              const url = item.utm ? `${baseUrl}/apply?utm_source=${encodeURIComponent(item.utm)}` : `${baseUrl}/apply`;
+              const isCopied = copiedApplyLink === (item.utm || '_direct');
+              return (
+                <div key={item.utm || '_direct'}
+                  onClick={() => { navigator.clipboard.writeText(url); setCopiedApplyLink(item.utm || '_direct'); setTimeout(() => setCopiedApplyLink(''), 2000); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 10, cursor: 'pointer',
+                    background: isCopied ? '#f0fdf4' : 'transparent', border: isCopied ? '1px solid #bbf7d0' : '1px solid transparent',
+                    transition: 'all 0.12s',
+                  }}
+                  onMouseEnter={e => { if (!isCopied) (e.currentTarget as HTMLElement).style.background = '#f8fafc'; }}
+                  onMouseLeave={e => { if (!isCopied) (e.currentTarget as HTMLElement).style.background = isCopied ? '#f0fdf4' : 'transparent'; }}
+                >
+                  <span style={{ fontSize: 18, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: 8, flexShrink: 0 }}>
+                    <FontAwesomeIcon icon={faLink} style={{ fontSize: 13, color: '#94a3b8' }} />
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{item.label}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{item.desc}</div>
+                  </div>
+                  <div style={{ flexShrink: 0, fontSize: 11, color: isCopied ? '#16a34a' : '#cbd5e1', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {isCopied ? <><FontAwesomeIcon icon={faCircleCheck} /> Copied</> : <FontAwesomeIcon icon={faCopy} />}
+                  </div>
+                </div>
+              );
+            })}
+            {applyReferralSources.length === 0 && (
+              <div style={{ padding: '10px 12px', fontSize: 11, color: '#94a3b8' }}>
+                Add sources in Settings → Recruitment to get tracked links per channel.
+              </div>
+            )}
           </div>
         </div>
       </div>

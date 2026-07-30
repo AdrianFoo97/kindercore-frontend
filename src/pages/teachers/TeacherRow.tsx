@@ -15,6 +15,7 @@ interface TeacherLike {
   color: string;
   isActive: boolean;
   resignedAt?: string | null;
+  createdAt?: string | null;
   positionId?: string | null;
   level?: number | null;
   isFixedSalary?: boolean;
@@ -70,7 +71,14 @@ export const TeacherRow = memo(function TeacherRow({
   const resignedDate = t.resignedAt ? new Date(t.resignedAt) : null;
   const isFutureResign = !!resignedDate && resignedDate > todayStart;
   const isCurrentlyActive = !resignedDate || isFutureResign;
-  const incomplete = isCurrentlyActive && (!pos || !hasSalary);
+  // A future join date (e.g. hired today, starts next month) is why salary
+  // is blank — payroll correctly excludes them until they've actually
+  // started. That's a distinct, expected state from "Incomplete" (position
+  // or salary genuinely not configured), so it's carved out here rather
+  // than flagged as a data-entry problem.
+  const joinDate = t.createdAt ? new Date(t.createdAt) : null;
+  const hasNotStartedYet = !!joinDate && joinDate > todayStart;
+  const incomplete = isCurrentlyActive && !hasNotStartedYet && (!pos || !hasSalary);
   const workDaysCount = Array.isArray(t.workDays) ? t.workDays.length : 0;
   const dailyHours = (t.workStartMinute != null && t.workEndMinute != null)
     ? computeDailyHours(t.workStartMinute, t.workEndMinute)
@@ -91,6 +99,7 @@ export const TeacherRow = memo(function TeacherRow({
                 color: isCurrentlyActive ? TP_C.text : TP_C.muted,
               }}>{t.name}</div>
               {incomplete && <IncompleteChip />}
+              {hasNotStartedYet && <StartsChip date={t.createdAt!} />}
               {resignedDate && <ResignedChip date={t.resignedAt!} isFuture={isFutureResign} />}
             </div>
           </div>
@@ -216,6 +225,30 @@ function IncompleteChip() {
     >
       <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 9 }} />
       Incomplete
+    </span>
+  );
+}
+
+function StartsChip({ date }: { date: string }) {
+  return (
+    <span
+      title="Excluded from this month's payroll until they join"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '2px 8px',
+        fontSize: 10,
+        fontWeight: 700,
+        borderRadius: TP_RADIUS.chip,
+        background: TP_C.primaryLight,
+        color: TP_C.primary,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.04em',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      Starts · {formatResignedDate(date)}
     </span>
   );
 }

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchLeads, updateLead, deleteLead, fetchTrashedLeads, restoreLead, permanentDeleteLead, createAppointment, confirmAppointment, confirmAppointmentNoCalendar, fetchUpcomingAppointments, fetchLeadStats, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
+import { fetchLeads, updateLead, deleteLead, fetchTrashedLeads, restoreLead, permanentDeleteLead, createAppointment, confirmAppointment, confirmAppointmentNoCalendar, fetchUpcomingAppointments, fetchLeadStats, fetchLeadPhones, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
 import { fetchUpcomingInterviews, UpcomingInterview } from '../api/candidates.js';
 import { fetchSettings } from '../api/settings.js';
 import { getConnectToken } from '../api/google.js';
@@ -17,7 +17,7 @@ import { useToast } from '../components/common/Toast.js';
 // Adding / renaming a channel happens in /constants/marketingChannels.ts.
 import { MARKETING_CHANNELS } from '../constants/marketingChannels.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faFacebook, faGoogle, faTiktok, faInstagram } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
@@ -31,11 +31,42 @@ function RelationshipIcon({ relationship }: { relationship?: string | null }) {
   const color = isMother ? '#ec4899' : isFather ? '#3b82f6' : '#94a3b8';
   return <span title={relationship} style={{ cursor: 'default', color, fontSize: 10 }}><FontAwesomeIcon icon={icon} /></span>;
 }
+
+// Repeat-submission marker — same pattern as the Candidates page's
+// repeat-applicant badge: icon only, tooltip shows the count, click
+// jumps to a status-unfiltered search on this phone (a duplicate might
+// still be sitting in an active stage, not just a closed one) so the
+// admin can see every prior submission in one place.
+function RepeatSubmissionsBadge(props: { count: number; onClick: () => void }) {
+  const { count, onClick } = props;
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); onClick(); }}
+      style={{
+        display: 'inline-flex', alignItems: 'center',
+        padding: 0, border: 'none', background: 'none',
+        color: '#d97706', cursor: 'pointer', flexShrink: 0,
+      }}
+      title={`${count}× — click to see previous submissions`}
+    >
+      <FontAwesomeIcon icon={faArrowsRotate} style={{ fontSize: 11 }} />
+    </button>
+  );
+}
+
 const currentYear = new Date().getFullYear();
 const ENROLMENT_YEARS = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
 type SortField = 'submittedAt' | 'childName' | 'childDob' | 'enrolmentYear' | 'status' | 'intent';
 type SortOrder = 'asc' | 'desc';
-type PipelineStage = 'all_active' | 'NEW' | 'CONTACTED' | 'APPOINTMENT_BOOKED' | 'FOLLOW_UP' | 'ENROLLED' | 'LOST' | 'REJECTED' | 'TRASH';
+// 'all_history' is a virtual stage — every status, no filter at all. Used
+// by the repeat-submission badge: a duplicate enquiry is just as likely to
+// still be sitting in an active stage (parent submitted twice before
+// anyone followed up) as it is to already be closed, so restricting the
+// jump to "closed only" silently hid real history. Not a clickable
+// sidebar entry, just a valid selectedStage value so the existing
+// filter/title machinery handles it without a special case everywhere.
+type PipelineStage = 'all_active' | 'NEW' | 'CONTACTED' | 'APPOINTMENT_BOOKED' | 'FOLLOW_UP' | 'ENROLLED' | 'LOST' | 'REJECTED' | 'TRASH' | 'all_history';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -2118,7 +2149,9 @@ export default function LeadsPage() {
     return () => document.removeEventListener('click', close);
   }, []);
 
-  const apiFilterStatus = selectedStage === 'all_active' ? 'active' : selectedStage;
+  // 'all_history' omits the status filter entirely (undefined) rather than
+  // mapping to a specific bucket — it needs to return leads in any status.
+  const apiFilterStatus = selectedStage === 'all_active' ? 'active' : selectedStage === 'all_history' ? undefined : selectedStage;
   const isClosed = selectedStage === 'ENROLLED' || selectedStage === 'LOST' || selectedStage === 'REJECTED';
   const [closedYear, setClosedYear] = useState<number | 'all'>(new Date().getFullYear());
   const apiYear = isClosed && closedYear !== 'all' ? closedYear : undefined;
@@ -2215,6 +2248,41 @@ export default function LeadsPage() {
       if (lead) { setEditingLead(lead); setSearchParams({}, { replace: true }); }
     }
   }, [searchParams, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Repeat-submission detection — same parent phone across multiple Lead
+  // rows, regardless of status/tab (a lead that was Lost last year and is
+  // Contacted again today should still surface its history). The phones
+  // endpoint returns every lead's {id, parentPhone, childName, submittedAt}
+  // unpaginated, so this works even for a phone whose other submissions
+  // aren't on the current page/tab.
+  const { data: leadPhoneIndex } = useQuery({
+    queryKey: ['lead-phones'],
+    queryFn: fetchLeadPhones,
+    refetchInterval: 60_000,
+  });
+  const dupeCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of (leadPhoneIndex ?? [])) {
+      const key = normalizePhone(p.parentPhone);
+      if (!key) continue;
+      m.set(key, (m.get(key) ?? 0) + 1);
+    }
+    return m;
+  }, [leadPhoneIndex]);
+  const repeatCountFor = (lead: Lead) => dupeCounts.get(normalizePhone(lead.parentPhone)) ?? 1;
+  // Jump to every submission for this phone, any status — a duplicate
+  // enquiry is just as likely to still be New/Contacted (parent submitted
+  // twice before anyone followed up) as it is to be closed, so restricting
+  // this to closed-only silently showed "no leads" for the common case.
+  // closedYear resets to 'all' for when they later click into a real
+  // closed tab — otherwise the default (current year) filter would hide
+  // older submissions there too.
+  const jumpToRepeatHistory = (phone: string) => {
+    setSelectedStage('all_history');
+    setClosedYear('all');
+    setSearchInput(phone);
+    setPage(1);
+  };
 
   const waTemplate = settings?.whatsapp_template ?? 'Hi, this is KinderTech. Thanks for your enquiry for {{childName}}. Would you like to arrange a school visit?';
   const waTemplateZh = settings?.whatsapp_template_zh ?? '';
@@ -2417,6 +2485,7 @@ export default function LeadsPage() {
     all_active: 'All Active Leads', NEW: 'New Leads', CONTACTED: 'Contacted',
     APPOINTMENT_BOOKED: 'Appointment Booked', FOLLOW_UP: 'Follow-Up',
     ENROLLED: 'Enrolled', LOST: 'Lost / Declined', REJECTED: 'Rejected', TRASH: 'Trash',
+    all_history: 'All Submissions',
   };
   const pageTitle = STAGE_TITLES[selectedStage];
   const isTrash = selectedStage === 'TRASH';
@@ -2982,22 +3051,21 @@ export default function LeadsPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                           <RelationshipIcon relationship={lead.relationship} />
                           <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{lead.childName}</span>
-                          {lead.notes && (
-                            <span title={`${lead.howDidYouKnow ? `Channel: ${lead.howDidYouKnow}` : ''}${lead.howDidYouKnow && lead.notes ? '\n\n' : ''}${lead.notes || ''}`} style={{ color: '#cbd5e1', fontSize: 10, cursor: 'default' }}>
-                              <FontAwesomeIcon icon={faNoteSticky} />
-                            </span>
+                          {repeatCountFor(lead) > 1 && (
+                            <RepeatSubmissionsBadge
+                              count={repeatCountFor(lead)}
+                              onClick={() => jumpToRepeatHistory(lead.parentPhone)}
+                            />
                           )}
                           {/* Heat indicator — icon + label. */}
                           {getLeadHeat(lead.ctaSource).label && (() => {
                             const heat = getLeadHeat(lead.ctaSource);
                             return (
                               <span title={heat.tooltip} style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 3,
-                                color: heat.color, fontSize: 10, fontWeight: 700,
-                                cursor: 'default', whiteSpace: 'nowrap' as const,
+                                display: 'inline-flex', alignItems: 'center',
+                                color: heat.color, cursor: 'default',
                               }}>
-                                {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 10 }} />}
-                                {heat.label}
+                                {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 11 }} />}
                               </span>
                             );
                           })()}
@@ -3051,6 +3119,13 @@ export default function LeadsPage() {
                               cursor: 'default', flexShrink: 0,
                             }}>
                               <FontAwesomeIcon icon={faSeedling} style={{ fontSize: 9 }} />
+                            </span>
+                          )}
+                          {/* Notes — always last, so it doesn't shift the
+                              other icons around as notes are added/removed. */}
+                          {lead.notes && (
+                            <span title={`${lead.howDidYouKnow ? `Channel: ${lead.howDidYouKnow}` : ''}${lead.howDidYouKnow && lead.notes ? '\n\n' : ''}${lead.notes || ''}`} style={{ color: '#cbd5e1', fontSize: 10, cursor: 'default' }}>
+                              <FontAwesomeIcon icon={faNoteSticky} />
                             </span>
                           )}
                         </div>
@@ -3248,10 +3323,11 @@ export default function LeadsPage() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                             <RelationshipIcon relationship={lead.relationship} />
                             <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{lead.childName}</span>
-                            {lead.notes && (
-                              <span title={lead.notes} style={{ color: '#cbd5e1', fontSize: 10, cursor: 'default' }}>
-                                <FontAwesomeIcon icon={faNoteSticky} />
-                              </span>
+                            {repeatCountFor(lead) > 1 && (
+                              <RepeatSubmissionsBadge
+                                count={repeatCountFor(lead)}
+                                onClick={() => jumpToRepeatHistory(lead.parentPhone)}
+                              />
                             )}
                             {/* Heat indicator — icon + Hot/Warm/Cold
                                 label, both in the heat color so the
@@ -3262,12 +3338,10 @@ export default function LeadsPage() {
                               const heat = getLeadHeat(lead.ctaSource);
                               return (
                                 <span title={heat.tooltip} style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 3,
-                                  color: heat.color, fontSize: 10, fontWeight: 700,
-                                  cursor: 'default', whiteSpace: 'nowrap' as const,
+                                  display: 'inline-flex', alignItems: 'center',
+                                  color: heat.color, cursor: 'default',
                                 }}>
-                                  {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 10 }} />}
-                                  {heat.label}
+                                  {heat.icon && <FontAwesomeIcon icon={heat.icon} style={{ fontSize: 11 }} />}
                                 </span>
                               );
                             })()}
@@ -3283,6 +3357,13 @@ export default function LeadsPage() {
                                 cursor: 'default', flexShrink: 0,
                               }}>
                                 <FontAwesomeIcon icon={faSeedling} style={{ fontSize: 9 }} />
+                              </span>
+                            )}
+                            {/* Notes — always last, so it doesn't shift the
+                                other icons around as notes are added/removed. */}
+                            {lead.notes && (
+                              <span title={lead.notes} style={{ color: '#cbd5e1', fontSize: 10, cursor: 'default' }}>
+                                <FontAwesomeIcon icon={faNoteSticky} />
                               </span>
                             )}
                           </div>
