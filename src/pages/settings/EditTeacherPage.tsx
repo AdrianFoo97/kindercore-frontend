@@ -659,7 +659,18 @@ export default function EditTeacherPage() {
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                     <div style={{ width: 140 }}>
                       <label style={s.label}>Start</label>
-                      <select style={s.input} value={workStartMinute} onChange={e => setWorkStartMinute(e.target.value ? Number(e.target.value) : '')}>
+                      <select
+                        style={s.input}
+                        value={workStartMinute}
+                        onChange={e => {
+                          const v = e.target.value ? Number(e.target.value) : '';
+                          setWorkStartMinute(v);
+                          // An End that's no longer after the new Start is
+                          // meaningless (would compute negative hours) —
+                          // clear it rather than leave a stale invalid pair.
+                          if (v !== '' && workEndMinute !== '' && workEndMinute <= v) setWorkEndMinute('');
+                        }}
+                      >
                         <option value="">--</option>
                         {timeSlots.map(m => <option key={m} value={m}>{minutesToTime(m)}</option>)}
                       </select>
@@ -668,7 +679,9 @@ export default function EditTeacherPage() {
                       <label style={s.label}>End</label>
                       <select style={s.input} value={workEndMinute} onChange={e => setWorkEndMinute(e.target.value ? Number(e.target.value) : '')}>
                         <option value="">--</option>
-                        {timeSlots.map(m => <option key={m} value={m}>{minutesToTime(m)}</option>)}
+                        {/* Only times after Start — an End before/equal to Start
+                            isn't a valid same-day shift, so it's just not offered. */}
+                        {timeSlots.filter(m => workStartMinute === '' || m > workStartMinute).map(m => <option key={m} value={m}>{minutesToTime(m)}</option>)}
                       </select>
                     </div>
                     <div>

@@ -128,7 +128,12 @@ export default function EmployeeCostPage() {
     staleTime: 0,
   });
 
-  const totalMonthly = useMemo(() => teachers.reduce((s, t) => s + t.calculatedSalary, 0), [teachers]);
+  // A teacher hired with a future join date has a calculatedSalary (so
+  // other pages can show what's configured) but isn't part of this
+  // month's actual cost yet — exclude them here same as the old
+  // backend-side filter did before activeThisMonth existed.
+  const activeTeachers = useMemo(() => teachers.filter(t => t.activeThisMonth), [teachers]);
+  const totalMonthly = useMemo(() => activeTeachers.reduce((s, t) => s + t.calculatedSalary, 0), [activeTeachers]);
 
   // Benefits KPI: sum entries for categories belonging to the protected
   // (system-seeded) operating-cost group. The group's display name is
@@ -280,7 +285,7 @@ export default function EmployeeCostPage() {
               color={C.primary}
               sub={employerContribs ? `Salary + Employer Contributions` : undefined}
             />
-            <KpiCard label="Monthly Salary" value={fmtRM(totalMonthly)} color="#6366f1" sub={`${teachers.length} active teachers`} />
+            <KpiCard label="Monthly Salary" value={fmtRM(totalMonthly)} color="#6366f1" sub={`${activeTeachers.length} active teachers`} />
             <KpiCard
               label="Employer Contributions"
               value={employerContribs ? fmtRM(employerContribs.total) : '—'}
@@ -496,7 +501,7 @@ export default function EmployeeCostPage() {
               </tr>
             </thead>
             <tbody>
-              {[...teachers].sort((a, b) => b.calculatedSalary - a.calculatedSalary).map((t) => (
+              {[...activeTeachers].sort((a, b) => b.calculatedSalary - a.calculatedSalary).map((t) => (
                 <tr key={t.id} className="ec-row">
                   <td style={s.td}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -522,7 +527,7 @@ export default function EmployeeCostPage() {
                   </td>
                 </tr>
               ))}
-              {teachers.length > 0 && (
+              {activeTeachers.length > 0 && (
                 <tr style={{ borderTop: `2px solid ${C.border}` }}>
                   <td colSpan={6} style={{ ...s.td, fontWeight: 700, fontSize: 12, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Monthly Staff Cost</td>
                   <td style={{ ...s.td, textAlign: 'right' }}>

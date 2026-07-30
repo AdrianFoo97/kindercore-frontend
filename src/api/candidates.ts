@@ -1,5 +1,5 @@
 import { apiFetch } from './client.js';
-import { Candidate, CandidatesResponse, CandidateStatus, CommuteTime } from '../types/index.js';
+import { Candidate, CandidatesResponse, CandidateStatus, CommuteTime, Teacher } from '../types/index.js';
 
 export interface CandidatesQuery {
   page?: number;
@@ -247,6 +247,32 @@ export function updateCandidate(id: string, patch: UpdateCandidateInput) {
   return apiFetch<Candidate>(`/api/candidates/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(patch),
+  });
+}
+
+/** "Accepted" on an OFFER_SENT candidate — confirms hire details and
+ *  creates the Teacher record + marks the candidate HIRED, atomically. */
+export interface HireCandidateInput {
+  phone: string;
+  positionId: string;
+  level: number;
+  employmentType: 'full-time' | 'part-time';
+  joinDate: string;
+  salaryType: 'formula' | 'fixed' | 'hourly';
+  fixedSalaryAmount?: number;
+  hourlyRate?: number;
+  hasEpf: boolean;
+  hasSocso: boolean;
+  hasEis: boolean;
+  workStartMinute?: number;
+  workEndMinute?: number;
+  workDays?: number[];
+  allowances?: { allowanceTypeId: string; amount: number }[];
+}
+export function hireCandidate(id: string, input: HireCandidateInput) {
+  return apiFetch<{ candidate: Candidate; teacher: Teacher }>(`/api/candidates/${id}/hire`, {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
 }
 

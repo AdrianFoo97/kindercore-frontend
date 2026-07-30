@@ -89,6 +89,10 @@ export default function TeachersPage() {
       if (!visible) continue;
       const stillActive = !t.resignedAt || new Date(t.resignedAt) > today;
       if (!stillActive) continue;
+      // Future join date = not on payroll yet, not a data-entry gap —
+      // same carve-out as TeacherRow's own Incomplete-chip logic.
+      const hasNotStartedYet = t.createdAt && new Date(t.createdAt) > today;
+      if (hasNotStartedYet) continue;
       const pos = t.positionId ? posMap.get(t.positionId) : null;
       const sal = salaryMap.get(t.id);
       if (!pos || !sal || sal.calculatedSalary <= 0) n++;

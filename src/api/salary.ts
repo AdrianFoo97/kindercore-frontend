@@ -35,6 +35,13 @@ export interface TeacherWithSalary {
   position: Position | null;
   calculatedSalary: number;
   breakdown: { basic: number; levelIncentive: number; allowances: { typeId: string; typeName: string; amount: number; icon?: string; isGuaranteed?: boolean; parentId?: string | null }[]; totalAllowances: number } | null;
+  /** True once this teacher's join date has arrived (and they haven't
+   *  resigned yet) — i.e. counted in *this* calendar month's real payroll.
+   *  A teacher hired with a future join date still has calculatedSalary
+   *  populated (so their config is visible), but this is false until they
+   *  actually start — callers summing salary into a cost total must
+   *  filter on this first. */
+  activeThisMonth: boolean;
 }
 
 export function fetchTeachersWithSalary() {
