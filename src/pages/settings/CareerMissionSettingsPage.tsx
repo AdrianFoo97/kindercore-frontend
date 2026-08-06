@@ -6,7 +6,7 @@ import {
   faPlus, faTrash, faPen, faGripVertical, faTimes, faCheck, faCircleExclamation,
   faRoad, faClipboardCheck, faCalendarDays, faPeopleArrows, faStar,
 } from '@fortawesome/free-solid-svg-icons';
-import { fetchPositions } from '../../api/salary.js';
+import { fetchPositions, fetchDepartments } from '../../api/salary.js';
 import {
   fetchMissions, createMission, updateMission, deleteMission, reorderMissions,
   CareerMission, MissionCategory, MissionDifficulty, CreateMissionPayload,
@@ -19,7 +19,7 @@ import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
 const C = {
   bg: '#f8fafc',
   card: '#ffffff',
-  cardBorder: '#e5e7eb',
+  cardBorder: '#eef0f4',
   divider: '#f1f5f9',
   text: '#0f172a',
   textSub: '#475569',
@@ -36,7 +36,7 @@ const C = {
   dangerSoft: '#fee2e2',
 };
 const RADIUS = 14;
-const SHADOW = '0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06)';
+const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 
 const DIFFICULTY_META: Record<MissionDifficulty, { label: string; color: string }> = {
   BASIC:        { label: 'Basic',        color: '#065f46' },
@@ -44,7 +44,7 @@ const DIFFICULTY_META: Record<MissionDifficulty, { label: string; color: string 
   ADVANCED:     { label: 'Advanced',     color: '#991b1b' },
 };
 
-export default function CareerMissionSettingsPage() {
+export default function CareerMissionSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { confirm: confirmDelete } = useDeleteDialog();
@@ -52,17 +52,28 @@ export default function CareerMissionSettingsPage() {
 
   const { data: positions = [], isLoading: positionsLoading } =
     useQuery({ queryKey: ['salary-positions'], queryFn: fetchPositions });
+  const { data: departmentList = [] } = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments });
   const sortedPositions = useMemo(
     () => [...positions].sort((a, b) => a.titleWeight - b.titleWeight),
     [positions],
   );
 
+  const [deptFilter, setDeptFilter] = useState<string>('');
+  useEffect(() => {
+    if (!deptFilter && departmentList.length > 0) setDeptFilter(departmentList[0].departmentId);
+  }, [deptFilter, departmentList]);
+  const visiblePositions = useMemo(
+    () => sortedPositions.filter(p => p.departmentId === deptFilter),
+    [sortedPositions, deptFilter],
+  );
+
   const [selectedPositionId, setSelectedPositionId] = useState<string | null>(null);
   useEffect(() => {
-    if (!selectedPositionId && sortedPositions.length > 0) {
-      setSelectedPositionId(sortedPositions[0].positionId);
+    if (visiblePositions.length === 0) { setSelectedPositionId(null); return; }
+    if (!selectedPositionId || !visiblePositions.some(p => p.positionId === selectedPositionId)) {
+      setSelectedPositionId(visiblePositions[0].positionId);
     }
-  }, [sortedPositions, selectedPositionId]);
+  }, [visiblePositions, selectedPositionId]);
 
   const { data: allMissions = [], isLoading: missionsLoading } = useQuery({
     queryKey: ['career-missions'],
@@ -146,9 +157,9 @@ export default function CareerMissionSettingsPage() {
   // ── Empty: no positions exist yet ──
   if (!positionsLoading && positions.length === 0) {
     return (
-      <div style={s.page}>
-        <div style={s.inner}>
-          <h1 style={s.heading}>Career Mission Settings</h1>
+      <div style={embedded ? undefined : s.page}>
+        <div style={embedded ? undefined : s.inner}>
+          {!embedded && <h1 style={s.heading}>Career Mission Settings</h1>}
           <div style={{ ...s.card, textAlign: 'center', padding: '64px 32px' }}>
             <FontAwesomeIcon icon={faCircleExclamation} style={{ fontSize: 28, color: C.mutedSoft, marginBottom: 14 }} />
             <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: C.text }}>No positions yet</h3>
@@ -169,17 +180,34 @@ export default function CareerMissionSettingsPage() {
   }
 
   return (
-    <div style={s.page}>
-      <div style={s.inner}>
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={s.heading}>Career Mission Settings</h1>
-          <p style={s.subheading}>Define the capability missions a teacher must complete before they can be promoted from each position.</p>
-        </div>
+    <div style={embedded ? undefined : s.page}>
+      <div style={embedded ? undefined : s.inner}>
+        {!embedded && (
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={s.heading}>Career Mission Settings</h1>
+            <p style={s.subheading}>Define the capability missions a teacher must complete before they can be promoted from each position.</p>
+          </div>
+        )}
+
+        {/* Department filter */}
+        {departmentList.length > 1 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {departmentList.map(d => (
+              <button
+                key={d.departmentId}
+                onClick={() => setDeptFilter(d.departmentId)}
+                style={{ ...s.deptPill, ...(deptFilter === d.departmentId ? s.deptPillActive : {}) }}
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Position tabs */}
         <div style={s.tabsCard}>
           <div style={s.tabsRow}>
-            {sortedPositions.map(p => {
+            {visiblePositions.map(p => {
               const active = p.positionId === selectedPositionId;
               const count = allMissions.filter(m => m.positionId === p.positionId).length;
               return (
@@ -571,9 +599,14 @@ const s: Record<string, React.CSSProperties> = {
   subheading: { margin: 0, fontSize: 13, color: C.muted },
   tabsCard: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS,
-    padding: 8, marginBottom: 18, boxShadow: SHADOW, overflowX: 'auto',
+    padding: 8, marginBottom: 18, boxShadow: SHADOW,
   },
-  tabsRow: { display: 'flex', gap: 6, flexWrap: 'nowrap' },
+  tabsRow: { display: 'flex', gap: 6, flexWrap: 'wrap' as const },
+  deptPill: {
+    padding: '5px 12px', fontSize: 12, fontWeight: 600, borderRadius: 20,
+    border: `1px solid ${C.cardBorder}`, background: C.card, color: C.muted, cursor: 'pointer',
+  },
+  deptPillActive: { borderColor: C.primary, background: C.primary, color: '#fff' },
   tab: {
     display: 'flex', alignItems: 'center', padding: '8px 14px', borderRadius: 10,
     fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -581,7 +614,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   card: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS,
-    padding: '20px 24px', boxShadow: SHADOW, marginBottom: 18,
+    padding: '22px 26px', boxShadow: SHADOW, marginBottom: 20,
   },
   cardHeader: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',

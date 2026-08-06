@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChevronLeft, faChevronRight, faUpload, faXmark, faSpinner, faStar,
 } from '@fortawesome/free-solid-svg-icons';
-import { fetchPositions, upsertPosition } from '../../api/salary.js';
+import { fetchPositions, upsertPosition, fetchDepartments } from '../../api/salary.js';
 import { uploadBadge, uploadUrl } from '../../api/upload.js';
 import { Position } from '../../types/index.js';
 import { useToast } from '../../components/common/Toast.js';
@@ -52,10 +52,15 @@ export default function PositionEditPage() {
     queryKey: ['salary-positions'],
     queryFn: fetchPositions,
   });
+  const { data: departmentList = [] } = useQuery({
+    queryKey: ['departments'],
+    queryFn: fetchDepartments,
+  });
   const existing = isEdit ? positions.find(p => p.positionId === id) ?? null : null;
 
   const [form, setForm] = useState({
     positionId: '',
+    departmentId: '',
     name: '',
     titleWeight: 0,
     basicSalary: 0,
@@ -77,6 +82,7 @@ export default function PositionEditPage() {
     if (isEdit && existing) {
       setForm({
         positionId: existing.positionId,
+        departmentId: existing.departmentId ?? '',
         name: existing.name,
         titleWeight: existing.titleWeight,
         basicSalary: existing.basicSalary,
@@ -92,6 +98,25 @@ export default function PositionEditPage() {
       setHydrated(true);
     }
   }, [hydrated, isEdit, existing]);
+
+  // Default a new position onto the first department (Academic) once
+  // departments have loaded — admins can still change it before saving.
+  useEffect(() => {
+    if (!isEdit && !form.departmentId && departmentList.length > 0) {
+      setForm(f => ({ ...f, departmentId: departmentList[0].departmentId }));
+    }
+  }, [isEdit, departmentList, form.departmentId]);
+
+  const selectedDepartment = departmentList.find(d => d.departmentId === form.departmentId);
+  const deptHasCareerPath = selectedDepartment?.hasCareerPath ?? true;
+
+  // A position can't be on a career path if its department has none —
+  // force it off (and keep it off) whenever the department says so.
+  useEffect(() => {
+    if (!deptHasCareerPath && form.inCareerProgression) {
+      setForm(f => ({ ...f, inCareerProgression: false }));
+    }
+  }, [deptHasCareerPath, form.inCareerProgression]);
 
   const handleBadgeUpload = async (file: File) => {
     setBadgeUploading(true);
@@ -118,6 +143,7 @@ export default function PositionEditPage() {
     try {
       await upsertPosition(positionId, {
         name: form.name.trim(),
+        departmentId: form.departmentId || null,
         titleWeight: form.titleWeight,
         basicSalary: form.basicSalary,
         maxLevel: form.maxLevel,
@@ -203,6 +229,21 @@ export default function PositionEditPage() {
               />
             </label>
           </div>
+
+          {/* Department */}
+          <label style={{ ...s.label, marginTop: 16 }}>
+            <span style={s.labelText}>Department <span style={s.req}>*</span></span>
+            <select
+              value={form.departmentId}
+              onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
+              style={s.input}
+            >
+              {departmentList.length === 0 && <option value="">No departments yet</option>}
+              {departmentList.map(d => (
+                <option key={d.departmentId} value={d.departmentId}>{d.name}</option>
+              ))}
+            </select>
+          </label>
 
           {/* Role Focus — short headline shown above the description */}
           <label style={{ ...s.label, marginTop: 16 }}>
@@ -291,16 +332,20 @@ export default function PositionEditPage() {
             )}
             <label style={s.label}>
               <span style={s.labelText}>Career path</span>
-              <label style={s.toggleRow}>
+              <label style={{ ...s.toggleRow, ...(deptHasCareerPath ? {} : { opacity: 0.5, cursor: 'default' }) }}>
                 <input
                   type="checkbox"
                   checked={form.inCareerProgression}
+                  disabled={!deptHasCareerPath}
                   onChange={e => setForm(f => ({ ...f, inCareerProgression: e.target.checked }))}
                 />
                 <span style={{ fontSize: 13, color: C.text }}>
                   {form.inCareerProgression ? 'On path' : 'Off path'}
                 </span>
               </label>
+              {!deptHasCareerPath && (
+                <span style={s.help}>This department has no career path enabled.</span>
+              )}
             </label>
           </div>
 
@@ -515,10 +560,10 @@ const s: Record<string, React.CSSProperties> = {
 
   card: {
     background: C.card,
-    border: `1px solid ${C.border}`,
-    borderRadius: 12,
-    padding: 24,
-    boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
+    border: '1px solid #eef0f4',
+    borderRadius: 14,
+    padding: '22px 26px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
   },
 
   row: {

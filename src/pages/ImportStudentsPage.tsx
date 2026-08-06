@@ -67,7 +67,7 @@ function findHeader(headers: string[], ...candidates: string[]): number {
 // Main Page
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ImportStudentsPage() {
+export default function ImportStudentsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -287,12 +287,16 @@ export default function ImportStudentsPage() {
   // ── Render ──
 
   return (
-    <div style={s.page}>
+    <div style={embedded ? { display: 'flex', justifyContent: 'center' } : s.page}>
       <div style={s.inner}>
-        <h1 style={s.heading}>Import Students</h1>
-        <p style={s.subtitle}>
-          Upload a CSV or Excel file to import students. Each student will be linked to an enrolled lead by matching child name.
-        </p>
+        {!embedded && (
+          <>
+            <h1 style={s.heading}>Import Students</h1>
+            <p style={s.subtitle}>
+              Upload a CSV or Excel file to import students. Each student will be linked to an enrolled lead by matching child name.
+            </p>
+          </>
+        )}
 
         {/* Step indicator */}
         <div style={s.stepRow}>

@@ -603,7 +603,7 @@ function ColumnReference() {
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ImportLeadsPage() {
+export default function ImportLeadsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { isMobile } = useIsMobile();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -855,16 +855,18 @@ export default function ImportLeadsPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ ...styles.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}>
+    <div style={embedded ? {} : { ...styles.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}>
       <div style={{ ...styles.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
 
         {/* ── Page header ─────────────────────────────────────────────────── */}
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={styles.heading}>Import Leads</h1>
-          <p style={styles.subheading}>
-            Upload a CSV or Excel file to bulk import leads. Existing leads with matching phone numbers are flagged as duplicates and skipped by default.
-          </p>
-        </div>
+        {!embedded && (
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={styles.heading}>Import Leads</h1>
+            <p style={styles.subheading}>
+              Upload a CSV or Excel file to bulk import leads. Existing leads with matching phone numbers are flagged as duplicates and skipped by default.
+            </p>
+          </div>
+        )}
 
         {/* ── Step indicator ───────────────────────────────────────────────── */}
         {step !== 'done' && (

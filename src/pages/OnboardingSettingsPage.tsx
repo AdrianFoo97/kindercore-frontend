@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
-import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 export default function OnboardingSettingsPage() {
   const queryClient = useQueryClient();
@@ -25,7 +24,6 @@ export default function OnboardingSettingsPage() {
   return (
     <div style={styles.page}>
       <div style={styles.inner}>
-        <SettingsBreadcrumb label="Student Onboarding" />
         <h1 style={styles.heading}>Student Onboarding</h1>
         <p style={styles.subheading}>Tasks to complete when a new student is enrolled.</p>
         {!isAdmin && (
@@ -187,13 +185,14 @@ function OnboardingEditor({
 
 const styles: Record<string, React.CSSProperties> = {
   page: { padding: '32px 24px', fontFamily: 'system-ui, sans-serif', display: 'flex', justifyContent: 'center' },
-  inner: { width: '100%', maxWidth: 680 },
+  inner: { width: '100%', maxWidth: 960 },
   heading: { margin: '0 0 4px', fontSize: 24 },
   subheading: { margin: '0 0 20px', fontSize: 13, color: '#718096' },
   readonlyNote: { color: '#718096', fontSize: 13, marginBottom: 16 },
   state: { padding: 32, fontSize: 16, color: '#4a5568' },
   card: {
-    background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 20,
+    background: '#fff', border: '1px solid #eef0f4', borderRadius: 14, padding: '22px 26px',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
   },
   input: {
     padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 4,

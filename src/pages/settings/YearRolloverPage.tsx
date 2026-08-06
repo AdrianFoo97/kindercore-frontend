@@ -548,7 +548,10 @@ const s: Record<string, React.CSSProperties> = {
   backBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: C.card, color: C.muted, cursor: 'pointer' },
   breadcrumbLink: { fontSize: 13, fontWeight: 600, color: C.primary },
   heading: { fontSize: 22, fontWeight: 800, color: C.text, margin: 0 },
-  card: { background: C.card, borderRadius: 12, padding: '20px 24px', border: `1px solid ${C.border}`, marginBottom: 16, boxShadow: '0 1px 2px rgba(0,0,0,0.03)' },
+  card: {
+    background: C.card, borderRadius: 14, padding: '22px 26px', border: '1px solid #eef0f4', marginBottom: 16,
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
+  },
   sectionTitle: { fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase' as const, letterSpacing: '0.06em', margin: '0 0 14px' },
   label: { fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 4, display: 'block' },
   input: { width: '100%', padding: '9px 12px', fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 8, outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'inherit', color: C.text, background: '#fff' },

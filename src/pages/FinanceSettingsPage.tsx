@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPercent, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faPercent, faCheck, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { fetchSettings, patchSetting } from '../api/settings.js';
 import { Settings } from '../types/index.js';
+import CompensationSettingsPage from './settings/CompensationSettingsPage.js';
 
 const C = {
   bg: '#f8fafc',
@@ -27,53 +28,91 @@ function readPercent(settings: Settings | undefined, key: string, fallback: numb
   return Number.isFinite(n) && n > 0 && n <= max ? n : fallback;
 }
 
+type TabKey = 'targets' | 'compensation';
+
+const TABS: { key: TabKey; label: string; icon: any; subtitle: string }[] = [
+  { key: 'targets', label: 'Finance Targets', icon: faPercent, subtitle: 'Targets and thresholds used by the Finance Analysis dashboards.' },
+  { key: 'compensation', label: 'Compensation Tiers', icon: faLayerGroup, subtitle: 'Appraisal score thresholds that gate the Performer and High-Performer tiers on the Teacher Compensation page.' },
+];
+
 export default function FinanceSettingsPage() {
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: fetchSettings,
   });
+  const [tab, setTab] = useState<TabKey>('targets');
+  const active = TABS.find(t => t.key === tab)!;
 
   return (
     <div style={{ padding: 24, background: C.bg, minHeight: '100vh' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>Finance Settings</h1>
+      <style>{`.finance-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
+      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>{active.label}</h1>
         <p style={{ margin: '4px 0 20px', fontSize: 13, color: C.muted }}>
-          Targets and thresholds used by the Finance Analysis dashboards.
+          {active.subtitle}
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <PercentSettingCard
-            settings={settings}
-            settingKey="expense_ratio_target"
-            fallback={DEFAULT_EXPENSE_RATIO_TARGET}
-            max={2}
-            maxPercentInput={200}
-            title="Expense Ratio Target"
-            description="Target ceiling for total expenses (staff + operating) as a share of revenue. The Revenue card on Finance Analysis shows actual expenses versus this target. Default is 80%."
-          />
-          <PercentSettingCard
-            settings={settings}
-            settingKey="profit_share_percent"
-            fallback={DEFAULT_PROFIT_SHARE_PERCENT}
-            max={1}
-            maxPercentInput={100}
-            title="Profit Share Percent"
-            description="Share of quarterly revenue paid out as profit-share when the Expense Ratio Target is met for the quarter. The pool drops to RM 0 if the target isn't met. Default is 4%."
-          />
-          <PercentSettingCard
-            settings={settings}
-            settingKey="annual_bonus_percent"
-            fallback={DEFAULT_ANNUAL_BONUS_PERCENT}
-            max={1}
-            maxPercentInput={100}
-            title="Annual Bonus Percent"
-            description="Share of annual revenue paid out as the year-end bonus pool, summed across months that met the Expense Ratio Target. Months that miss the target contribute RM 0. Default is 2%."
-          />
+        <div style={tabS.tabStrip}>
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              className="finance-settings-tab"
+              onClick={() => setTab(t.key)}
+              style={{ ...tabS.tabBtn, ...(tab === t.key ? tabS.tabBtnActive : {}) }}
+            >
+              <FontAwesomeIcon icon={t.icon} style={{ fontSize: 12, width: 14 }} />
+              {t.label}
+            </button>
+          ))}
         </div>
+
+        {tab === 'targets' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <PercentSettingCard
+              settings={settings}
+              settingKey="expense_ratio_target"
+              fallback={DEFAULT_EXPENSE_RATIO_TARGET}
+              max={2}
+              maxPercentInput={200}
+              title="Expense Ratio Target"
+              description="Target ceiling for total expenses (staff + operating) as a share of revenue. The Revenue card on Finance Analysis shows actual expenses versus this target. Default is 80%."
+            />
+            <PercentSettingCard
+              settings={settings}
+              settingKey="profit_share_percent"
+              fallback={DEFAULT_PROFIT_SHARE_PERCENT}
+              max={1}
+              maxPercentInput={100}
+              title="Profit Share Percent"
+              description="Share of quarterly revenue paid out as profit-share when the Expense Ratio Target is met for the quarter. The pool drops to RM 0 if the target isn't met. Default is 4%."
+            />
+            <PercentSettingCard
+              settings={settings}
+              settingKey="annual_bonus_percent"
+              fallback={DEFAULT_ANNUAL_BONUS_PERCENT}
+              max={1}
+              maxPercentInput={100}
+              title="Annual Bonus Percent"
+              description="Share of annual revenue paid out as the year-end bonus pool, summed across months that met the Expense Ratio Target. Months that miss the target contribute RM 0. Default is 2%."
+            />
+          </div>
+        )}
+
+        {tab === 'compensation' && <CompensationSettingsPage embedded />}
       </div>
     </div>
   );
 }
+
+const tabS: Record<string, React.CSSProperties> = {
+  tabStrip: { display: 'flex', flexWrap: 'wrap' as const, gap: 2, borderBottom: `1px solid ${C.border}`, marginBottom: 24 },
+  tabBtn: {
+    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', fontSize: 13, fontWeight: 500,
+    color: C.muted, background: 'none', border: 'none', borderBottom: '2px solid transparent', borderRadius: '8px 8px 0 0',
+    cursor: 'pointer', whiteSpace: 'nowrap' as const, fontFamily: 'inherit', transition: 'all 0.1s', marginBottom: -1,
+  },
+  tabBtnActive: { color: '#4f46e5', fontWeight: 600, borderBottom: '2px solid #4f46e5' },
+};
 
 function PercentSettingCard({
   settings,
@@ -135,7 +174,7 @@ function PercentSettingCard({
   }, [savedAt]);
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+    <div style={{ background: C.card, border: '1px solid #eef0f4', borderRadius: 14, padding: '22px 26px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)' }}>
       <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.text }}>{title}</h2>
       <p style={{ margin: '4px 0 14px', fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
         {description}
@@ -196,7 +235,7 @@ function PercentSettingCard({
             borderRadius: 8,
             background: dirty && !saving ? C.indigo : '#cbd5e1',
             color: '#fff',
-            cursor: dirty && !saving ? 'pointer' : 'not-allowed',
+            cursor: dirty && !saving ? 'pointer' : 'default',
             fontFamily: 'inherit',
           }}
         >

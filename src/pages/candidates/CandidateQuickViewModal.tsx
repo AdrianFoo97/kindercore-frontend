@@ -133,7 +133,7 @@ export function CandidateQuickViewModal(props: Props) {
                 <>
                   <Section title="Contact">
                     <InfoRow icon={faPhone} label="Phone" value={candidate.phone}
-                      href={`https://wa.me/${candidate.phone.replace(/\D/g, '')}`} />
+                      href={`https://web.whatsapp.com/send?phone=${candidate.phone.replace(/\D/g, '')}`} />
                     {candidate.addressLocation && (
                       <InfoRow icon={faLocationDot} label="Will stay at"
                         value={candidate.addressLocation} />

@@ -32,7 +32,7 @@ type Feedback = { rowKey: string; type: 'saving' | 'saved' };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function AgeGroupsSettingsPage() {
+export default function AgeGroupsSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const raw = localStorage.getItem('user');
@@ -247,41 +247,49 @@ export default function AgeGroupsSettingsPage() {
 
   // ── Render guards ───────────────────────────────────────────────────────────
 
+  const wrap = embedded ? undefined : s.page;
+
   if (isLoading) {
     return (
-      <div style={s.page}>
-        <header style={s.header}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h1 style={s.heading}>Age Groups</h1>
-          </div>
-        </header>
+      <div style={wrap}>
+        {!embedded && (
+          <header style={s.header}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h1 style={s.heading}>Age Groups</h1>
+            </div>
+          </header>
+        )}
         <SkeletonTable rowCount={5} />
       </div>
     );
   }
-  if (isError) return <div style={s.page}><p style={{ ...s.muted, color: '#dc2626' }}>Failed to load.</p></div>;
+  if (isError) return <div style={wrap}><p style={{ ...s.muted, color: '#dc2626' }}>Failed to load.</p></div>;
   if (!isAdmin) {
     return (
-      <div style={s.page}>
-        <h1 style={s.heading}>Age Groups</h1>
+      <div style={wrap}>
+        {!embedded && <h1 style={s.heading}>Age Groups</h1>}
         <p style={s.muted}>Admin role required.</p>
       </div>
     );
   }
 
   return (
-    <div style={s.page}>
+    <div style={wrap}>
       <style>{rowHoverCss}</style>
 
-      <SettingsBreadcrumb label="Age Groups" />
+      {!embedded && (
+        <>
+          <SettingsBreadcrumb label="Age Groups" />
 
-      {/* Header */}
-      <header style={s.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <h1 style={s.heading}>Age Groups</h1>
-          <span style={s.countBadge}>{rows.length}</span>
-        </div>
-      </header>
+          {/* Header */}
+          <header style={s.header}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h1 style={s.heading}>Age Groups</h1>
+              <span style={s.countBadge}>{rows.length}</span>
+            </div>
+          </header>
+        </>
+      )}
 
       {error && (
         <div style={s.errorBanner} role="alert">
@@ -713,11 +721,11 @@ const s: Record<string, React.CSSProperties> = {
   emptySub: { fontSize: 13, color: '#94a3b8' },
 
   tableWrap: {
-    border: '1px solid #e5e7eb',
-    borderRadius: 10,
+    border: '1px solid #eef0f4',
+    borderRadius: 14,
     overflow: 'hidden',
     background: '#fff',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
   },
   table: {
     width: '100%',

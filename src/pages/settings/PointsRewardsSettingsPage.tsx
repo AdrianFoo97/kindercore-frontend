@@ -58,7 +58,7 @@ const RADIUS_LG = 14;
 const SHADOW = '0 1px 2px rgba(15,23,42,0.03)';
 const SHADOW_HOVER = '0 1px 2px rgba(15,23,42,0.04), 0 6px 18px rgba(15,23,42,0.05)';
 
-export default function PointsRewardsSettingsPage() {
+export default function PointsRewardsSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
   // Read directly from the shared mock module — single source of truth
   // across this page, the editor page, and the teacher rewards view.
   // The reducer forces a re-render after a delete or toggle; once a
@@ -108,7 +108,7 @@ export default function PointsRewardsSettingsPage() {
   };
 
   return (
-    <div style={s.page}>
+    <div style={embedded ? undefined : s.page}>
       <style>{`
         .prs-card { transition: border-color 160ms ease, box-shadow 160ms ease; }
         .prs-card:hover { border-color: ${C.cardBorderHover}; box-shadow: ${SHADOW_HOVER}; }
@@ -125,21 +125,29 @@ export default function PointsRewardsSettingsPage() {
       `}</style>
 
       <div style={s.inner}>
-        {/* ── Breadcrumb ───────────────────────────────────────────── */}
-        <div style={s.breadcrumb}>
-          <Link to="/" style={s.crumbLink}>Settings</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <span style={s.crumbCurrent}>Points & Rewards</span>
-        </div>
+        {!embedded && (
+          <>
+            {/* ── Breadcrumb ───────────────────────────────────────────── */}
+            <div style={s.breadcrumb}>
+              <Link to="/" style={s.crumbLink}>Settings</Link>
+              <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
+              <span style={s.crumbCurrent}>Points & Rewards</span>
+            </div>
+          </>
+        )}
 
         {/* ── Page header ──────────────────────────────────────────── */}
         <div style={s.pageHeader}>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={s.eyebrow}>
-              <FontAwesomeIcon icon={faSackDollar} style={{ fontSize: 10 }} />
-              Points & Rewards
-            </div>
-            <h1 style={s.heading}>Earning rules & redemption catalog</h1>
+            {!embedded && (
+              <>
+                <div style={s.eyebrow}>
+                  <FontAwesomeIcon icon={faSackDollar} style={{ fontSize: 10 }} />
+                  Points & Rewards
+                </div>
+                <h1 style={s.heading}>Earning rules & redemption catalog</h1>
+              </>
+            )}
             <p style={s.subheading}>
               Configure how teachers earn points and what they can redeem. Only active items
               appear on the teacher&apos;s rewards page.

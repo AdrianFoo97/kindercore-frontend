@@ -31,7 +31,7 @@ export function readScore(settings: Settings | undefined, key: string, fallback:
   return Number.isFinite(n) && n >= 0 && n <= 100 ? Math.round(n) : fallback;
 }
 
-export default function CompensationSettingsPage() {
+export default function CompensationSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: fetchSettings,
@@ -41,12 +41,16 @@ export default function CompensationSettingsPage() {
   const highPerformer = readScore(settings, HIGH_PERFORMER_THRESHOLD_KEY, DEFAULT_HIGH_PERFORMER_THRESHOLD);
 
   return (
-    <div style={{ padding: 24, background: C.bg, minHeight: '100vh' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>Compensation Settings</h1>
-        <p style={{ margin: '4px 0 20px', fontSize: 13, color: C.muted }}>
-          Appraisal score thresholds that gate the Performer and High-Performer tiers on the Teacher Compensation page.
-        </p>
+    <div style={embedded ? undefined : { padding: 24, background: C.bg, minHeight: '100vh' }}>
+      <div style={embedded ? undefined : { maxWidth: 720, margin: '0 auto' }}>
+        {!embedded && (
+          <>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>Compensation Settings</h1>
+            <p style={{ margin: '4px 0 20px', fontSize: 13, color: C.muted }}>
+              Appraisal score thresholds that gate the Performer and High-Performer tiers on the Teacher Compensation page.
+            </p>
+          </>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <ThresholdCard
@@ -146,7 +150,7 @@ function ThresholdCard({
   }, [savedAt]);
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+    <div style={{ background: C.card, border: '1px solid #eef0f4', borderRadius: 14, padding: '22px 26px', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)' }}>
       <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.text }}>{title}</h2>
       <p style={{ margin: '4px 0 14px', fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
         {description}
@@ -193,7 +197,7 @@ function ThresholdCard({
             borderRadius: 8,
             background: dirty && !saving ? C.indigo : '#cbd5e1',
             color: '#fff',
-            cursor: dirty && !saving ? 'pointer' : 'not-allowed',
+            cursor: dirty && !saving ? 'pointer' : 'default',
             fontFamily: 'inherit',
           }}
         >

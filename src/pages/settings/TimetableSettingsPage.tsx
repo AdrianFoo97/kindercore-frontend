@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faPen, faTrash, faChevronLeft, faXmark, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faPen, faTrash, faChevronLeft, faXmark, faEllipsisVertical, faChalkboard, faBookOpen, faListCheck } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchTeachers, createTeacher, updateTeacher, deleteTeacher,
   fetchClassrooms, createClassroom, updateClassroom, deleteClassroom,
@@ -10,7 +10,6 @@ import {
   fetchTasks, createTask, updateTask, deleteTask,
 } from '../../api/planner.js';
 import { Teacher, Classroom, PlannerSubject, PlannerTask } from '../../types/index.js';
-import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
 
 const C = {
   primary: '#5a67d8', primaryLight: '#eef0fa', card: '#fff', text: '#1e293b',
@@ -39,6 +38,12 @@ const dayBtn = (active: boolean): React.CSSProperties => ({
 });
 
 type ResourceType = 'teachers' | 'classes' | 'subjects' | 'tasks';
+
+const TABS: { key: 'classes' | 'subjects' | 'tasks'; label: string; icon: any }[] = [
+  { key: 'classes', label: 'Classes', icon: faChalkboard },
+  { key: 'subjects', label: 'Subjects', icon: faBookOpen },
+  { key: 'tasks', label: 'Tasks', icon: faListCheck },
+];
 
 export default function TimetableSettingsPage() {
   const { type } = useParams<{ type: string }>();
@@ -149,6 +154,12 @@ export default function TimetableSettingsPage() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
+  // Switching tabs should never leave a stale form/menu open for the
+  // resource type you just navigated away from.
+  useEffect(() => {
+    setFormOpen(false); setEditingId(null); setMenuOpenId(null); setDeleteConfirm(null);
+  }, [resourceType]);
+
   const confirmDelete = () => {
     if (!deleteConfirm) return;
     const { id } = deleteConfirm;
@@ -170,12 +181,35 @@ export default function TimetableSettingsPage() {
   };
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
-      <SettingsBreadcrumb label={title} />
+    <div style={{ padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
+      <style>{`.tt-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
+      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: '4px 0 20px' }}>Timetable</h1>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, borderBottom: `1px solid ${C.border}`, marginBottom: 20 }}>
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              className="tt-settings-tab"
+              onClick={() => navigate(`/settings/timetable/${t.key}`)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', fontSize: 13,
+                color: resourceType === t.key ? C.primary : C.muted, background: 'none', border: 'none',
+                borderBottom: resourceType === t.key ? `2px solid ${C.primary}` : '2px solid transparent',
+                borderRadius: '8px 8px 0 0', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
+                fontWeight: resourceType === t.key ? 600 : 500, transition: 'all 0.1s', marginBottom: -1,
+              }}
+            >
+              <FontAwesomeIcon icon={t.icon} style={{ fontSize: 12, width: 14 }} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: C.text, margin: 0 }}>{title}</h1>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: C.text, margin: 0 }}>{title}</h2>
           <span style={{ fontSize: 12, color: C.muted, background: '#f1f5f9', padding: '2px 8px', borderRadius: 10 }}>{items.length}</span>
         </div>
         <button onClick={openNew} style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: C.primary, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -479,6 +513,7 @@ export default function TimetableSettingsPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

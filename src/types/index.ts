@@ -60,6 +60,11 @@ export interface LeadsResponse {
   pageSize: number;
 }
 
+export interface CompanyBranch {
+  name: string;
+  address: string;
+}
+
 export interface Settings {
   whatsapp_template: string;
   whatsapp_template_zh: string;
@@ -70,6 +75,10 @@ export interface Settings {
   kinder_address: string;
   lost_reasons: string[];
   onboarding_tasks: string[];
+  company_vision: string;
+  company_missions: string[];
+  company_core_values: string[];
+  company_branches: CompanyBranch[];
   [key: string]: unknown;
 }
 
@@ -159,8 +168,20 @@ export interface StudentsResponse {
 
 // ── Employee Salary ──────────────────────────────────────────────────────────
 
+export interface Department {
+  departmentId: string;
+  name: string;
+  sortOrder: number;
+  /** Whether positions in this department can be part of a career
+   *  progression ladder at all. */
+  hasCareerPath: boolean;
+}
+
 export interface Position {
   positionId: string;
+  /** References Department.departmentId. Null on rows created before
+   *  departments existed (backfilled to 'ACADEMIC' by the migration). */
+  departmentId: string | null;
   name: string;
   titleWeight: number;
   basicSalary: number;

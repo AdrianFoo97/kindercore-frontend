@@ -22,7 +22,7 @@ const C = {
 const PAGE_SIZE_OPTIONS: Array<10 | 20 | 'all'> = [10, 20, 'all'];
 const DEFAULT_PAGE_SIZE = 10;
 
-export default function OperatingCostCategoriesPage() {
+export default function OperatingCostCategoriesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { showToast } = useToast();
   const { confirm: confirmDelete } = useDeleteDialog();
   const qc = useQueryClient();
@@ -266,7 +266,7 @@ export default function OperatingCostCategoriesPage() {
   }
 
   return (
-    <div style={s.page}>
+    <div style={embedded ? { maxWidth: 980, margin: '0 auto' } : s.page}>
       <style>{`
         .cat-row { transition: background 0.1s; }
         .cat-row:hover { background: #f8fafc; }
@@ -286,7 +286,7 @@ export default function OperatingCostCategoriesPage() {
       {/* Breadcrumb + Add category share one row */}
       <div style={s.headerRow}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <SettingsBreadcrumb label={['Operating Cost', 'Categories']} inline />
+          {!embedded && <SettingsBreadcrumb label={['Operating Cost', 'Categories']} inline />}
         </div>
         {groups.length > 0 && (
           <button
@@ -296,7 +296,7 @@ export default function OperatingCostCategoriesPage() {
             style={{
               ...s.primaryBtn,
               opacity: (isAdding || !activeGroupId) ? 0.5 : 1,
-              cursor: (isAdding || !activeGroupId) ? 'not-allowed' : 'pointer',
+              cursor: (isAdding || !activeGroupId) ? 'default' : 'pointer',
             }}
           >
             <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10, marginRight: 6 }} />
@@ -717,7 +717,10 @@ const s: Record<string, React.CSSProperties> = {
   headerRow: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 },
   contentTitle: { fontSize: 15, fontWeight: 700, color: C.text, margin: 0 },
   contentSub: { fontSize: 12, color: C.muted, margin: '2px 0 0' },
-  card: { background: C.card, borderRadius: 12, padding: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 16 },
+  card: {
+    background: C.card, borderRadius: 14, padding: '22px 26px', border: '1px solid #eef0f4', marginBottom: 16,
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
+  },
   input: { padding: '8px 12px', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 13, color: C.text, fontFamily: 'inherit', outline: 'none' },
   table: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 13, tableLayout: 'fixed' as const },
   th: { padding: '12px 20px', fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase' as const, letterSpacing: '0.06em', borderBottom: `1px solid ${C.border}`, background: C.card },

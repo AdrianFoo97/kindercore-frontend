@@ -439,7 +439,7 @@ async function decodeSmart(buf: ArrayBuffer): Promise<string> {
 
 type Phase = 'input' | 'map' | 'result';
 
-export default function ImportCandidatesPage() {
+export default function ImportCandidatesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
@@ -752,25 +752,29 @@ export default function ImportCandidatesPage() {
   const stepNum = phase === 'input' ? 1 : phase === 'map' ? 2 : 3;
 
   return (
-    <div style={{ background: C.bg, minHeight: '100vh', padding: '32px 24px', fontFamily: 'system-ui, sans-serif', color: C.text }}>
+    <div style={embedded ? undefined : { background: C.bg, minHeight: '100vh', padding: '32px 24px', fontFamily: 'system-ui, sans-serif', color: C.text }}>
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
-        <button
-          onClick={() => navigate('/hr/candidates')}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'transparent', border: 'none', color: C.textSub,
-            fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 12,
-          }}
-        >
-          <FontAwesomeIcon icon={faArrowLeft} /> Back to Candidates
-        </button>
+        {!embedded && (
+          <>
+            <button
+              onClick={() => navigate('/hr/candidates')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: 'transparent', border: 'none', color: C.textSub,
+                fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 12,
+              }}
+            >
+              <FontAwesomeIcon icon={faArrowLeft} /> Back to Candidates
+            </button>
 
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ margin: '0 0 6px', fontSize: 24, fontWeight: 700, color: '#1a202c' }}>Import Candidates</h1>
-          <p style={{ margin: 0, fontSize: 14, color: '#718096', lineHeight: 1.5 }}>
-            Upload a CSV or Excel file to bulk import candidates. Existing candidates with matching phone numbers can be reviewed after upload.
-          </p>
-        </div>
+            <div style={{ marginBottom: 24 }}>
+              <h1 style={{ margin: '0 0 6px', fontSize: 24, fontWeight: 700, color: '#1a202c' }}>Import Candidates</h1>
+              <p style={{ margin: 0, fontSize: 14, color: '#718096', lineHeight: 1.5 }}>
+                Upload a CSV or Excel file to bulk import candidates. Existing candidates with matching phone numbers can be reviewed after upload.
+              </p>
+            </div>
+          </>
+        )}
 
         {/* ── Step indicator ────────────────────────────────────────── */}
         <StepIndicator current={stepNum} />

@@ -4,7 +4,6 @@ import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faPen, faPlus, faTrash, faXmark, faArrowLeft, faLock, faMessage, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
-import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -375,7 +374,6 @@ export default function WhatsAppTemplatesPage() {
   return (
     <div style={{ ...s.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}>
       <div style={{ ...s.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
-        <SettingsBreadcrumb label="Message Templates" />
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
@@ -412,7 +410,7 @@ export default function WhatsAppTemplatesPage() {
         )}
 
         {/* Template table */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ background: '#fff', border: '1px solid #eef0f4', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)' }}>
           {/* Table header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: 11, fontWeight: 600, color: '#8893a7', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>
             <span>Template {q && <span style={{ fontWeight: 400, textTransform: 'none' as const, color: '#b0b8c9' }}>({filtered.length} of {allTemplates.length})</span>}</span>
@@ -490,7 +488,7 @@ export default function WhatsAppTemplatesPage() {
 
 const s: Record<string, React.CSSProperties> = {
   page: { padding: '32px 24px', fontFamily: 'system-ui, sans-serif', display: 'flex', justifyContent: 'center' },
-  inner: { width: '100%', maxWidth: 680 },
+  inner: { width: '100%', maxWidth: 960 },
   heading: { margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a' },
   state: { padding: 32, fontSize: 16, color: '#4a5568' },
   searchInput: {
@@ -520,7 +518,10 @@ const s: Record<string, React.CSSProperties> = {
   },
 
   // Editor
-  editorCard: { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '24px 28px', boxSizing: 'border-box' as const },
+  editorCard: {
+    background: '#fff', border: '1px solid #eef0f4', borderRadius: 14, padding: '22px 26px', boxSizing: 'border-box' as const,
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
+  },
   backBtn: {
     background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#64748b', fontWeight: 500, padding: 0,
   },

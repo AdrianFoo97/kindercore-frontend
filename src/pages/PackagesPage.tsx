@@ -26,7 +26,7 @@ function fmtPrice(price: number | null | undefined): string {
 // Page wrapper — owns data, mutations, and the matrix viewport
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function PackagesPage() {
+export default function PackagesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const { confirm: confirmDelete } = useDeleteDialog();
@@ -171,10 +171,11 @@ export default function PackagesPage() {
   }, [selectedKey, editingKey]);
 
   return (
-    <div style={s.page}>
+    <div style={embedded ? undefined : s.page}>
       <div style={s.inner}>
         <Header
           ref={headerRef}
+          embedded={embedded}
           selectedYear={selectedYear}
           allYears={allYears}
           onYearChange={setSelectedYear}
@@ -532,21 +533,24 @@ interface HeaderProps {
   selectedPkg: Package | null;
   onEdit: () => void;
   onDelete: () => void;
+  embedded?: boolean;
 }
 
 const Header = forwardRef<HTMLElement, HeaderProps>(function Header({
   selectedYear, allYears, onYearChange, packageCount, isLoading,
-  isAdmin, selectedPkg, onEdit, onDelete,
+  isAdmin, selectedPkg, onEdit, onDelete, embedded,
 }, ref) {
   const hasSelection = selectedPkg !== null;
   const blocked = hasSelection && (selectedPkg.studentCount ?? 0) > 0;
 
   return (
-    <header ref={ref} style={s.header}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <h1 style={s.heading}>Packages &amp; Pricing</h1>
-        {!isLoading && <span style={s.countBadge}>{packageCount}</span>}
-      </div>
+    <header ref={ref} style={{ ...s.header, justifyContent: embedded ? 'flex-end' : 'space-between' }}>
+      {!embedded && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h1 style={s.heading}>Packages &amp; Pricing</h1>
+          {!isLoading && <span style={s.countBadge}>{packageCount}</span>}
+        </div>
+      )}
       <div style={s.headerActions}>
         {isAdmin && (
           <>
@@ -768,11 +772,11 @@ const s: Record<string, React.CSSProperties> = {
 
   // ── Table ───────────────────────────────────────────────────────────────
   tableWrap: {
-    border: '1px solid #e5e7eb',
-    borderRadius: 10,
+    border: '1px solid #eef0f4',
+    borderRadius: 14,
     overflow: 'hidden',
     background: '#fff',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
   },
   tableScroll: { overflowX: 'auto' as const },
   table: {

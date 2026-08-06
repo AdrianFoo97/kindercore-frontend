@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers, updateTeacher } from '../api/planner.js';
-import { fetchTeachersWithSalary, fetchPositions } from '../api/salary.js';
+import { fetchTeachersWithSalary, fetchPositions, fetchDepartments } from '../api/salary.js';
 import { useToast } from '../components/common/Toast.js';
 import { TeacherRow } from './teachers/TeacherRow.js';
-import { TeachersToolbar, TeachersTabKey } from './teachers/TeachersToolbar.js';
+import { TeachersToolbar, TeachersTabKey, TeachersGroupKey } from './teachers/TeachersToolbar.js';
 import { ResignDialog } from './teachers/ResignDialog.js';
 import { HeaderStats } from './teachers/HeaderStats.js';
 import { TP_C, TP_MOTION, TP_RADIUS } from './teachers/tokens.js';
@@ -34,9 +34,14 @@ export default function TeachersPage() {
     queryKey: ['salary-teachers'],
     queryFn: fetchTeachersWithSalary,
   });
+  const { data: departmentList = [] } = useQuery({
+    queryKey: ['departments'],
+    queryFn: fetchDepartments,
+  });
 
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<TeachersTabKey>('active');
+  const [groupBy, setGroupBy] = useState<TeachersGroupKey>('department');
   const [resignTarget, setResignTarget] = useState<any>(null);
 
   const salaryMap = useMemo(() => {
@@ -138,6 +143,27 @@ export default function TeachersPage() {
     return list;
   }, [teachers, search, tab, today]);
 
+  // Groups teachers by their position's department, in department
+  // sortOrder, with unassigned/no-department teachers trailing in their
+  // own group. No-op (single group) when groupBy is 'none'.
+  const teacherGroups = useMemo(() => {
+    if (groupBy !== 'department') return [{ id: 'all', name: null, teachers: filteredTeachers }];
+    const byDept = new Map<string, any[]>();
+    const unassigned: any[] = [];
+    for (const t of filteredTeachers) {
+      const pos = t.positionId ? posMap.get(t.positionId) : null;
+      const deptId = pos?.departmentId;
+      if (!deptId) { unassigned.push(t); continue; }
+      if (!byDept.has(deptId)) byDept.set(deptId, []);
+      byDept.get(deptId)!.push(t);
+    }
+    const groups = departmentList
+      .map(d => ({ id: d.departmentId, name: d.name, teachers: byDept.get(d.departmentId) ?? [] }))
+      .filter(g => g.teachers.length > 0);
+    if (unassigned.length > 0) groups.push({ id: 'unassigned', name: 'Unassigned', teachers: unassigned });
+    return groups;
+  }, [filteredTeachers, groupBy, departmentList, posMap]);
+
   const handleResignConfirm = async (date: string) => {
     if (!resignTarget) return;
     try {
@@ -171,7 +197,7 @@ export default function TeachersPage() {
         {/* Header */}
         <div style={s.header}>
           <div>
-            <h1 style={s.heading}>Teachers</h1>
+            <h1 style={s.heading}>Staff</h1>
             {incompleteCount > 0 && (
               <p style={s.subtitle}>
                 <span style={{ color: TP_C.amber, fontWeight: 600 }}>
@@ -192,6 +218,8 @@ export default function TeachersPage() {
           counts={counts}
           search={search}
           onSearchChange={setSearch}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
           rightActions={
             <button
               onClick={() => navigate('/teachers/new')}
@@ -239,29 +267,41 @@ export default function TeachersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredTeachers.map((t: any) => (
-                  <TeacherRow
-                    key={t.id}
-                    teacher={t}
-                    position={t.positionId ? posMap.get(t.positionId) : null}
-                    salary={salaryMap.get(t.id)}
-                    onEdit={() => navigate(`/teachers/${t.id}`)}
-                    onCareer={() => navigate(`/teachers/${t.id}/career`)}
-                    onAppraisal={() => navigate(`/teachers/${t.id}/appraisal`)}
-                    onCompensation={() => navigate(`/teachers/${t.id}/compensation`)}
-                    onResign={() => setResignTarget(t)}
-                    // Dev-only entries — the teacher-facing mobile
-                    // hubs are works-in-progress. Vite's
-                    // `import.meta.env.DEV` is true under `npm run
-                    // dev` and false in production builds, so these
-                    // entries are invisible to admins on the live app.
-                    onMyCompensationDev={import.meta.env.DEV
-                      ? () => navigate(`/teachers/${t.id}/my-compensation`)
-                      : undefined}
-                    onMyCareerDev={import.meta.env.DEV
-                      ? () => navigate(`/teachers/${t.id}/my-career`)
-                      : undefined}
-                  />
+                {teacherGroups.map(group => (
+                  <Fragment key={group.id}>
+                    {group.name && (
+                      <tr>
+                        <td colSpan={5} style={s.groupHeader}>
+                          {group.name}
+                          <span style={s.groupCount}>{group.teachers.length}</span>
+                        </td>
+                      </tr>
+                    )}
+                    {group.teachers.map((t: any) => (
+                      <TeacherRow
+                        key={t.id}
+                        teacher={t}
+                        position={t.positionId ? posMap.get(t.positionId) : null}
+                        salary={salaryMap.get(t.id)}
+                        onEdit={() => navigate(`/teachers/${t.id}`)}
+                        onCareer={() => navigate(`/teachers/${t.id}/career`)}
+                        onAppraisal={() => navigate(`/teachers/${t.id}/appraisal`)}
+                        onCompensation={() => navigate(`/teachers/${t.id}/compensation`)}
+                        onResign={() => setResignTarget(t)}
+                        // Dev-only entries — the teacher-facing mobile
+                        // hubs are works-in-progress. Vite's
+                        // `import.meta.env.DEV` is true under `npm run
+                        // dev` and false in production builds, so these
+                        // entries are invisible to admins on the live app.
+                        onMyCompensationDev={import.meta.env.DEV
+                          ? () => navigate(`/teachers/${t.id}/my-compensation`)
+                          : undefined}
+                        onMyCareerDev={import.meta.env.DEV
+                          ? () => navigate(`/teachers/${t.id}/my-career`)
+                          : undefined}
+                      />
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -389,5 +429,23 @@ const s: Record<string, React.CSSProperties> = {
     borderBottom: `1px solid ${TP_C.borderSoft}`,
     whiteSpace: 'nowrap' as const,
     background: '#fafbfc',
+  },
+  groupHeader: {
+    padding: '10px 16px',
+    fontSize: 11,
+    fontWeight: 700,
+    color: TP_C.textSub,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase' as const,
+    background: TP_C.subtle,
+    borderBottom: `1px solid ${TP_C.borderSoft}`,
+    borderTop: `1px solid ${TP_C.borderSoft}`,
+  },
+  groupCount: {
+    marginLeft: 8,
+    fontWeight: 600,
+    color: TP_C.muted,
+    textTransform: 'none' as const,
+    letterSpacing: 'normal',
   },
 };

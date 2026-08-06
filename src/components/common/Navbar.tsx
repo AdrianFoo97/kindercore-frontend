@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect, Fragment } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate, useMatch } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { fetchCandidateFormOptions } from '../../api/candidates.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 /** Normalises a human-readable label into a URL-safe utm_source value.
@@ -28,7 +28,8 @@ export default function Navbar() {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [studentsOpen, setStudentsOpen] = useState(false);
-  const [opsOpen, setOpsOpen] = useState(false);
+  const [hrOpen, setHrOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -44,21 +45,29 @@ export default function Navbar() {
   const analysisRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const studentsRef = useRef<HTMLDivElement>(null);
-  const opsRef = useRef<HTMLDivElement>(null);
+  const hrRef = useRef<HTMLDivElement>(null);
+  const financeRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const devRef = useRef<HTMLDivElement>(null);
   const adminRef = useRef<HTMLDivElement>(null);
-  const onOpsPlannerRoute = !!useMatch('/tools/operations-planner');
-  const onOperatingCostsRoute = !!useMatch('/operations/operating-costs');
-  const onOpsRoute = onOpsPlannerRoute || onOperatingCostsRoute;
+  const onFinanceRoute = !!useMatch('/operations/operating-costs');
   const onToolsRoute = !!useMatch('/tools/*');
-  const onAdminRoute = !!useMatch('/settings/users') || !!useMatch('/admin/*');
+  // Both useMatch calls must run every render, unconditionally — `||`
+  // short-circuits, which would skip the second call whenever the first
+  // matches, changing the number of hooks called between renders and
+  // crashing React's hook-order check on the next navigation.
+  const usersSettingsMatch = useMatch('/settings/users');
+  const adminWildcardMatch = useMatch('/admin/*');
+  const onAdminRoute = !!(usersSettingsMatch || adminWildcardMatch);
   const onDevRoute = !!useMatch('/settings/test/*');
   const onAnalysisRoute = !!useMatch('/analysis/*');
   const onSettingsRoute = !!useMatch('/settings/*') && !onAdminRoute && !onDevRoute;
   const studentsMatch = useMatch('/students');
   const onboardingMatch = useMatch('/onboarding');
   const onStudentsRoute = !!(studentsMatch || onboardingMatch);
+  const teachersRouteMatch = useMatch('/teachers/*');
+  const hrRouteMatch = useMatch('/hr/*');
+  const onHrRoute = !!(teachersRouteMatch || hrRouteMatch);
 
   // Templates for WhatsApp modal
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
@@ -89,7 +98,8 @@ export default function Navbar() {
       if (analysisRef.current && !analysisRef.current.contains(e.target as Node)) setAnalysisOpen(false);
       if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) setSettingsOpen(false);
       if (studentsRef.current && !studentsRef.current.contains(e.target as Node)) setStudentsOpen(false);
-      if (opsRef.current && !opsRef.current.contains(e.target as Node)) setOpsOpen(false);
+      if (hrRef.current && !hrRef.current.contains(e.target as Node)) setHrOpen(false);
+      if (financeRef.current && !financeRef.current.contains(e.target as Node)) setFinanceOpen(false);
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
       if (devRef.current && !devRef.current.contains(e.target as Node)) setDevOpen(false);
       if (adminRef.current && !adminRef.current.contains(e.target as Node)) setAdminOpen(false);
@@ -107,7 +117,7 @@ export default function Navbar() {
   // Close mobile menu on navigate
   useEffect(() => { setMobileMenuOpen(false); }, [isMobile]);
 
-  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setOpsOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
+  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setHrOpen(false); setFinanceOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
 
   // Shared nav items renderer (used for both desktop and mobile drawer)
   const renderNavItems = (mobile = false) => {
@@ -127,6 +137,10 @@ export default function Navbar() {
       ? { display: 'block', padding: '10px 20px 10px 36px', color: '#374151', textDecoration: 'none', fontSize: 14 }
       : styles.panelItem;
 
+    // One icon-before-label helper instead of repeating the same style
+    // object at all nine top-level triggers.
+    const navIcon = (icon: any) => <FontAwesomeIcon icon={icon} style={{ fontSize: 13, marginRight: 7, opacity: 0.9 }} />;
+
     return (
       <>
         {/* Leads link */}
@@ -135,13 +149,18 @@ export default function Navbar() {
           style={({ isActive }) => mobile
             ? { ...mLink, ...(isActive ? mLinkActive : {}) }
             : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
-          }>Leads</NavLink>
+          }>{navIcon(faBullhorn)}Leads</NavLink>
 
         {/* Students dropdown */}
         <div ref={mobile ? undefined : studentsRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setStudentsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onStudentsRoute && !mobile ? styles.activeLink : {}), ...(onStudentsRoute && mobile ? mLinkActive : {}) }}>
-            Students {mobile ? (studentsOpen ? '−' : '+') : '▾'}
+            {/* Icon+label grouped in their own span — the button's own
+                flex (space-between on mobile) is what pushes the +/−/▾
+                suffix to the far edge, and a 3rd top-level flex child
+                would get spread apart by that same rule. */}
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faGraduationCap)}Students</span>
+            {mobile ? (studentsOpen ? '−' : '+') : '▾'}
           </button>
           {studentsOpen && (
             <div style={mPanel}>
@@ -161,27 +180,46 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Teachers link */}
-        <NavLink to="/teachers" end onClick={closeAll}
-          className={mobile ? '' : 'nav-link'}
-          style={({ isActive }) => mobile
-            ? { ...mLink, ...(isActive ? mLinkActive : {}) }
-            : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
-          }>Teachers</NavLink>
+        {/* HR dropdown — Teachers + Candidates grouped under one people-ops
+            umbrella (matches the app's documented IA: HR = people-ops
+            workflows, already the route prefix for /hr/candidates). Used
+            to be two flat top-level items with no shared home. */}
+        <div ref={mobile ? undefined : hrRef} style={mobile ? {} : { position: 'relative' }}>
+          <button onClick={() => setHrOpen(o => !o)} className={mobile ? '' : 'nav-link'}
+            style={{ ...mDropBtn, ...(onHrRoute && !mobile ? styles.activeLink : {}), ...(onHrRoute && mobile ? mLinkActive : {}) }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faUsers)}HR</span>
+            {mobile ? (hrOpen ? '−' : '+') : '▾'}
+          </button>
+          {hrOpen && (
+            <div style={mPanel}>
+              <NavLink to="/teachers" end onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Staff
+              </NavLink>
+              <NavLink to="/hr/candidates" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Recruitment
+              </NavLink>
+            </div>
+          )}
+        </div>
 
-        {/* Candidates (recruitment) — sibling to Teachers under HR */}
-        <NavLink to="/hr/candidates" onClick={closeAll}
-          className={mobile ? '' : 'nav-link'}
-          style={({ isActive }) => mobile
-            ? { ...mLink, ...(isActive ? mLinkActive : {}) }
-            : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
-          }>Candidates</NavLink>
+        {/* Groups the nav into three clusters: people pipeline (Leads →
+            HR), insights (Analysis, Operations), and config/admin
+            (Tools → Admin) — was previously nine items with no visual
+            grouping at all. */}
+        {!mobile && <div style={styles.groupDivider} />}
 
         {/* Analysis dropdown */}
         <div ref={mobile ? undefined : analysisRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setAnalysisOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onAnalysisRoute && !mobile ? styles.activeLink : {}), ...(onAnalysisRoute && mobile ? mLinkActive : {}) }}>
-            Analysis {mobile ? (analysisOpen ? '−' : '+') : '▾'}
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faChartLine)}Analysis</span>
+            {mobile ? (analysisOpen ? '−' : '+') : '▾'}
           </button>
           {analysisOpen && (
             <div style={mPanel}>
@@ -237,20 +275,15 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Operations dropdown */}
-        <div ref={mobile ? undefined : opsRef} style={mobile ? {} : { position: 'relative' }}>
-          <button onClick={() => setOpsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
-            style={{ ...mDropBtn, ...(onOpsRoute && !mobile ? styles.activeLink : {}) }}>
-            Operations {mobile ? (opsOpen ? '−' : '+') : '▾'}
+        {/* Finance dropdown */}
+        <div ref={mobile ? undefined : financeRef} style={mobile ? {} : { position: 'relative' }}>
+          <button onClick={() => setFinanceOpen(o => !o)} className={mobile ? '' : 'nav-link'}
+            style={{ ...mDropBtn, ...(onFinanceRoute && !mobile ? styles.activeLink : {}) }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faMoneyBillTrendUp)}Finance</span>
+            {mobile ? (financeOpen ? '−' : '+') : '▾'}
           </button>
-          {opsOpen && (
+          {financeOpen && (
             <div style={mPanel}>
-              <NavLink to="/tools/operations-planner" className={mobile ? '' : 'nav-drop-item'}
-                style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
-                onClick={closeAll}>
-                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                Planner
-              </NavLink>
               <NavLink to="/operations/operating-costs" className={mobile ? '' : 'nav-drop-item'}
                 style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
                 onClick={closeAll}>
@@ -261,16 +294,19 @@ export default function Navbar() {
           )}
         </div>
 
+        {!mobile && <div style={styles.groupDivider} />}
+
         {/* Tools dropdown */}
         <div ref={mobile ? undefined : toolsRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setToolsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
-            style={{ ...mDropBtn, ...(!onOpsRoute && onToolsRoute && !mobile ? styles.activeLink : {}) }}>
-            Tools {mobile ? (toolsOpen ? '−' : '+') : '▾'}
+            style={{ ...mDropBtn, ...(onToolsRoute && !mobile ? styles.activeLink : {}) }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faScrewdriverWrench)}Tools</span>
+            {mobile ? (toolsOpen ? '−' : '+') : '▾'}
           </button>
           {toolsOpen && (() => {
             // Divider pattern borrowed from the Settings dropdown, but section
-            // headers drop the icon: with only 3 shallow groups here (vs.
-            // Settings' 10-group mega-menu) a second icon per row next to the
+            // headers drop the icon: with only a handful of shallow groups here
+            // (vs. Settings' 10-group mega-menu) a second icon per row next to the
             // item's own icon reads as noise rather than a scanning aid, and
             // it forced a 4px text-alignment mismatch between header and item
             // labels (14px icon+8px gap vs 16px icon+10px gap). Plain
@@ -293,7 +329,15 @@ export default function Navbar() {
             );
             return (
               <div style={mPanel}>
-                {section('Messaging', true)}
+                {section('Planning', true)}
+                <NavLink to="/tools/operations-planner" className={mobile ? '' : 'nav-drop-item'}
+                  style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                  onClick={closeAll}>
+                  <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  Planner
+                </NavLink>
+                {sep}
+                {section('Messaging')}
                 {item(faWhatsapp, '#25D366', 'WhatsApp', () => { closeAll(); setWaPhone(''); setWaMessage(''); setWaTemplate('none'); setWaLang('zh'); setWhatsappModal(true); })}
                 {sep}
                 {section('Enquiry')}
@@ -313,81 +357,51 @@ export default function Navbar() {
           <div ref={mobile ? undefined : settingsRef} style={mobile ? {} : { position: 'relative' }}>
             <button onClick={() => setSettingsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
               style={{ ...mDropBtn, ...(onSettingsRoute && !mobile ? styles.activeLink : {}), ...(onSettingsRoute && mobile ? mLinkActive : {}) }}>
-              Settings {mobile ? (settingsOpen ? '−' : '+') : '▾'}
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faSliders)}Settings</span>
+              {mobile ? (settingsOpen ? '−' : '+') : '▾'}
             </button>
-            {settingsOpen && (() => {
-              const close = () => closeAll();
-              const sep = mobile
-                ? <div style={{ height: 1, background: '#e5e7eb', margin: '2px 20px' }} />
-                : <div style={{ height: 1, background: '#f0f0f0', margin: '4px 8px' }} />;
-              const section = (icon: typeof faUsers, label: string) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px 5px' : '10px 14px 4px', fontSize: 10, fontWeight: 700, color: '#8893a7', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
-                  <FontAwesomeIcon icon={icon} style={{ fontSize: 10, width: 14, color: '#b0b8c9' }} />
-                  {label}
-                </div>
-              );
-              const link = (to: string, label: string) => (
-                <NavLink to={to} className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({
-                    display: 'block', padding: mobile ? '8px 20px 8px 44px' : '7px 14px 7px 36px', fontSize: 13, textDecoration: 'none',
-                    color: isActive ? '#3c339a' : '#374151',
-                    fontWeight: isActive ? 600 : 500,
-                    background: isActive ? '#eef0fa' : 'none',
-                    borderRadius: 6,
-                  })}
-                  onClick={close}>{label}</NavLink>
-              );
-
-              // Section blocks — each is a header + its links. Order matters
-              // because we slice this list to feed left/right columns on desktop.
-              const groups: Array<{ key: string; node: React.ReactNode }> = [
-                { key: 'crm',          node: <>{section(faUsers, 'CRM')}{link('/settings/leads', 'Leads')}</> },
-                { key: 'students',     node: <>{section(faGraduationCap, 'Students')}{link('/settings/onboarding', 'Onboarding Tasks')}</> },
-                { key: 'packages',     node: <>{section(faBoxesStacked, 'Packages & Pricing')}{link('/settings/packages/programmes', 'Programmes')}{link('/settings/packages/age-groups', 'Age Groups')}{link('/packages', 'Packages & Pricing')}</> },
-                { key: 'timetable',    node: <>{section(faCalendarDays, 'Timetable')}{link('/settings/timetable/classes', 'Classes')}{link('/settings/timetable/subjects', 'Subjects')}{link('/settings/timetable/tasks', 'Tasks')}</> },
-                { key: 'hr',           node: <>{section(faCoins, 'HR & Payroll')}{link('/settings/employee-salary', 'Employee Salary')}{link('/settings/recruitment', 'Recruitment')}{link('/settings/compensation', 'Compensation Tiers')}{link('/settings/points-rewards', 'Points & Rewards')}{link('/settings/career-missions', 'Career Missions')}{link('/settings/mission-categories', 'Mission Categories')}</> },
-                { key: 'opCost',       node: <>{section(faReceipt, 'Operating Cost')}{link('/settings/operating-cost-main-categories', 'Main Categories')}{link('/settings/operating-cost-categories', 'Categories')}</> },
-                { key: 'finance',      node: <>{section(faMoneyBillTrendUp, 'Finance')}{link('/settings/finance', 'Targets & Thresholds')}</> },
-                { key: 'comm',         node: <>{section(faMessage, 'Communication')}{link('/settings/whatsapp-templates', 'Message Templates')}</> },
-                { key: 'integrations', node: <>{section(faPlug, 'Integrations')}{link('/settings/calendar', 'Google Calendar')}</> },
-                { key: 'data',         node: <>{section(faFileImport, 'Data')}{link('/leads/import', 'Import Leads')}{link('/students/import', 'Import Students')}{link('/hr/candidates/import', 'Import Candidates')}</> },
-              ];
-
-              const renderGroups = (gs: typeof groups) => gs.map((g, i) => (
-                <Fragment key={g.key}>
-                  {g.node}
-                  {i < gs.length - 1 && sep}
-                </Fragment>
-              ));
-
-              if (mobile) {
-                return (
-                  <div style={{ ...mPanel }}>
-                    {renderGroups(groups)}
+            {settingsOpen && (
+              <div style={mPanel}>
+                {[
+                  { to: '/settings/company', icon: faBuilding, label: 'Company' },
+                  { to: '/settings/leads', icon: faUsers, label: 'CRM' },
+                  { to: '/settings/onboarding', icon: faGraduationCap, label: 'Students' },
+                  { to: '/settings/packages', icon: faBoxesStacked, label: 'Packages & Pricing' },
+                  { to: '/settings/timetable/classes', icon: faCalendarDays, label: 'Timetable' },
+                  {
+                    to: '/settings/hr', icon: faCoins, label: 'HR & Payroll',
+                    subItems: [
+                      { to: '/settings/recruitment', label: 'Recruitment' },
+                      { to: '/settings/hr', label: 'Payroll' },
+                    ],
+                  },
+                  { to: '/settings/operating-cost', icon: faReceipt, label: 'Operating Cost' },
+                  { to: '/settings/finance', icon: faMoneyBillTrendUp, label: 'Finance' },
+                  { to: '/settings/whatsapp-templates', icon: faMessage, label: 'Communication' },
+                  { to: '/settings/calendar', icon: faPlug, label: 'Integrations' },
+                  { to: '/settings/data', icon: faFileImport, label: 'Data' },
+                ].map(it => (
+                  <div key={it.to}>
+                    <NavLink to={it.to} onClick={closeAll}
+                      className={mobile ? '' : 'nav-drop-item'}
+                      style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                      <FontAwesomeIcon icon={it.icon} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                      {it.label}
+                    </NavLink>
+                    {it.subItems?.map(sub => (
+                      <NavLink key={sub.to} to={sub.to} onClick={closeAll}
+                        className={mobile ? '' : 'nav-drop-item'}
+                        style={{
+                          ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center',
+                          paddingLeft: mobile ? 46 : 40, fontSize: 12.5, color: '#6b7280',
+                        }}>
+                        {sub.label}
+                      </NavLink>
+                    ))}
                   </div>
-                );
-              }
-
-              // Desktop: split into two columns. Counts roughly balance link
-              // density (left ≈ 9 links, right ≈ 8 links).
-              const leftGroups = groups.slice(0, 4);   // CRM, Students, Packages, Timetable
-              const rightGroups = groups.slice(4);     // HR, OpCost, Finance, Comm, Integrations, Data
-
-              return (
-                <div style={{
-                  position: 'absolute', top: 'calc(100% + 8px)', left: 0,
-                  background: '#fff', borderRadius: 10,
-                  boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
-                  minWidth: 480, zIndex: 100, padding: '6px',
-                  border: '1px solid #e8eaed', maxHeight: '80vh', overflowY: 'auto',
-                  display: 'flex',
-                }}>
-                  <div style={{ flex: 1, minWidth: 220 }}>{renderGroups(leftGroups)}</div>
-                  <div style={{ width: 1, background: '#f0f0f0', margin: '6px 4px' }} />
-                  <div style={{ flex: 1, minWidth: 220 }}>{renderGroups(rightGroups)}</div>
-                </div>
-              );
-            })()}
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -396,7 +410,8 @@ export default function Navbar() {
           <div ref={mobile ? undefined : adminRef} style={mobile ? {} : { position: 'relative' }}>
             <button onClick={() => setAdminOpen(o => !o)} className={mobile ? '' : 'nav-link'}
               style={{ ...mDropBtn, ...(onAdminRoute && !mobile ? styles.activeLink : {}), ...(onAdminRoute && mobile ? mLinkActive : {}) }}>
-              Admin {mobile ? (adminOpen ? '−' : '+') : '▾'}
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faUserShield)}Admin</span>
+              {mobile ? (adminOpen ? '−' : '+') : '▾'}
             </button>
             {adminOpen && (
               <div style={mobile ? { ...mPanel } : { position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#fff', borderRadius: 10, boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)', minWidth: 200, zIndex: 100, padding: '6px', border: '1px solid #e8eaed' }}>
@@ -483,21 +498,24 @@ export default function Navbar() {
         </button>
       )}
 
-      <span style={styles.brand}>KinderTech</span>
+      <span style={styles.brand}>
+        <span style={styles.brandMark}><FontAwesomeIcon icon={faChildren} style={{ fontSize: 13 }} /></span>
+        KinderTech
+      </span>
 
       {/* ── Desktop nav ── */}
       {!isTablet && (
         <>
-          <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
+          <div style={styles.divider} />
           <div style={styles.links}>{renderNavItems(false)}</div>
           <div style={styles.right}>
             {user && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={styles.profileChip}>
                 <div style={styles.avatar}>{user.name.charAt(0).toUpperCase()}</div>
                 <span style={styles.userName}>{user.name}</span>
               </div>
             )}
-            <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.2)' }} />
+            <div style={styles.divider} />
             <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
           </div>
         </>
@@ -833,21 +851,47 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#fff',
     gap: 20,
     fontFamily: 'system-ui, sans-serif',
+    // A flat color block sitting flush against the page reads as part of
+    // the content rather than a fixed chrome layer. A hairline shadow is
+    // enough to give it elevation without a heavy border.
+    boxShadow: '0 1px 3px rgba(15,23,42,0.12)',
+    position: 'relative',
+    zIndex: 50,
   },
   brand: {
+    display: 'flex', alignItems: 'center', gap: 9,
     fontWeight: 800,
     fontSize: 17,
     letterSpacing: '-0.3px',
     color: '#fff',
+    flexShrink: 0,
   },
-  links: { display: 'flex', gap: 2, flex: 1, alignItems: 'center' },
+  brandMark: {
+    width: 26, height: 26, borderRadius: 8,
+    background: 'rgba(255,255,255,0.16)', color: '#fff',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  // NOT overflow-x:auto here, tempting as it looks for the narrow-window
+  // case — setting only the x-axis makes the y-axis compute to auto too
+  // (CSS overflow spec), and every dropdown panel is an absolutely
+  // positioned descendant of this row that extends below it. That turned
+  // this into a clipping container and silently hid every dropdown menu
+  // in the app. flexShrink:0 on `right` (profile+Logout) is the actual
+  // fix for narrow windows; this row is just allowed to overflow visibly.
+  links: { display: 'flex', gap: 3, flex: 1, alignItems: 'center' },
   link: {
     color: 'rgba(255,255,255,0.75)',
     textDecoration: 'none',
-    padding: '6px 12px',
+    padding: '6px 10px',
     borderRadius: 6,
     fontSize: 14,
     fontWeight: 500,
+    // Without this, flex-shrink squeezes labels down to whatever fits —
+    // "Settings" clipping mid-word into "Settir" — instead of the row
+    // just scrolling past whichever items don't fit.
+    flexShrink: 0,
+    whiteSpace: 'nowrap' as const,
   },
   activeLink: {
     color: '#fff',
@@ -892,14 +936,31 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     background: '#eef0fa',
   },
-  right: { display: 'flex', alignItems: 'center', gap: 10 },
+  // One divider style reused in both spots (brand↔links, profile↔logout) —
+  // they'd drifted to different heights (22 vs 18) despite reading as the
+  // same visual element.
+  divider: { width: 1, height: 20, background: 'rgba(255,255,255,0.2)', flexShrink: 0 },
+  // Lighter/shorter than `divider` — marks a sub-grouping within the nav
+  // links themselves (people pipeline / insights / config) rather than a
+  // major section break like brand↔links.
+  groupDivider: { width: 1, height: 14, background: 'rgba(255,255,255,0.16)', flexShrink: 0, margin: '0 2px' },
+  right: { display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 },
+  // Wrapped in the same pill treatment as Logout right next to it — before,
+  // Logout was a bordered button while the avatar+name sat bare, an
+  // inconsistent visual weight for two adjacent "identity" controls.
+  profileChip: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '4px 10px 4px 4px',
+    background: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+  },
   avatar: {
-    width: 28, height: 28, borderRadius: '50%',
-    background: 'rgba(255,255,255,0.2)', color: '#fff',
+    width: 26, height: 26, borderRadius: '50%',
+    background: 'rgba(255,255,255,0.22)', color: '#fff',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 12, fontWeight: 700, flexShrink: 0,
   },
-  userName: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: 500 },
+  userName: { fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 500 },
   logoutBtn: {
     padding: '5px 14px',
     background: 'rgba(255,255,255,0.15)',

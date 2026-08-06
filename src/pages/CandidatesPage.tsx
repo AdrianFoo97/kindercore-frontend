@@ -22,7 +22,7 @@ import {
 } from '../api/candidates.js';
 import { fetchUpcomingAppointments } from '../api/leads.js';
 import { fetchSettings } from '../api/settings.js';
-import { fetchPositions, fetchLevelIncentives } from '../api/salary.js';
+import { fetchPositions, fetchLevelIncentives, fetchDepartments } from '../api/salary.js';
 import { fetchAllowanceTypes } from '../api/allowance.js';
 
 // Interview WhatsApp template placeholder resolver. Template strings come
@@ -144,13 +144,16 @@ const SHADOW = {
   focus: '0 0 0 3px rgba(79,70,229,0.15)',
 };
 
-/** Builds a wa.me URL from any phone shape. Strips non-digits and, if
- *  the caller wrote a local Malaysian number (starting with '0'),
- *  swaps the leading 0 for '60'. */
+/** Builds a WhatsApp Web URL from any phone shape. Strips non-digits and,
+ *  if the caller wrote a local Malaysian number (starting with '0'),
+ *  swaps the leading 0 for '60'. Uses web.whatsapp.com (not wa.me) so it
+ *  opens straight into WhatsApp Web instead of prompting to hand off to
+ *  the desktop app. Callers appending a message should use `&text=...`
+ *  since the URL already carries a `?phone=` query param. */
 function waLink(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   const normalized = digits.startsWith('0') ? `60${digits.slice(1)}` : digits;
-  return `https://wa.me/${normalized}`;
+  return `https://web.whatsapp.com/send?phone=${normalized}`;
 }
 
 // ── Flag computation ────────────────────────────────────────────────────────
@@ -1056,7 +1059,7 @@ export default function CandidatesPage() {
       `}</style>
       <div style={S.headerRow}>
         <div>
-          <h1 style={S.h1}>Candidates</h1>
+          <h1 style={S.h1}>Recruitment</h1>
           <p style={S.subtitle}>Review applicants and manage your hiring pipeline.</p>
         </div>
       </div>
@@ -3576,7 +3579,7 @@ function SendOfferModal(props: {
     if (!candidate.phone) { setError('No phone on file.'); return; }
     try {
       await persist();
-      const href = `${waLink(candidate.phone)}?text=${encodeURIComponent(message)}`;
+      const href = `${waLink(candidate.phone)}&text=${encodeURIComponent(message)}`;
       window.open(href, '_blank', 'noopener,noreferrer');
       showToast('Offer sent');
       onSent();
@@ -3751,6 +3754,7 @@ function HireCandidateModal(props: {
   const { candidate, onClose, onHired } = props;
   const { showToast } = useToast();
   const { data: allPositions = [] } = useQuery({ queryKey: ['salary-positions'], queryFn: fetchPositions });
+  const { data: departmentList = [] } = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments });
   const { data: allIncentives = [] } = useQuery({ queryKey: ['salary-incentives'], queryFn: fetchLevelIncentives });
   const { data: allowTypes = [] } = useQuery({ queryKey: ['allowance-types'], queryFn: fetchAllowanceTypes });
   // Every allowance type except Level Allowance, which isn't directly
@@ -3810,6 +3814,22 @@ function HireCandidateModal(props: {
 
   const selectedPosition = allPositions.find(p => p.positionId === positionId);
   const maxLevel = selectedPosition?.maxLevel ?? 5;
+
+  // Positions grouped by department — a flat list would get unwieldy
+  // once a second department exists alongside Academic.
+  const positionOptionGroups = useMemo(() => {
+    const byDept = new Map<string, typeof allPositions>();
+    for (const p of allPositions) {
+      const key = p.departmentId ?? '__none';
+      if (!byDept.has(key)) byDept.set(key, []);
+      byDept.get(key)!.push(p);
+    }
+    const groups = departmentList
+      .filter(d => byDept.has(d.departmentId))
+      .map(d => ({ label: d.name, items: byDept.get(d.departmentId)! }));
+    if (byDept.has('__none')) groups.push({ label: 'Other', items: byDept.get('__none')! });
+    return groups;
+  }, [allPositions, departmentList]);
   const levelIncentive = allIncentives.find(i => i.positionId === positionId && i.level === level)?.amount ?? 0;
   const totalAllowances = visibleAllowTypes.reduce((sum, t) => sum + getAllowanceAmt(t.id), 0);
   // Same monthly-hours formula the backend (salary.controller.ts) and
@@ -3931,7 +3951,11 @@ function HireCandidateModal(props: {
                   style={{ ...ISM.dateInput, cursor: 'pointer' }}
                 >
                   <option value="">— select position —</option>
-                  {allPositions.map(p => <option key={p.positionId} value={p.positionId}>{p.name}</option>)}
+                  {positionOptionGroups.map(g => (
+                    <optgroup key={g.label} label={g.label}>
+                      {g.items.map(p => <option key={p.positionId} value={p.positionId}>{p.name}</option>)}
+                    </optgroup>
+                  ))}
                 </select>
                 {candidate.desiredPosition && !selectedPosition && (
                   <span style={{ fontSize: 11, color: C.mutedSoft }}>Candidate applied for "{candidate.desiredPosition}"</span>
@@ -3977,10 +4001,25 @@ function HireCandidateModal(props: {
                       onChange={e => {
                         const v = e.target.value ? Number(e.target.value) : '';
                         setWorkStartMinute(v);
-                        // An End that's no longer after the new Start is
-                        // meaningless (would compute negative hours) —
-                        // clear it rather than leave a stale invalid pair.
-                        if (v !== '' && workEndMinute !== '' && workEndMinute <= v) setWorkEndMinute('');
+                        if (v === '') return;
+                        if (workEndMinute === '') {
+                          // No End picked yet — default to a 9-hour span
+                          // (8 effective hours after the lunch deduction),
+                          // a typical full teaching day, clamped to the
+                          // last available slot. Admin can still change it.
+                          // If Start is so late there's no room left for a
+                          // valid End (e.g. Start = the last slot), leave
+                          // End empty rather than clamp it down to Start.
+                          const lastSlot = HIRE_TIME_SLOTS[HIRE_TIME_SLOTS.length - 1];
+                          const proposedEnd = v + 9 * 60;
+                          if (proposedEnd <= lastSlot) setWorkEndMinute(proposedEnd);
+                          else if (lastSlot > v) setWorkEndMinute(lastSlot);
+                        } else if (workEndMinute <= v) {
+                          // An End that's no longer after the new Start is
+                          // meaningless (would compute negative hours) —
+                          // clear it rather than leave a stale invalid pair.
+                          setWorkEndMinute('');
+                        }
                       }}
                       style={{ ...ISM.dateInput, cursor: 'pointer' }}
                     >
@@ -4225,7 +4264,7 @@ function ConfirmInterviewModal(props: {
     if (!candidate.phone) { setError('No phone on file.'); return; }
     try {
       await persist();
-      const href = `${waLink(candidate.phone)}?text=${encodeURIComponent(message)}`;
+      const href = `${waLink(candidate.phone)}&text=${encodeURIComponent(message)}`;
       window.open(href, '_blank', 'noopener,noreferrer');
       showToast('Interview confirmed');
       onConfirmed();
@@ -4876,7 +4915,7 @@ function InterviewSchedulerModal(props: {
               disabled={saving || calendarDisconnected}
               onClick={async () => {
                 await handleSave();
-                const href = `${waLink(candidate.phone)}?text=${encodeURIComponent(message)}`;
+                const href = `${waLink(candidate.phone)}&text=${encodeURIComponent(message)}`;
                 window.open(href, '_blank', 'noopener,noreferrer');
               }}
             >

@@ -520,8 +520,8 @@ const s: Record<string, React.CSSProperties> = {
   },
   btnDisabled: {
     background: '#fca5a5',
-    borderColor: '#fca5a5',
-    cursor: 'not-allowed',
+    border: '1px solid #fca5a5',
+    cursor: 'default',
     opacity: 0.7,
   },
 };

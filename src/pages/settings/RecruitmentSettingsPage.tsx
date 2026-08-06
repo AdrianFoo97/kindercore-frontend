@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faPlus, faTrash, faCheck, faGripVertical, faChalkboardUser, faGraduationCap, faClock,
-  faBullhorn,
+  faPlus, faTrash, faCheck, faXmark, faPen, faEllipsisVertical, faGripVertical,
+  faChalkboardUser, faGraduationCap, faClock, faBullhorn,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchSettings, patchSetting } from '../../api/settings.js';
 import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
@@ -109,7 +110,7 @@ const DEFAULT_REFERRAL_SOURCES = [
   'Other',
 ];
 
-export default function RecruitmentSettingsPage() {
+export default function RecruitmentSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['settings'],
     queryFn: fetchSettings,
@@ -134,10 +135,27 @@ export default function RecruitmentSettingsPage() {
     : DEFAULT_REFERRAL_SOURCES;
 
   return (
-    <div style={S.page}>
-      <div style={S.inner}>
-        <SettingsBreadcrumb label="Recruitment" />
-        <h1 style={S.heading}>Recruitment</h1>
+    <div style={embedded ? undefined : S.page}>
+      <style>{`
+        .recruit-row { transition: background 0.12s ease; }
+        .recruit-row:hover { background: #f7f9fc; }
+        .recruit-row .row-actions { opacity: 0; transition: opacity 0.15s; }
+        .recruit-row:hover .row-actions { opacity: 1; }
+        .recruit-row:hover .recruit-grip { color: ${C.textSub} !important; }
+        .recruit-grip:hover { color: ${C.primary} !important; background: ${C.primarySoft} !important; }
+        .recruit-table tbody tr:last-child td { border-bottom: none !important; }
+        .recruit-menu-btn:hover { background: #e2e8f0 !important; color: ${C.text} !important; }
+        .recruit-menu-rename:hover { background: ${C.primarySoft} !important; color: ${C.primary} !important; }
+        .recruit-menu-rename:hover svg { color: ${C.primary} !important; }
+        .recruit-menu-danger:hover { background: #fef2f2 !important; }
+      `}</style>
+      <div style={embedded ? undefined : S.inner}>
+        {!embedded && (
+          <>
+            <SettingsBreadcrumb label="Recruitment" />
+            <h1 style={S.heading}>Recruitment</h1>
+          </>
+        )}
         <p style={S.sub}>
           Choices candidates see on the public apply form. Keep the list short
           and candidate-friendly — these are not the same as internal career
@@ -299,6 +317,132 @@ function NumberEditor(props: {
   );
 }
 
+// ─── Drag-to-reorder ─────────────────────────────────────────────────────────
+// Same grip-only drag mechanics as DepartmentsPage — no up/down arrow
+// buttons. Reorders local draft state; persisted on the next Save.
+function useDragReorder<T>(setItems: React.Dispatch<React.SetStateAction<T[]>>, enabled: boolean) {
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<'above' | 'below' | null>(null);
+
+  const onDragStart = (idx: number) => (e: React.DragEvent) => {
+    if (!enabled) return;
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedIdx(idx);
+  };
+  const onDragOver = (idx: number) => (e: React.DragEvent<HTMLElement>) => {
+    if (!enabled || draggedIdx === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos: 'above' | 'below' = e.clientY < rect.top + rect.height / 2 ? 'above' : 'below';
+    if (dragOverIdx !== idx || dragOverPos !== pos) { setDragOverIdx(idx); setDragOverPos(pos); }
+  };
+  const onDragEnd = () => { setDraggedIdx(null); setDragOverIdx(null); setDragOverPos(null); };
+  const onDrop = (idx: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedIdx === null) { onDragEnd(); return; }
+    let insertIdx = dragOverPos === 'below' ? idx + 1 : idx;
+    if (draggedIdx < insertIdx) insertIdx--;
+    const from = draggedIdx;
+    onDragEnd();
+    if (insertIdx === from) return;
+    setItems(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(insertIdx, 0, moved);
+      return next;
+    });
+  };
+
+  const rowStyle = (idx: number): React.CSSProperties => {
+    const isDragging = draggedIdx === idx;
+    const isDropTarget = dragOverIdx === idx && draggedIdx !== null && draggedIdx !== idx;
+    // Only include border keys when actually needed — spreading an
+    // explicit `undefined` value still overwrites the base row style's
+    // borderBottom divider, silently erasing it on every render.
+    const style: React.CSSProperties = { opacity: isDragging ? 0.4 : 1 };
+    if (isDropTarget && dragOverPos === 'above') style.borderTop = `2px solid ${C.primary}`;
+    if (isDropTarget && dragOverPos === 'below') style.borderBottom = `2px solid ${C.primary}`;
+    return style;
+  };
+
+  return { onDragStart, onDragOver, onDragEnd, onDrop, rowStyle };
+}
+
+function DragGrip({ idx, enabled, reorder }: { idx: number; enabled: boolean; reorder: ReturnType<typeof useDragReorder> }) {
+  return (
+    <span
+      draggable={enabled}
+      onDragStart={reorder.onDragStart(idx)}
+      onDragEnd={reorder.onDragEnd}
+      title={enabled ? 'Drag to reorder' : undefined}
+      className="recruit-grip"
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 22, height: 22, flexShrink: 0, color: C.muted, fontSize: 12, borderRadius: 4,
+        cursor: enabled ? 'grab' : 'default', transition: 'color 0.12s, background 0.12s',
+      }}
+    >
+      <FontAwesomeIcon icon={faGripVertical} />
+    </span>
+  );
+}
+
+// ─── Row menu ────────────────────────────────────────────────────────────────
+// Same "…" kebab → Rename/Delete dropdown as DepartmentsPage. Rows display
+// as plain text; clicking Rename swaps the row into an editable input with
+// Save/Cancel, instead of every row being permanently an open text field.
+function RowMenu({ onRename, onDelete, renameLabel = 'Rename' }: {
+  onRename: () => void; onDelete?: () => void; renameLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.right - 168 });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      if (btnRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <>
+      <button ref={btnRef} type="button" className="recruit-menu-btn" onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }} style={S.menuBtn} aria-label="More actions">
+        <FontAwesomeIcon icon={faEllipsisVertical} style={{ fontSize: 14 }} />
+      </button>
+      {open && ReactDOM.createPortal(
+        <div ref={menuRef} style={{ ...S.menu, top: pos.top, left: pos.left }}>
+          <button type="button" className="recruit-menu-rename" style={S.menuItem} onClick={(e) => { e.stopPropagation(); setOpen(false); onRename(); }}>
+            <FontAwesomeIcon icon={faPen} style={{ fontSize: 11, width: 14, color: C.muted }} />
+            {renameLabel}
+          </button>
+          {onDelete && (
+            <button type="button" className="recruit-menu-danger" style={{ ...S.menuItem, color: C.danger }} onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(); }}>
+              <FontAwesomeIcon icon={faTrash} style={{ fontSize: 11, width: 14 }} />
+              Delete
+            </button>
+          )}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 // ─── Positions editor ────────────────────────────────────────────────────────
 //
 // Dedicated editor for `recruitment_positions` because rows carry an
@@ -310,9 +454,12 @@ function PositionsEditor(props: { initial: RecruitmentPosition[]; isAdmin: boole
   const { showToast } = useToast();
 
   const [items, setItems] = useState<RecruitmentPosition[]>(props.initial);
-  const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [draft, setDraft] = useState<RecruitmentPosition | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newDraft, setNewDraft] = useState<RecruitmentPosition>({ name: '', minSalary: null, maxSalary: null });
 
   // Re-seed when the query refreshes (e.g. after saving one of the other
   // lists on this same page). Compare by JSON to avoid a shallow-eq trap.
@@ -320,28 +467,45 @@ function PositionsEditor(props: { initial: RecruitmentPosition[]; isAdmin: boole
 
   const dirty = JSON.stringify(items) !== JSON.stringify(props.initial);
 
-  const add = () => {
-    const t = newName.trim();
-    if (!t) return;
-    if (items.some(x => x.name.toLowerCase() === t.toLowerCase())) {
+  const startAdd = () => { setEditingIdx(null); setDraft(null); setNewDraft({ name: '', minSalary: null, maxSalary: null }); setIsAdding(true); };
+  const cancelAdd = () => { setIsAdding(false); setNewDraft({ name: '', minSalary: null, maxSalary: null }); };
+  const confirmAdd = () => {
+    const name = newDraft.name.trim();
+    if (!name) return;
+    if (items.some(x => x.name.toLowerCase() === name.toLowerCase())) {
       showToast('Already in the list', 'error');
       return;
     }
-    setItems(prev => [...prev, { name: t, minSalary: null, maxSalary: null }]);
-    setNewName('');
+    if (newDraft.minSalary != null && newDraft.maxSalary != null && newDraft.maxSalary < newDraft.minSalary) {
+      showToast('Max salary must be ≥ min', 'error');
+      return;
+    }
+    setItems(prev => [...prev, { ...newDraft, name }]);
+    cancelAdd();
   };
-  const remove = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
-  const move = (idx: number, dir: -1 | 1) => {
-    const target = idx + dir;
-    if (target < 0 || target >= items.length) return;
-    setItems(prev => {
-      const next = [...prev];
-      [next[idx], next[target]] = [next[target], next[idx]];
-      return next;
-    });
+
+  const remove = (idx: number) => {
+    if (editingIdx === idx) { setEditingIdx(null); setDraft(null); }
+    setItems(prev => prev.filter((_, i) => i !== idx));
   };
-  const patchAt = (idx: number, patch: Partial<RecruitmentPosition>) =>
-    setItems(prev => prev.map((x, i) => i === idx ? { ...x, ...patch } : x));
+  const startEdit = (idx: number) => { setIsAdding(false); setEditingIdx(idx); setDraft({ ...items[idx] }); };
+  const cancelEdit = () => { setEditingIdx(null); setDraft(null); };
+  const saveEdit = () => {
+    if (editingIdx === null || !draft) return;
+    const name = draft.name.trim();
+    if (!name) return;
+    if (items.some((x, i) => i !== editingIdx && x.name.toLowerCase() === name.toLowerCase())) {
+      showToast('Already in the list', 'error');
+      return;
+    }
+    if (draft.minSalary != null && draft.maxSalary != null && draft.maxSalary < draft.minSalary) {
+      showToast('Max salary must be ≥ min', 'error');
+      return;
+    }
+    setItems(prev => prev.map((x, i) => i === editingIdx ? { ...draft, name } : x));
+    cancelEdit();
+  };
+  const dragReorder = useDragReorder<RecruitmentPosition>(setItems, props.isAdmin);
 
   const save = async () => {
     if (items.length === 0) {
@@ -376,86 +540,177 @@ function PositionsEditor(props: { initial: RecruitmentPosition[]; isAdmin: boole
     return Number.isFinite(n) && n >= 0 ? n : null;
   };
 
+  const rangeText = (p: RecruitmentPosition) => p.minSalary != null && p.maxSalary != null
+    ? `RM ${p.minSalary.toLocaleString('en-MY')} – RM ${p.maxSalary.toLocaleString('en-MY')}`
+    : p.minSalary != null ? `From RM ${p.minSalary.toLocaleString('en-MY')}`
+    : p.maxSalary != null ? `Up to RM ${p.maxSalary.toLocaleString('en-MY')}`
+    : 'No salary band set';
+
   return (
     <section style={S.card}>
-      <header style={S.cardHeader}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <div style={S.cardTitleWrap}>
-          <FontAwesomeIcon icon={faChalkboardUser} style={{ color: C.primary }} />
-          <h2 style={S.cardTitle}>Positions</h2>
+          <FontAwesomeIcon icon={faChalkboardUser} style={{ color: C.primary, fontSize: 14 }} />
+          <h2 style={S.sectionTitle}>Positions</h2>
         </div>
-        <p style={S.cardDesc}>
-          Roles candidates can choose from. When you set a salary band, the
-          apply form shows it as a hint below the position dropdown so
-          candidates know the typical range before naming their expected pay.
-        </p>
-      </header>
-
-      <ul style={S.list}>
-        {items.map((p, idx) => (
-          <li key={`${p.name}-${idx}`} style={S.positionRow}>
-            <div style={S.handles}>
-              <button type="button" style={S.arrowBtn(props.isAdmin && idx > 0)}
-                onClick={() => move(idx, -1)} disabled={!props.isAdmin || idx === 0}
-                aria-label="Move up">▲</button>
-              <button type="button" style={S.arrowBtn(props.isAdmin && idx < items.length - 1)}
-                onClick={() => move(idx, 1)} disabled={!props.isAdmin || idx === items.length - 1}
-                aria-label="Move down">▼</button>
-            </div>
-            <FontAwesomeIcon icon={faGripVertical} style={{ color: C.muted, fontSize: 12 }} />
-            <input
-              style={{ ...S.itemInput, flex: 2 }}
-              value={p.name}
-              disabled={!props.isAdmin}
-              onChange={e => patchAt(idx, { name: e.target.value })}
-              placeholder="Position name"
-            />
-            <input
-              style={{ ...S.itemInput, flex: 1, maxWidth: 130 }}
-              type="number"
-              min={0}
-              value={p.minSalary ?? ''}
-              disabled={!props.isAdmin}
-              onChange={e => patchAt(idx, { minSalary: numOrNull(e.target.value) })}
-              placeholder="Min RM"
-            />
-            <span style={S.dash}>–</span>
-            <input
-              style={{ ...S.itemInput, flex: 1, maxWidth: 130 }}
-              type="number"
-              min={0}
-              value={p.maxSalary ?? ''}
-              disabled={!props.isAdmin}
-              onChange={e => patchAt(idx, { maxSalary: numOrNull(e.target.value) })}
-              placeholder="Max RM"
-            />
-            {props.isAdmin && (
-              <button type="button" style={S.removeBtn}
-                onClick={() => remove(idx)} aria-label="Remove">
-                <FontAwesomeIcon icon={faTrash} />
-              </button>
-            )}
-          </li>
-        ))}
-        {items.length === 0 && (
-          <li style={S.empty}>No positions yet. Add one below.</li>
-        )}
-      </ul>
-
-      {props.isAdmin && (
-        <div style={S.addRow}>
-          <input
-            style={S.addInput}
-            placeholder="e.g. Junior Teacher"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
-          />
-          <button type="button" style={S.addBtn(newName.trim().length > 0)}
-            disabled={!newName.trim()} onClick={add}>
-            <FontAwesomeIcon icon={faPlus} /> Add
+        {props.isAdmin && (
+          <button type="button" onClick={startAdd} disabled={isAdding}
+            style={{ ...S.addBtn, opacity: isAdding ? 0.5 : 1, cursor: isAdding ? 'default' : 'pointer' }}>
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Add Position
           </button>
-        </div>
-      )}
+        )}
+      </div>
+      <p style={{ ...S.cardDesc, marginBottom: 16 }}>
+        Roles candidates can choose from. When you set a salary band, the
+        apply form shows it as a hint below the position dropdown so
+        candidates know the typical range before naming their expected pay.
+      </p>
+
+      <div>
+        <table style={{ ...S.table, tableLayout: 'fixed' }} className="recruit-table">
+          <colgroup>
+            <col style={{ width: 32 }} />
+            <col />
+            <col style={{ width: 260 }} />
+            <col style={{ width: 88 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th style={S.th} />
+              <th style={{ ...S.th, textAlign: 'left' }}>Position</th>
+              <th style={{ ...S.th, textAlign: 'left' }}>Salary Range</th>
+              <th style={S.th} />
+            </tr>
+          </thead>
+          <tbody>
+            {isAdding && (
+              <tr style={{ height: 52 }}>
+                <td style={S.td} />
+                <td style={S.td}>
+                  <input
+                    style={S.cellInput}
+                    value={newDraft.name}
+                    autoFocus
+                    onChange={e => setNewDraft({ ...newDraft, name: e.target.value })}
+                    onKeyDown={e => { if (e.key === 'Enter') confirmAdd(); if (e.key === 'Escape') cancelAdd(); }}
+                    placeholder="Position name"
+                  />
+                </td>
+                <td style={S.td}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      style={{ ...S.cellInput, width: 90 }}
+                      type="number" min={0}
+                      value={newDraft.minSalary ?? ''}
+                      onChange={e => setNewDraft({ ...newDraft, minSalary: numOrNull(e.target.value) })}
+                      onKeyDown={e => { if (e.key === 'Enter') confirmAdd(); if (e.key === 'Escape') cancelAdd(); }}
+                      placeholder="Min"
+                    />
+                    <span style={S.dash}>–</span>
+                    <input
+                      style={{ ...S.cellInput, width: 90 }}
+                      type="number" min={0}
+                      value={newDraft.maxSalary ?? ''}
+                      onChange={e => setNewDraft({ ...newDraft, maxSalary: numOrNull(e.target.value) })}
+                      onKeyDown={e => { if (e.key === 'Enter') confirmAdd(); if (e.key === 'Escape') cancelAdd(); }}
+                      placeholder="Max"
+                    />
+                  </div>
+                </td>
+                <td style={{ ...S.td, textAlign: 'right' }}>
+                  <div style={{ display: 'inline-flex', gap: 2 }}>
+                    <button type="button" onClick={confirmAdd} style={S.saveIconBtn} title="Save">
+                      <FontAwesomeIcon icon={faCheck} style={{ fontSize: 12 }} />
+                    </button>
+                    <button type="button" onClick={cancelAdd} style={S.cancelIconBtn} title="Cancel">
+                      <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {items.map((p, idx) => {
+              const isEditing = editingIdx === idx;
+              const d = isEditing ? draft! : p;
+              return (
+                <tr
+                  key={`${p.name}-${idx}`}
+                  className="recruit-row"
+                  style={{ height: 52, ...dragReorder.rowStyle(idx) }}
+                  onDragOver={dragReorder.onDragOver(idx)}
+                  onDrop={dragReorder.onDrop(idx)}
+                >
+                  <td style={S.td}><DragGrip idx={idx} enabled={props.isAdmin && !isEditing} reorder={dragReorder} /></td>
+                  {isEditing ? (
+                    <>
+                      <td style={S.td}>
+                        <input
+                          style={S.cellInput}
+                          value={d.name}
+                          autoFocus
+                          onChange={e => setDraft({ ...d, name: e.target.value })}
+                          onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                          placeholder="Position name"
+                        />
+                      </td>
+                      <td style={S.td}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input
+                            style={{ ...S.cellInput, width: 90 }}
+                            type="number" min={0}
+                            value={d.minSalary ?? ''}
+                            onChange={e => setDraft({ ...d, minSalary: numOrNull(e.target.value) })}
+                            onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                            placeholder="Min"
+                          />
+                          <span style={S.dash}>–</span>
+                          <input
+                            style={{ ...S.cellInput, width: 90 }}
+                            type="number" min={0}
+                            value={d.maxSalary ?? ''}
+                            onChange={e => setDraft({ ...d, maxSalary: numOrNull(e.target.value) })}
+                            onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                            placeholder="Max"
+                          />
+                        </div>
+                      </td>
+                      <td style={{ ...S.td, textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 2 }}>
+                          <button type="button" onClick={saveEdit} style={S.saveIconBtn} title="Save">
+                            <FontAwesomeIcon icon={faCheck} style={{ fontSize: 12 }} />
+                          </button>
+                          <button type="button" onClick={cancelEdit} style={S.cancelIconBtn} title="Cancel">
+                            <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td style={S.td}><span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{p.name}</span></td>
+                      <td style={S.td}><span style={{ fontSize: 13, color: C.muted }}>{rangeText(p)}</span></td>
+                      <td style={{ ...S.td, textAlign: 'right' }}>
+                        {props.isAdmin && (
+                          <RowMenu renameLabel="Edit" onRename={() => startEdit(idx)} onDelete={() => remove(idx)} />
+                        )}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+
+            {items.length === 0 && !isAdding && (
+              <tr>
+                <td colSpan={4} style={{ ...S.td, textAlign: 'center', color: C.muted, padding: '32px 0' }}>
+                  No positions yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {props.isAdmin && (
         <div style={S.saveRow}>
@@ -500,11 +755,31 @@ function ListEditor(props: {
   const { showToast } = useToast();
 
   const [items, setItems] = useState<string[]>(props.initial);
-  const [newItem, setNewItem] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [newItem, setNewItem] = useState('');
   const lockedSet = new Set((props.lockedValues ?? []).map(v => v.toLowerCase()));
   const isLocked = (v: string) => lockedSet.has(v.toLowerCase());
+
+  const startEdit = (idx: number) => { setIsAdding(false); setEditingIdx(idx); setEditValue(items[idx]); };
+  const cancelEdit = () => { setEditingIdx(null); setEditValue(''); };
+  const saveEdit = () => {
+    if (editingIdx === null) return;
+    const t = editValue.trim();
+    if (!t) { cancelEdit(); return; }
+    if (items.some((x, i) => i !== editingIdx && x.toLowerCase() === t.toLowerCase())) {
+      showToast('Already in the list', 'error');
+      return;
+    }
+    setItems(prev => prev.map((x, i) => i === editingIdx ? t : x));
+    cancelEdit();
+  };
+
+  const startAdd = () => { setEditingIdx(null); setNewItem(''); setIsAdding(true); };
+  const cancelAdd = () => { setIsAdding(false); setNewItem(''); };
 
   // Re-seed local state when the query refreshes — e.g. after cache invalidation
   // from the OTHER list saving on the same page.
@@ -513,7 +788,7 @@ function ListEditor(props: {
   const dirty = items.length !== props.initial.length
     || items.some((v, i) => v !== props.initial[i]);
 
-  const add = () => {
+  const confirmAdd = () => {
     const t = newItem.trim();
     if (!t) return;
     // No duplicates — the dropdown collapses them anyway.
@@ -522,27 +797,22 @@ function ListEditor(props: {
       return;
     }
     setItems(prev => [...prev, t]);
-    setNewItem('');
+    cancelAdd();
   };
 
-  const remove = (idx: number) => setItems(prev => {
-    const target = prev[idx];
-    if (target && isLocked(target)) {
-      showToast(`"${target}" is a system option and can't be removed.`, 'error');
-      return prev;
-    }
-    return prev.filter((_, i) => i !== idx);
-  });
-
-  const move = (idx: number, dir: -1 | 1) => {
-    const target = idx + dir;
-    if (target < 0 || target >= items.length) return;
+  const remove = (idx: number) => {
+    if (editingIdx === idx) cancelEdit();
     setItems(prev => {
-      const next = [...prev];
-      [next[idx], next[target]] = [next[target], next[idx]];
-      return next;
+      const target = prev[idx];
+      if (target && isLocked(target)) {
+        showToast(`"${target}" is a system option and can't be removed.`, 'error');
+        return prev;
+      }
+      return prev.filter((_, i) => i !== idx);
     });
   };
+
+  const dragReorder = useDragReorder<string>(setItems, props.isAdmin);
 
   const save = async () => {
     if (items.length === 0) {
@@ -571,91 +841,148 @@ function ListEditor(props: {
 
   return (
     <section style={S.card}>
-      <header style={S.cardHeader}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <div style={S.cardTitleWrap}>
-          <FontAwesomeIcon icon={props.icon} style={{ color: C.primary }} />
-          <h2 style={S.cardTitle}>{props.title}</h2>
+          <FontAwesomeIcon icon={props.icon} style={{ color: C.primary, fontSize: 14 }} />
+          <h2 style={S.sectionTitle}>{props.title}</h2>
         </div>
-        <p style={S.cardDesc}>{props.description}</p>
-      </header>
-
-      <ul style={S.list}>
-        {items.map((label, idx) => {
-          const locked = isLocked(label);
-          return (
-          <li key={`${label}-${idx}`} style={S.listItem}>
-            <div style={S.handles}>
-              <button type="button" style={S.arrowBtn(props.isAdmin && idx > 0)}
-                onClick={() => move(idx, -1)} disabled={!props.isAdmin || idx === 0}
-                aria-label="Move up">▲</button>
-              <button type="button" style={S.arrowBtn(props.isAdmin && idx < items.length - 1)}
-                onClick={() => move(idx, 1)} disabled={!props.isAdmin || idx === items.length - 1}
-                aria-label="Move down">▼</button>
-            </div>
-            <FontAwesomeIcon icon={faGripVertical} style={{ color: C.muted, fontSize: 12 }} />
-            <input
-              style={S.itemInput}
-              value={label}
-              disabled={!props.isAdmin || locked}
-              onChange={e => {
-                const v = e.target.value;
-                setItems(prev => prev.map((x, i) => i === idx ? v : x));
-              }}
-            />
-            {props.showUtmSlug && !locked && label && (
-              <span
-                title={`Tracked link: /apply?utm_source=${toUtmSlug(label)}`}
-                style={{
-                  fontSize: 10, fontFamily: 'monospace',
-                  color: '#64748b', background: '#f1f5f9',
-                  padding: '2px 6px', borderRadius: 4,
-                  whiteSpace: 'nowrap' as const, flexShrink: 0,
-                }}
-              >
-                utm: {toUtmSlug(label)}
-              </span>
-            )}
-            {locked && (
-              <span
-                style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase',
-                  padding: '2px 6px', borderRadius: 4, background: '#eef2ff', color: '#4f46e5',
-                  whiteSpace: 'nowrap',
-                }}
-                title="This is a system option and can't be renamed or removed."
-              >
-                System
-              </span>
-            )}
-            {props.isAdmin && !locked && (
-              <button type="button" style={S.removeBtn}
-                onClick={() => remove(idx)} aria-label="Remove">
-                <FontAwesomeIcon icon={faTrash} />
-              </button>
-            )}
-          </li>
-          );
-        })}
-        {items.length === 0 && (
-          <li style={S.empty}>No entries yet. Add one below.</li>
-        )}
-      </ul>
-
-      {props.isAdmin && (
-        <div style={S.addRow}>
-          <input
-            style={S.addInput}
-            placeholder={props.placeholder}
-            value={newItem}
-            onChange={e => setNewItem(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
-          />
-          <button type="button" style={S.addBtn(newItem.trim().length > 0)}
-            disabled={!newItem.trim()} onClick={add}>
-            <FontAwesomeIcon icon={faPlus} /> Add
+        {props.isAdmin && (
+          <button type="button" onClick={startAdd} disabled={isAdding}
+            style={{ ...S.addBtn, opacity: isAdding ? 0.5 : 1, cursor: isAdding ? 'default' : 'pointer' }}>
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Add
           </button>
-        </div>
-      )}
+        )}
+      </div>
+      <p style={{ ...S.cardDesc, marginBottom: 16 }}>{props.description}</p>
+
+      <div>
+        <table style={S.table} className="recruit-table">
+          <colgroup>
+            <col style={{ width: 32 }} />
+            <col />
+            <col style={{ width: 96 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th style={S.th} />
+              <th style={{ ...S.th, textAlign: 'left' }}>Value</th>
+              <th style={S.th} />
+            </tr>
+          </thead>
+          <tbody>
+            {isAdding && (
+              <tr style={{ height: 48 }}>
+                <td style={S.td} />
+                <td style={S.td}>
+                  <input
+                    style={S.cellInput}
+                    value={newItem}
+                    autoFocus
+                    placeholder={props.placeholder}
+                    onChange={e => setNewItem(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') confirmAdd(); if (e.key === 'Escape') cancelAdd(); }}
+                  />
+                </td>
+                <td style={{ ...S.td, textAlign: 'right' }}>
+                  <div style={{ display: 'inline-flex', gap: 2 }}>
+                    <button type="button" onClick={confirmAdd} style={S.saveIconBtn} title="Save">
+                      <FontAwesomeIcon icon={faCheck} style={{ fontSize: 12 }} />
+                    </button>
+                    <button type="button" onClick={cancelAdd} style={S.cancelIconBtn} title="Cancel">
+                      <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {items.map((label, idx) => {
+              const locked = isLocked(label);
+              const isEditing = editingIdx === idx;
+              return (
+                <tr
+                  key={`${label}-${idx}`}
+                  className="recruit-row"
+                  style={{ height: 48, ...dragReorder.rowStyle(idx) }}
+                  onDragOver={dragReorder.onDragOver(idx)}
+                  onDrop={dragReorder.onDrop(idx)}
+                >
+                  <td style={S.td}><DragGrip idx={idx} enabled={props.isAdmin && !isEditing} reorder={dragReorder} /></td>
+                  {isEditing ? (
+                    <>
+                      <td style={S.td}>
+                        <input
+                          style={S.cellInput}
+                          value={editValue}
+                          autoFocus
+                          onChange={e => setEditValue(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                        />
+                      </td>
+                      <td style={{ ...S.td, textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 2 }}>
+                          <button type="button" onClick={saveEdit} style={S.saveIconBtn} title="Save">
+                            <FontAwesomeIcon icon={faCheck} style={{ fontSize: 12 }} />
+                          </button>
+                          <button type="button" onClick={cancelEdit} style={S.cancelIconBtn} title="Cancel">
+                            <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td style={S.td}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 14, color: C.text }}>{label}</span>
+                          {props.showUtmSlug && !locked && label && (
+                            <span
+                              title={`Tracked link: /apply?utm_source=${toUtmSlug(label)}`}
+                              style={{
+                                fontSize: 10, fontFamily: 'monospace',
+                                color: '#64748b', background: '#f1f5f9',
+                                padding: '2px 6px', borderRadius: 4,
+                                whiteSpace: 'nowrap' as const, flexShrink: 0,
+                              }}
+                            >
+                              utm: {toUtmSlug(label)}
+                            </span>
+                          )}
+                          {locked && (
+                            <span
+                              style={{
+                                fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase',
+                                padding: '2px 6px', borderRadius: 4, background: '#eef2ff', color: '#4f46e5',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title="This is a system option and can't be renamed or removed."
+                            >
+                              System
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ ...S.td, textAlign: 'right' }}>
+                        {props.isAdmin && !locked && (
+                          <RowMenu onRename={() => startEdit(idx)} onDelete={() => remove(idx)} />
+                        )}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+
+            {items.length === 0 && !isAdding && (
+              <tr>
+                <td colSpan={3} style={{ ...S.td, textAlign: 'center', color: C.muted, padding: '32px 0' }}>
+                  No entries yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {props.isAdmin && (
         <div style={S.saveRow}>
@@ -687,58 +1014,54 @@ const S = {
     borderRadius: 8, fontSize: 13, marginBottom: 12,
   } as React.CSSProperties,
   card: {
-    background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-    padding: 18, marginBottom: 16,
+    background: C.surface, border: '1px solid #eef0f4', borderRadius: 14,
+    padding: '22px 26px', marginBottom: 20,
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
   } as React.CSSProperties,
   cardHeader: { marginBottom: 12 } as React.CSSProperties,
   cardTitleWrap: { display: 'flex', alignItems: 'center', gap: 10 } as React.CSSProperties,
   cardTitle: { fontSize: 16, fontWeight: 700, margin: 0, color: C.text } as React.CSSProperties,
   cardDesc: { fontSize: 13, color: C.muted, margin: '4px 0 0' } as React.CSSProperties,
-  list: { listStyle: 'none', padding: 0, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 } as React.CSSProperties,
-  listItem: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    background: C.bg, padding: '6px 8px', borderRadius: 8,
-    border: `1px solid ${C.borderSoft}`,
+  sectionTitle: { fontSize: 13, fontWeight: 700, color: C.text, margin: 0 } as React.CSSProperties,
+  addBtn: {
+    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: 12, fontWeight: 600,
+    borderRadius: 7, border: `1px solid ${C.border}`, background: C.surface, color: C.text, cursor: 'pointer',
   } as React.CSSProperties,
-  positionRow: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    background: C.bg, padding: '6px 8px', borderRadius: 8,
-    border: `1px solid ${C.borderSoft}`, flexWrap: 'wrap',
+  table: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 13 } as React.CSSProperties,
+  th: {
+    textAlign: 'left' as const, padding: '8px 12px', fontWeight: 600, fontSize: 11, color: C.muted,
+    letterSpacing: '0.04em', textTransform: 'uppercase' as const, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' as const,
+  } as React.CSSProperties,
+  td: {
+    padding: '6px 8px', borderBottom: '1px solid #f1f5f9', fontSize: 13, color: C.text,
+    height: 48, verticalAlign: 'middle' as const,
+  } as React.CSSProperties,
+  cellInput: {
+    display: 'block', width: '100%', padding: '7px 10px',
+    border: `1px solid ${C.border}`, borderRadius: 6, background: C.surface, fontSize: 13, color: C.text,
+    fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' as const,
+  } as React.CSSProperties,
+  menuBtn: {
+    background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', padding: '6px 8px', borderRadius: 6,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'background 120ms ease, color 120ms ease',
+  } as React.CSSProperties,
+  menu: {
+    position: 'fixed' as const, zIndex: 9999, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10,
+    boxShadow: '0 12px 32px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.06)', width: 168, overflow: 'hidden', padding: '4px 0',
+  } as React.CSSProperties,
+  menuItem: {
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 14px', fontSize: 13, fontWeight: 500,
+    background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' as const, fontFamily: 'inherit', color: C.text,
+  } as React.CSSProperties,
+  saveIconBtn: {
+    background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#059669', cursor: 'pointer', padding: 8, borderRadius: 6,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  } as React.CSSProperties,
+  cancelIconBtn: {
+    background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', padding: 8, borderRadius: 6,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   } as React.CSSProperties,
   dash: { color: C.muted, fontSize: 14 } as React.CSSProperties,
-  handles: { display: 'flex', flexDirection: 'column', gap: 2 } as React.CSSProperties,
-  arrowBtn: (enabled: boolean): React.CSSProperties => ({
-    width: 18, height: 14, fontSize: 9, lineHeight: 1,
-    border: `1px solid ${C.border}`, background: '#fff',
-    borderRadius: 3, padding: 0,
-    color: enabled ? C.textSub : '#cbd5e1',
-    cursor: enabled ? 'pointer' : 'default',
-  }),
-  itemInput: {
-    flex: 1, border: `1px solid ${C.border}`, borderRadius: 6,
-    padding: '8px 10px', fontSize: 14, background: '#fff', color: C.text,
-    outline: 'none',
-  } as React.CSSProperties,
-  removeBtn: {
-    border: `1px solid ${C.border}`, background: '#fff', color: C.danger,
-    borderRadius: 6, width: 32, height: 32, cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
-  } as React.CSSProperties,
-  empty: {
-    padding: '20px 12px', textAlign: 'center', fontSize: 13, color: C.muted,
-    background: C.bg, borderRadius: 8, border: `1px dashed ${C.border}`,
-  } as React.CSSProperties,
-  addRow: { display: 'flex', gap: 8, marginTop: 8 } as React.CSSProperties,
-  addInput: {
-    flex: 1, border: `1px solid ${C.border}`, borderRadius: 8,
-    padding: '9px 12px', fontSize: 14, background: '#fff', color: C.text, outline: 'none',
-  } as React.CSSProperties,
-  addBtn: (active: boolean): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    background: active ? C.primary : '#cbd5e1', color: '#fff', border: 'none',
-    padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-    cursor: active ? 'pointer' : 'default',
-  }),
   saveRow: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.borderSoft}`,

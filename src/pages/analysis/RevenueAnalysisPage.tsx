@@ -119,8 +119,8 @@ export default function RevenueAnalysisPage() {
     if (!entry) setPeriod('all');
   }, [entries, period]);
 
-  if (isLoading) return <div style={s.page}><p style={{ padding: 40, color: '#94a3b8' }}>Loading...</p></div>;
-  if (isError || !data) return <div style={s.page}><p style={{ padding: 40, color: '#dc2626' }}>Failed to load revenue data.</p></div>;
+  if (isLoading) return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: '#94a3b8' }}>Loading...</p></div></div>;
+  if (isError || !data) return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: '#dc2626' }}>Failed to load revenue data.</p></div></div>;
 
   const years = data.availableYears.length > 0 ? data.availableYears : [currentYear];
 

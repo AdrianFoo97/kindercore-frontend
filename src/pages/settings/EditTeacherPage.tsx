@@ -7,7 +7,7 @@ import {
   fetchTeachers, createTeacher, updateTeacher,
   fetchClassrooms, fetchSubjects,
 } from '../../api/planner.js';
-import { fetchPositions, fetchLevelIncentives } from '../../api/salary.js';
+import { fetchPositions, fetchLevelIncentives, fetchDepartments } from '../../api/salary.js';
 import { fetchCareerRecords, createCareerRecord, updateCareerRecord, deleteCareerRecord } from '../../api/career.js';
 import { fetchAllowanceTypes, fetchTeacherAllowances, upsertTeacherAllowances } from '../../api/allowance.js';
 import { fetchTeacherAppraisals, upsertTeacherAppraisal, deleteTeacherAppraisal, TeacherAppraisal } from '../../api/teacher-appraisals.js';
@@ -77,6 +77,7 @@ export default function EditTeacherPage() {
   const { data: classrooms = [] } = useQuery({ queryKey: ['planner-classrooms'], queryFn: fetchClassrooms });
   const { data: subjects = [] } = useQuery({ queryKey: ['planner-subjects'], queryFn: fetchSubjects });
   const { data: allPositions = [] } = useQuery({ queryKey: ['salary-positions'], queryFn: fetchPositions });
+  const { data: departmentList = [] } = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments });
   const { data: allIncentives = [] } = useQuery({ queryKey: ['salary-incentives'], queryFn: fetchLevelIncentives });
   const { data: careerHistory = [] } = useQuery({
     queryKey: ['career-records', id],
@@ -397,6 +398,23 @@ export default function EditTeacherPage() {
     if (employmentType === 'part-time') w = w / 2;
     return w;
   }, [excludeFromProfitShare, careerHistory, positionId, level, allPositions, employmentType]);
+
+  // Positions grouped by department for the two career-history position
+  // pickers below — a flat list would get unwieldy once a second
+  // department exists alongside Academic.
+  const positionOptionGroups = useMemo(() => {
+    const byDept = new Map<string, typeof allPositions>();
+    for (const p of allPositions) {
+      const key = p.departmentId ?? '__none';
+      if (!byDept.has(key)) byDept.set(key, []);
+      byDept.get(key)!.push(p);
+    }
+    const groups = departmentList
+      .filter(d => byDept.has(d.departmentId))
+      .map(d => ({ label: d.name, items: byDept.get(d.departmentId)! }));
+    if (byDept.has('__none')) groups.push({ label: 'Other', items: byDept.get('__none')! });
+    return groups;
+  }, [allPositions, departmentList]);
 
   const TABS: { key: Tab; label: string; icon: any }[] = [
     { key: 'personal', label: 'Personal', icon: faUser },
@@ -782,7 +800,11 @@ export default function EditTeacherPage() {
                           <div style={{ flex: 1, paddingLeft: 14, paddingBottom: 20 }}>
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                               <select style={{ ...s.input, width: 'auto', flex: 1, minWidth: 120, fontSize: 12, padding: '6px 8px' }} value={careerPosId} onChange={e => setCareerPosId(e.target.value)}>
-                                {allPositions.map(p => <option key={p.positionId} value={p.positionId}>{p.name}</option>)}
+                                {positionOptionGroups.map(g => (
+                                  <optgroup key={g.label} label={g.label}>
+                                    {g.items.map(p => <option key={p.positionId} value={p.positionId}>{p.name}</option>)}
+                                  </optgroup>
+                                ))}
                               </select>
                               <select style={{ ...s.input, width: 80, fontSize: 12, padding: '6px 8px' }} value={careerLevel} onChange={e => setCareerLevel(Number(e.target.value))}>
                                 {Array.from({ length: (allPositions.find(p => p.positionId === careerPosId)?.maxLevel ?? 5) + 1 }, (_, i) => (
@@ -837,7 +859,11 @@ export default function EditTeacherPage() {
                                 <>
                                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                                     <select style={{ ...s.input, width: 'auto', flex: 1, minWidth: 120, fontSize: 12, padding: '6px 8px' }} value={editCareerPosId} onChange={e => setEditCareerPosId(e.target.value)}>
-                                      {allPositions.map(p => <option key={p.positionId} value={p.positionId}>{p.name}</option>)}
+                                      {positionOptionGroups.map(g => (
+                                        <optgroup key={g.label} label={g.label}>
+                                          {g.items.map(p => <option key={p.positionId} value={p.positionId}>{p.name}</option>)}
+                                        </optgroup>
+                                      ))}
                                     </select>
                                     <select style={{ ...s.input, width: 80, fontSize: 12, padding: '6px 8px' }} value={editCareerLevel} onChange={e => setEditCareerLevel(Number(e.target.value))}>
                                       {Array.from({ length: (allPositions.find(p => p.positionId === editCareerPosId)?.maxLevel ?? 5) + 1 }, (_, i) => (
@@ -1115,7 +1141,10 @@ const s: Record<string, React.CSSProperties> = {
   content: { flex: 1, minWidth: 0 },
 
   // Cards
-  card: { background: C.card, borderRadius: 12, padding: '20px 24px', border: `1px solid ${C.border}`, marginBottom: 16, boxShadow: '0 1px 2px rgba(0,0,0,0.03)' },
+  card: {
+    background: C.card, borderRadius: 14, padding: '22px 26px', border: '1px solid #eef0f4', marginBottom: 16,
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
+  },
   sectionTitle: { fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase' as const, letterSpacing: '0.06em', margin: '0 0 14px' },
   label: { fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 4, display: 'block' },
   input: { width: '100%', padding: '9px 12px', fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 8, outline: 'none', boxSizing: 'border-box' as const, fontFamily: 'inherit' },

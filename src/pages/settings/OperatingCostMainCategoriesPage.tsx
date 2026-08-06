@@ -33,7 +33,7 @@ const C = {
   redBg: '#fef2f2',
 };
 
-export default function OperatingCostMainCategoriesPage() {
+export default function OperatingCostMainCategoriesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { showToast } = useToast();
   const { confirm: confirmDelete } = useDeleteDialog();
   const qc = useQueryClient();
@@ -112,7 +112,7 @@ export default function OperatingCostMainCategoriesPage() {
           deleted first — otherwise the server will reject the delete.
         </>
       ),
-      actionLabel: 'Delete main category',
+      actionLabel: 'Delete',
       onConfirm: async () => {
         try {
           await deleteOperatingCostGroup(id);
@@ -191,7 +191,7 @@ export default function OperatingCostMainCategoriesPage() {
   }
 
   return (
-    <div style={s.page}>
+    <div style={embedded ? { maxWidth: 980, margin: '0 auto' } : s.page}>
       <style>{`
         .mcat-row { transition: background 0.12s ease; }
         .mcat-row > td { transition: box-shadow 0.12s ease; }
@@ -216,7 +216,7 @@ export default function OperatingCostMainCategoriesPage() {
       {/* Breadcrumb + Add main category share one row */}
       <div style={s.headerRow}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <SettingsBreadcrumb label={['Operating Cost', 'Main Categories']} inline />
+          {!embedded && <SettingsBreadcrumb label={['Operating Cost', 'Main Categories']} inline />}
         </div>
         <button
           type="button"

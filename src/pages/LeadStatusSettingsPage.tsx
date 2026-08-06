@@ -4,7 +4,6 @@ import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faXmark, faCheck, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
-import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 // Lost reasons pinned as SYSTEM — they drive the Lead Quality / Appointment
 // Rate KPIs, so users can't delete or rename them. Any change to this list
@@ -337,7 +336,6 @@ export default function LeadStatusSettingsPage() {
   return (
     <div style={{ ...st.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}>
       <div style={{ ...st.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
-        <SettingsBreadcrumb label="Lead Settings" />
         <div style={{ marginBottom: 24 }}>
           <h1 style={st.heading}>Lead Settings</h1>
           <p style={st.subtitle}>Configure how leads are managed across the pipeline.</p>
@@ -359,13 +357,14 @@ export default function LeadStatusSettingsPage() {
 
 const st: Record<string, React.CSSProperties> = {
   page: { padding: '32px 24px', fontFamily: 'system-ui, sans-serif', display: 'flex', justifyContent: 'center' },
-  inner: { width: '100%', maxWidth: 660 },
+  inner: { width: '100%', maxWidth: 960 },
   heading: { margin: 0, fontSize: 21, fontWeight: 700, color: '#0f172a' },
   subtitle: { margin: '4px 0 0', fontSize: 13, color: '#94a3b8' },
 
   // Card
   card: {
-    background: '#fff', border: '1px solid #e8eaee', borderRadius: 10, overflow: 'hidden',
+    background: '#fff', border: '1px solid #eef0f4', borderRadius: 14, overflow: 'hidden',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
   },
   cardHeader: {
     padding: '14px 20px', borderBottom: '1px solid #f1f3f5',

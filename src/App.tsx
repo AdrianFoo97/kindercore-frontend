@@ -6,6 +6,7 @@ import { DeleteDialogProvider } from './components/common/DeleteDialog.js';
 import LoginPage from './pages/LoginPage.js';
 import LeadsPage from './pages/LeadsPage.js';
 import ImportLeadsPage from './pages/ImportLeadsPage.js';
+import SettingsDataPage from './pages/settings/SettingsDataPage.js';
 import SettingsPage from './pages/SettingsPage.js';
 import SalesMarketingPage from './pages/analysis/SalesMarketingPage.js';
 import SalesAnalysisPage from './pages/analysis/SalesAnalysisPage.js';
@@ -18,12 +19,14 @@ import EnquiryFormPage from './pages/EnquiryFormPage.js';
 import PackagesPage from './pages/PackagesPage.js';
 import ProgrammesSettingsPage from './pages/ProgrammesSettingsPage.js';
 import AgeGroupsSettingsPage from './pages/AgeGroupsSettingsPage.js';
+import SettingsPackagesPage from './pages/settings/SettingsPackagesPage.js';
 import StudentsPage from './pages/StudentsPage.js';
 import EditStudentPage from './pages/EditStudentPage.js';
 import OnboardingSettingsPage from './pages/OnboardingSettingsPage.js';
 import OnboardingPage from './pages/OnboardingPage.js';
 import WhatsAppTemplatesPage from './pages/WhatsAppTemplatesPage.js';
 import LeadStatusSettingsPage from './pages/LeadStatusSettingsPage.js';
+import CompanySettingsPage from './pages/CompanySettingsPage.js';
 import TestToolsPage from './pages/TestToolsPage.js';
 import GoogleCalendarSettingsPage from './pages/GoogleCalendarSettingsPage.js';
 import ImportStudentsPage from './pages/ImportStudentsPage.js';
@@ -33,9 +36,11 @@ import AnnualBonusPage from './pages/AnnualBonusPage.js';
 import OperatingCostsPage from './pages/operations/OperatingCostsPage.js';
 import OperatingCostCategoriesPage from './pages/settings/OperatingCostCategoriesPage.js';
 import OperatingCostMainCategoriesPage from './pages/settings/OperatingCostMainCategoriesPage.js';
+import SettingsOperatingCostPage from './pages/settings/SettingsOperatingCostPage.js';
 import TimetableSettingsPage from './pages/settings/TimetableSettingsPage.js';
 import EditTeacherPage from './pages/settings/EditTeacherPage.js';
 import EmployeeSalaryPage from './pages/settings/EmployeeSalaryPage.js';
+import SettingsHrPage from './pages/settings/SettingsHrPage.js';
 import PositionEditPage from './pages/settings/PositionEditPage.js';
 import CareerMissionSettingsPage from './pages/settings/CareerMissionSettingsPage.js';
 import MissionCategoriesPage from './pages/settings/MissionCategoriesPage.js';
@@ -159,6 +164,7 @@ export default function App() {
           <Route path="/leads/import" element={<ErrorBoundary><ImportLeadsPage /></ErrorBoundary>} />
           <Route path="/packages" element={<ErrorBoundary><PackagesPage /></ErrorBoundary>} />
           <Route path="/settings/leads" element={<ErrorBoundary><LeadStatusSettingsPage /></ErrorBoundary>} />
+          <Route path="/settings/company" element={<ErrorBoundary><CompanySettingsPage /></ErrorBoundary>} />
           <Route path="/settings/leads/status" element={<Navigate to="/settings/leads" replace />} />
           <Route path="/settings/whatsapp-templates" element={<ErrorBoundary><WhatsAppTemplatesPage /></ErrorBoundary>} />
           <Route path="/settings/leads/whatsapp-templates" element={<Navigate to="/settings/whatsapp-templates" replace />} />
@@ -172,6 +178,7 @@ export default function App() {
           <Route path="/settings/packages/assignment" element={<Navigate to="/packages" replace />} />
           <Route path="/settings/packages/programmes" element={<ErrorBoundary><ProgrammesSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/packages/age-groups" element={<ErrorBoundary><AgeGroupsSettingsPage /></ErrorBoundary>} />
+          <Route path="/settings/packages" element={<ErrorBoundary><SettingsPackagesPage /></ErrorBoundary>} />
           <Route path="/settings/packages" element={<Navigate to="/packages" replace />} />
           <Route path="/settings/onboarding" element={<ErrorBoundary><OnboardingSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
@@ -179,6 +186,7 @@ export default function App() {
           <Route path="/teachers/:id" element={<ErrorBoundary><EditTeacherPage /></ErrorBoundary>} />
           <Route path="/hr/candidates" element={<ErrorBoundary><CandidatesPage /></ErrorBoundary>} />
           <Route path="/hr/candidates/import" element={<ErrorBoundary><ImportCandidatesPage /></ErrorBoundary>} />
+          <Route path="/settings/data" element={<ErrorBoundary><SettingsDataPage /></ErrorBoundary>} />
           <Route path="/settings/recruitment" element={<ErrorBoundary><RecruitmentSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/career" element={<ErrorBoundary><TeacherCareerPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-career" element={<ErrorBoundary><TeacherMyCareerPage /></ErrorBoundary>} />
@@ -204,6 +212,7 @@ export default function App() {
           <Route path="/settings/employee-salary/positions/:id/edit" element={<ErrorBoundary><PositionEditPage /></ErrorBoundary>} />
           <Route path="/settings/career-missions" element={<ErrorBoundary><CareerMissionSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/mission-categories" element={<ErrorBoundary><MissionCategoriesPage /></ErrorBoundary>} />
+          <Route path="/settings/hr" element={<ErrorBoundary><SettingsHrPage /></ErrorBoundary>} />
           <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage key="reset-leads" tool="reset-leads" /></ErrorBoundary>} />
           <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
@@ -217,6 +226,7 @@ export default function App() {
           <Route path="/operations/operating-costs" element={<ErrorBoundary><OperatingCostsPage /></ErrorBoundary>} />
           <Route path="/settings/operating-cost-main-categories" element={<ErrorBoundary><OperatingCostMainCategoriesPage /></ErrorBoundary>} />
           <Route path="/settings/operating-cost-categories" element={<ErrorBoundary><OperatingCostCategoriesPage /></ErrorBoundary>} />
+          <Route path="/settings/operating-cost" element={<ErrorBoundary><SettingsOperatingCostPage /></ErrorBoundary>} />
           <Route path="/settings/finance" element={<ErrorBoundary><FinanceSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/compensation" element={<ErrorBoundary><CompensationSettingsPage /></ErrorBoundary>} />
           <Route path="/analysis/sales-marketing" element={<ErrorBoundary><SalesMarketingPage /></ErrorBoundary>} />

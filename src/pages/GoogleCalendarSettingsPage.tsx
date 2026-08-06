@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGoogleStatus, getConnectToken, listGoogleCalendars, setGoogleCalendar, setInterviewCalendar } from '../api/google.js';
-import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 function CheckIcon() {
   return (
@@ -121,8 +120,7 @@ export default function GoogleCalendarSettingsPage() {
   return (
     <div style={{ padding: '32px 24px', fontFamily: 'system-ui, sans-serif', display: 'flex', justifyContent: 'center' }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={{ width: '100%', maxWidth: 560 }}>
-        <SettingsBreadcrumb label="Google Calendar" />
+      <div style={{ width: '100%', maxWidth: 960 }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#1a202c' }}>Google Calendar</h1>
         <p style={{ margin: '0 0 28px', fontSize: 14, color: '#6b7280' }}>
           Connect a Google account to enable calendar event creation when booking appointments.
@@ -135,7 +133,7 @@ export default function GoogleCalendarSettingsPage() {
           </div>
         )}
 
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ background: '#fff', border: '1px solid #eef0f4', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)' }}>
           {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid #f1f5f9' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

@@ -15,7 +15,7 @@ import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
 const C = {
   bg: '#f8fafc',
   card: '#ffffff',
-  cardBorder: '#eceef2',
+  cardBorder: '#eef0f4',
   divider: '#eef0f3',
   text: '#0f172a',
   textSub: '#475569',
@@ -28,9 +28,9 @@ const C = {
 };
 const RADIUS = 14;
 const RADIUS_SM = 8;
-const SHADOW = '0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.05)';
+const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 
-export default function MissionCategoriesPage() {
+export default function MissionCategoriesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { confirm } = useDeleteDialog();
@@ -116,15 +116,17 @@ export default function MissionCategoriesPage() {
   };
 
   return (
-    <div style={s.page}>
-      <div style={s.inner}>
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={s.heading}>Mission Categories</h1>
-          <p style={s.subheading}>
-            Capability buckets that drive achievement badges on the teacher career page.
-            Each category has a code (used by missions) and an achievement name (shown to teachers).
-          </p>
-        </div>
+    <div style={embedded ? undefined : s.page}>
+      <div style={embedded ? undefined : s.inner}>
+        {!embedded && (
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={s.heading}>Mission Categories</h1>
+            <p style={s.subheading}>
+              Capability buckets that drive achievement badges on the teacher career page.
+              Each category has a code (used by missions) and an achievement name (shown to teachers).
+            </p>
+          </div>
+        )}
 
         <div style={s.card}>
           <div style={s.cardHeader}>
@@ -445,7 +447,7 @@ const s: Record<string, React.CSSProperties> = {
   subheading: { margin: 0, fontSize: 13, color: C.muted, lineHeight: 1.5, maxWidth: 720 },
   card: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS,
-    padding: '20px 24px', boxShadow: SHADOW, marginBottom: 18,
+    padding: '22px 26px', boxShadow: SHADOW, marginBottom: 20,
   },
   cardHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap' },
   cardTitle: { margin: 0, fontSize: 15, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' },

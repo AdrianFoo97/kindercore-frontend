@@ -1,11 +1,23 @@
 import { apiFetch } from './client.js';
-import { Position, LevelIncentive } from '../types/index.js';
+import { Position, Department, LevelIncentive } from '../types/index.js';
+
+export function fetchDepartments() {
+  return apiFetch<Department[]>('/api/salary/departments');
+}
+
+export function upsertDepartment(departmentId: string, data: { name: string; sortOrder?: number; hasCareerPath?: boolean }) {
+  return apiFetch<Department>(`/api/salary/departments/${departmentId}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+export function deleteDepartment(departmentId: string) {
+  return apiFetch<void>(`/api/salary/departments/${departmentId}`, { method: 'DELETE' });
+}
 
 export function fetchPositions() {
   return apiFetch<Position[]>('/api/salary/positions');
 }
 
-export function upsertPosition(positionId: string, data: { name: string; titleWeight: number; basicSalary: number; maxLevel: number; sortOrder?: number; inCareerProgression?: boolean; badgeUrl?: string | null; starColor?: string | null; description?: string | null; roleFocus?: string | null }) {
+export function upsertPosition(positionId: string, data: { name: string; titleWeight: number; basicSalary: number; maxLevel: number; sortOrder?: number; inCareerProgression?: boolean; badgeUrl?: string | null; starColor?: string | null; description?: string | null; roleFocus?: string | null; departmentId?: string | null }) {
   return apiFetch<Position>(`/api/salary/positions/${positionId}`, { method: 'PUT', body: JSON.stringify(data) });
 }
 

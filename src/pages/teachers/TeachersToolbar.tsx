@@ -5,6 +5,7 @@ import { TP_C, TP_MOTION } from './tokens.js';
 import { SearchBar, SearchBarHandle } from '../../components/common/SearchBar.js';
 
 export type TeachersTabKey = 'active' | 'inactive' | 'all';
+export type TeachersGroupKey = 'none' | 'department';
 
 interface TeachersToolbarProps {
   tab: TeachersTabKey;
@@ -12,11 +13,13 @@ interface TeachersToolbarProps {
   counts: { active: number; inactive: number; all: number };
   search: string;
   onSearchChange: (s: string) => void;
+  groupBy: TeachersGroupKey;
+  onGroupByChange: (g: TeachersGroupKey) => void;
   rightActions?: React.ReactNode;
 }
 
 export function TeachersToolbar({
-  tab, onTabChange, counts, search, onSearchChange, rightActions,
+  tab, onTabChange, counts, search, onSearchChange, groupBy, onGroupByChange, rightActions,
 }: TeachersToolbarProps) {
   const searchRef = useRef<SearchBarHandle>(null);
 
@@ -63,6 +66,19 @@ export function TeachersToolbar({
                 {t.label}{t.count > 0 ? ` · ${t.count}` : ''}
               </option>
             ))}
+          </select>
+          <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 10, color: TP_C.muted, pointerEvents: 'none', position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }} />
+        </div>
+        <div style={styles.selectWrap}>
+          <select
+            className="tp-filter-select"
+            value={groupBy}
+            onChange={e => onGroupByChange(e.target.value as TeachersGroupKey)}
+            style={styles.select}
+            aria-label="Group by"
+          >
+            <option value="none">No grouping</option>
+            <option value="department">Group by department</option>
           </select>
           <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 10, color: TP_C.muted, pointerEvents: 'none', position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }} />
         </div>
