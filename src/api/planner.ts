@@ -27,6 +27,7 @@ export function updateTeacher(id: string, data: Partial<{
   isFixedSalary: boolean; fixedSalaryAmount: number | null;
   salaryType: string; hourlyRate: number | null;
   excludeFromProfitShare: boolean;
+  excludeFromStaffCost: boolean;
   overrideProfitShareWeight: boolean; customProfitShareWeight: number | null;
   hasEpf: boolean; hasSocso: boolean; hasEis: boolean;
   isActive: boolean; resignedAt: string | null; createdAt: string | null;

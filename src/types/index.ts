@@ -355,6 +355,7 @@ export interface Teacher {
   salaryType: string | null;
   hourlyRate: number | null;
   excludeFromProfitShare: boolean;
+  excludeFromStaffCost: boolean;
   overrideProfitShareWeight: boolean;
   customProfitShareWeight: number | null;
   hasEpf: boolean;

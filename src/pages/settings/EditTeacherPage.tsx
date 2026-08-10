@@ -114,6 +114,7 @@ export default function EditTeacherPage() {
   const [fixedSalaryAmount, setFixedSalaryAmount] = useState(0);
   const [hourlyRate, setHourlyRate] = useState(0);
   const [excludeFromProfitShare, setExcludeFromProfitShare] = useState(false);
+  const [excludeFromStaffCost, setExcludeFromStaffCost] = useState(false);
   const [overrideProfitShareWeight, setOverrideProfitShareWeight] = useState(false);
   const [customProfitShareWeight, setCustomProfitShareWeight] = useState<number>(0);
   const [hasEpf, setHasEpf] = useState(true);
@@ -159,6 +160,7 @@ export default function EditTeacherPage() {
       setFixedSalaryAmount(teacher.fixedSalaryAmount ?? 0);
       setHourlyRate(teacher.hourlyRate ?? 0);
       setExcludeFromProfitShare(teacher.excludeFromProfitShare ?? false);
+      setExcludeFromStaffCost(teacher.excludeFromStaffCost ?? false);
       setOverrideProfitShareWeight(teacher.overrideProfitShareWeight ?? false);
       setCustomProfitShareWeight(teacher.customProfitShareWeight ?? 0);
       setHasEpf(teacher.hasEpf ?? true);
@@ -271,6 +273,7 @@ export default function EditTeacherPage() {
       fixedSalaryAmount: salaryType === 'fixed' ? fixedSalaryAmount : null,
       hourlyRate: salaryType === 'hourly' ? hourlyRate : null,
       excludeFromProfitShare,
+      excludeFromStaffCost,
       overrideProfitShareWeight,
       customProfitShareWeight: overrideProfitShareWeight ? customProfitShareWeight : null,
       hasEpf, hasSocso, hasEis,
@@ -622,6 +625,14 @@ export default function EditTeacherPage() {
                         <input type="checkbox" checked={excludeFromProfitShare} onChange={e => setExcludeFromProfitShare(e.target.checked)} />
                         <span style={{ fontWeight: 600, color: C.text }}>Exclude from profit share</span>
                         <span style={{ fontSize: 11, color: C.muted }}>(not counted in the profit share weight analysis)</span>
+                      </label>
+                    </div>
+
+                    <div style={{ marginTop: 10 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                        <input type="checkbox" checked={excludeFromStaffCost} onChange={e => setExcludeFromStaffCost(e.target.checked)} />
+                        <span style={{ fontWeight: 600, color: C.text }}>Exclude from staff cost</span>
+                        <span style={{ fontSize: 11, color: C.muted }}>(salary won't count toward Finance's Staff Cost / profit — e.g. a grant-funded role)</span>
                       </label>
                     </div>
 

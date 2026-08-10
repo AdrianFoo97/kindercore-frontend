@@ -1840,7 +1840,10 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusCfg.dot }} />
                   {statusCfg.label}
                 </span>
-                <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                <span
+                  title={new Date(statusDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                  style={{ fontSize: 11, color: '#94a3b8', cursor: 'default' }}
+                >
                   {lead.relationship && `${lead.relationship} · `}{statusTimeLabel}
                 </span>
               </div>
@@ -1935,6 +1938,10 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                   {isReferral && <ViewRow label="Referrer's Child" value={refName || '—'} />}
                   {lead.utmSource && <ViewRow label="UTM Source" value={lead.utmSource} />}
                   <ViewRow label="Visit Preference" value={lead.preferredAppointmentTime || '—'} />
+                  <ViewRow
+                    label="Applied"
+                    value={new Date(lead.submittedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                  />
                   <ViewRow label="Status" value={statusDisplayLabel(lead.status)} />
                   {lead.status === 'FOLLOW_UP' && lead.statusChangedAt && (
                     <ViewRow label="Attended Date" value={new Date(lead.statusChangedAt).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })} />

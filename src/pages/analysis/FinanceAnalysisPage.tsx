@@ -79,6 +79,9 @@ interface PeriodEntry {
   operatingIsProjected: boolean;
   /** Recorded spend excluded from the operating cost sum (e.g. HR Benefits). */
   excludedOperatingCost: number;
+  /** Salary + employer contributions excluded from the staff cost sum
+   *  (teachers flagged "exclude from staff cost"). */
+  excludedStaffCost: number;
 }
 
 function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: GroupBy): PeriodEntry[] {
@@ -97,6 +100,7 @@ function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: 
       containsCurrent: i === currentMonthIdx,
       operatingIsProjected: m.operatingIsProjected,
       excludedOperatingCost: m.excludedOperatingCost,
+      excludedStaffCost: m.excludedStaffCost,
     }));
   }
   return [0, 1, 2, 3].map(qi => {
@@ -122,6 +126,7 @@ function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: 
       containsCurrent: indices.includes(currentMonthIdx),
       operatingIsProjected: slice.some(m => m.operatingIsProjected),
       excludedOperatingCost: slice.reduce((s, m) => s + m.excludedOperatingCost, 0),
+      excludedStaffCost: slice.reduce((s, m) => s + m.excludedStaffCost, 0),
     };
   });
 }
@@ -596,7 +601,7 @@ export default function FinanceAnalysisPage() {
                     <td style={{ ...s.tdNum, color: revenueColor, fontWeight: 600 }}>{fmtRM(e.revenue)}</td>
                     <td
                       style={s.tdNum}
-                      title={`Staff ${fmtRM(e.staffCost)}  ·  Operating ${fmtRM(e.operatingCost)}${e.operatingIsProjected ? '  (projected from rolling average)' : ''}  ·  Excluded ${fmtRM(e.excludedOperatingCost)}`}
+                      title={`Staff ${fmtRM(e.staffCost)} (excluded ${fmtRM(e.excludedStaffCost)})  ·  Operating ${fmtRM(e.operatingCost)}${e.operatingIsProjected ? '  (projected from rolling average)' : ''} (excluded ${fmtRM(e.excludedOperatingCost)})`}
                     >
                       <ExpenseCell
                         staff={e.staffCost}
@@ -615,7 +620,7 @@ export default function FinanceAnalysisPage() {
                 <td style={{ ...s.tdNum, ...s.totalCell, fontWeight: 800, color: C.positive }}>{fmtRM(data.totals.revenue)}</td>
                 <td
                   style={{ ...s.tdNum, ...s.totalCell }}
-                  title={`Staff ${fmtRM(data.totals.staffCost)}  ·  Operating ${fmtRM(data.totals.operatingCost)}  ·  Excluded ${fmtRM(data.totals.excludedOperatingCost)}`}
+                  title={`Staff ${fmtRM(data.totals.staffCost)} (excluded ${fmtRM(data.totals.excludedStaffCost)})  ·  Operating ${fmtRM(data.totals.operatingCost)} (excluded ${fmtRM(data.totals.excludedOperatingCost)})`}
                 >
                   <ExpenseCell
                     staff={data.totals.staffCost}
@@ -859,19 +864,9 @@ function FinanceTooltip({ active, payload, label }: any) {
       <div style={{ height: 1, background: C.divider, margin: `${SP.sm}px 0` }} />
       <TooltipRow color={C.expenseDark} label="Total Expenses" value={fmtRM(-(d.staffCost + d.operatingCost))} strong />
       <TooltipRow color={C.expenseDark} label="Staff" value={fmtRM(-d.staffCost)} indent />
+      <ExcludedRow value={d.excludedStaffCost} title="Salary + employer contributions for teachers flagged &quot;exclude from staff cost&quot; (e.g. a grant-funded role) — doesn't count toward Total Expenses or Profit." />
       <TooltipRow color={C.expenseLight} label="Operating" value={fmtRM(-d.operatingCost)} indent />
-      <div
-        title="Recorded spend under categories/main categories flagged out of the operating cost sum (e.g. HR Benefits) — doesn't count toward Total Expenses or Profit."
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.lg, padding: '4px 0 4px 14px' }}
-      >
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: SP.sm, color: C.muted, fontStyle: 'italic', fontSize: 11.5 }}>
-          <span style={{ width: 6, height: 6, borderRadius: 2, background: C.divider, border: `1px solid ${C.cardBorder}` }} />
-          Excluded
-        </span>
-        <span style={{ color: C.muted, fontStyle: 'italic', fontSize: 11.5, fontVariantNumeric: 'tabular-nums' as any, textAlign: 'right' }}>
-          {fmtRM(d.excludedOperatingCost)}
-        </span>
-      </div>
+      <ExcludedRow value={d.excludedOperatingCost} title="Recorded spend under categories/main categories flagged out of the operating cost sum (e.g. HR Benefits) — doesn't count toward Total Expenses or Profit." />
       <div style={{ height: 1, background: C.divider, margin: `${SP.sm}px 0` }} />
       <TooltipRow
         color={rowColor}
@@ -879,6 +874,26 @@ function FinanceTooltip({ active, payload, label }: any) {
         value={`${fmtRM(d.profit)}  (${fmtPct(d.margin)})`}
         strong
       />
+    </div>
+  );
+}
+
+// Muted italic sub-row under Staff/Operating showing the RM amount that was
+// recorded but flagged out of that line's total — always rendered (even at
+// RM 0) so "why doesn't this add up to the total?" has a visible answer.
+function ExcludedRow({ value, title }: { value: number; title: string }) {
+  return (
+    <div
+      title={title}
+      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.lg, padding: '4px 0 4px 14px' }}
+    >
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: SP.sm, color: C.muted, fontStyle: 'italic', fontSize: 11.5 }}>
+        <span style={{ width: 6, height: 6, borderRadius: 2, background: C.divider, border: `1px solid ${C.cardBorder}` }} />
+        Excluded
+      </span>
+      <span style={{ color: C.muted, fontStyle: 'italic', fontSize: 11.5, fontVariantNumeric: 'tabular-nums' as any, textAlign: 'right' }}>
+        {fmtRM(value)}
+      </span>
     </div>
   );
 }

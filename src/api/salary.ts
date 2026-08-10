@@ -99,9 +99,16 @@ export function fetchTeacherWeightsByMonth(year?: number) {
   return apiFetch<TeacherWeightsByMonth>(`/api/salary/teacher-weights-by-month${year ? `?year=${year}` : ''}`);
 }
 
+export interface PayrollByDepartment {
+  departmentId: string;
+  departmentName: string;
+  staffCost: number;
+  teacherCount: number;
+}
+
 export interface PayrollByMonth {
   year: number;
-  months: { month: string; total: number; teacherCount: number; isForecast: boolean }[];
+  months: { month: string; total: number; teacherCount: number; isForecast: boolean; byDepartment: PayrollByDepartment[] }[];
   annualTotal: number;
   actualTotal: number;
   forecastTotal: number;

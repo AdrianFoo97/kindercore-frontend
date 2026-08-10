@@ -15,6 +15,9 @@ export interface FinanceMonth {
   /** Recorded spend under categories/groups flagged out of the operating
    *  cost sum (e.g. HR Benefits) — doesn't count toward operatingCost/profit. */
   excludedOperatingCost: number;
+  /** Salary + employer contributions for teachers flagged "exclude from
+   *  staff cost" — doesn't count toward staffCost/profit. */
+  excludedStaffCost: number;
 }
 
 export interface FinanceTotalsSplit {
@@ -23,6 +26,7 @@ export interface FinanceTotalsSplit {
   operatingCost: number;
   profit: number;
   excludedOperatingCost: number;
+  excludedStaffCost: number;
 }
 
 export interface FinanceSummary {

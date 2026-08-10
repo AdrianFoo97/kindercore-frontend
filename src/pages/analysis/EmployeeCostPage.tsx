@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, ReferenceArea } from 'recharts';
 import { faCalendar } from '@fortawesome/free-solid-svg-icons';
-import { fetchTeachersWithSalary, fetchPayrollByMonth, fetchTeacherWeightsByMonth, fetchEmployerContributions } from '../../api/salary.js';
+import { fetchTeachersWithSalary, fetchPayrollByMonth, fetchTeacherWeightsByMonth, fetchEmployerContributions, PayrollByDepartment } from '../../api/salary.js';
 import { fetchCareerEventsByYear, CareerEvent } from '../../api/career.js';
 import { fetchSettings } from '../../api/settings.js';
 import { fetchTeachers } from '../../api/planner.js';
@@ -27,10 +27,12 @@ interface PayrollEntry {
   teacherCount: number;
   isForecast: boolean;
   containsCurrent: boolean;
+  /** staffCost keyed by departmentId, for the stacked-by-department bar. */
+  byDept: Record<string, number>;
 }
 
 function buildPayrollEntries(
-  months: { month: string; total: number; teacherCount: number; isForecast: boolean }[],
+  months: { month: string; total: number; teacherCount: number; isForecast: boolean; byDepartment: PayrollByDepartment[] }[],
   currentMonthIdx: number,
   groupBy: GroupBy,
 ): PayrollEntry[] {
@@ -42,12 +44,17 @@ function buildPayrollEntries(
       teacherCount: m.teacherCount,
       isForecast: m.isForecast,
       containsCurrent: i === currentMonthIdx,
+      byDept: Object.fromEntries(m.byDepartment.map(d => [d.departmentId, d.staffCost])),
     }));
   }
   return [0, 1, 2, 3].map(qi => {
     const indices = [qi * 3, qi * 3 + 1, qi * 3 + 2];
     const slice = indices.map(i => months[i]);
     const last = slice[slice.length - 1];
+    const byDept: Record<string, number> = {};
+    for (const m of slice) {
+      for (const d of m.byDepartment) byDept[d.departmentId] = (byDept[d.departmentId] ?? 0) + d.staffCost;
+    }
     return {
       key: `q${qi + 1}`,
       label: `Q${qi + 1}`,
@@ -55,9 +62,13 @@ function buildPayrollEntries(
       teacherCount: last.teacherCount,
       isForecast: slice.every(m => m.isForecast),
       containsCurrent: indices.includes(currentMonthIdx),
+      byDept,
     };
   });
 }
+
+// Cycled if there are more departments than colors.
+const DEPT_COLORS = ['#4f46e5', '#0ea5e9', '#059669', '#d97706', '#db2777', '#7c3aed', '#0891b2', '#dc2626'];
 
 export default function EmployeeCostPage() {
   const { isMobile } = useIsMobile();
@@ -161,6 +172,20 @@ export default function EmployeeCostPage() {
     () => payroll ? buildPayrollEntries(payroll.months, payroll.currentMonthIdx, groupBy) : [],
     [payroll, groupBy],
   );
+
+  // Union of departments appearing anywhere in the year, in the backend's
+  // sortOrder (Unassigned always last) — drives both the stacked bar
+  // segments and the legend/tooltip so they stay in sync.
+  const departmentList = useMemo(() => {
+    if (!payroll) return [];
+    const seen = new Map<string, string>();
+    for (const m of payroll.months) {
+      for (const d of m.byDepartment) if (!seen.has(d.departmentId)) seen.set(d.departmentId, d.departmentName);
+    }
+    return [...seen.entries()]
+      .sort((a, b) => (a[0] === 'UNASSIGNED' ? 1 : b[0] === 'UNASSIGNED' ? -1 : 0))
+      .map(([id, name], i) => ({ id, name, color: DEPT_COLORS[i % DEPT_COLORS.length] }));
+  }, [payroll]);
 
   // Auto-fit Y-axis domain to highlight period-to-period differences
   const payrollYDomain = useMemo<[number, number]>(() => {
@@ -320,13 +345,12 @@ export default function EmployeeCostPage() {
           </div>
           <LegendPills
             items={[
-              { color: C.primary, label: 'Actual' },
-              { color: '#312e81', label: 'Current' },
-              { color: '#c7d2fe', label: 'Forecast' },
+              ...departmentList.map(d => ({ color: d.color, label: d.name })),
               { color: '#0ea5e9', label: 'Staff count' },
             ]}
           />
         </div>
+        <p style={{ ...s.cardSub, marginTop: -6, marginBottom: 10 }}>Faded bars are forecast months.</p>
         {!payroll || entries.every(e => e.total === 0) ? (
           <p style={s.empty}>No staff cost data</p>
         ) : (
@@ -354,11 +378,23 @@ export default function EmployeeCostPage() {
                 content={({ active, payload, label }: any) => {
                   if (!active || !payload?.length) return null;
                   const d = payload[0]?.payload as PayrollEntry;
+                  const deptRows = departmentList
+                    .map(dept => ({ ...dept, value: d.byDept[dept.id] ?? 0 }))
+                    .filter(r => r.value > 0);
                   return (
-                    <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 12 }}>
+                    <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 12, minWidth: 190 }}>
                       <div style={{ fontWeight: 700, color: C.text, marginBottom: 4 }}>{label}{d.isForecast ? ' · Forecast' : ''}</div>
-                      <div style={{ color: C.green, fontWeight: 600 }}>{fmtRM(d.total)}</div>
-                      <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{d.teacherCount} teacher{d.teacherCount !== 1 ? 's' : ''}</div>
+                      <div style={{ color: C.green, fontWeight: 700, marginBottom: 4 }}>{fmtRM(d.total)}</div>
+                      {deptRows.map(r => (
+                        <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '2px 0' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: C.muted }}>
+                            <span style={{ width: 7, height: 7, borderRadius: 2, background: r.color, flexShrink: 0 }} />
+                            {r.name}
+                          </span>
+                          <span style={{ color: C.text, fontVariantNumeric: 'tabular-nums' as any }}>{fmtRM(r.value)}</span>
+                        </div>
+                      ))}
+                      <div style={{ color: C.muted, fontSize: 11, marginTop: 4, paddingTop: 4, borderTop: `1px solid ${C.border}` }}>{d.teacherCount} teacher{d.teacherCount !== 1 ? 's' : ''}</div>
                     </div>
                   );
                 }}
@@ -375,31 +411,35 @@ export default function EmployeeCostPage() {
                   ifOverflow="extendDomain"
                 />
               )}
-              <Bar
-                yAxisId="cost"
-                dataKey="total"
-                radius={[6, 6, 0, 0]}
-                maxBarSize={groupBy === 'quarter' ? 80 : 42}
-                cursor="pointer"
-                label={({ x, y, width, value }: any) => {
-                  if (!value) return <text key={`l-${x}`} />;
-                  return <text key={`l-${x}`} x={x + width / 2} y={y - 6} textAnchor="middle" fill={C.muted} fontSize={10} fontWeight={600}>{value.toLocaleString('en-MY')}</text>;
-                }}>
-                {entries.map((e, i) => {
-                  const isSelected = period !== 'all' && e.key === period;
-                  // Selected takes priority → deep indigo.
-                  // Current month (if not selected) → medium indigo.
-                  // Forecast → soft periwinkle; otherwise primary.
-                  const fill = isSelected
-                    ? '#312e81'
-                    : e.containsCurrent
-                      ? '#4338ca'
-                      : e.isForecast
-                        ? '#c7d2fe'
-                        : C.primary;
-                  return <Cell key={i} fill={fill} />;
-                })}
-              </Bar>
+              {departmentList.map((d, di) => {
+                const isLast = di === departmentList.length - 1;
+                return (
+                  <Bar
+                    key={d.id}
+                    yAxisId="cost"
+                    dataKey={(e: PayrollEntry) => e.byDept[d.id] ?? 0}
+                    name={d.name}
+                    stackId="staff-cost"
+                    fill={d.color}
+                    radius={isLast ? [6, 6, 0, 0] : undefined}
+                    maxBarSize={groupBy === 'quarter' ? 80 : 42}
+                    cursor="pointer"
+                    isAnimationActive={false}
+                    // Total-for-the-column label sits only on the top-most
+                    // segment (the last department in the stack) — Recharts
+                    // positions it at that segment's own top, which is the
+                    // stack's top for whichever Bar renders last.
+                    label={isLast ? ((props: any) => {
+                      const { x, y, width, index } = props;
+                      const total = entries[index]?.total;
+                      if (!total) return <text key={`l-${x}`} />;
+                      return <text key={`l-${x}`} x={x + width / 2} y={y - 6} textAnchor="middle" fill={C.muted} fontSize={10} fontWeight={600}>{total.toLocaleString('en-MY')}</text>;
+                    }) : undefined}
+                  >
+                    {entries.map((e, i) => <Cell key={i} fillOpacity={e.isForecast ? 0.45 : 1} />)}
+                  </Bar>
+                );
+              })}
               <Line
                 yAxisId="staff"
                 type="monotone"
