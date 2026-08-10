@@ -221,6 +221,11 @@ function computeFlags(c: Candidate, positions: { name: string; minSalary: number
   return flags;
 }
 
+// Tabs that default to card view (sidebar queue + expanded card + decision
+// bar) instead of the spreadsheet-style list: NEW for triage, TALENT_BANK
+// for browsing parked candidates. Everything else defaults to list.
+const CARD_DEFAULT_TABS = ['NEW', 'TALENT_BANK'];
+
 const STATUS_META: Record<CandidateStatus, { label: string; bg: string; fg: string; icon: any }> = {
   NEW:          { label: 'New',          bg: C.infoSoft,    fg: C.info,    icon: faUserClock },
   CONTACTED:        { label: 'Contacted',    bg: C.primarySoft, fg: C.primaryDeep, icon: faPhone },
@@ -455,6 +460,15 @@ export default function CandidatesPage() {
   const [tab, setTab] = useState<'NEW' | 'CONTACTED' | 'INTERVIEWING' | 'PENDING_DECISION' | 'OFFER_SENT' | 'HIRED' | 'REJECTED' | 'TALENT_BANK' | 'closed'>('NEW');
 
   const [search, setSearch] = useState('');
+  // Explicit tab-bar navigation clears any leftover search — otherwise
+  // switching back from a repeat-applicant search (which jumps to "All
+  // closed" and pre-fills the phone number) leaves that filter silently
+  // applied to whichever tab you land on next. Repeat-search itself calls
+  // setTab/setSearch directly since it intentionally sets both together.
+  function selectTab(next: typeof tab) {
+    setTab(next);
+    setSearch('');
+  }
   const [desiredPosition, setDesiredPosition] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Candidate | null>(null);
@@ -507,18 +521,16 @@ export default function CandidatesPage() {
   const CLOSED_PAGE_SIZE = 10;
   const [closedPage, setClosedPage] = useState(1);
   // Two view modes: 'list' (spreadsheet-style rows) and 'card' (sidebar
-  // queue + expanded card + decision bar). Card view defaults on the NEW
-  // tab because that's where triage happens; on other tabs list is the
-  // more useful default. The admin can toggle either direction via the
-  // switch in the toolbar.
-  const [viewMode, setViewMode] = useState<'list' | 'card'>(tab === 'NEW' ? 'card' : 'list');
+  // queue + expanded card + decision bar). See CARD_DEFAULT_TABS above for
+  // which tabs default to card. The admin can toggle either direction via
+  // the switch in the toolbar.
+  const [viewMode, setViewMode] = useState<'list' | 'card'>(CARD_DEFAULT_TABS.includes(tab) ? 'card' : 'list');
   const [showFilters, setShowFilters] = useState<boolean>(false);
 
-  // Snap viewMode back to the tab's default whenever the tab changes:
-  // NEW → card (triage flow), everything else → list. The user can still
-  // toggle within a tab, but switching tabs resets the default.
+  // Snap viewMode back to the tab's default whenever the tab changes. The
+  // user can still toggle within a tab, but switching tabs resets the default.
   useEffect(() => {
-    setViewMode(tab === 'NEW' ? 'card' : 'list');
+    setViewMode(CARD_DEFAULT_TABS.includes(tab) ? 'card' : 'list');
   }, [tab]);
 
   // Reset closed-tab pagination whenever anything upstream could change
@@ -1066,16 +1078,16 @@ export default function CandidatesPage() {
 
       {/* Pipeline stage tabs — one row from NEW to Rejected. */}
       <div style={S.tabBar}>
-        <TabBtn label="New"        count={counts?.NEW}              active={tab === 'NEW'}              onClick={() => setTab('NEW')} />
-        <TabBtn label="Contacted"  count={counts?.CONTACTED}        active={tab === 'CONTACTED'}        onClick={() => setTab('CONTACTED')} />
-        <TabBtn label="Interview"  count={counts?.INTERVIEWING}     active={tab === 'INTERVIEWING'}     onClick={() => setTab('INTERVIEWING')} />
-        <TabBtn label="Deciding"   count={counts?.PENDING_DECISION} active={tab === 'PENDING_DECISION'} onClick={() => setTab('PENDING_DECISION')} />
-        <TabBtn label="Offer sent" count={counts?.OFFER_SENT}       active={tab === 'OFFER_SENT'}       onClick={() => setTab('OFFER_SENT')} />
+        <TabBtn label="New"        count={counts?.NEW}              active={tab === 'NEW'}              onClick={() => selectTab('NEW')} />
+        <TabBtn label="Contacted"  count={counts?.CONTACTED}        active={tab === 'CONTACTED'}        onClick={() => selectTab('CONTACTED')} />
+        <TabBtn label="Interview"  count={counts?.INTERVIEWING}     active={tab === 'INTERVIEWING'}     onClick={() => selectTab('INTERVIEWING')} />
+        <TabBtn label="Deciding"   count={counts?.PENDING_DECISION} active={tab === 'PENDING_DECISION'} onClick={() => selectTab('PENDING_DECISION')} />
+        <TabBtn label="Offer sent" count={counts?.OFFER_SENT}       active={tab === 'OFFER_SENT'}       onClick={() => selectTab('OFFER_SENT')} />
         <div style={S.tabSep} />
-        <TabBtn label="Hired"       count={counts?.HIRED}        active={tab === 'HIRED'}        onClick={() => setTab('HIRED')} />
-        <TabBtn label="Rejected"    count={counts?.REJECTED}     active={tab === 'REJECTED'}     onClick={() => setTab('REJECTED')} />
-        <TabBtn label="Talent Bank" count={counts?.TALENT_BANK}  active={tab === 'TALENT_BANK'}  onClick={() => setTab('TALENT_BANK')} />
-        <TabBtn label="All closed"  count={closedTotal}          active={tab === 'closed'}       onClick={() => setTab('closed')} />
+        <TabBtn label="Hired"       count={counts?.HIRED}        active={tab === 'HIRED'}        onClick={() => selectTab('HIRED')} />
+        <TabBtn label="Rejected"    count={counts?.REJECTED}     active={tab === 'REJECTED'}     onClick={() => selectTab('REJECTED')} />
+        <TabBtn label="Talent Bank" count={counts?.TALENT_BANK}  active={tab === 'TALENT_BANK'}  onClick={() => selectTab('TALENT_BANK')} />
+        <TabBtn label="All closed"  count={closedTotal}          active={tab === 'closed'}       onClick={() => selectTab('closed')} />
       </div>
 
       {/* Toolbar — search + position + filter button + sort + density */}
@@ -1435,7 +1447,7 @@ export default function CandidatesPage() {
                         Restart session
                       </button>
                       <button
-                        onClick={() => setTab('CONTACTED')}
+                        onClick={() => selectTab('CONTACTED')}
                         style={{ ...S.linkBtn(false), background: C.primary, color: '#fff', borderColor: C.primary }}
                       >
                         Go to Contacted

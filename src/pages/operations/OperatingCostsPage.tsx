@@ -37,6 +37,11 @@ export default function OperatingCostsPage() {
   // flat map "categoryId|month" -> number
   const [values, setValues] = useState<Record<string, number>>({});
   const [originalValues, setOriginalValues] = useState<Record<string, number>>({});
+  // flat map "categoryId|month" -> true when that specific month's entry is
+  // excluded from the operating cost sum (entry-level override). Absence
+  // means included — mirrors how `values` only stores non-zero amounts.
+  const [excluded, setExcluded] = useState<Record<string, boolean>>({});
+  const [originalExcluded, setOriginalExcluded] = useState<Record<string, boolean>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -82,11 +87,16 @@ export default function OperatingCostsPage() {
   useEffect(() => {
     if (!entriesData || categories.length === 0) return;
     const serverSnapshot: Record<string, number> = {};
+    const excludedSnapshot: Record<string, boolean> = {};
     for (const row of entriesData.rows) {
-      serverSnapshot[cellKey(row.categoryId, row.month)] = row.amount;
+      const key = cellKey(row.categoryId, row.month);
+      serverSnapshot[key] = row.amount;
+      if (!row.includeInOperatingCostSum) excludedSnapshot[key] = true;
     }
     setValues(serverSnapshot);
     setOriginalValues(serverSnapshot);
+    setExcluded(excludedSnapshot);
+    setOriginalExcluded(excludedSnapshot);
   }, [entriesData, categories]);
 
   // ── Derived: grouped categories ────────────────────────────────────────────
@@ -104,6 +114,13 @@ export default function OperatingCostsPage() {
     for (const list of g.values()) list.sort((a, b) => a.sortOrder - b.sortOrder);
     return [...g.entries()];
   }, [categories, groups]);
+
+  // Looked up when deciding whether a category's per-entry exclude toggle is
+  // locked — a category or group already excluded from the sum makes the
+  // entry-level flag moot (it's excluded either way).
+  const groupById = useMemo(() => new Map(groups.map(g => [g.id, g])), [groups]);
+  const isLocked = (category: OperatingCostCategory) =>
+    !category.includeInOperatingCostSum || groupById.get(category.groupId)?.includeInOperatingCostSum === false;
 
   // Default to the first group on first load
   useEffect(() => {
@@ -178,9 +195,9 @@ export default function OperatingCostsPage() {
     return activeGroupCategories.map(category => {
       const v = values[cellKey(category.id, selectedMonth)] ?? 0;
       const last = lastMonthValues[category.id] ?? 0;
-      return { category, state: computeRowState(category, v, last) };
+      return { category, state: computeRowState(category, v, last), locked: isLocked(category) };
     });
-  }, [activeGroupCategories, values, lastMonthValues, selectedMonth]);
+  }, [activeGroupCategories, values, lastMonthValues, selectedMonth, groupById]);
 
   const pagedRows = activeGroupRows.slice(
     (page - 1) * SIZE.pageSize,
@@ -206,19 +223,22 @@ export default function OperatingCostsPage() {
 
   // ── Dirty tracking ─────────────────────────────────────────────────────────
   const { isDirty, changedCount, deltaTotal } = useMemo(() => {
-    const keys = new Set([...Object.keys(values), ...Object.keys(originalValues)]);
+    const keys = new Set([
+      ...Object.keys(values), ...Object.keys(originalValues),
+      ...Object.keys(excluded), ...Object.keys(originalExcluded),
+    ]);
     let count = 0;
     let delta = 0;
     for (const k of keys) {
       const now = values[k] ?? 0;
       const was = originalValues[k] ?? 0;
-      if (now !== was) {
+      if (now !== was || !!excluded[k] !== !!originalExcluded[k]) {
         count++;
         delta += now - was;
       }
     }
     return { isDirty: count > 0, changedCount: count, deltaTotal: delta };
-  }, [values, originalValues]);
+  }, [values, originalValues, excluded, originalExcluded]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   function setCell(categoryId: string, month: number, v: number) {
@@ -229,6 +249,15 @@ export default function OperatingCostsPage() {
       } else {
         next[cellKey(categoryId, month)] = v;
       }
+      return next;
+    });
+  }
+
+  function toggleExcluded(categoryId: string, month: number) {
+    setExcluded(prev => {
+      const key = cellKey(categoryId, month);
+      const next = { ...prev };
+      if (next[key]) delete next[key]; else next[key] = true;
       return next;
     });
   }
@@ -255,14 +284,23 @@ export default function OperatingCostsPage() {
     if (!isDirty) return;
     setIsSaving(true);
     try {
-      const rows: { categoryId: string; month: number; amount: number }[] = [];
-      const keys = new Set([...Object.keys(values), ...Object.keys(originalValues)]);
+      const rows: { categoryId: string; month: number; amount: number; includeInOperatingCostSum: boolean }[] = [];
+      const keys = new Set([
+        ...Object.keys(values), ...Object.keys(originalValues),
+        ...Object.keys(excluded), ...Object.keys(originalExcluded),
+      ]);
       for (const k of keys) {
         const [categoryId, monthStr] = k.split('|');
-        rows.push({ categoryId, month: Number(monthStr), amount: values[k] ?? 0 });
+        rows.push({
+          categoryId,
+          month: Number(monthStr),
+          amount: values[k] ?? 0,
+          includeInOperatingCostSum: !excluded[k],
+        });
       }
       await bulkUpsertOperatingCostEntries(year, rows);
       setOriginalValues({ ...values });
+      setOriginalExcluded({ ...excluded });
       qc.invalidateQueries({ queryKey: ['operating-cost-entries', year] });
       qc.invalidateQueries({ queryKey: ['finance-summary'] });
       showToast('Operating costs saved', 'success');
@@ -275,6 +313,7 @@ export default function OperatingCostsPage() {
 
   function handleDiscard() {
     setValues({ ...originalValues });
+    setExcluded({ ...originalExcluded });
   }
 
   // A key belongs to the current reset scope if it's in the selected month
@@ -309,6 +348,16 @@ export default function OperatingCostsPage() {
         return next;
       });
       setOriginalValues(prev => {
+        const next = { ...prev };
+        for (const k of Object.keys(next)) if (inResetScope(k)) delete next[k];
+        return next;
+      });
+      setExcluded(prev => {
+        const next = { ...prev };
+        for (const k of Object.keys(next)) if (inResetScope(k)) delete next[k];
+        return next;
+      });
+      setOriginalExcluded(prev => {
         const next = { ...prev };
         for (const k of Object.keys(next)) if (inResetScope(k)) delete next[k];
         return next;
@@ -487,9 +536,11 @@ export default function OperatingCostsPage() {
               groupLastMonthTotal={activeGroupLastMonthTotal}
               values={values}
               lastMonthValues={lastMonthValues}
+              excluded={excluded}
               selectedMonth={selectedMonth}
               year={year}
               onCellChange={setCell}
+              onToggleExcluded={toggleExcluded}
               onCopyRowFromLast={copyRowFromLast}
               onCopyAllFromLast={copyAllFromLast}
               hasAnyLastMonth={hasAnyLastMonth}
@@ -505,6 +556,8 @@ export default function OperatingCostsPage() {
           year={year}
           yearTotal={grandTotal}
           values={values}
+          excluded={excluded}
+          isLocked={isLocked}
           onCellChange={setCell}
         />
       )}
@@ -542,12 +595,14 @@ export default function OperatingCostsPage() {
 // ── Year grid (full-width overview, no sidebar) ──────────────────────────────
 
 function YearGridView({
-  grouped, year, yearTotal, values, onCellChange,
+  grouped, year, yearTotal, values, excluded, isLocked, onCellChange,
 }: {
   grouped: [string, OperatingCostCategory[]][];
   year: number;
   yearTotal: number;
   values: Record<string, number>;
+  excluded: Record<string, boolean>;
+  isLocked: (category: OperatingCostCategory) => boolean;
   onCellChange: (categoryId: string, month: number, v: number) => void;
 }) {
   // Mark months that haven't happened yet so the grid visually communicates
@@ -725,6 +780,8 @@ function YearGridView({
                 groupName={groupName}
                 categories={cats}
                 values={values}
+                excluded={excluded}
+                isLocked={isLocked}
                 rowTotal={rowTotal}
                 rowAverage={rowAverage}
                 isFuture={isFuture}
@@ -808,11 +865,13 @@ function YearGridView({
 
 // Renders the group header row + all category rows for one group
 function GroupSection({
-  groupName, categories, values, rowTotal, rowAverage, isFuture, isCurrent, onCellChange,
+  groupName, categories, values, excluded, isLocked, rowTotal, rowAverage, isFuture, isCurrent, onCellChange,
 }: {
   groupName: string;
   categories: OperatingCostCategory[];
   values: Record<string, number>;
+  excluded: Record<string, boolean>;
+  isLocked: (category: OperatingCostCategory) => boolean;
   rowTotal: (catId: string) => number;
   rowAverage: (catId: string) => number;
   isFuture: (m: number) => boolean;
@@ -885,13 +944,32 @@ function GroupSection({
               // Future month cells get a diagonal-stripe feel via a
               // slightly darker background + muted input color.
               const cellBg = current ? C.primaryLight : future ? '#f3f4f6' : undefined;
+              const cellExcluded = isLocked(cat) || !!excluded[cellKey(cat.id, m)];
               return (
-                <td key={m} style={{ ...tdStyle, padding: 0, background: cellBg }}>
+                <td key={m} style={{ ...tdStyle, padding: 0, background: cellBg, position: 'relative' }}>
                   <GridCellInput
                     value={values[cellKey(cat.id, m)] ?? 0}
                     onChange={v => onCellChange(cat.id, m, v)}
                     dim={future}
                   />
+                  {cellExcluded && (values[cellKey(cat.id, m)] ?? 0) > 0 && (
+                    <span
+                      title={
+                        isLocked(cat)
+                          ? 'Excluded from operating cost — set by this category/main category in Settings'
+                          : 'Excluded from this month’s operating cost total. Edit in Month view.'
+                      }
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: C.red,
+                      }}
+                    />
+                  )}
                 </td>
               );
             })}

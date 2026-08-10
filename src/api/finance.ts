@@ -12,6 +12,9 @@ export interface FinanceMonth {
   isForecast: boolean;
   /** True when the month's operating cost is a projection (no saved entries). */
   operatingIsProjected: boolean;
+  /** Recorded spend under categories/groups flagged out of the operating
+   *  cost sum (e.g. HR Benefits) — doesn't count toward operatingCost/profit. */
+  excludedOperatingCost: number;
 }
 
 export interface FinanceTotalsSplit {
@@ -19,6 +22,7 @@ export interface FinanceTotalsSplit {
   staffCost: number;
   operatingCost: number;
   profit: number;
+  excludedOperatingCost: number;
 }
 
 export interface FinanceSummary {

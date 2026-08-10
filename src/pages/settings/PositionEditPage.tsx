@@ -41,6 +41,16 @@ const STAR_COLOR_PRESETS: { color: string; label: string }[] = [
 
 function numOnly(val: string): string { return val.replace(/[^\d.]/g, ''); }
 
+// Like numOnly but collapses to a single decimal point, so a field can hold
+// intermediate typing states like "1." without a controlled re-render
+// snapping it back to "1" and blocking further digits.
+function decimalOnly(val: string): string {
+  const cleaned = numOnly(val);
+  const firstDot = cleaned.indexOf('.');
+  if (firstDot === -1) return cleaned;
+  return cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+}
+
 export default function PositionEditPage() {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
@@ -62,7 +72,7 @@ export default function PositionEditPage() {
     positionId: '',
     departmentId: '',
     name: '',
-    titleWeight: 0,
+    titleWeight: '0',
     basicSalary: 0,
     maxLevel: 5,
     inCareerProgression: true,
@@ -84,7 +94,7 @@ export default function PositionEditPage() {
         positionId: existing.positionId,
         departmentId: existing.departmentId ?? '',
         name: existing.name,
-        titleWeight: existing.titleWeight,
+        titleWeight: String(existing.titleWeight),
         basicSalary: existing.basicSalary,
         maxLevel: existing.maxLevel,
         inCareerProgression: existing.inCareerProgression,
@@ -144,7 +154,7 @@ export default function PositionEditPage() {
       await upsertPosition(positionId, {
         name: form.name.trim(),
         departmentId: form.departmentId || null,
-        titleWeight: form.titleWeight,
+        titleWeight: Number(form.titleWeight) || 0,
         basicSalary: form.basicSalary,
         maxLevel: form.maxLevel,
         sortOrder: isEdit ? undefined : positions.length,
@@ -288,7 +298,7 @@ export default function PositionEditPage() {
                 type="text"
                 inputMode="numeric"
                 value={form.titleWeight}
-                onChange={e => setForm(f => ({ ...f, titleWeight: Number(numOnly(e.target.value)) }))}
+                onChange={e => setForm(f => ({ ...f, titleWeight: decimalOnly(e.target.value) }))}
                 style={s.input}
               />
               <span style={s.help}>Profit-sharing weight multiplier.</span>

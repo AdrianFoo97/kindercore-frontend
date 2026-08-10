@@ -12,6 +12,7 @@ import {
 } from '../../api/operatingCost.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import ConfirmDialog from '../../components/common/ConfirmDialog.js';
 import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
 
 const C = {
@@ -35,6 +36,7 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
   const [newBudget, setNewBudget] = useState('');
   const [busy, setBusy] = useState(false);
   const [pageSize, setPageSize] = useState<10 | 20 | 'all'>(DEFAULT_PAGE_SIZE);
+  const [confirmingExclude, setConfirmingExclude] = useState<OperatingCostCategory | null>(null);
 
   // Drag-and-drop reorder state (HTML5 DnD, within the current page)
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -160,6 +162,40 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
     } finally {
       setBusy(false);
     }
+  }
+
+  // When the active main category is itself excluded, every category under
+  // it is effectively excluded too and its own switch can't override that —
+  // matches the confirmation copy shown on the main-categories page.
+  const groupExcludesAll = activeGroup ? !activeGroup.includeInOperatingCostSum : false;
+
+  async function setIncludeInSum(cat: OperatingCostCategory, include: boolean) {
+    setBusy(true);
+    try {
+      await updateOperatingCostCategory(cat.id, { includeInOperatingCostSum: include });
+      invalidate();
+      qc.invalidateQueries({ queryKey: ['finance-summary'] });
+    } catch (err: any) {
+      showToast(err.message || 'Failed', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Excluding a category from the ratio changes profit-share/bonus-pool
+  // eligibility numbers, so that direction gets a confirm step — including
+  // it back is always safe and stays a plain click.
+  function handleToggleIncludeInSum(cat: OperatingCostCategory) {
+    if (groupExcludesAll) return; // locked — controlled by the main category
+    if (cat.includeInOperatingCostSum) setConfirmingExclude(cat);
+    else setIncludeInSum(cat, true);
+  }
+
+  async function confirmExclude() {
+    if (!confirmingExclude) return;
+    const cat = confirmingExclude;
+    setConfirmingExclude(null);
+    await setIncludeInSum(cat, false);
   }
 
   // ── Drag-and-drop reorder ────────────────────────────────────────────────
@@ -367,6 +403,14 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
                 </div>
               </div>
 
+              {groupExcludesAll && (
+                <div style={s.lockBanner}>
+                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 11 }} />
+                  "{activeGroup?.name}" is excluded from operating cost — every category below inherits
+                  that and can't be switched back on individually. Change it on the Main Categories page.
+                </div>
+              )}
+
               {activeCategories.length === 0 && !isAdding ? (
                 <p style={s.empty}>No categories in {activeGroup?.name ?? ''} yet.</p>
               ) : (
@@ -374,6 +418,7 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
                   <colgroup>
                     <col style={{ width: 32 }} />
                     <col />
+                    <col style={{ width: 150 }} />
                     <col style={{ width: 150 }} />
                     <col style={{ width: 150 }} />
                     <col style={{ width: 88 }} />
@@ -384,6 +429,7 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
                       <th style={{ ...s.th, textAlign: 'left' }}>Name</th>
                       <th style={{ ...s.th, textAlign: 'right' }}>Preset Amount</th>
                       <th style={{ ...s.th, textAlign: 'right' }}>Budget</th>
+                      <th style={{ ...s.th, textAlign: 'center' }} title="Whether this category's entries count toward the monthly operating cost total used for the Expense Ratio Target / profit-share eligibility">In Cost Total</th>
                       <th style={s.th}></th>
                     </tr>
                   </thead>
@@ -420,6 +466,7 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
                             onEscape={cancelAdd}
                           />
                         </td>
+                        <td style={{ ...s.td, textAlign: 'center', color: C.muted, fontSize: 11 }}>{groupExcludesAll ? 'No' : 'Yes'}</td>
                         <td style={{ ...s.td, textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: 2 }}>
                             <button type="button" onClick={handleAdd} disabled={busy || !newName.trim()} style={s.iconBtnGreen} title="Save">
@@ -529,6 +576,14 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
                               ) : <span style={s.dashCell}>—</span>
                             )}
                           </td>
+                          <td style={{ ...s.td, ...dropLine, textAlign: 'center' }}>
+                            <IncludeInSumToggle
+                              active={groupExcludesAll ? false : cat.includeInOperatingCostSum}
+                              onChange={() => handleToggleIncludeInSum(cat)}
+                              disabled={busy || groupExcludesAll}
+                              lockedReason={groupExcludesAll ? `"${activeGroup?.name}" is excluded from operating cost — every category under it inherits that and can't be changed individually.` : undefined}
+                            />
+                          </td>
                           <td style={{ ...s.td, ...dropLine, textAlign: 'right' }}>
                             {isEditing ? (
                               <div style={{ display: 'inline-flex', gap: 2 }}>
@@ -575,7 +630,7 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
                     {pageSize !== 'all' && pageCategories.length < pageSize && (
                       Array.from({ length: pageSize - pageCategories.length }).map((_, i) => (
                         <tr key={`filler-${i}`} aria-hidden="true" style={{ height: 49 }}>
-                          <td colSpan={5} style={{ padding: 0, border: 'none' }} />
+                          <td colSpan={6} style={{ padding: 0, border: 'none' }} />
                         </tr>
                       ))
                     )}
@@ -659,7 +714,57 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
         </div>
         </>
       )}
+
+      {confirmingExclude && (
+        <ConfirmDialog
+          title={`Exclude "${confirmingExclude.name}" from operating cost?`}
+          message={
+            <>
+              Entries under this category will still be recorded, but will no longer count toward
+              the monthly operating cost total that feeds the Expense Ratio Target — this can change
+              profit-share and bonus-pool eligibility for affected months.
+            </>
+          }
+          confirmLabel="Exclude"
+          loading={busy}
+          onConfirm={confirmExclude}
+          onCancel={() => setConfirmingExclude(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function IncludeInSumToggle({ active, onChange, disabled, lockedReason }: {
+  active: boolean; onChange: () => void; disabled?: boolean; lockedReason?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      aria-label="Counts as operating cost"
+      onClick={onChange}
+      disabled={disabled}
+      title={lockedReason ?? (active ? 'Counts toward the operating cost total' : 'Excluded from the operating cost total')}
+      style={{
+        position: 'relative',
+        width: 36, height: 20, borderRadius: 999,
+        background: active ? C.primary : '#cbd5e1',
+        border: 'none', cursor: disabled ? 'default' : 'pointer',
+        padding: 0, flexShrink: 0, opacity: disabled ? 0.6 : 1,
+        transition: 'background 160ms ease',
+      }}
+    >
+      <span style={{
+        position: 'absolute',
+        top: 2, left: active ? 18 : 2,
+        width: 16, height: 16, borderRadius: '50%',
+        background: '#fff',
+        boxShadow: '0 1px 2px rgba(15,23,42,0.18)',
+        transition: 'left 160ms cubic-bezier(0.4, 0, 0.2, 1)',
+      }} />
+    </button>
   );
 }
 
@@ -717,6 +822,11 @@ const s: Record<string, React.CSSProperties> = {
   headerRow: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 },
   contentTitle: { fontSize: 15, fontWeight: 700, color: C.text, margin: 0 },
   contentSub: { fontSize: 12, color: C.muted, margin: '2px 0 0' },
+  lockBanner: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '10px 20px', fontSize: 12, color: '#92400e', background: '#fffbeb',
+    borderBottom: `1px solid ${C.border}`,
+  },
   card: {
     background: C.card, borderRadius: 14, padding: '22px 26px', border: '1px solid #eef0f4', marginBottom: 16,
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',

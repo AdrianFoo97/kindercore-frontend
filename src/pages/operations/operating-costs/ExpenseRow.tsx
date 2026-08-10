@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUp, faArrowDown, faBan } from '@fortawesome/free-solid-svg-icons';
 import { OperatingCostCategory } from '../../../api/operatingCost.js';
 import { C, SIZE, SHADOW, MOTION, RADIUS, fmtRMCompact, RowState, BudgetStatus } from './shared.js';
 
@@ -24,12 +24,20 @@ export interface ExpenseRowProps {
   lastMonthValue: number;
   state: RowState;
   isLast: boolean;
+  /** True when this specific month's entry is excluded from the operating
+   *  cost sum (entry-level override), independent of the category's flag. */
+  excluded: boolean;
+  /** True when the category or its group already excludes everything —
+   *  the entry-level toggle can't turn something the settings turned off
+   *  back on, so it's shown locked instead of interactive. */
+  locked: boolean;
   onChange: (v: number) => void;
+  onToggleExcluded: () => void;
   onCopyLast: () => void;
 }
 
 export function ExpenseRow({
-  category, value, lastMonthValue, state, isLast, onChange, onCopyLast,
+  category, value, lastMonthValue, state, isLast, excluded, locked, onChange, onToggleExcluded, onCopyLast,
 }: ExpenseRowProps) {
   const hasLast = lastMonthValue > 0;
   const hasValue = value > 0;
@@ -49,7 +57,7 @@ export function ExpenseRow({
       className="occ-row"
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 148px 180px',
+        gridTemplateColumns: '1fr 148px 216px',
         alignItems: 'center',
         padding: `11px ${SIZE.cardPadX}px`,
         background: C.card,
@@ -133,20 +141,75 @@ export function ExpenseRow({
         <DeltaIndicator state={state} />
       </div>
 
-      {/* ── Column 3: money input (vertically centered against the 42px box) ── */}
+      {/* ── Column 3: money input + per-month exclude toggle ── */}
       <div style={{
         justifySelf: 'end',
         height: CONTENT_HEIGHT,
         display: 'flex',
         alignItems: 'center',
+        gap: 8,
       }}>
         <CurrencyInput
           value={value}
           onChange={onChange}
           presetAmount={category.defaultAmount ?? 0}
         />
+        <ExcludeToggle
+          excluded={locked || excluded}
+          disabled={locked || !hasValue}
+          disabledReason={locked ? 'locked' : !hasValue ? 'empty' : null}
+          onToggle={onToggleExcluded}
+        />
       </div>
     </div>
+  );
+}
+
+// ── ExcludeToggle ────────────────────────────────────────────────────────────
+// Per-(category, month) override: pull just this one entry out of the
+// operating cost sum without touching the category/group-level flag. Always
+// rendered (even on empty rows) so the column stays neatly aligned — just
+// disabled until a value exists, since excluding an empty cell is meaningless
+// and a zero-amount row is deleted on save anyway so the flag wouldn't persist.
+
+function ExcludeToggle({
+  excluded, disabled, disabledReason, onToggle,
+}: {
+  excluded: boolean;
+  disabled: boolean;
+  disabledReason: 'locked' | 'empty' | null;
+  onToggle: () => void;
+}) {
+  const title = disabledReason === 'locked'
+    ? 'Already excluded from operating cost — set by this category/main category in Settings'
+    : disabledReason === 'empty'
+    ? 'Enter an amount first to exclude this month'
+    : excluded
+    ? 'Excluded from this month’s operating cost total. Click to include again.'
+    : 'Click to exclude this month’s entry from the operating cost total (e.g. a one-off spend).';
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onToggle}
+      title={title}
+      style={{
+        flexShrink: 0,
+        width: 28,
+        height: 28,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: RADIUS.control,
+        border: `1px solid ${excluded ? '#fecaca' : C.border}`,
+        background: excluded ? '#fef2f2' : C.card,
+        color: excluded ? C.red : (disabledReason === 'empty' ? C.dim : C.mutedMore),
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabledReason === 'locked' ? 0.7 : 1,
+        transition: `all ${MOTION.fast}`,
+      }}
+    >
+      <FontAwesomeIcon icon={faBan} style={{ fontSize: 11 }} />
+    </button>
   );
 }
 

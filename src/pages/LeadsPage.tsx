@@ -66,7 +66,10 @@ type SortOrder = 'asc' | 'desc';
 // jump to "closed only" silently hid real history. Not a clickable
 // sidebar entry, just a valid selectedStage value so the existing
 // filter/title machinery handles it without a special case everywhere.
-type PipelineStage = 'all_active' | 'NEW' | 'CONTACTED' | 'APPOINTMENT_BOOKED' | 'FOLLOW_UP' | 'ENROLLED' | 'LOST' | 'REJECTED' | 'TRASH' | 'all_history';
+// 'all_closed' aggregates the three closed statuses (Enrolled/Lost/Rejected)
+// into one paginated, searchable view — mirrors 'all_active' for the closed
+// side of the pipeline. Maps to the backend's existing status=inactive filter.
+type PipelineStage = 'all_active' | 'NEW' | 'CONTACTED' | 'APPOINTMENT_BOOKED' | 'FOLLOW_UP' | 'ENROLLED' | 'LOST' | 'REJECTED' | 'all_closed' | 'TRASH' | 'all_history';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -365,13 +368,16 @@ function PipelineNav({ selected, onChange, stats, compact, collapsed, onToggle }
 }) {
   const totalActive = (stats?.NEW ?? 0) + (stats?.CONTACTED ?? 0) + (stats?.APPOINTMENT_BOOKED ?? 0) + (stats?.FOLLOW_UP ?? 0);
   const getCount = (key: PipelineStage) => (stats as Record<string, number> | undefined)?.[key] ?? 0;
+  const totalClosed = getCount('ENROLLED') + getCount('LOST') + getCount('REJECTED');
   const allActiveSelected = selected === 'all_active';
+  const allClosedSelected = selected === 'all_closed';
 
   // ── Compact horizontal mode (mobile / tablet) ──
   if (compact) {
     const allStages = [
       { key: 'all_active' as PipelineStage, label: 'All', accent: '#64748b', count: totalActive },
       ...ACTIVE_STAGES.map(s => ({ key: s.key, label: s.label, accent: s.accent, count: getCount(s.key) })),
+      { key: 'all_closed' as PipelineStage, label: 'Closed', accent: '#64748b', count: totalClosed },
       ...CLOSED_STAGES.map(s => ({ key: s.key, label: s.label, accent: s.accent, count: getCount(s.key) })),
       { key: 'TRASH' as PipelineStage, label: 'Trash', accent: '#e53e3e', count: getCount('TRASH') },
     ];
@@ -439,6 +445,20 @@ function PipelineNav({ selected, onChange, stats, compact, collapsed, onToggle }
         })}
 
         <div style={{ width: 20, height: 1, background: '#f1f5f9', margin: '6px 0' }} />
+
+        {/* All Closed */}
+        <button onClick={() => onChange('all_closed')} title={`All Closed (${totalClosed})`} style={{
+          width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+          background: allClosedSelected ? '#64748b18' : 'none',
+        }}>
+          <span style={{
+            width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 8, fontWeight: 800, background: allClosedSelected ? '#64748b' : '#fff', border: `2px solid ${allClosedSelected ? '#64748b' : '#d1d5db'}`, color: allClosedSelected ? '#fff' : '#9ca3af',
+          }}>ALL</span>
+          {totalClosed > 0 && (
+            <span style={{ position: 'absolute', top: 2, right: 2, fontSize: 8, fontWeight: 700, color: '#64748b', lineHeight: 1 }}>{totalClosed}</span>
+          )}
+        </button>
 
         {/* Closed */}
         {closedStages.map(s => {
@@ -549,9 +569,22 @@ function PipelineNav({ selected, onChange, stats, compact, collapsed, onToggle }
 
       <div style={{ margin: '12px 14px 10px', borderTop: '1px solid #f1f5f9' }} />
 
-      <div style={{ padding: '0 14px 6px', fontSize: 10, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
-        Closed
-      </div>
+      {/* "Closed" header — also acts as "All Closed" filter, same pattern
+          as the "Active Pipeline" header above. */}
+      <button onClick={() => onChange('all_closed')} style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        width: '100%', padding: '7px 14px',
+        background: allClosedSelected ? '#f1f5f9' : 'none',
+        border: 'none', borderLeft: `${allClosedSelected ? 4 : 3}px solid ${allClosedSelected ? '#64748b' : 'transparent'}`,
+        cursor: 'pointer', marginBottom: 2,
+      }}>
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: allClosedSelected ? '#334155' : '#94a3b8' }}>
+          Closed
+        </span>
+        <span style={{ fontSize: allClosedSelected ? 12 : 11, fontWeight: 700, borderRadius: 10, padding: allClosedSelected ? '2px 8px' : '1px 7px', background: allClosedSelected ? '#64748b' : '#f1f5f9', color: allClosedSelected ? '#fff' : '#94a3b8', flexShrink: 0 }}>
+          {totalClosed}
+        </span>
+      </button>
       {CLOSED_STAGES.map(s => {
         const isSelected = selected === s.key;
         const count = getCount(s.key);
@@ -2151,12 +2184,22 @@ export default function LeadsPage() {
 
   // 'all_history' omits the status filter entirely (undefined) rather than
   // mapping to a specific bucket — it needs to return leads in any status.
-  const apiFilterStatus = selectedStage === 'all_active' ? 'active' : selectedStage === 'all_history' ? undefined : selectedStage;
-  const isClosed = selectedStage === 'ENROLLED' || selectedStage === 'LOST' || selectedStage === 'REJECTED';
+  // 'all_closed' reuses the backend's existing status=inactive filter
+  // (ENROLLED/LOST/REJECTED combined), same pagination/search path as
+  // every other stage.
+  const apiFilterStatus = selectedStage === 'all_active' ? 'active'
+    : selectedStage === 'all_closed' ? 'inactive'
+    : selectedStage === 'all_history' ? undefined
+    : selectedStage;
+  const isClosed = selectedStage === 'ENROLLED' || selectedStage === 'LOST' || selectedStage === 'REJECTED' || selectedStage === 'all_closed';
   const [closedYear, setClosedYear] = useState<number | 'all'>(new Date().getFullYear());
   const apiYear = isClosed && closedYear !== 'all' ? closedYear : undefined;
 
-  const handleStageSelect = (stage: PipelineStage) => { setSelectedStage(stage); setPage(1); };
+  // Explicit pipeline-nav navigation clears any leftover search — otherwise
+  // switching back from a repeat-submission search (which jumps to "all
+  // history" and pre-fills the phone number, see jumpToRepeatHistory below)
+  // leaves that filter silently applied to whichever stage you land on next.
+  const handleStageSelect = (stage: PipelineStage) => { setSelectedStage(stage); setSearchInput(''); setPage(1); };
 
   // SSE: real-time lead updates
   useEffect(() => {
@@ -2484,13 +2527,14 @@ export default function LeadsPage() {
   const STAGE_TITLES: Record<PipelineStage, string> = {
     all_active: 'All Active Leads', NEW: 'New Leads', CONTACTED: 'Contacted',
     APPOINTMENT_BOOKED: 'Appointment Booked', FOLLOW_UP: 'Follow-Up',
-    ENROLLED: 'Enrolled', LOST: 'Lost / Declined', REJECTED: 'Rejected', TRASH: 'Trash',
+    ENROLLED: 'Enrolled', LOST: 'Lost / Declined', REJECTED: 'Rejected',
+    all_closed: 'All Closed Leads', TRASH: 'Trash',
     all_history: 'All Submissions',
   };
   const pageTitle = STAGE_TITLES[selectedStage];
   const isTrash = selectedStage === 'TRASH';
 
-  const currentStageCfg = selectedStage !== 'all_active' && selectedStage !== 'TRASH'
+  const currentStageCfg = selectedStage !== 'all_active' && selectedStage !== 'all_closed' && selectedStage !== 'TRASH'
     ? [...ACTIVE_STAGES, ...CLOSED_STAGES].find(s => s.key === selectedStage)
     : null;
   const stageAccentColor = currentStageCfg?.accent ?? '#1a202c';

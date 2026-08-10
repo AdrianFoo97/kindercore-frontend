@@ -24,6 +24,7 @@ function entry(categoryId: string, month: number, amount: number): OperatingCost
     categoryId,
     amount,
     notes: null,
+    includeInOperatingCostSum: true,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
   };
@@ -45,6 +46,7 @@ function category(
     sortOrder: 10,
     defaultAmount: null,
     monthlyBudget,
+    includeInOperatingCostSum: true,
     entryCount: 0,
     entryTotal: 0,
     createdAt: '2026-01-01T00:00:00Z',

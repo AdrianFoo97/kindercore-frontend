@@ -7,6 +7,9 @@ export interface OperatingCostGroup {
   sortOrder: number;
   /** System-owned groups (e.g. HR Benefits) that can be renamed but not deleted. */
   isProtected: boolean;
+  /** Group-level override: off excludes every category under this group from
+   *  the operating cost sum, regardless of each category's own flag. */
+  includeInOperatingCostSum: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +24,10 @@ export interface OperatingCostCategory {
   sortOrder: number;
   defaultAmount: number | null;  // prefill value when recording monthly costs
   monthlyBudget: number | null;  // expected monthly spend — for variance analysis
+  /** Whether entries under this category count toward the monthly operating
+   *  cost total used for the Expense Ratio Target / profit-share eligibility.
+   *  Off = still recorded, just excluded from that ratio. */
+  includeInOperatingCostSum: boolean;
   entryCount: number;      // number of monthly cost entries recorded under this category
   entryTotal: number;      // total RM recorded under this category
   createdAt: string;
@@ -34,6 +41,9 @@ export interface OperatingCostEntry {
   categoryId: string;
   amount: number;
   notes: string | null;
+  /** Per-entry override: false excludes just this (category, month) row from
+   *  the operating cost sum, even though its category/group are included. */
+  includeInOperatingCostSum: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,14 +59,14 @@ export function fetchOperatingCostGroups() {
   return apiFetch<OperatingCostGroup[]>('/api/operating-cost/groups');
 }
 
-export function createOperatingCostGroup(data: { name: string; sortOrder?: number }) {
+export function createOperatingCostGroup(data: { name: string; sortOrder?: number; includeInOperatingCostSum?: boolean }) {
   return apiFetch<OperatingCostGroup>('/api/operating-cost/groups', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export function updateOperatingCostGroup(id: string, data: { name?: string; sortOrder?: number }) {
+export function updateOperatingCostGroup(id: string, data: { name?: string; sortOrder?: number; includeInOperatingCostSum?: boolean }) {
   return apiFetch<OperatingCostGroup>(`/api/operating-cost/groups/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
@@ -79,6 +89,7 @@ export interface OperatingCostCategoryInput {
   sortOrder?: number;
   defaultAmount?: number | null;
   monthlyBudget?: number | null;
+  includeInOperatingCostSum?: boolean;
 }
 
 export function createOperatingCostCategory(data: OperatingCostCategoryInput & { name: string; groupId: string }) {
@@ -105,7 +116,7 @@ export function fetchOperatingCostEntries(year: number) {
   return apiFetch<OperatingCostEntriesResponse>(`/api/operating-cost/entries?year=${year}`);
 }
 
-export function bulkUpsertOperatingCostEntries(year: number, rows: { categoryId: string; month: number; amount: number; notes?: string | null }[]) {
+export function bulkUpsertOperatingCostEntries(year: number, rows: { categoryId: string; month: number; amount: number; notes?: string | null; includeInOperatingCostSum?: boolean }[]) {
   return apiFetch<OperatingCostEntriesResponse>('/api/operating-cost/entries', {
     method: 'PUT',
     body: JSON.stringify({ year, rows }),

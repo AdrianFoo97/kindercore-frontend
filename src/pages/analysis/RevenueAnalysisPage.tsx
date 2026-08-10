@@ -4,7 +4,8 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, BarChart, Cell, LabelList, ReferenceArea,
 } from 'recharts';
-import { faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCalendar, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { fetchRevenueAnalytics } from '../../api/students.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
@@ -87,6 +88,14 @@ export default function RevenueAnalysisPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
   const [period, setPeriod] = useState<string>(() => String(new Date().getMonth()));
+  const [showRevenue, setShowRevenue] = useState(false);
+
+  // When presenting to viewers who shouldn't see exact RM figures, this masks
+  // every currency value on the page while leaving student counts, names and
+  // other non-financial data untouched.
+  const fmtRev = (n: number) => (showRevenue ? fmtCurrency(n) : 'RM ••••');
+  const fmtRevNbsp = (n: number) => (showRevenue ? fmtCurrencyNbsp(n) : 'RM ••••');
+  const fmtRevAxis = (v: number) => (showRevenue ? `${(v / 1000).toFixed(0)}k` : '•••');
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['revenue-analytics', selectedYear],
@@ -168,6 +177,29 @@ export default function RevenueAnalysisPage() {
                 })),
               ]}
             />
+            <button
+              type="button"
+              onClick={() => setShowRevenue(v => !v)}
+              title={showRevenue ? 'Hide revenue figures (safe to share on screen)' : 'Show revenue figures'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                height: 36,
+                padding: '0 14px',
+                borderRadius: 9,
+                border: `1px solid ${showRevenue ? '#e2e8f0' : '#c7d2fe'}`,
+                background: showRevenue ? '#fff' : '#eef2ff',
+                color: showRevenue ? '#475569' : '#4338ca',
+                fontSize: 12.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+              }}
+            >
+              <FontAwesomeIcon icon={showRevenue ? faEye : faEyeSlash} style={{ fontSize: 12.5 }} />
+              {showRevenue ? 'Revenue shown' : 'Revenue hidden'}
+            </button>
           </div>
         </div>
 
@@ -180,11 +212,11 @@ export default function RevenueAnalysisPage() {
           />
           <KpiCard
             label={`${MONTH_NAMES_FULL[data.currentMonthIdx] ?? ''} Revenue`}
-            value={fmtCurrency(data.totalMonthlyRevenue)}
+            value={fmtRev(data.totalMonthlyRevenue)}
             color={C.green}
           />
-          <KpiCard label="Actual YTD" value={fmtCurrency(data.actualRevenue)} color={C.indigo} />
-          <KpiCard label="Annual (incl. forecast)" value={fmtCurrency(data.annualRevenue)} color={C.purple} sub={data.forecastRevenue > 0 ? `Forecast: ${fmtCurrency(data.forecastRevenue)}` : undefined} />
+          <KpiCard label="Actual YTD" value={fmtRev(data.actualRevenue)} color={C.indigo} />
+          <KpiCard label="Annual (incl. forecast)" value={fmtRev(data.annualRevenue)} color={C.purple} sub={data.forecastRevenue > 0 ? `Forecast: ${fmtRev(data.forecastRevenue)}` : undefined} />
         </div>
 
         {/* Chart 1: Monthly Revenue */}
@@ -211,7 +243,7 @@ export default function RevenueAnalysisPage() {
               <YAxis
                 yAxisId="left"
                 tick={{ fontSize: 11, fill: '#94a3b8' }}
-                tickFormatter={v => `${(v / 1000).toFixed(0)}k`}
+                tickFormatter={fmtRevAxis}
                 domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.55 / 5000) * 5000]}
                 tickCount={6}
               />
@@ -222,7 +254,7 @@ export default function RevenueAnalysisPage() {
                 domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.05 / 5) * 5]}
                 tickCount={6}
               />
-              <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtCurrency(v), name]} />
+              <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtRev(v), name]} />
               {selectedEntry && (
                 <ReferenceArea
                   yAxisId="left"
@@ -259,7 +291,7 @@ export default function RevenueAnalysisPage() {
                 <LabelList
                   dataKey="revenue"
                   position="top"
-                  formatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)}
+                  formatter={(v: number) => showRevenue ? (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)) : '•••'}
                   style={{ fontSize: 10, fill: '#475569', fontWeight: 600 }}
                 />
               </Bar>
@@ -288,6 +320,7 @@ export default function RevenueAnalysisPage() {
           data={data}
           selectedMonth={selectedMonth}
           onClearMonth={() => setPeriod('all')}
+          showRevenue={showRevenue}
         />
 
         {/* Charts 3 & 4: Programme breakdown */}
@@ -300,11 +333,11 @@ export default function RevenueAnalysisPage() {
                 <XAxis
                   type="number"
                   tick={{ fontSize: 11, fill: '#94a3b8' }}
-                  tickFormatter={v => `${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={fmtRevAxis}
                   domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2 / 1000) * 1000]}
                 />
                 <YAxis type="category" dataKey="programme" tick={{ fontSize: 11, fill: '#475569' }} width={120} />
-                <Tooltip cursor={false} formatter={(v: number) => fmtCurrency(v)} />
+                <Tooltip cursor={false} formatter={(v: number) => fmtRev(v)} />
                 <Bar dataKey="revenue" radius={[0, 4, 4, 0]} barSize={20}>
                   {data.revenueByProgramme.map((entry, i) => (
                     <Cell key={entry.programme} fill={PROG_COLORS[entry.programme] || AGE_COLORS[i % AGE_COLORS.length]} />
@@ -312,7 +345,7 @@ export default function RevenueAnalysisPage() {
                   <LabelList
                     dataKey="revenue"
                     position="right"
-                    formatter={(v: number) => fmtCurrencyNbsp(v)}
+                    formatter={(v: number) => fmtRevNbsp(v)}
                     style={{ fontSize: 11, fill: '#475569', fontWeight: 700 }}
                   />
                 </Bar>
@@ -356,10 +389,10 @@ export default function RevenueAnalysisPage() {
               <XAxis dataKey="age" tick={{ fontSize: 11, fill: '#94a3b8' }} />
               <YAxis
                 tick={{ fontSize: 11, fill: '#94a3b8' }}
-                tickFormatter={v => `${(v / 1000).toFixed(0)}k`}
+                tickFormatter={fmtRevAxis}
                 domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2 / 1000) * 1000]}
               />
-              <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtCurrency(v), name]} />
+              <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtRev(v), name]} />
               <Bar dataKey="revenue" fill={C.teal} radius={[4, 4, 0, 0]} barSize={36} name="Revenue">
                 {data.revenueByAge.map((_, i) => (
                   <Cell key={i} fill={AGE_COLORS[i % AGE_COLORS.length]} />
@@ -367,7 +400,7 @@ export default function RevenueAnalysisPage() {
                 <LabelList
                   dataKey="revenue"
                   position="top"
-                  formatter={(v: number) => fmtCurrencyNbsp(v)}
+                  formatter={(v: number) => fmtRevNbsp(v)}
                   style={{ fontSize: 11, fill: '#475569', fontWeight: 700 }}
                 />
               </Bar>
@@ -376,7 +409,7 @@ export default function RevenueAnalysisPage() {
         </div>
 
         {/* Excel-style monthly breakdown */}
-        <MonthlyBreakdownTable data={data} />
+        <MonthlyBreakdownTable data={data} showRevenue={showRevenue} />
 
         {/* Year over Year — bottom of page */}
         <div style={s.chartCard}>
@@ -386,8 +419,8 @@ export default function RevenueAnalysisPage() {
             <ComposedChart data={data.monthlyRevenue} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip cursor={false} formatter={(v: number) => fmtCurrency(v)} itemSorter={() => -1} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={fmtRevAxis} />
+              <Tooltip cursor={false} formatter={(v: number) => fmtRev(v)} itemSorter={() => -1} />
               <Bar dataKey="current" fill={C.blue} radius={[4, 4, 0, 0]} barSize={24} name={String(selectedYear)} />
               <Line type="monotone" dataKey="previous" stroke={C.slate} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, fill: C.slate }} name={String(data.prevYear)} />
             </ComposedChart>
@@ -409,7 +442,8 @@ const PROG_SHORT: Record<string, string> = {
 const PROG_ORDER = ['Half Day', 'Half Day + Enrichment', 'Full Day'];
 const AGE_BAND_COLORS = ['#dbeafe', '#fce7f3', '#dcfce7', '#fef3c7', '#ede9fe', '#cffafe'];
 
-function MonthlyBreakdownTable({ data }: { data: import('../../api/students.js').RevenueAnalyticsData }) {
+function MonthlyBreakdownTable({ data, showRevenue }: { data: import('../../api/students.js').RevenueAnalyticsData; showRevenue: boolean }) {
+  const fmtRev = (n: number) => (showRevenue ? fmtCurrency(n) : 'RM ••••');
   // Discover the set of (age × programme) columns that have data anywhere this year
   const ageSet = new Set<string>();
   const progSet = new Set<string>();
@@ -629,7 +663,7 @@ function MonthlyBreakdownTable({ data }: { data: import('../../api/students.js')
                       color: isForecast ? MUTED_SOFT : '#059669',
                     }}
                   >
-                    {fmtCurrency(m.revenue)}
+                    {fmtRev(m.revenue)}
                   </td>
                 </tr>
               );
@@ -703,7 +737,7 @@ function MonthlyBreakdownTable({ data }: { data: import('../../api/students.js')
                   color: '#059669',
                 }}
               >
-                {fmtCurrency(annualTotalRevenue)}
+                {fmtRev(annualTotalRevenue)}
               </td>
             </tr>
           </tbody>
@@ -741,11 +775,14 @@ function EnrollmentEventsList({
   data,
   selectedMonth,
   onClearMonth,
+  showRevenue,
 }: {
   data: import('../../api/students.js').RevenueAnalyticsData;
   selectedMonth: number | null;
   onClearMonth: () => void;
+  showRevenue: boolean;
 }) {
+  const fmtRev = (n: number) => (showRevenue ? fmtCurrency(n) : 'RM ••••');
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -899,8 +936,8 @@ function EnrollmentEventsList({
                               )}
                             </td>
                             <td style={{ ...evTd, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: isWithdrawn ? '#dc2626' : '#5b21b6', fontWeight: 600 }}>
-                              {isWithdrawn ? '-' : ''}{fmtCurrency(ev.monthlyFee)}
-                              {feeDelta != null && feeDelta !== 0 && (
+                              {isWithdrawn ? '-' : ''}{fmtRev(ev.monthlyFee)}
+                              {showRevenue && feeDelta != null && feeDelta !== 0 && (
                                 <span style={{
                                   marginLeft: 6, fontSize: 11, fontWeight: 600,
                                   color: feeDelta > 0 ? '#059669' : '#dc2626',

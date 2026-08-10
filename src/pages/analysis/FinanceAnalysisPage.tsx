@@ -77,6 +77,8 @@ interface PeriodEntry {
   containsCurrent: boolean;
   /** True if any underlying month's operating cost is projected (no entries). */
   operatingIsProjected: boolean;
+  /** Recorded spend excluded from the operating cost sum (e.g. HR Benefits). */
+  excludedOperatingCost: number;
 }
 
 function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: GroupBy): PeriodEntry[] {
@@ -94,6 +96,7 @@ function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: 
       isForecast: m.isForecast,
       containsCurrent: i === currentMonthIdx,
       operatingIsProjected: m.operatingIsProjected,
+      excludedOperatingCost: m.excludedOperatingCost,
     }));
   }
   return [0, 1, 2, 3].map(qi => {
@@ -118,6 +121,7 @@ function buildEntries(months: FinanceMonth[], currentMonthIdx: number, groupBy: 
       isForecast: slice.every(m => m.isForecast),
       containsCurrent: indices.includes(currentMonthIdx),
       operatingIsProjected: slice.some(m => m.operatingIsProjected),
+      excludedOperatingCost: slice.reduce((s, m) => s + m.excludedOperatingCost, 0),
     };
   });
 }
@@ -592,7 +596,7 @@ export default function FinanceAnalysisPage() {
                     <td style={{ ...s.tdNum, color: revenueColor, fontWeight: 600 }}>{fmtRM(e.revenue)}</td>
                     <td
                       style={s.tdNum}
-                      title={`Staff ${fmtRM(e.staffCost)}  ·  Operating ${fmtRM(e.operatingCost)}${e.operatingIsProjected ? '  (projected from rolling average)' : ''}`}
+                      title={`Staff ${fmtRM(e.staffCost)}  ·  Operating ${fmtRM(e.operatingCost)}${e.operatingIsProjected ? '  (projected from rolling average)' : ''}  ·  Excluded ${fmtRM(e.excludedOperatingCost)}`}
                     >
                       <ExpenseCell
                         staff={e.staffCost}
@@ -611,7 +615,7 @@ export default function FinanceAnalysisPage() {
                 <td style={{ ...s.tdNum, ...s.totalCell, fontWeight: 800, color: C.positive }}>{fmtRM(data.totals.revenue)}</td>
                 <td
                   style={{ ...s.tdNum, ...s.totalCell }}
-                  title={`Staff ${fmtRM(data.totals.staffCost)}  ·  Operating ${fmtRM(data.totals.operatingCost)}`}
+                  title={`Staff ${fmtRM(data.totals.staffCost)}  ·  Operating ${fmtRM(data.totals.operatingCost)}  ·  Excluded ${fmtRM(data.totals.excludedOperatingCost)}`}
                 >
                   <ExpenseCell
                     staff={data.totals.staffCost}
@@ -851,9 +855,23 @@ function FinanceTooltip({ active, payload, label }: any) {
         <span style={{ fontWeight: 700, color: C.text }}>{label}</span>
         {d.isForecast && <Badge tone="ghost">Forecast</Badge>}
       </div>
-      <TooltipRow color={C.positiveSoft} label="Revenue" value={fmtRM(d.revenue)} />
-      <TooltipRow color={C.expenseDark} label="Staff" value={fmtRM(-d.staffCost)} />
-      <TooltipRow color={C.expenseLight} label="Operating" value={fmtRM(-d.operatingCost)} />
+      <TooltipRow color={C.positiveSoft} label="Revenue" value={fmtRM(d.revenue)} strong />
+      <div style={{ height: 1, background: C.divider, margin: `${SP.sm}px 0` }} />
+      <TooltipRow color={C.expenseDark} label="Total Expenses" value={fmtRM(-(d.staffCost + d.operatingCost))} strong />
+      <TooltipRow color={C.expenseDark} label="Staff" value={fmtRM(-d.staffCost)} indent />
+      <TooltipRow color={C.expenseLight} label="Operating" value={fmtRM(-d.operatingCost)} indent />
+      <div
+        title="Recorded spend under categories/main categories flagged out of the operating cost sum (e.g. HR Benefits) — doesn't count toward Total Expenses or Profit."
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.lg, padding: '4px 0 4px 14px' }}
+      >
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: SP.sm, color: C.muted, fontStyle: 'italic', fontSize: 11.5 }}>
+          <span style={{ width: 6, height: 6, borderRadius: 2, background: C.divider, border: `1px solid ${C.cardBorder}` }} />
+          Excluded
+        </span>
+        <span style={{ color: C.muted, fontStyle: 'italic', fontSize: 11.5, fontVariantNumeric: 'tabular-nums' as any, textAlign: 'right' }}>
+          {fmtRM(d.excludedOperatingCost)}
+        </span>
+      </div>
       <div style={{ height: 1, background: C.divider, margin: `${SP.sm}px 0` }} />
       <TooltipRow
         color={rowColor}
@@ -865,11 +883,11 @@ function FinanceTooltip({ active, payload, label }: any) {
   );
 }
 
-function TooltipRow({ color, label, value, strong }: { color: string; label: string; value: string; strong?: boolean }) {
+function TooltipRow({ color, label, value, strong, indent }: { color: string; label: string; value: string; strong?: boolean; indent?: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.lg, padding: '4px 0' }}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: SP.sm, color: strong ? C.text : C.muted, fontWeight: strong ? 700 : 500 }}>
-        <span style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SP.lg, padding: '4px 0', paddingLeft: indent ? 14 : 0 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: SP.sm, color: strong ? C.text : C.muted, fontWeight: strong ? 700 : 500, fontSize: indent ? 11.5 : 12 }}>
+        <span style={{ width: indent ? 6 : 8, height: indent ? 6 : 8, borderRadius: 2, background: color }} />
         {label}
       </span>
       <span style={{
@@ -877,6 +895,7 @@ function TooltipRow({ color, label, value, strong }: { color: string; label: str
         fontWeight: strong ? 800 : 600,
         fontVariantNumeric: 'tabular-nums' as any,
         textAlign: 'right',
+        fontSize: indent ? 11.5 : 12,
       }}>
         {value}
       </span>

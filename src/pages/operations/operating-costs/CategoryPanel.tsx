@@ -9,6 +9,9 @@ import { ExpenseRow } from './ExpenseRow.js';
 export interface RowWithState {
   category: OperatingCostCategory;
   state: RowState;
+  /** True when the category or its group already excludes everything from
+   *  the operating cost sum — the entry-level toggle is moot and locked. */
+  locked: boolean;
 }
 
 interface CategoryPanelProps {
@@ -21,9 +24,11 @@ interface CategoryPanelProps {
   groupLastMonthTotal: number;
   values: Record<string, number>;
   lastMonthValues: Record<string, number>;
+  excluded: Record<string, boolean>;
   selectedMonth: number;
   year: number;
   onCellChange: (categoryId: string, month: number, v: number) => void;
+  onToggleExcluded: (categoryId: string, month: number) => void;
   onCopyRowFromLast: (categoryId: string, month: number, lastValue: number) => void;
   onCopyAllFromLast: () => void;
   hasAnyLastMonth: boolean;
@@ -37,8 +42,8 @@ interface CategoryPanelProps {
 export function CategoryPanel({
   groupName, rows, totalCount, filledCount, missingCount,
   groupTotal, groupLastMonthTotal,
-  values, lastMonthValues, selectedMonth, year,
-  onCellChange, onCopyRowFromLast, onCopyAllFromLast, hasAnyLastMonth,
+  values, lastMonthValues, excluded, selectedMonth, year,
+  onCellChange, onToggleExcluded, onCopyRowFromLast, onCopyAllFromLast, hasAnyLastMonth,
   page, totalPages, onPageChange,
 }: CategoryPanelProps) {
   const now = new Date();
@@ -79,7 +84,10 @@ export function CategoryPanel({
             lastMonthValue={lastMonthValues[r.category.id] ?? 0}
             state={r.state}
             isLast={i === rows.length - 1}
+            excluded={!!excluded[cellKey(r.category.id, selectedMonth)]}
+            locked={r.locked}
             onChange={v => onCellChange(r.category.id, selectedMonth, v)}
+            onToggleExcluded={() => onToggleExcluded(r.category.id, selectedMonth)}
             onCopyLast={() =>
               onCopyRowFromLast(r.category.id, selectedMonth, lastMonthValues[r.category.id] ?? 0)
             }

@@ -14,6 +14,7 @@ import {
 } from '../../api/operatingCost.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import ConfirmDialog from '../../components/common/ConfirmDialog.js';
 import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
 
 const C = {
@@ -41,6 +42,7 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmingExclude, setConfirmingExclude] = useState<OperatingCostGroup | null>(null);
 
   // Drag-and-drop reorder state
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -100,6 +102,35 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
     } finally {
       setBusy(false);
     }
+  }
+
+  async function setIncludeInSum(group: OperatingCostGroup, include: boolean) {
+    setBusy(true);
+    try {
+      await updateOperatingCostGroup(group.id, { includeInOperatingCostSum: include });
+      invalidate();
+      qc.invalidateQueries({ queryKey: ['finance-summary'] });
+      showToast(include ? `${group.name} now counts as operating cost` : `${group.name} excluded from operating cost`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Excluding a main category cascades to every category under it and
+  // changes profit-share/bonus-pool eligibility numbers — confirm that
+  // direction. Including it back is always safe and stays a plain click.
+  function handleToggleIncludeInSum(group: OperatingCostGroup) {
+    if (group.includeInOperatingCostSum) setConfirmingExclude(group);
+    else setIncludeInSum(group, true);
+  }
+
+  async function confirmExclude() {
+    if (!confirmingExclude) return;
+    const group = confirmingExclude;
+    setConfirmingExclude(null);
+    await setIncludeInSum(group, false);
   }
 
   async function handleDelete(id: string, name: string) {
@@ -210,7 +241,7 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
         .mcat-menu-rename:hover { background: ${C.primaryLight} !important; color: ${C.primary} !important; }
         .mcat-menu-rename:hover svg { color: ${C.primary} !important; }
         .mcat-menu-danger:hover:not([disabled]) { background: ${C.redBg} !important; }
-        .mcat-menu-item[disabled] { opacity: 0.45; cursor: not-allowed; }
+        .mcat-menu-item[disabled] { opacity: 0.45; cursor: default; }
       `}</style>
 
       {/* Breadcrumb + Add main category share one row */}
@@ -225,7 +256,7 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
           style={{
             ...s.primaryBtn,
             opacity: isAdding ? 0.5 : 1,
-            cursor: isAdding ? 'not-allowed' : 'pointer',
+            cursor: isAdding ? 'default' : 'pointer',
           }}
         >
           <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10, marginRight: 6 }} />
@@ -238,12 +269,14 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
           <colgroup>
             <col style={{ width: 32 }} />
             <col />
+            <col style={{ width: 150 }} />
             <col style={{ width: 88 }} />
           </colgroup>
           <thead>
             <tr>
               <th style={s.th}></th>
               <th style={{ ...s.th, textAlign: 'left' }}>Name</th>
+              <th style={{ ...s.th, textAlign: 'center' }} title="Whether categories under this main category count toward the monthly operating cost total used for the Expense Ratio Target / profit-share eligibility">In Cost Total</th>
               <th style={s.th}></th>
             </tr>
           </thead>
@@ -265,6 +298,7 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
                     }}
                   />
                 </td>
+                <td style={{ ...s.td, textAlign: 'center', color: C.muted, fontSize: 11 }}>Yes</td>
                 <td style={{ ...s.td, textAlign: 'right' }}>
                   <div style={{ display: 'inline-flex', gap: 2 }}>
                     <button
@@ -382,6 +416,14 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
                     )}
                   </td>
 
+                  <td style={{ ...s.td, ...dropLine, textAlign: 'center' }}>
+                    <IncludeInSumToggle
+                      active={g.includeInOperatingCostSum}
+                      onChange={() => handleToggleIncludeInSum(g)}
+                      disabled={busy}
+                    />
+                  </td>
+
                   <td style={{ ...s.td, ...dropLine, textAlign: 'right' }}>
                     {isRowEditing ? (
                       <div style={{ display: 'inline-flex', gap: 2 }}>
@@ -419,7 +461,7 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
 
             {groups.length === 0 && !isAdding && (
               <tr>
-                <td colSpan={3} style={{ ...s.td, textAlign: 'center', color: C.dim, padding: '32px 0' }}>
+                <td colSpan={4} style={{ ...s.td, textAlign: 'center', color: C.dim, padding: '32px 0' }}>
                   No main categories yet.
                 </td>
               </tr>
@@ -427,7 +469,58 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
           </tbody>
         </table>
       </div>
+
+      {confirmingExclude && (
+        <ConfirmDialog
+          title={`Exclude "${confirmingExclude.name}" from operating cost?`}
+          message={
+            <>
+              Every category under this main category will still be recorded, but will no longer
+              count toward the monthly operating cost total that feeds the Expense Ratio Target —
+              this can change profit-share and bonus-pool eligibility for affected months. Individual
+              categories will show as excluded and can't be switched back on their own while this is off.
+            </>
+          }
+          confirmLabel="Exclude"
+          loading={busy}
+          onConfirm={confirmExclude}
+          onCancel={() => setConfirmingExclude(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function IncludeInSumToggle({ active, onChange, disabled }: {
+  active: boolean; onChange: () => void; disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      aria-label="Counts as operating cost"
+      onClick={onChange}
+      disabled={disabled}
+      title={active ? 'Counts toward the operating cost total' : 'Excluded from the operating cost total'}
+      style={{
+        position: 'relative',
+        width: 36, height: 20, borderRadius: 999,
+        background: active ? C.primary : '#cbd5e1',
+        border: 'none', cursor: disabled ? 'default' : 'pointer',
+        padding: 0, flexShrink: 0, opacity: disabled ? 0.6 : 1,
+        transition: 'background 160ms ease',
+      }}
+    >
+      <span style={{
+        position: 'absolute',
+        top: 2, left: active ? 18 : 2,
+        width: 16, height: 16, borderRadius: '50%',
+        background: '#fff',
+        boxShadow: '0 1px 2px rgba(15,23,42,0.18)',
+        transition: 'left 160ms cubic-bezier(0.4, 0, 0.2, 1)',
+      }} />
+    </button>
   );
 }
 
