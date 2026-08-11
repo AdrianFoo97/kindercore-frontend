@@ -2807,8 +2807,12 @@ export default function LeadsPage() {
         <PipelineNav selected={selectedStage} onChange={handleStageSelect} stats={stats} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(c => !c)} />
       )}
 
-      {/* Content area — this is the ONE scroll container; scrollbar appears at the far right edge */}
-      <div style={{ flex: 1, overflowY: 'auto', height: '100%', minWidth: 0, width: 0 }}>
+      {/* Content area — this is the ONE scroll container; scrollbar appears at the far right edge.
+          No explicit `width: 0` here: `flex: 1` alone already implies flex-basis 0% in the desktop
+          ROW layout (redundant with an explicit width), but the parent flex container switches to
+          COLUMN direction on tablet/mobile — where `flex: 1` governs height, not width, leaving a
+          literal `width: 0` unopposed and collapsing this entire pane to zero width. */}
+      <div style={{ flex: 1, overflowY: 'auto', height: '100%', minWidth: 0 }}>
         {isTablet && <PipelineNav selected={selectedStage} onChange={handleStageSelect} stats={stats} compact />}
         <div style={{ maxWidth: 1380, margin: '0 auto', padding: isMobile ? '16px 12px' : isTablet ? '20px 16px' : '28px 32px', minWidth: 0, boxSizing: 'border-box', width: '100%' }}>
         <div style={{ minWidth: 0 }}>
@@ -2841,7 +2845,7 @@ export default function LeadsPage() {
           {!isTrash && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
               {/* Search — full width on mobile */}
-              <div style={{ position: 'relative', flex: 1, ...(isMobile ? { width: '100%', flexBasis: '100%' } : {}) }}>
+              <div style={{ position: 'relative', flexGrow: 1, flexShrink: 1, flexBasis: isMobile ? '100%' : 0, ...(isMobile ? { width: '100%' } : {}) }}>
                 <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#b0b8c9', fontSize: 12 }} />
                 <input
                   placeholder="Search by name or phone..."
@@ -2862,7 +2866,7 @@ export default function LeadsPage() {
                   const [field, order] = e.target.value.split(':');
                   setSortBy(field as SortField); setSortOrder(order as SortOrder); setPage(1);
                 }}
-                style={{ padding: '7px 10px', border: '1px solid #e8ecf1', borderRadius: 7, fontSize: 13, color: '#64748b', background: '#fff', cursor: 'pointer', flexShrink: 0, ...(isMobile ? { flex: 4 } : {}) }}
+                style={{ padding: '7px 10px', border: '1px solid #e8ecf1', borderRadius: 7, fontSize: 13, color: '#64748b', background: '#fff', cursor: 'pointer', flexGrow: isMobile ? 4 : 0, flexShrink: isMobile ? 1 : 0, flexBasis: isMobile ? '0%' : 'auto' }}
               >
                 <option value="submittedAt:desc">Newest first</option>
                 <option value="submittedAt:asc">Oldest first</option>
@@ -2893,7 +2897,7 @@ export default function LeadsPage() {
               {/* Export */}
               <button
                 onClick={handleExport} disabled={isExporting || !data || data.total === 0}
-                style={{ padding: '7px 12px', fontSize: 12, fontWeight: 500, background: '#fff', color: '#64748b', border: '1px solid #e8ecf1', borderRadius: 7, cursor: 'pointer', opacity: isExporting || !data || data.total === 0 ? 0.5 : 1, whiteSpace: 'nowrap', flexShrink: 0, ...(isMobile ? { flex: 1 } : {}) }}
+                style={{ padding: '7px 12px', fontSize: 12, fontWeight: 500, background: '#fff', color: '#64748b', border: '1px solid #e8ecf1', borderRadius: 7, cursor: 'pointer', opacity: isExporting || !data || data.total === 0 ? 0.5 : 1, whiteSpace: 'nowrap', flexGrow: isMobile ? 1 : 0, flexShrink: isMobile ? 1 : 0, flexBasis: isMobile ? '0%' : 'auto' }}
               >
                 {isExporting ? 'Exporting...' : '↓ Export'}
               </button>
