@@ -188,9 +188,22 @@ export default function SalesAnalysisPage() {
           : chartFilteredLeads;
 
         const denom = kpiLeads.length;
-        // Closing rate also re-derives so it tracks the same slice.
-        const kpiEnrolled = kpiLeads.filter(r => r.status === 'ENROLLED').length;
-        const kpiClosingPct = denom > 0 ? Math.round((kpiEnrolled / denom) * 100) : 0;
+
+        // Closing Rate deliberately does NOT use kpiLeads/chartFilteredLeads:
+        // in "Closed Sales" mode, chartFilteredLeads is already pre-filtered
+        // to ENROLLED-only, which would make enrolled/denom tautologically
+        // 100% every time. The rate should stay stable across both tabs —
+        // always (enrolled ÷ all attended sales talks) for the current
+        // month + donut-segment scope — so it derives from monthLeads instead.
+        const closingRateLeads = activeFilter
+          ? monthLeads.filter(r =>
+              activeFilter.type === 'address'
+                ? r.addressLocation === activeFilter.value
+                : r.howDidYouKnow === activeFilter.value)
+          : monthLeads;
+        const closingDenom = closingRateLeads.length;
+        const kpiEnrolled = closingRateLeads.filter(r => r.status === 'ENROLLED').length;
+        const kpiClosingPct = closingDenom > 0 ? Math.round((kpiEnrolled / closingDenom) * 100) : 0;
 
         const tally = (key: 'addressLocation' | 'howDidYouKnow') => {
           const map = new Map<string, number>();
@@ -214,8 +227,8 @@ export default function SalesAnalysisPage() {
               label="Closing Rate"
               value={`${kpiClosingPct}%`}
               accent={C.indigo}
-              bar={{ fill: kpiClosingPct, color: C.indigo, title: `${kpiEnrolled} closed out of ${denom} sales talks` }}
-              breakdown={`${kpiEnrolled} closed out of ${denom} sales talks`}
+              bar={{ fill: kpiClosingPct, color: C.indigo, title: `${kpiEnrolled} closed out of ${closingDenom} sales talks` }}
+              breakdown={`${kpiEnrolled} closed out of ${closingDenom} sales talks`}
             />
             <KpiCard
               label="Top Marketing Channel"

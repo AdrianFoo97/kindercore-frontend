@@ -844,6 +844,8 @@ function FinanceTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload as PeriodEntry;
   const rowColor = d.profit >= 0 ? C.positive : C.negative;
+  // Same formula as the Expense Ratio KPI card: (staff + operating) / revenue.
+  const expenseRatio = d.revenue > 0 ? (d.staffCost + d.operatingCost) / d.revenue : null;
   return (
     <div
       style={{
@@ -862,7 +864,12 @@ function FinanceTooltip({ active, payload, label }: any) {
       </div>
       <TooltipRow color={C.positiveSoft} label="Revenue" value={fmtRM(d.revenue)} strong />
       <div style={{ height: 1, background: C.divider, margin: `${SP.sm}px 0` }} />
-      <TooltipRow color={C.expenseDark} label="Total Expenses" value={fmtRM(-(d.staffCost + d.operatingCost))} strong />
+      <TooltipRow
+        color={C.expenseDark}
+        label="Total Expenses"
+        value={`${fmtRM(-(d.staffCost + d.operatingCost))}${expenseRatio == null ? '' : `  (${fmtPct(expenseRatio)})`}`}
+        strong
+      />
       <TooltipRow color={C.expenseDark} label="Staff" value={fmtRM(-d.staffCost)} indent />
       <ExcludedRow value={d.excludedStaffCost} title="Salary + employer contributions for teachers flagged &quot;exclude from staff cost&quot; (e.g. a grant-funded role) — doesn't count toward Total Expenses or Profit." />
       <TooltipRow color={C.expenseLight} label="Operating" value={fmtRM(-d.operatingCost)} indent />
