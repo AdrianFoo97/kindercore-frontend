@@ -383,11 +383,14 @@ export default function SalesMarketingPage() {
 
         // YoY trend — surfaces only as a pill in the top-right of Leads
         // Received. The bar itself now shows outcome composition, not YoY.
-        const prevYearTotal = data.monthlyComparison.reduce((s, m) => s + (m.previous ?? 0), 0);
-        const leadsDelta = data.totalLeads - prevYearTotal;
-        const leadsTrend = prevYearTotal > 0
+        // Compares like-for-like: totalLeads is necessarily partial while
+        // selectedYear is still in progress, so prevYearToDateTotal is
+        // capped to the same month/day cutoff (not the full prior year) —
+        // otherwise an in-progress year would always look like a decline.
+        const leadsDelta = data.totalLeads - data.prevYearToDateTotal;
+        const leadsTrend = data.prevYearToDateTotal > 0
           ? {
-              delta: `${leadsDelta >= 0 ? '+' : '−'}${Math.abs(leadsDelta)} vs ${data.prevYear}`,
+              delta: `${leadsDelta >= 0 ? '+' : '−'}${Math.abs(leadsDelta)} vs ${data.prevYear} YTD`,
               dir: (leadsDelta > 0 ? 'up' : leadsDelta < 0 ? 'down' : 'flat') as 'up' | 'down' | 'flat',
               semantic: (leadsDelta >= 0 ? 'positive' : 'negative') as 'positive' | 'negative' | 'neutral',
             }

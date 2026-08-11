@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faTriangleExclamation, faCakeCandles } from '@fortawesome/free-solid-svg-icons';
 import { TP_C, TP_RADIUS } from './tokens.js';
 import {
   minutesToTime, fmtRM, computeDailyHours, formatResignedDate, hexAlpha,
@@ -18,6 +18,7 @@ interface TeacherLike {
   createdAt?: string | null;
   positionId?: string | null;
   level?: number | null;
+  dob?: string | null;
   isFixedSalary?: boolean;
   salaryType?: 'hourly' | 'fixed' | string;
   hourlyRate?: number | null;
@@ -85,6 +86,11 @@ export const TeacherRow = memo(function TeacherRow({
     : null;
   const weeklyHours = dailyHours != null ? dailyHours * workDaysCount : 0;
   const isPartTime = weeklyHours > 0 && weeklyHours < 35;
+  // Birth YEAR is irrelevant here — only whether the birth MONTH matches the
+  // current month, regardless of which day (so the icon shows all month,
+  // not just on the exact date).
+  const dobDate = t.dob ? new Date(t.dob) : null;
+  const isBirthdayMonth = !!dobDate && dobDate.getMonth() === new Date().getMonth();
 
   return (
     <tr className="tp-row">
@@ -98,6 +104,7 @@ export const TeacherRow = memo(function TeacherRow({
                 ...styles.name,
                 color: isCurrentlyActive ? TP_C.text : TP_C.muted,
               }}>{t.name}</div>
+              {isBirthdayMonth && <BirthdayIcon date={t.dob!} />}
               {incomplete && <IncompleteChip />}
               {hasNotStartedYet && <StartsChip date={t.createdAt!} />}
               {resignedDate && <ResignedChip date={t.resignedAt!} isFuture={isFutureResign} />}
@@ -203,6 +210,17 @@ function Avatar({ color, initial, muted }: { color: string; initial: string; mut
 }
 
 // ── Chips ────────────────────────────────────────────────────────────────────
+
+function BirthdayIcon({ date }: { date: string }) {
+  return (
+    <span
+      title={`Birthday this month — ${formatResignedDate(date)}`}
+      style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
+    >
+      <FontAwesomeIcon icon={faCakeCandles} style={{ fontSize: 13, color: '#ec4899' }} />
+    </span>
+  );
+}
 
 function IncompleteChip() {
   return (

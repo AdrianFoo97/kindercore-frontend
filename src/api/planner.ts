@@ -31,7 +31,7 @@ export function updateTeacher(id: string, data: Partial<{
   overrideProfitShareWeight: boolean; customProfitShareWeight: number | null;
   hasEpf: boolean; hasSocso: boolean; hasEis: boolean;
   isActive: boolean; resignedAt: string | null; createdAt: string | null;
-  phone: string | null; employmentType: string | null;
+  phone: string | null; dob: string | null; employmentType: string | null;
 }>) {
   return apiFetch<Teacher>(`/api/planner/teachers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 }

@@ -97,6 +97,7 @@ export default function EditTeacherPage() {
   const [tab, setTab] = useState<Tab>('personal');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [dob, setDob] = useState('');
   const [color, setColor] = useState(PRESET_COLORS[0]);
   const [resignedAt, setResignedAt] = useState('');
   const [joinedAt, setJoinedAt] = useState('');
@@ -145,6 +146,7 @@ export default function EditTeacherPage() {
     if (teacher && !loaded) {
       setName(teacher.name);
       setPhone(teacher.phone ?? '');
+      setDob(teacher.dob ? teacher.dob.split('T')[0] : '');
       setColor(teacher.color || PRESET_COLORS[0]);
       setResignedAt(teacher.resignedAt ? teacher.resignedAt.slice(0, 10) : '');
       setJoinedAt(teacher.createdAt ? teacher.createdAt.slice(0, 10) : '');
@@ -257,6 +259,7 @@ export default function EditTeacherPage() {
     if (!name.trim()) return;
     const d = {
       name: name.trim(), color, phone: phone.trim() || null,
+      dob: dob || null,
       employmentType,
       // isActive is reserved for soft-delete. Active/inactive status is
       // derived from resignedAt vs today.
@@ -472,6 +475,16 @@ export default function EditTeacherPage() {
                     <div style={{ flex: 1, minWidth: 160 }}>
                       <label style={s.label}>Phone Number</label>
                       <input style={s.input} value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 012-345 6789" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <label style={s.label}>Date of Birth</label>
+                      <input
+                        style={s.input}
+                        type="date"
+                        value={dob}
+                        onChange={e => setDob(e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                      />
                     </div>
                   </div>
                   <div>

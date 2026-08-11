@@ -362,6 +362,7 @@ export interface Teacher {
   hasSocso: boolean;
   hasEis: boolean;
   phone: string | null;
+  dob: string | null;
   employmentType: string | null;
   resignedAt: string | null;
   createdAt: string;

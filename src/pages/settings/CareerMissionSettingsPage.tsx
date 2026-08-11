@@ -43,6 +43,7 @@ const DIFFICULTY_META: Record<MissionDifficulty, { label: string; color: string 
   INTERMEDIATE: { label: 'Intermediate', color: '#92400e' },
   ADVANCED:     { label: 'Advanced',     color: '#991b1b' },
 };
+const PAGE_SIZE = 10;
 
 export default function CareerMissionSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
@@ -85,6 +86,48 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
       .sort((a, b) => a.displayOrder - b.displayOrder),
     [allMissions, selectedPositionId],
   );
+
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [page, setPage] = useState(1);
+  useEffect(() => { setCategoryFilter('ALL'); setPage(1); }, [selectedPositionId]);
+  useEffect(() => { setPage(1); }, [categoryFilter]);
+
+  const categoryCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of missions) map.set(m.category, (map.get(m.category) ?? 0) + 1);
+    return map;
+  }, [missions]);
+
+  const filteredMissions = useMemo(
+    () => categoryFilter === 'ALL' ? missions : missions.filter(m => m.category === categoryFilter),
+    [missions, categoryFilter],
+  );
+
+  // "All categories" clusters missions by category (admin-configured
+  // category order) rather than raw displayOrder, since displayOrder can
+  // freely interleave categories after reordering — grouped display needs
+  // same-category missions adjacent, not just correctly ranked.
+  const orderedMissions = useMemo(() => {
+    if (categoryFilter !== 'ALL') return filteredMissions;
+    const byCategory = new Map<string, CareerMission[]>();
+    for (const m of filteredMissions) {
+      if (!byCategory.has(m.category)) byCategory.set(m.category, []);
+      byCategory.get(m.category)!.push(m);
+    }
+    const knownCodes = missionCategories.map(c => c.code).filter(code => byCategory.has(code));
+    const unknownCodes = [...byCategory.keys()].filter(code => !missionCategories.some(c => c.code === code));
+    return [...knownCodes, ...unknownCodes].flatMap(code => byCategory.get(code)!);
+  }, [filteredMissions, categoryFilter, missionCategories]);
+
+  const pageCount = Math.max(1, Math.ceil(orderedMissions.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pagedMissions = orderedMissions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  // Reordering assumes the visible order matches the true displayOrder
+  // sequence. That's only true when a single category is selected — the
+  // grouped "All categories" view reflows same-category missions together,
+  // so a drag there wouldn't land where it visually appears to.
+  const dragEnabled = categoryFilter !== 'ALL';
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CareerMission | null>(null);
@@ -241,106 +284,144 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
               <h3 style={s.cardTitle}>Missions</h3>
               <div style={s.cardSub}>
                 {selectedPositionId
-                  ? `Drag to reorder · ${missions.length} mission${missions.length === 1 ? '' : 's'}`
+                  ? `${filteredMissions.length} mission${filteredMissions.length === 1 ? '' : 's'}${dragEnabled ? ' · Drag to reorder' : ''}`
                   : 'Select a position'}
               </div>
             </div>
             {selectedPositionId && (
-              <button
-                onClick={() => { setEditing(null); setEditorOpen(true); }}
-                style={s.primaryBtn}
-              >
-                <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />
-                Add mission
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {missions.length > 0 && (
+                  <select
+                    value={categoryFilter}
+                    onChange={e => setCategoryFilter(e.target.value)}
+                    style={s.categorySelect}
+                  >
+                    <option value="ALL">All categories ({missions.length})</option>
+                    {missionCategories
+                      .filter(c => (categoryCounts.get(c.code) ?? 0) > 0)
+                      .map(c => (
+                        <option key={c.code} value={c.code}>{c.name} ({categoryCounts.get(c.code)})</option>
+                      ))}
+                  </select>
+                )}
+                <button
+                  onClick={() => { setEditing(null); setEditorOpen(true); }}
+                  style={s.primaryBtn}
+                >
+                  <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />
+                  Add mission
+                </button>
+              </div>
             )}
           </div>
 
           {missionsLoading ? (
             <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
-          ) : missions.length === 0 ? (
+          ) : filteredMissions.length === 0 ? (
             <div style={{ padding: '48px 20px', textAlign: 'center' }}>
               <p style={{ margin: '0 0 12px', fontSize: 13, color: C.muted }}>
-                No missions configured for this position yet.
+                {missions.length === 0
+                  ? 'No missions configured for this position yet.'
+                  : 'No missions in this category yet.'}
               </p>
               <button
                 onClick={() => { setEditing(null); setEditorOpen(true); }}
                 style={s.primaryBtnGhost}
               >
                 <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />
-                Add the first mission
+                {missions.length === 0 ? 'Add the first mission' : 'Add a mission'}
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {missions.map(m => {
-                const cat = getMeta(m.category);
-                const diff = DIFFICULTY_META[m.difficulty];
-                const isDrag = dragId === m.id;
-                const isDrop = dropId === m.id && dragId !== m.id;
-                return (
-                  <div
-                    key={m.id}
-                    draggable
-                    onDragStart={onDragStart(m.id)}
-                    onDragOver={onDragOver(m.id)}
-                    onDragEnd={onDragEnd}
-                    onDrop={onDrop(m.id)}
-                    style={{
-                      ...s.missionRow,
-                      opacity: isDrag ? 0.45 : 1,
-                      borderColor: isDrop ? C.primary : C.cardBorder,
-                      boxShadow: isDrop ? '0 0 0 3px rgba(90,103,216,0.15)' : 'none',
-                    }}
-                  >
-                    <div style={{ ...s.dragHandle, color: C.mutedSoft }}>
-                      <FontAwesomeIcon icon={faGripVertical} />
-                    </div>
-                    <div style={{
-                      ...s.catIconWrap,
-                      background: cat.bg, color: cat.color,
-                    }}>
-                      <FontAwesomeIcon icon={cat.icon} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{m.title}</span>
-                        {m.highPriority && (
-                          <span style={{ ...s.pill, background: '#fef3c7', color: '#92400e' }}>★ Priority</span>
-                        )}
-                        <span style={{ ...s.pill, background: cat.bg, color: cat.color }}>{cat.label}</span>
-                        <span style={{ ...s.pill, background: '#f1f5f9', color: diff.color }}>{diff.label}</span>
-                        {!m.required && (
-                          <span style={{ ...s.pill, background: '#f1f5f9', color: C.muted }}>Optional</span>
-                        )}
-                        {!m.requiresApproval && (
-                          <span style={{ ...s.pill, background: '#f1f5f9', color: C.muted }}>Self-verify</span>
-                        )}
-                      </div>
-                      {m.description && (
-                        <p style={s.missionDesc}>{m.description}</p>
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {pagedMissions.map((m, idx) => {
+                  const cat = getMeta(m.category);
+                  const diff = DIFFICULTY_META[m.difficulty];
+                  const isDrag = dragId === m.id;
+                  const isDrop = dropId === m.id && dragId !== m.id;
+                  const showHeader = categoryFilter === 'ALL' && (idx === 0 || pagedMissions[idx - 1].category !== m.category);
+                  return (
+                    <React.Fragment key={m.id}>
+                      {showHeader && (
+                        <div style={s.categoryGroupHeader}>
+                          <FontAwesomeIcon icon={cat.icon} style={{ fontSize: 11, color: cat.color }} />
+                          {cat.label}
+                          <span style={s.categoryGroupCount}>{categoryCounts.get(m.category) ?? 0}</span>
+                        </div>
                       )}
-                    </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button
-                        onClick={() => { setEditing(m); setEditorOpen(true); }}
-                        style={s.iconBtn}
-                        aria-label="Edit"
+                      <div
+                        draggable={dragEnabled}
+                        onDragStart={dragEnabled ? onDragStart(m.id) : undefined}
+                        onDragOver={dragEnabled ? onDragOver(m.id) : undefined}
+                        onDragEnd={dragEnabled ? onDragEnd : undefined}
+                        onDrop={dragEnabled ? onDrop(m.id) : undefined}
+                        style={{
+                          ...s.missionRow,
+                          opacity: isDrag ? 0.45 : 1,
+                          borderColor: isDrop ? C.primary : C.cardBorder,
+                          boxShadow: isDrop ? '0 0 0 3px rgba(90,103,216,0.15)' : 'none',
+                        }}
                       >
-                        <FontAwesomeIcon icon={faPen} />
-                      </button>
-                      <button
-                        onClick={() => onDelete(m)}
-                        style={{ ...s.iconBtn, color: C.danger }}
-                        aria-label="Delete"
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                        <div
+                          style={{ ...s.dragHandle, color: C.mutedSoft, opacity: dragEnabled ? 1 : 0.3, cursor: dragEnabled ? 'grab' : 'default' }}
+                          title={dragEnabled ? undefined : 'Select a single category to reorder'}
+                        >
+                          <FontAwesomeIcon icon={faGripVertical} />
+                        </div>
+                        <div style={{
+                          ...s.catIconWrap,
+                          background: cat.bg, color: cat.color,
+                        }}>
+                          <FontAwesomeIcon icon={cat.icon} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{m.title}</span>
+                            {m.highPriority && (
+                              <span style={{ ...s.pill, background: '#fef3c7', color: '#92400e' }}>★ Priority</span>
+                            )}
+                            <span style={{ ...s.pill, background: cat.bg, color: cat.color }}>{cat.label}</span>
+                            <span style={{ ...s.pill, background: '#f1f5f9', color: diff.color }}>{diff.label}</span>
+                            {!m.required && (
+                              <span style={{ ...s.pill, background: '#f1f5f9', color: C.muted }}>Optional</span>
+                            )}
+                            {!m.requiresApproval && (
+                              <span style={{ ...s.pill, background: '#f1f5f9', color: C.muted }}>Self-verify</span>
+                            )}
+                          </div>
+                          {m.description && (
+                            <p style={s.missionDesc}>{m.description}</p>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button
+                            onClick={() => { setEditing(m); setEditorOpen(true); }}
+                            style={s.iconBtn}
+                            aria-label="Edit"
+                          >
+                            <FontAwesomeIcon icon={faPen} />
+                          </button>
+                          <button
+                            onClick={() => onDelete(m)}
+                            style={{ ...s.iconBtn, color: C.danger }}
+                            aria-label="Delete"
+                          >
+                            <FontAwesomeIcon icon={faTrash} />
+                          </button>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+              <MissionsPagination
+                page={safePage}
+                pageCount={pageCount}
+                totalCount={orderedMissions.length}
+                onPageChange={setPage}
+              />
+            </>
           )}
         </div>
       </div>
@@ -350,6 +431,7 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
           mission={editing}
           positionId={selectedPositionId}
           positionName={sortedPositions.find(p => p.positionId === selectedPositionId)?.name ?? ''}
+          defaultCategory={!editing && categoryFilter !== 'ALL' ? categoryFilter : undefined}
           onCancel={() => { setEditorOpen(false); setEditing(null); }}
           onSave={onSave}
         />
@@ -364,19 +446,21 @@ function MissionEditorModal({
   mission,
   positionId,
   positionName,
+  defaultCategory,
   onCancel,
   onSave,
 }: {
   mission: CareerMission | null;
   positionId: string;
   positionName: string;
+  defaultCategory?: string;
   onCancel: () => void;
   onSave: (payload: CreateMissionPayload) => Promise<void>;
 }) {
   const { categories: missionCategories, getMeta } = useCategoryMeta();
   const [title, setTitle] = useState(mission?.title ?? '');
   const [category, setCategory] = useState<MissionCategory>(
-    mission?.category ?? missionCategories[0]?.code ?? 'CLASSROOM',
+    mission?.category ?? defaultCategory ?? missionCategories[0]?.code ?? 'CLASSROOM',
   );
   const [description, setDescription] = useState(mission?.description ?? '');
   const [whyItMatters, setWhyItMatters] = useState(mission?.whyItMatters ?? '');
@@ -567,6 +651,41 @@ function MissionEditorModal({
   );
 }
 
+function MissionsPagination({ page, pageCount, totalCount, onPageChange }: {
+  page: number;
+  pageCount: number;
+  totalCount: number;
+  onPageChange: (p: number) => void;
+}) {
+  if (totalCount <= PAGE_SIZE) return null;
+  const btn: React.CSSProperties = {
+    background: '#fff', border: `1px solid ${C.cardBorder}`, borderRadius: 7,
+    padding: '5px 11px', fontSize: 12, fontWeight: 600, color: C.muted,
+    cursor: 'pointer', minWidth: 30,
+  };
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+      padding: '16px 4px 4px', marginTop: 6, borderTop: `1px solid ${C.divider}`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <button type="button" onClick={() => onPageChange(1)} disabled={page === 1} style={btn}>«</button>
+        <button type="button" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1} style={btn}>‹</button>
+        <span style={{
+          fontSize: 12, fontWeight: 700, color: C.primary, padding: '5px 14px',
+          background: C.primarySoft, borderRadius: 7, fontVariantNumeric: 'tabular-nums',
+          minWidth: 52, textAlign: 'center',
+        }}>{page} / {pageCount}</span>
+        <button type="button" onClick={() => onPageChange(Math.min(pageCount, page + 1))} disabled={page >= pageCount} style={btn}>›</button>
+        <button type="button" onClick={() => onPageChange(pageCount)} disabled={page >= pageCount} style={btn}>»</button>
+      </div>
+      <span style={{ fontSize: 11, color: C.mutedSoft, fontVariantNumeric: 'tabular-nums' }}>
+        {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
+      </span>
+    </div>
+  );
+}
+
 function CheckRow({ label, hint, checked, onChange }: {
   label: string; hint: string; checked: boolean; onChange: (v: boolean) => void;
 }) {
@@ -629,6 +748,20 @@ const s: Record<string, React.CSSProperties> = {
   primaryBtnGhost: {
     padding: '8px 16px', borderRadius: 10, border: `1px dashed ${C.primaryBorder}`,
     background: C.primarySoft, color: C.primary, fontWeight: 600, fontSize: 13, cursor: 'pointer',
+  },
+  categorySelect: {
+    padding: '8px 12px', borderRadius: 10, border: `1px solid ${C.cardBorder}`,
+    background: '#fff', color: C.textSub, fontWeight: 600, fontSize: 12.5,
+    cursor: 'pointer', outline: 'none',
+  },
+  categoryGroupHeader: {
+    display: 'flex', alignItems: 'center', gap: 8, padding: '4px 4px 2px',
+    fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+  categoryGroupCount: {
+    padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+    background: C.divider, color: C.mutedSoft,
   },
   missionRow: {
     display: 'flex', gap: 14, alignItems: 'center', padding: '14px 16px',

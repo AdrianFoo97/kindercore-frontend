@@ -208,8 +208,29 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* Finance dropdown — grouped with the people-pipeline cluster
+            (Leads/Students/HR) rather than Analysis: it's a workflow
+            surface (operating costs), not a report. */}
+        <div ref={mobile ? undefined : financeRef} style={mobile ? {} : { position: 'relative' }}>
+          <button onClick={() => setFinanceOpen(o => !o)} className={mobile ? '' : 'nav-link'}
+            style={{ ...mDropBtn, ...(onFinanceRoute && !mobile ? styles.activeLink : {}) }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faMoneyBillTrendUp)}Finance</span>
+            {mobile ? (financeOpen ? '−' : '+') : '▾'}
+          </button>
+          {financeOpen && (
+            <div style={mPanel}>
+              <NavLink to="/operations/operating-costs" className={mobile ? '' : 'nav-drop-item'}
+                style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                onClick={closeAll}>
+                <FontAwesomeIcon icon={faReceipt} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Operating Costs
+              </NavLink>
+            </div>
+          )}
+        </div>
+
         {/* Groups the nav into three clusters: people pipeline (Leads →
-            HR), insights (Analysis, Operations), and config/admin
+            Finance), insights (Analysis, Operations), and config/admin
             (Tools → Admin) — was previously nine items with no visual
             grouping at all. */}
         {!mobile && <div style={styles.groupDivider} />}
@@ -270,25 +291,6 @@ export default function Navbar() {
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
                 <FontAwesomeIcon icon={faGift} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
                 Annual Bonus
-              </NavLink>
-            </div>
-          )}
-        </div>
-
-        {/* Finance dropdown */}
-        <div ref={mobile ? undefined : financeRef} style={mobile ? {} : { position: 'relative' }}>
-          <button onClick={() => setFinanceOpen(o => !o)} className={mobile ? '' : 'nav-link'}
-            style={{ ...mDropBtn, ...(onFinanceRoute && !mobile ? styles.activeLink : {}) }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faMoneyBillTrendUp)}Finance</span>
-            {mobile ? (financeOpen ? '−' : '+') : '▾'}
-          </button>
-          {financeOpen && (
-            <div style={mPanel}>
-              <NavLink to="/operations/operating-costs" className={mobile ? '' : 'nav-drop-item'}
-                style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
-                onClick={closeAll}>
-                <FontAwesomeIcon icon={faReceipt} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                Operating Costs
               </NavLink>
             </div>
           )}

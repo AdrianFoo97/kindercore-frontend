@@ -5,7 +5,7 @@ import {
   CartesianGrid, PieChart, Pie, Cell,
 } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCalendar, faCircleInfo } from '@fortawesome/free-solid-svg-icons';
 import { fetchSalesAnalytics, fetchLeadById } from '../../api/leads.js';
 import { Lead } from '../../types/index.js';
 import { getChannelColor, getAddressColor } from '../../utils/chartColors.js';
@@ -205,20 +205,26 @@ export default function SalesAnalysisPage() {
         const kpiEnrolled = closingRateLeads.filter(r => r.status === 'ENROLLED').length;
         const kpiClosingPct = closingDenom > 0 ? Math.round((kpiEnrolled / closingDenom) * 100) : 0;
 
-        const tally = (key: 'addressLocation' | 'howDidYouKnow') => {
+        // Returns every name tied for the top count, not just one — picking
+        // an arbitrary winner on a tie silently hides the other equally-true
+        // answers (e.g. two channels each driving 3 enrolments look like a
+        // 3-way draw with Location, but a plain "top 1" pick would only
+        // ever surface one of them).
+        const tally = (key: 'addressLocation' | 'howDidYouKnow'): { names: string[]; count: number } | null => {
           const map = new Map<string, number>();
           for (const l of kpiLeads) { const v = l[key]; if (v) map.set(v, (map.get(v) ?? 0) + 1); }
-          return [...map.entries()].sort((a, b) => b[1] - a[1])[0];
+          if (map.size === 0) return null;
+          const maxCount = Math.max(...map.values());
+          const names = [...map.entries()].filter(([, c]) => c === maxCount).map(([n]) => n);
+          return { names, count: maxCount };
         };
-        const top = (entry: [string, number] | undefined): { name: string; count: number } | null =>
-          entry ? { name: entry[0], count: entry[1] } : null;
 
-        const topChannel = top(tally('howDidYouKnow'));
-        const topLocation = top(tally('addressLocation'));
+        const topChannel = tally('howDidYouKnow');
+        const topLocation = tally('addressLocation');
         const channelShare = topChannel && denom > 0 ? Math.round((topChannel.count / denom) * 100) : 0;
         const locationShare = topLocation && denom > 0 ? Math.round((topLocation.count / denom) * 100) : 0;
-        const channelColor = topChannel ? getChannelColor(topChannel.name, 0) : C.blue;
-        const locationColor = topLocation ? getAddressColor(topLocation.name, 0) : C.blue;
+        const channelColor = topChannel ? getChannelColor(topChannel.names[0], 0) : C.blue;
+        const locationColor = topLocation ? getAddressColor(topLocation.names[0], 0) : C.blue;
 
         const unit = chartMode === 'closed' ? 'enrolments' : 'sales talks';
         return (
@@ -232,7 +238,7 @@ export default function SalesAnalysisPage() {
             />
             <KpiCard
               label="Top Marketing Channel"
-              value={topChannel ? topChannel.name : '—'}
+              value={<TieBreakerValue group={topChannel} color={channelColor} />}
               accent={channelColor}
               valueColor={topChannel ? channelColor : C.muted}
               bar={topChannel ? { fill: channelShare, color: channelColor, title: `${channelShare}% of ${unit}` } : undefined}
@@ -240,7 +246,7 @@ export default function SalesAnalysisPage() {
             />
             <KpiCard
               label="Top Location"
-              value={topLocation ? topLocation.name : '—'}
+              value={<TieBreakerValue group={topLocation} color={locationColor} />}
               accent={locationColor}
               valueColor={topLocation ? locationColor : C.muted}
               bar={topLocation ? { fill: locationShare, color: locationColor, title: `${locationShare}% of ${unit}` } : undefined}
@@ -569,7 +575,7 @@ export default function SalesAnalysisPage() {
 // 12×20 padding, optional single-segment fill bar + muted breakdown line.
 interface KpiCardProps {
   label: string;
-  value: string | number;
+  value: React.ReactNode;
   accent: string;
   valueColor?: string;
   trend?: { delta: string; dir: 'up' | 'down' | 'flat'; semantic?: 'positive' | 'negative' | 'neutral' };
@@ -622,6 +628,26 @@ function KpiCard({ label, value, accent, valueColor, trend, bar, breakdown }: Kp
         <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{breakdown}</div>
       )}
     </div>
+  );
+}
+
+// Renders a "top X" KPI value that may be tied between several names: one
+// name shows plain, two show as "A / B", and three or more show the first
+// name plus a "+N" info icon whose hover title lists the rest — a fixed
+// two-line KPI card has no room to print an arbitrarily long tied list.
+function TieBreakerValue({ group, color }: { group: { names: string[]; count: number } | null; color: string }) {
+  if (!group) return <>—</>;
+  const [first, ...rest] = group.names;
+  if (rest.length === 0) return <>{first}</>;
+  if (rest.length === 1) return <>{first} / {rest[0]}</>;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{first}</span>
+      <span title={`Tied with: ${rest.join(', ')}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+        <FontAwesomeIcon icon={faCircleInfo} style={{ fontSize: 13, color }} />
+        <span style={{ fontSize: 13, fontWeight: 700 }}>+{rest.length}</span>
+      </span>
+    </span>
   );
 }
 

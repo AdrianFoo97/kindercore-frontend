@@ -129,6 +129,12 @@ export interface AnalyticsData {
   selectedYear: number;
   prevYear: number;
   totalLeads: number;
+  /** Previous-year lead count capped to the same month/day as today when
+   *  selectedYear is still in progress (otherwise equal to the full
+   *  previous-year total) — a fair year-to-date comparison base for
+   *  totalLeads, which is itself necessarily partial while the year is
+   *  ongoing. */
+  prevYearToDateTotal: number;
   totalAppointments: number;
   completedLeads: number;
   attendedAppointments: number;
