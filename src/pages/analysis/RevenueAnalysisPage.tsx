@@ -93,9 +93,13 @@ export default function RevenueAnalysisPage() {
   // When presenting to viewers who shouldn't see exact RM figures, this masks
   // every currency value on the page while leaving student counts, names and
   // other non-financial data untouched.
-  const fmtRev = (n: number) => (showRevenue ? fmtCurrency(n) : 'RM ••••');
-  const fmtRevNbsp = (n: number) => (showRevenue ? fmtCurrencyNbsp(n) : 'RM ••••');
+  const fmtRev = (n: number) => (showRevenue ? fmtCurrency(n) : '');
+  const fmtRevNbsp = (n: number) => (showRevenue ? fmtCurrencyNbsp(n) : '');
   const fmtRevAxis = (v: number) => (showRevenue ? `${(v / 1000).toFixed(0)}k` : '•••');
+  // KPI cards are just a big number with no surrounding row/label context —
+  // leaving that fully blank reads as a rendering bug rather than "hidden",
+  // unlike a tooltip row or bar label that still has a label/shape around it.
+  const fmtRevKpi = (n: number) => (showRevenue ? fmtCurrency(n) : '•••');
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['revenue-analytics', selectedYear],
@@ -212,11 +216,11 @@ export default function RevenueAnalysisPage() {
           />
           <KpiCard
             label={`${MONTH_NAMES_FULL[data.currentMonthIdx] ?? ''} Revenue`}
-            value={fmtRev(data.totalMonthlyRevenue)}
+            value={fmtRevKpi(data.totalMonthlyRevenue)}
             color={C.green}
           />
-          <KpiCard label="Actual YTD" value={fmtRev(data.actualRevenue)} color={C.indigo} />
-          <KpiCard label="Annual (incl. forecast)" value={fmtRev(data.annualRevenue)} color={C.purple} sub={data.forecastRevenue > 0 ? `Forecast: ${fmtRev(data.forecastRevenue)}` : undefined} />
+          <KpiCard label="Actual YTD" value={fmtRevKpi(data.actualRevenue)} color={C.indigo} />
+          <KpiCard label="Annual (incl. forecast)" value={fmtRevKpi(data.annualRevenue)} color={C.purple} sub={data.forecastRevenue > 0 ? `Forecast: ${fmtRevKpi(data.forecastRevenue)}` : undefined} />
         </div>
 
         {/* Chart 1: Monthly Revenue */}
@@ -254,7 +258,41 @@ export default function RevenueAnalysisPage() {
                 domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.05 / 5) * 5]}
                 tickCount={6}
               />
-              <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtRev(v), name]} />
+              <Tooltip
+                cursor={false}
+                content={({ active, payload, label }: any) => {
+                  if (!active || !payload?.length) return null;
+                  const revenueItem = payload.find((p: any) => p.name === 'Revenue');
+                  const studentsItem = payload.find((p: any) => p.name === 'Students');
+                  return (
+                    <div style={{
+                      background: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 10,
+                      padding: '10px 14px',
+                      fontSize: 13,
+                      minWidth: 170,
+                      boxShadow: '0 4px 16px rgba(15, 23, 42, 0.12)',
+                    }}>
+                      <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>{label}</div>
+                      {/* Revenue row omitted entirely while hidden, not just blanked —
+                          this is the one tooltip meant to stay presentable on screen-share. */}
+                      {showRevenue && revenueItem && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#334155', padding: '2px 0' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 2, background: C.blue, flexShrink: 0 }} />
+                          Revenue : <strong style={{ fontWeight: 700 }}>{fmtRev(revenueItem.value)}</strong>
+                        </div>
+                      )}
+                      {studentsItem && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.amber, padding: '2px 0' }}>
+                          <span style={{ width: 8, height: 4, background: C.amber, flexShrink: 0 }} />
+                          Students : <strong style={{ fontWeight: 700 }}>{studentsItem.value} students</strong>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }}
+              />
               {selectedEntry && (
                 <ReferenceArea
                   yAxisId="left"
@@ -291,7 +329,7 @@ export default function RevenueAnalysisPage() {
                 <LabelList
                   dataKey="revenue"
                   position="top"
-                  formatter={(v: number) => showRevenue ? (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)) : '•••'}
+                  formatter={(v: number) => showRevenue ? (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)) : ''}
                   style={{ fontSize: 10, fill: '#475569', fontWeight: 600 }}
                 />
               </Bar>
@@ -337,7 +375,7 @@ export default function RevenueAnalysisPage() {
                   domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2 / 1000) * 1000]}
                 />
                 <YAxis type="category" dataKey="programme" tick={{ fontSize: 11, fill: '#475569' }} width={120} />
-                <Tooltip cursor={false} formatter={(v: number) => fmtRev(v)} />
+                <Tooltip cursor={false} formatter={(v: number) => fmtRevKpi(v)} />
                 <Bar dataKey="revenue" radius={[0, 4, 4, 0]} barSize={20}>
                   {data.revenueByProgramme.map((entry, i) => (
                     <Cell key={entry.programme} fill={PROG_COLORS[entry.programme] || AGE_COLORS[i % AGE_COLORS.length]} />
@@ -392,7 +430,7 @@ export default function RevenueAnalysisPage() {
                 tickFormatter={fmtRevAxis}
                 domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2 / 1000) * 1000]}
               />
-              <Tooltip cursor={false} formatter={(v: number, name: string) => [name === 'Students' ? `${v} students` : fmtRev(v), name]} />
+              <Tooltip cursor={false} formatter={(v: number) => fmtRevKpi(v)} />
               <Bar dataKey="revenue" fill={C.teal} radius={[4, 4, 0, 0]} barSize={36} name="Revenue">
                 {data.revenueByAge.map((_, i) => (
                   <Cell key={i} fill={AGE_COLORS[i % AGE_COLORS.length]} />
@@ -420,7 +458,7 @@ export default function RevenueAnalysisPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={fmtRevAxis} />
-              <Tooltip cursor={false} formatter={(v: number) => fmtRev(v)} itemSorter={() => -1} />
+              <Tooltip cursor={false} formatter={(v: number) => fmtRevKpi(v)} itemSorter={() => -1} />
               <Bar dataKey="current" fill={C.blue} radius={[4, 4, 0, 0]} barSize={24} name={String(selectedYear)} />
               <Line type="monotone" dataKey="previous" stroke={C.slate} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3, fill: C.slate }} name={String(data.prevYear)} />
             </ComposedChart>
@@ -443,7 +481,7 @@ const PROG_ORDER = ['Half Day', 'Half Day + Enrichment', 'Full Day'];
 const AGE_BAND_COLORS = ['#dbeafe', '#fce7f3', '#dcfce7', '#fef3c7', '#ede9fe', '#cffafe'];
 
 function MonthlyBreakdownTable({ data, showRevenue }: { data: import('../../api/students.js').RevenueAnalyticsData; showRevenue: boolean }) {
-  const fmtRev = (n: number) => (showRevenue ? fmtCurrency(n) : 'RM ••••');
+  const fmtRev = (n: number) => (showRevenue ? fmtCurrency(n) : '');
   // Discover the set of (age × programme) columns that have data anywhere this year
   const ageSet = new Set<string>();
   const progSet = new Set<string>();
@@ -782,7 +820,7 @@ function EnrollmentEventsList({
   onClearMonth: () => void;
   showRevenue: boolean;
 }) {
-  const fmtRev = (n: number) => (showRevenue ? fmtCurrency(n) : 'RM ••••');
+  const fmtRev = (n: number) => (showRevenue ? fmtCurrency(n) : '');
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -801,6 +839,16 @@ function EnrollmentEventsList({
   const newCount = filtered.filter(e => e.type === 'new').length;
   const changeCount = filtered.filter(e => e.type === 'change').length;
   const withdrawnCount = filtered.filter(e => e.type === 'withdrawn').length;
+
+  // Net effect on monthly recurring revenue: new joins add their fee,
+  // withdrawals remove it, and a package change only contributes its delta
+  // (the old fee was already counted when that student first joined).
+  const netMonthlyChange = filtered.reduce((sum, ev) => {
+    if (ev.type === 'new') return sum + ev.monthlyFee;
+    if (ev.type === 'withdrawn') return sum - ev.monthlyFee;
+    if (ev.type === 'change') return sum + (ev.prevMonthlyFee != null ? ev.monthlyFee - ev.prevMonthlyFee : 0);
+    return sum;
+  }, 0);
 
   const title = selectedMonth !== null
     ? `Enrolment Events — ${MONTH_NAMES[selectedMonth]} ${data.selectedYear}`
@@ -822,6 +870,14 @@ function EnrollmentEventsList({
           <span style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>
             {newCount} new · {changeCount} change{changeCount === 1 ? '' : 's'} · {withdrawnCount} withdrawn
           </span>
+          {filtered.length > 0 && (
+            <span style={{
+              fontSize: 12, fontWeight: 700,
+              color: netMonthlyChange > 0 ? '#059669' : netMonthlyChange < 0 ? '#dc2626' : '#94a3b8',
+            }}>
+              Net {netMonthlyChange < 0 ? '-' : netMonthlyChange > 0 ? '+' : ''}{fmtRev(Math.abs(netMonthlyChange))}/mo
+            </span>
+          )}
         </div>
         <div style={{ fontSize: 11, color: '#94a3b8' }}>
           {selectedMonth !== null ? (
