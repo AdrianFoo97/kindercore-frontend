@@ -5,7 +5,7 @@ import { fetchSettings } from '../../api/settings.js';
 import { fetchCandidateFormOptions } from '../../api/candidates.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 /** Normalises a human-readable label into a URL-safe utm_source value.
@@ -30,6 +30,7 @@ export default function Navbar() {
   const [studentsOpen, setStudentsOpen] = useState(false);
   const [hrOpen, setHrOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
+  const [operationOpen, setOperationOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -47,10 +48,12 @@ export default function Navbar() {
   const studentsRef = useRef<HTMLDivElement>(null);
   const hrRef = useRef<HTMLDivElement>(null);
   const financeRef = useRef<HTMLDivElement>(null);
+  const operationRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const devRef = useRef<HTMLDivElement>(null);
   const adminRef = useRef<HTMLDivElement>(null);
   const onFinanceRoute = !!useMatch('/operations/operating-costs');
+  const onOperationRoute = !!useMatch('/operations/sops/*');
   const onToolsRoute = !!useMatch('/tools/*');
   // Both useMatch calls must run every render, unconditionally — `||`
   // short-circuits, which would skip the second call whenever the first
@@ -100,6 +103,7 @@ export default function Navbar() {
       if (studentsRef.current && !studentsRef.current.contains(e.target as Node)) setStudentsOpen(false);
       if (hrRef.current && !hrRef.current.contains(e.target as Node)) setHrOpen(false);
       if (financeRef.current && !financeRef.current.contains(e.target as Node)) setFinanceOpen(false);
+      if (operationRef.current && !operationRef.current.contains(e.target as Node)) setOperationOpen(false);
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
       if (devRef.current && !devRef.current.contains(e.target as Node)) setDevOpen(false);
       if (adminRef.current && !adminRef.current.contains(e.target as Node)) setAdminOpen(false);
@@ -117,7 +121,7 @@ export default function Navbar() {
   // Close mobile menu on navigate
   useEffect(() => { setMobileMenuOpen(false); }, [isMobile]);
 
-  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setHrOpen(false); setFinanceOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
+  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
 
   // Shared nav items renderer (used for both desktop and mobile drawer)
   const renderNavItems = (mobile = false) => {
@@ -204,6 +208,12 @@ export default function Navbar() {
                 <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
                 Recruitment
               </NavLink>
+              <NavLink to="/hr/sop-observations" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                SOP Observations
+              </NavLink>
             </div>
           )}
         </div>
@@ -229,10 +239,32 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* Operation dropdown — the org-wide procedure library (SOP
+            Library). Separate from Finance/HR since it isn't scoped to a
+            person or a cost line, and separate from Settings since it's a
+            working library admins add to regularly, not config set once. */}
+        <div ref={mobile ? undefined : operationRef} style={mobile ? {} : { position: 'relative' }}>
+          <button onClick={() => setOperationOpen(o => !o)} className={mobile ? '' : 'nav-link'}
+            style={{ ...mDropBtn, ...(onOperationRoute && !mobile ? styles.activeLink : {}) }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faGears)}Operation</span>
+            {mobile ? (operationOpen ? '−' : '+') : '▾'}
+          </button>
+          {operationOpen && (
+            <div style={mPanel}>
+              <NavLink to="/operations/sops" className={mobile ? '' : 'nav-drop-item'}
+                style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                onClick={closeAll}>
+                <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                SOP Library
+              </NavLink>
+            </div>
+          )}
+        </div>
+
         {/* Groups the nav into three clusters: people pipeline (Leads →
-            Finance), insights (Analysis, Operations), and config/admin
-            (Tools → Admin) — was previously nine items with no visual
-            grouping at all. */}
+            Finance), operations/insights (Operation, Analysis), and
+            config/admin (Tools → Admin) — was previously nine items with
+            no visual grouping at all. */}
         {!mobile && <div style={styles.groupDivider} />}
 
         {/* Analysis dropdown */}

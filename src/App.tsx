@@ -44,6 +44,10 @@ import SettingsHrPage from './pages/settings/SettingsHrPage.js';
 import PositionEditPage from './pages/settings/PositionEditPage.js';
 import CareerMissionSettingsPage from './pages/settings/CareerMissionSettingsPage.js';
 import MissionCategoriesPage from './pages/settings/MissionCategoriesPage.js';
+import SopLibraryPage from './pages/operations/SopLibraryPage.js';
+import SopTemplateStepsPage from './pages/operations/SopTemplateStepsPage.js';
+import SopObservationsPage from './pages/SopObservationsPage.js';
+import SopObservationDetailPage from './pages/SopObservationDetailPage.js';
 import TeachersPage from './pages/TeachersPage.js';
 import TeacherCareerPage from './pages/TeacherCareerPage.js';
 import TeacherMyCareerPage from './pages/TeacherMyCareerPage.js';
@@ -186,6 +190,8 @@ export default function App() {
           <Route path="/teachers/:id" element={<ErrorBoundary><EditTeacherPage /></ErrorBoundary>} />
           <Route path="/hr/candidates" element={<ErrorBoundary><CandidatesPage /></ErrorBoundary>} />
           <Route path="/hr/candidates/import" element={<ErrorBoundary><ImportCandidatesPage /></ErrorBoundary>} />
+          <Route path="/hr/sop-observations" element={<ErrorBoundary><SopObservationsPage /></ErrorBoundary>} />
+          <Route path="/hr/sop-observations/:id" element={<ErrorBoundary><SopObservationDetailPage /></ErrorBoundary>} />
           <Route path="/settings/data" element={<ErrorBoundary><SettingsDataPage /></ErrorBoundary>} />
           <Route path="/settings/recruitment" element={<ErrorBoundary><RecruitmentSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/career" element={<ErrorBoundary><TeacherCareerPage /></ErrorBoundary>} />
@@ -224,6 +230,8 @@ export default function App() {
           <Route path="/tools/operations-planner" element={<ErrorBoundary><OperationsPlannerPage /></ErrorBoundary>} />
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<ErrorBoundary><OperatingCostsPage /></ErrorBoundary>} />
+          <Route path="/operations/sops" element={<ErrorBoundary><SopLibraryPage /></ErrorBoundary>} />
+          <Route path="/operations/sops/:templateId" element={<ErrorBoundary><SopTemplateStepsPage /></ErrorBoundary>} />
           <Route path="/settings/operating-cost-main-categories" element={<ErrorBoundary><OperatingCostMainCategoriesPage /></ErrorBoundary>} />
           <Route path="/settings/operating-cost-categories" element={<ErrorBoundary><OperatingCostCategoriesPage /></ErrorBoundary>} />
           <Route path="/settings/operating-cost" element={<ErrorBoundary><SettingsOperatingCostPage /></ErrorBoundary>} />
