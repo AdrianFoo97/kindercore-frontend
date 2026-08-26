@@ -3,6 +3,41 @@ import { useNavigate, Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import { login } from '../api/auth.js';
+import { fetchMyPermissions } from '../api/me.js';
+import { ALL_MODULE_KEYS, ModuleKey } from '../constants/authModules.js';
+
+// Home page for each module, in the same left-to-right priority as the
+// Navbar dropdowns — picks the first one this account actually has so a
+// non-admin AuthRole (e.g. Teacher: Operation only) doesn't land on /leads
+// and immediately get bounced out by RequireModule.
+const MODULE_HOME: Record<ModuleKey, string> = {
+  LEADS: '/leads',
+  STUDENTS: '/students',
+  HR: '/teachers',
+  FINANCE: '/operations/operating-costs',
+  OPERATION: '/operations/sops',
+  ANALYSIS: '/analysis/sales-marketing',
+  TOOLS: '/tools/operations-planner',
+};
+
+async function resolveLandingPath(teacherId?: string | null): Promise<string> {
+  // A teacher-linked account is staff on the career ladder first — land
+  // them in their own Career/Pay/Rewards app, not an admin module. Any
+  // admin modules their AuthRole grants are still reachable via the nav
+  // from there (see Navbar.tsx's "My Profile" link for the way back).
+  if (teacherId) return `/teachers/${teacherId}/my-career`;
+  try {
+    const perms = await fetchMyPermissions();
+    if (perms.isAdmin) return '/leads';
+    const firstModule = ALL_MODULE_KEYS.find(m => perms.modules.includes(m));
+    // No module at all (unlinked account, or a Position with no AuthRole)
+    // — land on /no-access directly rather than /leads, which RequireModule
+    // would just bounce away from anyway.
+    return firstModule ? MODULE_HOME[firstModule] : '/no-access';
+  } catch {
+    return '/leads';
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Validation
@@ -191,7 +226,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      navigate('/leads', { replace: true });
+      const rawUser = localStorage.getItem('user');
+      const storedTeacherId = rawUser ? (JSON.parse(rawUser) as { teacherId?: string | null }).teacherId : null;
+      resolveLandingPath(storedTeacherId).then(path => navigate(path, { replace: true }));
     }
   }, [isLoggedIn, navigate]);
 
@@ -214,7 +251,7 @@ export default function LoginPage() {
       const data = await login(email.trim(), password);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/leads');
+      navigate(await resolveLandingPath(data.user.teacherId));
     } catch (err: unknown) {
       const { ApiError } = await import('../api/client.js');
       if (err instanceof ApiError) {

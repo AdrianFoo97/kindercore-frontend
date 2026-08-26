@@ -1,19 +1,17 @@
-import React, { useMemo, useState } from 'react';
-import ReactDOM from 'react-dom';
-import { useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faPlus, faTrash, faPen, faGripVertical, faTimes, faCheck,
-  faClipboardCheck, faChevronRight, faListCheck,
+  faPlus, faMagnifyingGlass,
+  faClipboardCheck, faChevronRight, faChevronDown, faCheck, faListCheck, faLayerGroup, faClockRotateLeft,
 } from '@fortawesome/free-solid-svg-icons';
-import {
-  fetchTemplates, createTemplate, updateTemplate, deleteTemplate, reorderTemplates,
-  SopTemplate, UpsertSopTemplatePayload,
-} from '../../api/sop-templates.js';
+import { fetchTemplates } from '../../api/sop-templates.js';
 import { fetchSteps } from '../../api/sop-steps.js';
-import { useToast } from '../../components/common/Toast.js';
-import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import { fetchCategories } from '../../api/sop-categories.js';
+import { resolveSopIcon } from '../../utils/sopTemplateIcons.js';
+import { useIsMobile } from '../../hooks/useIsMobile.js';
+import { usePermissions } from '../../hooks/usePermissions.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -25,6 +23,10 @@ const C = {
   textSub: '#475569',
   muted: '#64748b',
   mutedSoft: '#94a3b8',
+  // True neutral, no blue undertone — reserved for the goal preview text on
+  // each card, which otherwise reads like link text next to the page's
+  // actual indigo accents (same fix as SopTemplateStepsPage's textBody).
+  textBody: '#52525b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -34,199 +36,289 @@ const RADIUS = 14;
 const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 const PAGE_SIZE = 10;
 
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+const PRINCIPLES = [
+  { key: 'learn', label: 'Learn', color: '#5a67d8', bg: '#eef2ff', text: 'See our current best-known way.' },
+  { key: 'follow', label: 'Follow', color: '#0d9488', bg: '#f0fdfa', text: 'Work consistently as one team.' },
+  { key: 'improve', label: 'Improve', color: '#b45309', bg: '#fffbeb', text: 'See a better way? Help us improve it.' },
+];
+
 export default function SopLibraryPage() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
-  const { showToast } = useToast();
-  const { confirm: confirmDelete } = useDeleteDialog();
+  const { isMobile } = useIsMobile();
+
+  // Admins, and anyone whose AuthRole grants OPERATION_SOP_APPROVE (the
+  // "Supervisor" tier — same view that unlocks Approve/Reject on the
+  // Improvement Inbox), add a How-To Guide directly. Everyone else drafts a
+  // suggestion that has to be reviewed first — same starting intent,
+  // different landing page and honest button label.
+  const rawUser = localStorage.getItem('user');
+  const currentUser = rawUser ? (JSON.parse(rawUser) as { role?: string }) : null;
+  const { hasView } = usePermissions();
+  const realIsAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || hasView('OPERATION_SOP_APPROVE');
+  // Dev-only preview: ?previewTeacher=1 forces the teacher view for an
+  // admin so they can check it without a separate USER login. Query-param
+  // read is gated on import.meta.env.DEV so it's inert in production even
+  // if someone guesses the param.
+  const [searchParams] = useSearchParams();
+  const previewingTeacher = import.meta.env.DEV && searchParams.get('previewTeacher') === '1';
+  const isAdmin = previewingTeacher ? false : realIsAdmin;
+  const addSopPath = isAdmin ? '/operations/sops/new' : '/operations/sops/propose';
+  // Carried through so clicking into a guide from the teacher preview
+  // keeps showing the teacher view there too (see SopTemplateStepsPage.tsx).
+  const detailPathSuffix = previewingTeacher ? '?previewTeacher=1' : '';
+  // "Add" implies it goes live immediately — true for an admin, not for a
+  // teacher, whose submission just starts a review. Label it honestly.
+  const addSopLabel = isAdmin ? 'Add How-To Guide' : 'Suggest a New How-To Guide';
 
   const { data: allTemplates = [], isLoading: templatesLoading } = useQuery({
     queryKey: ['sop-templates'],
     queryFn: () => fetchTemplates(),
   });
   const templates = useMemo(
-    () => [...allTemplates].sort((a, b) => a.displayOrder - b.displayOrder),
+    () => [...allTemplates].sort((a, b) => a.title.localeCompare(b.title)),
     [allTemplates],
   );
 
-  const [page, setPage] = useState(1);
-  const pageCount = Math.max(1, Math.ceil(templates.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
-  const pagedTemplates = templates.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const { data: categories = [] } = useQuery({ queryKey: ['sop-categories'], queryFn: () => fetchCategories() });
 
-  // Each template's step count, fetched once so the card can show "N steps"
-  // without a click-through.
-  const { data: stepCounts = {} } = useQuery({
-    queryKey: ['sop-step-counts', templates.map(t => t.id).join(',')],
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const selectedCategory = categories.find(c => c.id === categoryFilter);
+  // A flat pill row breaks down once the category list grows past a
+  // handful (imagine 20+ labels wrapping across the top of the page) —
+  // a dropdown stays a fixed size and scrolls internally regardless of
+  // how many categories exist.
+  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
+  const categoryFilterRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!categoryFilterOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (categoryFilterRef.current && !categoryFilterRef.current.contains(e.target as Node)) {
+        setCategoryFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [categoryFilterOpen]);
+  const filteredTemplates = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return templates.filter(t => {
+      const matchesSearch = !q || t.title.toLowerCase().includes(q) || (t.goal ?? '').toLowerCase().includes(q);
+      const matchesCategory = categoryFilter === 'ALL' || (t.categories ?? []).some(c => c.id === categoryFilter);
+      return matchesSearch && matchesCategory;
+    });
+  }, [templates, search, categoryFilter]);
+
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [search, categoryFilter]);
+  const pageCount = Math.max(1, Math.ceil(filteredTemplates.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pagedTemplates = filteredTemplates.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  // Each template's step + section counts, fetched once so the card can
+  // show real document scope ("3 sections · 13 steps") without a click-through.
+  const { data: meta = {} } = useQuery({
+    queryKey: ['sop-step-meta', templates.map(t => t.id).join(',')],
     queryFn: async () => {
-      const counts: Record<string, number> = {};
+      const out: Record<string, { steps: number; sections: number }> = {};
       await Promise.all(templates.map(async t => {
         const steps = await fetchSteps(t.id);
-        counts[t.id] = steps.length;
+        out[t.id] = { steps: steps.length, sections: new Set(steps.map(s => s.section)).size };
       }));
-      return counts;
+      return out;
     },
     enabled: templates.length > 0,
   });
 
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editing, setEditing] = useState<SopTemplate | null>(null);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [dropId, setDropId] = useState<string | null>(null);
-
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['sop-templates'] });
-
-  const onSave = async (payload: UpsertSopTemplatePayload) => {
-    try {
-      if (editing) {
-        await updateTemplate(editing.id, payload);
-        showToast('SOP updated');
-      } else {
-        await createTemplate(payload);
-        showToast('SOP added');
-      }
-      invalidate();
-      setEditorOpen(false);
-      setEditing(null);
-    } catch (e: any) {
-      showToast(e?.message ?? 'Save failed', 'error');
-    }
-  };
-
-  const onDelete = async (t: SopTemplate) => {
-    const ok = await confirmDelete({
-      entityType: 'SOP',
-      entityName: t.title,
-      consequence: 'The SOP will be archived. Past observation records against it stay in history (read-only).',
-      actionLabel: 'Archive',
-      onConfirm: async () => {
-        await deleteTemplate(t.id);
-        invalidate();
-        showToast('SOP archived');
-      },
-    });
-    if (!ok) return;
-  };
-
-  const onDragStart = (id: string) => (e: React.DragEvent) => {
-    setDragId(id);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-  const onDragOver = (id: string) => (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dropId !== id) setDropId(id);
-  };
-  const onDragEnd = () => { setDragId(null); setDropId(null); };
-  const onDrop = (targetId: string) => async (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!dragId || dragId === targetId) { onDragEnd(); return; }
-    const ids = templates.map(t => t.id);
-    const fromIdx = ids.indexOf(dragId);
-    const toIdx = ids.indexOf(targetId);
-    if (fromIdx < 0 || toIdx < 0) { onDragEnd(); return; }
-    const reordered = [...ids];
-    const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(toIdx, 0, moved);
-    onDragEnd();
-    try {
-      await reorderTemplates(reordered);
-      invalidate();
-    } catch (err: any) {
-      showToast(err?.message ?? 'Reorder failed', 'error');
-    }
-  };
-
   return (
-    <div style={s.page}>
+    <div style={{ ...s.page, ...(isMobile ? sMobile.page : null) }}>
+      <style>{`
+        .sop-tpl-row:hover { border-color: ${C.primaryBorder} !important; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 16px rgba(90,103,216,0.08) !important; }
+        .sop-catfilter-trigger:hover { border-color: ${C.primaryBorder} !important; background: ${C.primarySoft} !important; }
+        .sop-catfilter-item:hover { background: ${C.divider} !important; }
+      `}</style>
       <div style={s.inner}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <h1 style={s.heading}>SOP Library</h1>
-            <p style={s.subheading}>Standard operating procedures staff are observed and certified against — a flat, org-wide library.</p>
+        <div style={{ marginBottom: isMobile ? 16 : 18 }}>
+          <h1 style={{ ...s.heading, ...(isMobile ? sMobile.heading : null) }}>How-To Guides</h1>
+          <p style={s.subheading}>Simple, shared ways to help us work well, stay consistent, and keep improving together.</p>
+        </div>
+
+        {isMobile ? (
+          // The three-row card was still a lot of vertical real estate to
+          // spend before the actual guide list appears — the guides are
+          // what someone opened this page for. The subheading above
+          // already carries the same "learn/follow/improve" idea in one
+          // sentence, so this only needs to be a quiet one-line reminder
+          // of the three words, not a restatement of their descriptions.
+          <div style={sMobile.principlesStrip}>
+            {PRINCIPLES.map((p, i) => (
+              <span key={p.key} style={{ ...sMobile.principleChip, background: p.bg, color: p.color }}>
+                <span style={{ ...sMobile.principleStepNumber, background: p.color }}>{i + 1}</span>
+                {p.label}
+              </span>
+            ))}
           </div>
-          <button onClick={() => { setEditing(null); setEditorOpen(true); }} style={s.primaryBtn}>
+        ) : (
+          <div style={s.principlesRow}>
+            {PRINCIPLES.map(p => (
+              <div key={p.key} style={s.principleItem}>
+                <span style={{ ...s.principleBadge, background: p.bg, color: p.color }}>{p.label.toUpperCase()}</span>
+                <span style={s.principleText}>{p.text}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ ...s.toolbar, ...(isMobile ? sMobile.toolbar : null) }}>
+          {templates.length > 0 && (
+            <div style={{ ...s.searchWrap, ...(isMobile ? sMobile.searchWrap : null) }}>
+              <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12.5, color: C.mutedSoft }} />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="What do you need help with?"
+                style={s.searchInput}
+              />
+            </div>
+          )}
+
+          {categories.length > 0 && (
+            <div style={{ position: 'relative', ...(isMobile ? { width: '100%' } : null) }} ref={categoryFilterRef}>
+              <button
+                type="button"
+                className="sop-catfilter-trigger"
+                onClick={() => setCategoryFilterOpen(o => !o)}
+                style={{ ...s.categoryFilterTrigger, ...(isMobile ? { width: '100%' } : null) }}
+              >
+                {selectedCategory ? (
+                  <>
+                    <span style={{ ...s.categoryFilterDot, background: selectedCategory.color }} />
+                    {selectedCategory.name}
+                  </>
+                ) : 'All categories'}
+                <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 9, color: C.mutedSoft, marginLeft: 'auto', paddingLeft: 10 }} />
+              </button>
+
+              {categoryFilterOpen && (
+                <div style={s.categoryFilterMenu}>
+                  <button
+                    type="button"
+                    className="sop-catfilter-item"
+                    onClick={() => { setCategoryFilter('ALL'); setCategoryFilterOpen(false); }}
+                    style={s.categoryFilterItem}
+                  >
+                    <span style={{ width: 14 }}>{categoryFilter === 'ALL' && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10, color: C.primary }} />}</span>
+                    All categories
+                  </button>
+                  {categories.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="sop-catfilter-item"
+                      onClick={() => { setCategoryFilter(c.id); setCategoryFilterOpen(false); }}
+                      style={s.categoryFilterItem}
+                    >
+                      <span style={{ width: 14 }}>{categoryFilter === c.id && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10, color: C.primary }} />}</span>
+                      <span style={{ ...s.categoryFilterDot, background: c.color }} />
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button onClick={() => navigate(addSopPath)} style={{ ...s.primaryBtn, marginLeft: isMobile ? 0 : 'auto', ...(isMobile ? { width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } : null) }}>
             <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />
-            Add SOP
+            {addSopLabel}
           </button>
         </div>
 
-        <div style={s.card}>
+        <div style={{ ...s.card, ...(isMobile ? sMobile.card : null) }}>
           {templatesLoading ? (
             <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
           ) : templates.length === 0 ? (
-            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
-              <p style={{ margin: '0 0 12px', fontSize: 13, color: C.muted }}>
-                No SOPs configured yet.
+            <div style={{ padding: '56px 20px', textAlign: 'center' }}>
+              <div style={s.emptyIconWrap}>
+                <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 20, color: C.primary }} />
+              </div>
+              <h3 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 700, color: C.text }}>No How-To Guides yet</h3>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: C.muted, maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>
+                Capture the first one — a simple, shared way for the team to do a task well and consistently.
               </p>
-              <button onClick={() => { setEditing(null); setEditorOpen(true); }} style={s.primaryBtnGhost}>
+              <button onClick={() => navigate(addSopPath)} style={s.primaryBtnGhost}>
                 <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />
-                Add the first SOP
+                {isAdmin ? 'Add the first How-To Guide' : 'Suggest the first How-To Guide'}
               </button>
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: 13, color: C.muted }}>
+                {search ? `No How-To Guides match "${search}".` : 'No How-To Guides in this category.'}
+              </p>
             </div>
           ) : (
             <>
-              <div style={s.cardSub}>{templates.length} SOP{templates.length === 1 ? '' : 's'} · Drag to reorder</div>
+              <div style={s.cardSub}>
+                {filteredTemplates.length} How-To Guide{filteredTemplates.length === 1 ? '' : 's'}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
                 {pagedTemplates.map(t => {
-                  const isDrag = dragId === t.id;
-                  const isDrop = dropId === t.id && dragId !== t.id;
+                  const tMeta = meta[t.id];
                   return (
                     <div
                       key={t.id}
-                      draggable
-                      onDragStart={onDragStart(t.id)}
-                      onDragOver={onDragOver(t.id)}
-                      onDragEnd={onDragEnd}
-                      onDrop={onDrop(t.id)}
-                      onClick={() => navigate(`/operations/sops/${t.id}`)}
-                      style={{
-                        ...s.templateRow,
-                        opacity: isDrag ? 0.45 : 1,
-                        borderColor: isDrop ? C.primary : C.cardBorder,
-                        boxShadow: isDrop ? '0 0 0 3px rgba(90,103,216,0.15)' : 'none',
-                      }}
+                      className="sop-tpl-row"
+                      onClick={() => navigate(`/operations/sops/${t.id}${detailPathSuffix}`)}
+                      style={{ ...s.templateRow, ...(isMobile ? sMobile.templateRow : null) }}
                     >
-                      <div style={{ ...s.dragHandle, color: C.mutedSoft }} onClick={e => e.stopPropagation()}>
-                        <FontAwesomeIcon icon={faGripVertical} />
-                      </div>
                       <div style={s.catIconWrap}>
-                        <FontAwesomeIcon icon={faClipboardCheck} />
+                        <FontAwesomeIcon icon={resolveSopIcon(t.icon)} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{t.title}</span>
+                        <span style={{ fontSize: 14.5, fontWeight: 600, color: C.text }}>{t.title}</span>
                         {t.goal && <p style={s.templateGoal}>{t.goal}</p>}
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6, fontSize: 11.5, color: C.mutedSoft }}>
-                          <FontAwesomeIcon icon={faListCheck} style={{ fontSize: 11 }} />
-                          {stepCounts[t.id] ?? '…'} step{stepCounts[t.id] === 1 ? '' : 's'}
-                        </span>
+                        {(t.categories ?? []).length > 0 && (
+                          <div style={s.categoryChipRow}>
+                            {t.categories!.map(c => (
+                              <span key={c.id} style={{ ...s.categoryChip, background: `${c.color}1c`, color: c.color }}>
+                                {c.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div style={s.metaRow}>
+                          <span style={s.metaItem}>
+                            <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: 10.5 }} />
+                            {tMeta ? `${tMeta.sections} section${tMeta.sections === 1 ? '' : 's'}` : '…'}
+                          </span>
+                          <span style={s.metaDot} />
+                          <span style={s.metaItem}>
+                            <FontAwesomeIcon icon={faListCheck} style={{ fontSize: 10.5 }} />
+                            {tMeta ? `${tMeta.steps} step${tMeta.steps === 1 ? '' : 's'}` : '…'}
+                          </span>
+                          <span style={s.metaDot} />
+                          <span style={s.metaItem}>
+                            <FontAwesomeIcon icon={faClockRotateLeft} style={{ fontSize: 10.5 }} />
+                            Improved {fmtDate(t.updatedAt)}
+                          </span>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => { setEditing(t); setEditorOpen(true); }} style={s.iconBtn} aria-label="Edit">
-                          <FontAwesomeIcon icon={faPen} />
-                        </button>
-                        <button onClick={() => onDelete(t)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete">
-                          <FontAwesomeIcon icon={faTrash} />
-                        </button>
-                        <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 12, color: C.mutedSoft, marginLeft: 4 }} />
-                      </div>
+                      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 12, color: C.mutedSoft, marginLeft: 4, flexShrink: 0 }} />
                     </div>
                   );
                 })}
               </div>
-              <SopPagination page={safePage} pageCount={pageCount} totalCount={templates.length} onPageChange={setPage} />
+              <SopPagination page={safePage} pageCount={pageCount} totalCount={filteredTemplates.length} onPageChange={setPage} />
             </>
           )}
         </div>
       </div>
-
-      {editorOpen && (
-        <SopTemplateEditorModal
-          template={editing}
-          onCancel={() => { setEditorOpen(false); setEditing(null); }}
-          onSave={onSave}
-        />
-      )}
     </div>
   );
 }
@@ -266,85 +358,6 @@ function SopPagination({ page, pageCount, totalCount, onPageChange }: {
   );
 }
 
-// ── Editor modal ─────────────────────────────────────────────────────────────
-
-function SopTemplateEditorModal({
-  template,
-  onCancel,
-  onSave,
-}: {
-  template: SopTemplate | null;
-  onCancel: () => void;
-  onSave: (payload: UpsertSopTemplatePayload) => Promise<void>;
-}) {
-  const [title, setTitle] = useState(template?.title ?? '');
-  const [goal, setGoal] = useState(template?.goal ?? '');
-  const [saving, setSaving] = useState(false);
-
-  const submit = async () => {
-    if (!title.trim()) return;
-    setSaving(true);
-    try {
-      await onSave({ title: title.trim(), goal: goal.trim() || null });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return ReactDOM.createPortal(
-    <div style={modalS.overlay} onClick={onCancel}>
-      <div style={modalS.dialog} onClick={e => e.stopPropagation()}>
-        <div style={modalS.header}>
-          <h2 style={modalS.title}>{template ? 'Edit SOP' : 'New SOP'}</h2>
-          <button onClick={onCancel} style={modalS.closeBtn} aria-label="Close">
-            <FontAwesomeIcon icon={faTimes} />
-          </button>
-        </div>
-
-        <div style={modalS.body}>
-          <div style={modalS.field}>
-            <label style={modalS.label}>Title</label>
-            <input
-              autoFocus
-              type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="e.g. Picking"
-              style={modalS.input}
-            />
-          </div>
-
-          <div style={modalS.field}>
-            <label style={modalS.label}>
-              Goal
-              <span style={modalS.labelHint}>What does this procedure exist to ensure?</span>
-            </label>
-            <textarea
-              value={goal}
-              onChange={e => setGoal(e.target.value)}
-              placeholder="e.g. Confirm inbound QR info, physical QR info, and item batch/quantity/quality all match before completing picking."
-              style={{ ...modalS.input, minHeight: 90, resize: 'vertical' }}
-            />
-          </div>
-        </div>
-
-        <div style={modalS.footer}>
-          <button onClick={onCancel} style={modalS.cancelBtn}>Cancel</button>
-          <button
-            onClick={submit}
-            disabled={!title.trim() || saving}
-            style={{ ...modalS.saveBtn, opacity: !title.trim() || saving ? 0.5 : 1 }}
-          >
-            <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
-            {saving ? 'Saving…' : template ? 'Save changes' : 'Create SOP'}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 const s: Record<string, React.CSSProperties> = {
@@ -352,6 +365,20 @@ const s: Record<string, React.CSSProperties> = {
   inner: { maxWidth: 1100, margin: '0 auto' },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
   subheading: { margin: 0, fontSize: 13, color: C.muted, maxWidth: 620 },
+  principlesRow: { display: 'flex', gap: 20, flexWrap: 'wrap' as const, marginBottom: 20 },
+  principleItem: { display: 'flex', alignItems: 'center', gap: 8 },
+  principleBadge: {
+    display: 'inline-flex', padding: '3px 9px', borderRadius: 999,
+    fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', flexShrink: 0,
+  },
+  principleText: { fontSize: 12.5, color: C.textSub },
+  toolbar: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const, marginBottom: 20 },
+  searchWrap: { position: 'relative', flex: '1 1 320px', maxWidth: 420, minWidth: 220 },
+  searchInput: {
+    width: '100%', padding: '9px 12px 9px 36px', fontSize: 13,
+    border: `1px solid ${C.cardBorder}`, borderRadius: 10,
+    outline: 'none', color: C.text, boxSizing: 'border-box', background: '#fff',
+  },
   card: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS,
     padding: '22px 26px', boxShadow: SHADOW,
@@ -365,67 +392,74 @@ const s: Record<string, React.CSSProperties> = {
     padding: '8px 16px', borderRadius: 10, border: `1px dashed ${C.primaryBorder}`,
     background: C.primarySoft, color: C.primary, fontWeight: 600, fontSize: 13, cursor: 'pointer',
   },
+  emptyIconWrap: {
+    width: 44, height: 44, borderRadius: 12, background: C.primarySoft,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    margin: '0 auto 14px',
+  },
   templateRow: {
     display: 'flex', gap: 14, alignItems: 'center', padding: '14px 16px',
     border: `1px solid ${C.cardBorder}`, borderRadius: 12, background: '#fff',
     cursor: 'pointer', transition: 'box-shadow 120ms ease, border-color 120ms ease',
   },
-  dragHandle: { cursor: 'grab', fontSize: 14, padding: '4px 6px' },
   catIconWrap: {
     width: 36, height: 36, borderRadius: 10, display: 'flex',
     alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0,
     background: C.primarySoft, color: C.primary,
   },
   templateGoal: {
-    margin: '4px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.5,
+    margin: '4px 0 0', fontSize: 12, color: C.textBody, lineHeight: 1.5,
     display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
   },
-  iconBtn: {
-    width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.cardBorder}`,
-    background: '#fff', cursor: 'pointer', color: C.muted, display: 'inline-flex',
-    alignItems: 'center', justifyContent: 'center', fontSize: 12,
+  categoryChipRow: { display: 'flex', gap: 5, flexWrap: 'wrap' as const, marginTop: 6 },
+  categoryChip: {
+    display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
+    borderRadius: 999, fontSize: 10.5, fontWeight: 700,
   },
+  categoryFilterTrigger: {
+    display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px',
+    border: `1px solid ${C.cardBorder}`, borderRadius: 10, background: '#fff',
+    cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.textSub,
+    minWidth: 180, transition: 'border-color 120ms ease, background 120ms ease',
+  },
+  categoryFilterDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
+  categoryFilterMenu: {
+    position: 'absolute' as const, top: '100%', left: 0, marginTop: 6, width: 240,
+    background: '#fff', border: `1px solid ${C.cardBorder}`, borderRadius: 10,
+    boxShadow: '0 8px 24px rgba(15,23,42,0.12)', zIndex: 25, overflow: 'hidden',
+    maxHeight: 280, overflowY: 'auto' as const, padding: 6,
+  },
+  categoryFilterItem: {
+    display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 8px',
+    border: 'none', background: 'transparent', borderRadius: 7, cursor: 'pointer',
+    fontSize: 13, color: C.text, textAlign: 'left' as const,
+  },
+  metaRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' as const },
+  metaItem: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.mutedSoft, fontWeight: 500 },
+  metaDot: { width: 3, height: 3, borderRadius: '50%', background: C.mutedSoft, flexShrink: 0 },
 };
 
-const modalS: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.42)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 1000, padding: 16,
+// Mobile overrides, merged onto the base styles via useIsMobile so the
+// layout reacts to live window resize (see TeacherMissionBoardPage.tsx for
+// the same pattern).
+const sMobile: Record<string, React.CSSProperties> = {
+  page: { padding: '18px 14px' },
+  heading: { fontSize: 20 },
+  principlesStrip: { display: 'flex', flexWrap: 'wrap' as const, justifyContent: 'center' as const, gap: 10, marginBottom: 16 },
+  // Symmetric padding — asymmetric (tight-left, loose-right) made each
+  // chip's own edges uneven, which read as inconsistent gaps between
+  // chips even though the flex `gap` between them is a uniform 10px.
+  principleChip: {
+    display: 'inline-flex', alignItems: 'center', padding: '5px 12px',
+    borderRadius: 999, fontSize: 11, fontWeight: 700,
   },
-  dialog: {
-    background: '#fff', borderRadius: 16, width: '100%', maxWidth: 580,
-    boxShadow: '0 24px 60px rgba(15,23,42,0.25)',
-    maxHeight: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column',
+  principleStepNumber: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 17, height: 17, borderRadius: '50%', color: '#fff',
+    fontSize: 9.5, fontWeight: 800, marginRight: 6, flexShrink: 0,
   },
-  header: {
-    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-    padding: '20px 24px 14px', borderBottom: `1px solid ${C.divider}`, gap: 12,
-  },
-  title: { margin: 0, fontSize: 17, fontWeight: 700, color: C.text },
-  closeBtn: {
-    width: 32, height: 32, borderRadius: 8, border: 'none',
-    background: 'transparent', color: C.muted, cursor: 'pointer', fontSize: 14,
-  },
-  body: { padding: '20px 24px', overflowY: 'auto', flex: 1 },
-  field: { marginBottom: 16 },
-  label: { display: 'block', fontSize: 12, fontWeight: 600, color: C.textSub, marginBottom: 6, letterSpacing: '0.01em' },
-  labelHint: { display: 'block', fontSize: 11, fontWeight: 400, color: C.mutedSoft, marginTop: 2 },
-  input: {
-    width: '100%', padding: '10px 12px', fontSize: 13,
-    border: `1px solid ${C.cardBorder}`, borderRadius: 8,
-    outline: 'none', color: C.text, boxSizing: 'border-box',
-  },
-  footer: {
-    display: 'flex', justifyContent: 'flex-end', gap: 10,
-    padding: '14px 24px 20px', borderTop: `1px solid ${C.divider}`,
-  },
-  cancelBtn: {
-    padding: '10px 18px', borderRadius: 10, border: `1px solid ${C.cardBorder}`,
-    background: '#fff', color: C.textSub, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-  },
-  saveBtn: {
-    padding: '10px 18px', borderRadius: 10, border: 'none',
-    background: C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-  },
+  toolbar: { flexDirection: 'column' as const, alignItems: 'stretch' },
+  searchWrap: { flex: '1 1 auto', maxWidth: 'none', minWidth: 0 },
+  card: { padding: '16px 14px' },
+  templateRow: { padding: '12px 12px' },
 };

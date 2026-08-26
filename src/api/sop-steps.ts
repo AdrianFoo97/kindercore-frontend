@@ -6,6 +6,10 @@ export interface SopStep {
   section: string;
   title: string;
   detail: string | null;
+  // Optional hand-off to another SOP document. Loose FK — left dangling if
+  // the target template is later deleted; the caller should only render a
+  // link when it can still resolve the target's title from a live list.
+  linkedTemplateId: string | null;
   displayOrder: number;
   deletedAt: string | null;
   createdAt: string;
@@ -17,6 +21,7 @@ export interface UpsertSopStepPayload {
   section: string;
   title: string;
   detail?: string | null;
+  linkedTemplateId?: string | null;
   displayOrder?: number;
 }
 

@@ -3,10 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faArrowLeft, faCheck, faCircleCheck, faCircleExclamation, faTriangleExclamation,
+  faArrowLeft, faCheck, faCircleCheck, faTriangleExclamation, faFloppyDisk,
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  fetchObservation, advanceStage, SopObservationDetail, SopObservationStatus, StepResultValue,
+  fetchObservation, advanceStage, saveStepResultsDraft, SopObservationDetail, SopObservationStatus, StepResultValue,
 } from '../api/sop-observations.js';
 import { useToast } from '../components/common/Toast.js';
 
@@ -30,20 +30,32 @@ const C = {
 const RADIUS = 14;
 const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 
-const STAGES: { status: SopObservationStatus; role: string; nameKey: 'completedByName' | 'trainerName' | 'assessorName' | 'followUp1Name' | 'followUp2Name'; atKey: 'completedAt' | 'trainerAt' | 'assessorAt' | 'followUp1At' | 'followUp2At' }[] = [
-  { status: 'PENDING_TRAINEE', role: 'Trainee', nameKey: 'completedByName', atKey: 'completedAt' },
+const STAGES: { status: SopObservationStatus; role: string; nameKey: 'trainerName' | 'assessorName'; atKey: 'trainerAt' | 'assessorAt' }[] = [
   { status: 'PENDING_TRAINER', role: 'Trainer', nameKey: 'trainerName', atKey: 'trainerAt' },
   { status: 'PENDING_ASSESSOR', role: 'Assessor', nameKey: 'assessorName', atKey: 'assessorAt' },
-  { status: 'PENDING_FOLLOWUP_1', role: 'Follow-up 1', nameKey: 'followUp1Name', atKey: 'followUp1At' },
-  { status: 'PENDING_FOLLOWUP_2', role: 'Follow-up 2', nameKey: 'followUp2Name', atKey: 'followUp2At' },
 ];
 const STAGE_ORDER: SopObservationStatus[] = [...STAGES.map(s => s.status), 'CERTIFIED'];
 
 function today() {
   return new Date().toISOString().split('T')[0];
 }
+function currentUserName() {
+  const raw = localStorage.getItem('user');
+  const user = raw ? (JSON.parse(raw) as { name?: string }) : null;
+  return user?.name ?? 'You';
+}
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// NA steps don't count toward the mark — they mean "not applicable to this
+// run," not "not assessed." A mark is only meaningful once at least one
+// step has been decided PASS/FAIL.
+function computeScore(results: { passed: StepResultValue }[]) {
+  const passed = results.filter(r => r.passed === 'PASS').length;
+  const failed = results.filter(r => r.passed === 'FAIL').length;
+  const decided = passed + failed;
+  return { passed, failed, decided, percent: decided > 0 ? Math.round((passed / decided) * 100) : null };
 }
 
 export default function SopObservationDetailPage() {
@@ -80,12 +92,15 @@ export default function SopObservationDetailPage() {
       <div style={s.inner}>
         <button onClick={() => navigate('/hr/sop-observations')} style={s.backBtn}>
           <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
-          SOP Observations
+          Practice Observations
         </button>
 
         <div style={{ marginBottom: 20 }}>
           <h1 style={s.heading}>{obs.templateTitle}</h1>
-          <p style={s.subheading}>{obs.teacherName}</p>
+          <p style={s.subheading}>
+            {obs.teacherName}
+            {obs.assignedTrainerName && <span style={{ color: C.mutedSoft }}> · Trainer: {obs.assignedTrainerName}</span>}
+          </p>
           {obs.templateGoal && <p style={s.goal}>{obs.templateGoal}</p>}
         </div>
 
@@ -94,28 +109,11 @@ export default function SopObservationDetailPage() {
         </div>
 
         <div style={s.card}>
-          {obs.status === 'PENDING_TRAINEE' && (
-            <TraineeStage observationId={obs.id} onDone={invalidate} showToast={showToast} />
-          )}
           {obs.status === 'PENDING_TRAINER' && (
             <TrainerStage obs={obs} onDone={invalidate} showToast={showToast} />
           )}
           {obs.status === 'PENDING_ASSESSOR' && (
             <AssessorStage obs={obs} onDone={invalidate} showToast={showToast} />
-          )}
-          {obs.status === 'PENDING_FOLLOWUP_1' && (
-            <FollowUpStage
-              key="fu1" stageLabel="Follow-up 1" observationId={obs.id}
-              field="followUp1Name" atField="followUp1At"
-              onDone={invalidate} showToast={showToast}
-            />
-          )}
-          {obs.status === 'PENDING_FOLLOWUP_2' && (
-            <FollowUpStage
-              key="fu2" stageLabel="Follow-up 2" observationId={obs.id}
-              field="followUp2Name" atField="followUp2At"
-              onDone={invalidate} showToast={showToast}
-            />
           )}
           {obs.status === 'CERTIFIED' && <CertifiedSummary obs={obs} />}
         </div>
@@ -128,15 +126,15 @@ export default function SopObservationDetailPage() {
 
 function Timeline({ obs, currentStageIdx }: { obs: SopObservationDetail; currentStageIdx: number }) {
   return (
-    <div style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', overflowX: 'auto' }}>
       {STAGES.map((stage, idx) => {
         const done = idx < currentStageIdx || obs.status === 'CERTIFIED';
         const active = idx === currentStageIdx && obs.status !== 'CERTIFIED';
         const name = obs[stage.nameKey];
         const at = obs[stage.atKey];
         return (
-          <div key={stage.status} style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 140 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flex: 1 }}>
+          <React.Fragment key={stage.status}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 140, flexShrink: 0 }}>
               <div style={{
                 width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: done ? C.successSoft : active ? C.primarySoft : C.divider,
@@ -157,92 +155,28 @@ function Timeline({ obs, currentStageIdx }: { obs: SopObservationDetail; current
               </div>
             </div>
             {idx < STAGES.length - 1 && (
-              <div style={{ height: 2, flex: 0.5, background: idx < currentStageIdx || obs.status === 'CERTIFIED' ? C.success : C.divider, marginTop: -20 }} />
+              <div style={{ height: 2, flex: 1, minWidth: 40, marginTop: 14, background: idx < currentStageIdx || obs.status === 'CERTIFIED' ? C.success : C.divider }} />
             )}
-          </div>
+          </React.Fragment>
         );
       })}
     </div>
   );
 }
 
-// ── Stage 1: Trainee ─────────────────────────────────────────────────────────
-
-function TraineeStage({ observationId, onDone, showToast }: {
-  observationId: string; onDone: () => void; showToast: (msg: string, kind?: string) => void;
-}) {
-  const [name, setName] = useState('');
-  const [date, setDate] = useState(today());
-  const [saving, setSaving] = useState(false);
-
-  const submit = async () => {
-    if (!name.trim()) return;
-    setSaving(true);
-    try {
-      await advanceStage(observationId, { completedByName: name.trim(), completedAt: date });
-      showToast('Completion recorded — sent to trainer');
-      onDone();
-    } catch (e: any) {
-      showToast(e?.message ?? 'Failed to save', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div>
-      <h3 style={s.cardTitle}>Trainee completion</h3>
-      <p style={s.cardSub}>The employee confirms they've completed the procedure and are ready to be observed.</p>
-      <div style={s.formRow}>
-        <div style={{ flex: 1 }}>
-          <label style={s.label}>Completed by</label>
-          <input style={s.input} value={name} onChange={e => setName(e.target.value)} placeholder="Employee name" />
-        </div>
-        <div style={{ width: 180 }}>
-          <label style={s.label}>Date</label>
-          <input style={s.input} type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} />
-        </div>
-      </div>
-      <button onClick={submit} disabled={!name.trim() || saving} style={{ ...s.primaryBtn, opacity: !name.trim() || saving ? 0.5 : 1, marginTop: 14 }}>
-        <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
-        {saving ? 'Saving…' : 'Confirm completion'}
-      </button>
-    </div>
-  );
-}
-
-// ── Stage 2: Trainer (full checklist) ────────────────────────────────────────
+// ── Stage 1: Trainer (trains against the checklist, doesn't score it) ───────
 
 function TrainerStage({ obs, onDone, showToast }: {
   obs: SopObservationDetail; onDone: () => void; showToast: (msg: string, kind?: string) => void;
 }) {
-  const [results, setResults] = useState<Record<string, { passed: StepResultValue; note: string }>>(
-    () => Object.fromEntries(obs.stepResults.map(r => [r.sopStepId, { passed: r.passed, note: r.note ?? '' }])),
-  );
-  const [name, setName] = useState('');
-  const [date, setDate] = useState(today());
   const [saving, setSaving] = useState(false);
-
-  const setResult = (stepId: string, patch: Partial<{ passed: StepResultValue; note: string }>) => {
-    setResults(prev => ({ ...prev, [stepId]: { ...prev[stepId], ...patch } }));
-  };
-
-  const allDecided = obs.stepResults.every(r => results[r.sopStepId]?.passed !== 'NA');
+  const trainerName = obs.assignedTrainerName ?? 'Trainer';
 
   const submit = async () => {
-    if (!name.trim()) return;
     setSaving(true);
     try {
-      await advanceStage(obs.id, {
-        trainerName: name.trim(),
-        trainerAt: date,
-        stepResults: obs.stepResults.map(r => ({
-          stepId: r.sopStepId,
-          passed: results[r.sopStepId]?.passed ?? 'NA',
-          note: results[r.sopStepId]?.note || null,
-        })),
-      });
-      showToast('Observation submitted — sent to assessor');
+      await advanceStage(obs.id, { trainerName, trainerAt: today() });
+      showToast('Training confirmed — sent to assessor');
       onDone();
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to save', 'error');
@@ -258,16 +192,123 @@ function TrainerStage({ obs, onDone, showToast }: {
   return (
     <div>
       <h3 style={s.cardTitle}>Trainer observation</h3>
-      <p style={s.cardSub}>Watch the employee perform each step and record the result.</p>
+      <p style={s.cardSub}>Train the employee against each step below. The assessor marks pass/fail — this is your reference checklist.</p>
 
       {sections.map(sec => (
         <div key={sec} style={{ marginBottom: 18 }}>
           <div style={s.sectionLabel}>{sec}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {obs.stepResults.filter(r => r.section === sec).map(r => {
+            {obs.stepResults.filter(r => r.section === sec).map((r, idx) => (
+              <div key={r.sopStepId} style={s.stepCard}>
+                <span style={s.stepNumber}>{idx + 1}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: C.text }}>{r.title}</div>
+                  {r.detail && <div style={s.stepDetailText}>{r.detail}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div style={s.autoRow}>
+        Confirming as <strong>{trainerName}</strong> on {fmtDate(new Date().toISOString())}.
+      </div>
+      <button onClick={submit} disabled={saving} style={{ ...s.primaryBtn, opacity: saving ? 0.5 : 1, marginTop: 14 }}>
+        <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
+        {saving ? 'Saving…' : 'Confirm training'}
+      </button>
+    </div>
+  );
+}
+
+// ── Stage 2: Assessor (marks the checklist, then certifies) ─────────────────
+
+function AssessorStage({ obs, onDone, showToast }: {
+  obs: SopObservationDetail; onDone: () => void; showToast: (msg: string, kind?: string) => void;
+}) {
+  const [results, setResults] = useState<Record<string, { passed: StepResultValue; note: string }>>(
+    () => Object.fromEntries(obs.stepResults.map(r => [r.sopStepId, { passed: r.passed, note: r.note ?? '' }])),
+  );
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const assessorName = currentUserName();
+
+  const setResult = (stepId: string, patch: Partial<{ passed: StepResultValue; note: string }>) => {
+    setResults(prev => ({ ...prev, [stepId]: { ...prev[stepId], ...patch } }));
+  };
+
+  const allDecided = obs.stepResults.every(r => results[r.sopStepId]?.passed !== 'NA');
+  const liveScore = computeScore(obs.stepResults.map(r => ({ passed: results[r.sopStepId]?.passed ?? 'NA' })));
+
+  const currentStepResults = () => obs.stepResults.map(r => ({
+    stepId: r.sopStepId,
+    passed: results[r.sopStepId]?.passed ?? 'NA',
+    note: results[r.sopStepId]?.note || null,
+  }));
+
+  const saveDraft = async () => {
+    setSavingDraft(true);
+    try {
+      await saveStepResultsDraft(obs.id, currentStepResults());
+      showToast('Draft saved');
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to save draft', 'error');
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await advanceStage(obs.id, {
+        assessorName,
+        assessorAt: today(),
+        notes: notes.trim() || null,
+        stepResults: currentStepResults(),
+      });
+      showToast('Observation certified');
+      onDone();
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to save', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Group by section, preserving displayOrder within each.
+  const sections: string[] = [];
+  for (const r of obs.stepResults) if (!sections.includes(r.section)) sections.push(r.section);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' as const }}>
+        <h3 style={s.cardTitle}>Assessor review</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {liveScore.percent !== null && (
+            <span style={{ ...s.scoreBadge, background: liveScore.percent >= 80 ? C.successSoft : C.dangerSoft, color: liveScore.percent >= 80 ? C.success : C.danger }}>
+              {liveScore.passed}/{liveScore.decided} passed · {liveScore.percent}%
+            </span>
+          )}
+          <button onClick={saveDraft} disabled={saving || savingDraft} style={{ ...s.secondaryBtn, padding: '6px 12px', fontSize: 12, opacity: saving || savingDraft ? 0.5 : 1 }}>
+            <FontAwesomeIcon icon={faFloppyDisk} style={{ marginRight: 5 }} />
+            {savingDraft ? 'Saving…' : 'Save draft'}
+          </button>
+        </div>
+      </div>
+      <p style={s.cardSub}>Go through each step and mark the result.</p>
+
+      {sections.map(sec => (
+        <div key={sec} style={{ marginBottom: 18 }}>
+          <div style={s.sectionLabel}>{sec}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {obs.stepResults.filter(r => r.section === sec).map((r, idx) => {
               const val = results[r.sopStepId]?.passed ?? 'NA';
               return (
                 <div key={r.sopStepId} style={s.stepCard}>
+                  <span style={s.stepNumber}>{idx + 1}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: C.text }}>{r.title}</div>
                     {r.detail && <div style={s.stepDetailText}>{r.detail}</div>}
@@ -304,15 +345,9 @@ function TrainerStage({ obs, onDone, showToast }: {
         </div>
       ))}
 
-      <div style={s.formRow}>
-        <div style={{ flex: 1 }}>
-          <label style={s.label}>Trainer name</label>
-          <input style={s.input} value={name} onChange={e => setName(e.target.value)} placeholder="Trainer name" />
-        </div>
-        <div style={{ width: 180 }}>
-          <label style={s.label}>Date</label>
-          <input style={s.input} type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} />
-        </div>
+      <div style={{ marginTop: 4 }}>
+        <label style={s.label}>Notes (optional)</label>
+        <textarea style={{ ...s.input, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
       </div>
       {!allDecided && (
         <p style={{ fontSize: 12, color: '#92400e', margin: '10px 0 0' }}>
@@ -320,147 +355,19 @@ function TrainerStage({ obs, onDone, showToast }: {
           Some steps are still marked N/A.
         </p>
       )}
-      <button onClick={submit} disabled={!name.trim() || saving} style={{ ...s.primaryBtn, opacity: !name.trim() || saving ? 0.5 : 1, marginTop: 14 }}>
-        <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
-        {saving ? 'Saving…' : 'Submit observation'}
-      </button>
-    </div>
-  );
-}
-
-// ── Stage 3: Assessor (read-only summary + certify) ─────────────────────────
-
-function AssessorStage({ obs, onDone, showToast }: {
-  obs: SopObservationDetail; onDone: () => void; showToast: (msg: string, kind?: string) => void;
-}) {
-  const [name, setName] = useState('');
-  const [date, setDate] = useState(today());
-  const [notes, setNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-  const failedSteps = obs.stepResults.filter(r => r.passed === 'FAIL');
-
-  const submit = async () => {
-    if (!name.trim()) return;
-    setSaving(true);
-    try {
-      await advanceStage(obs.id, { assessorName: name.trim(), assessorAt: date, notes: notes.trim() || null });
-      showToast('Certification stage recorded — moved to follow-up');
-      onDone();
-    } catch (e: any) {
-      showToast(e?.message ?? 'Failed to save', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div>
-      <h3 style={s.cardTitle}>Assessor review</h3>
-      <p style={s.cardSub}>Trainer's observation summary — {obs.stepResults.length} step(s), {failedSteps.length} failed.</p>
-
-      {failedSteps.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          {failedSteps.map(r => (
-            <div key={r.sopStepId} style={s.failCard}>
-              <FontAwesomeIcon icon={faCircleExclamation} style={{ color: C.danger, marginTop: 2, flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{r.title}</div>
-                {r.note && <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>{r.note}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-        {obs.stepResults.map(r => (
-          <div key={r.sopStepId} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
-            <span style={{
-              ...s.miniPill,
-              background: r.passed === 'PASS' ? C.successSoft : r.passed === 'FAIL' ? C.dangerSoft : C.divider,
-              color: r.passed === 'PASS' ? C.success : r.passed === 'FAIL' ? C.danger : C.muted,
-            }}>{r.passed}</span>
-            <span style={{ color: C.textSub }}>{r.title}</span>
-          </div>
-        ))}
+      <div style={s.autoRow}>
+        Certifying as <strong>{assessorName}</strong> on {fmtDate(new Date().toISOString())}.
       </div>
-
-      <div style={s.formRow}>
-        <div style={{ flex: 1 }}>
-          <label style={s.label}>Assessor name</label>
-          <input style={s.input} value={name} onChange={e => setName(e.target.value)} placeholder="Assessor name" />
-        </div>
-        <div style={{ width: 180 }}>
-          <label style={s.label}>Date</label>
-          <input style={s.input} type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} />
-        </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 14, justifyContent: 'flex-end' }}>
+        <button onClick={saveDraft} disabled={saving || savingDraft} style={{ ...s.secondaryBtn, opacity: saving || savingDraft ? 0.5 : 1 }}>
+          <FontAwesomeIcon icon={faFloppyDisk} style={{ marginRight: 6 }} />
+          {savingDraft ? 'Saving…' : 'Save draft'}
+        </button>
+        <button onClick={submit} disabled={saving || savingDraft} style={{ ...s.primaryBtn, opacity: saving || savingDraft ? 0.5 : 1 }}>
+          <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
+          {saving ? 'Saving…' : 'Certify'}
+        </button>
       </div>
-      <div style={{ marginTop: 12 }}>
-        <label style={s.label}>Notes (optional)</label>
-        <textarea style={{ ...s.input, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
-      </div>
-      <button onClick={submit} disabled={!name.trim() || saving} style={{ ...s.primaryBtn, opacity: !name.trim() || saving ? 0.5 : 1, marginTop: 14 }}>
-        <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
-        {saving ? 'Saving…' : 'Certify stage'}
-      </button>
-    </div>
-  );
-}
-
-// ── Stage 4/5: Follow-up ──────────────────────────────────────────────────────
-
-function FollowUpStage({ stageLabel, observationId, field, atField, onDone, showToast }: {
-  stageLabel: string;
-  observationId: string;
-  field: 'followUp1Name' | 'followUp2Name';
-  atField: 'followUp1At' | 'followUp2At';
-  onDone: () => void;
-  showToast: (msg: string, kind?: string) => void;
-}) {
-  const [name, setName] = useState('');
-  const [date, setDate] = useState(today());
-  const [notes, setNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const submit = async () => {
-    if (!name.trim()) return;
-    setSaving(true);
-    try {
-      const payload = field === 'followUp1Name'
-        ? { followUp1Name: name.trim(), followUp1At: date, notes: notes.trim() || null }
-        : { followUp2Name: name.trim(), followUp2At: date, notes: notes.trim() || null };
-      await advanceStage(observationId, payload);
-      showToast(field === 'followUp1Name' ? 'Follow-up 1 recorded' : 'Certified');
-      onDone();
-    } catch (e: any) {
-      showToast(e?.message ?? 'Failed to save', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div>
-      <h3 style={s.cardTitle}>{stageLabel}</h3>
-      <p style={s.cardSub}>Spot-check that the procedure is still being followed correctly.</p>
-      <div style={s.formRow}>
-        <div style={{ flex: 1 }}>
-          <label style={s.label}>Checked by</label>
-          <input style={s.input} value={name} onChange={e => setName(e.target.value)} placeholder="Name" />
-        </div>
-        <div style={{ width: 180 }}>
-          <label style={s.label}>Date</label>
-          <input style={s.input} type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} />
-        </div>
-      </div>
-      <div style={{ marginTop: 12 }}>
-        <label style={s.label}>Notes (optional)</label>
-        <textarea style={{ ...s.input, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
-      </div>
-      <button onClick={submit} disabled={!name.trim() || saving} style={{ ...s.primaryBtn, opacity: !name.trim() || saving ? 0.5 : 1, marginTop: 14 }}>
-        <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
-        {saving ? 'Saving…' : 'Confirm follow-up'}
-      </button>
     </div>
   );
 }
@@ -469,11 +376,19 @@ function FollowUpStage({ stageLabel, observationId, field, atField, onDone, show
 
 function CertifiedSummary({ obs }: { obs: SopObservationDetail }) {
   const failedSteps = obs.stepResults.filter(r => r.passed === 'FAIL');
+  const score = computeScore(obs.stepResults);
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-        <FontAwesomeIcon icon={faCircleCheck} style={{ color: C.success, fontSize: 18 }} />
-        <h3 style={{ ...s.cardTitle, margin: 0 }}>Certified</h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <FontAwesomeIcon icon={faCircleCheck} style={{ color: C.success, fontSize: 18 }} />
+          <h3 style={{ ...s.cardTitle, margin: 0 }}>Certified</h3>
+        </div>
+        {score.percent !== null && (
+          <span style={{ ...s.scoreBadge, background: score.percent >= 80 ? C.successSoft : C.dangerSoft, color: score.percent >= 80 ? C.success : C.danger }}>
+            {score.passed}/{score.decided} passed · {score.percent}%
+          </span>
+        )}
       </div>
       <p style={s.cardSub}>{obs.stepResults.length} step(s) observed, {failedSteps.length} flagged.{obs.notes ? ` Notes: ${obs.notes}` : ''}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 14 }}>
@@ -510,11 +425,15 @@ const s: Record<string, React.CSSProperties> = {
   },
   cardTitle: { margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: C.text },
   cardSub: { margin: '0 0 16px', fontSize: 12.5, color: C.muted },
+  scoreBadge: {
+    display: 'inline-flex', alignItems: 'center', padding: '4px 11px', borderRadius: 999,
+    fontSize: 12, fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' as const,
+  },
   sectionLabel: {
     fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase' as const,
     letterSpacing: '0.04em', marginBottom: 8,
   },
-  formRow: { display: 'flex', gap: 12 },
+  autoRow: { fontSize: 12.5, color: C.muted },
   label: { display: 'block', fontSize: 12, fontWeight: 600, color: C.textSub, marginBottom: 6 },
   input: {
     width: '100%', padding: '9px 11px', fontSize: 13,
@@ -525,9 +444,18 @@ const s: Record<string, React.CSSProperties> = {
     padding: '10px 18px', borderRadius: 10, border: 'none',
     background: C.primary, color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer',
   },
+  secondaryBtn: {
+    padding: '10px 18px', borderRadius: 10, border: `1px solid ${C.cardBorder}`,
+    background: '#fff', color: C.textSub, fontWeight: 600, fontSize: 13, cursor: 'pointer',
+  },
   stepCard: {
     display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 14px',
     border: `1px solid ${C.cardBorder}`, borderRadius: 10, background: '#fff',
+  },
+  stepNumber: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 20, height: 20, borderRadius: '50%', fontSize: 10.5, fontWeight: 700,
+    flexShrink: 0, marginTop: 1, background: C.primarySoft, color: C.primary,
   },
   stepDetailText: {
     fontSize: 12, color: C.muted, marginTop: 4, lineHeight: 1.5, whiteSpace: 'pre-line' as const,
@@ -535,10 +463,6 @@ const s: Record<string, React.CSSProperties> = {
   pillBtn: {
     padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
     border: '1px solid', cursor: 'pointer', background: '#fff',
-  },
-  failCard: {
-    display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 10,
-    background: C.dangerSoft, marginBottom: 6,
   },
   miniPill: {
     padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, minWidth: 34, textAlign: 'center' as const,

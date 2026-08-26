@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { fetchCandidateFormOptions } from '../../api/candidates.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
+import { usePermissions } from '../../hooks/usePermissions.js';
+import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faFlask, faIdCard } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 /** Normalises a human-readable label into a URL-safe utm_source value.
@@ -24,7 +26,15 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const raw = localStorage.getItem('user');
-  const user = raw ? (JSON.parse(raw) as { name: string; role: string }) : null;
+  const user = raw ? (JSON.parse(raw) as { name: string; role: string; teacherId?: string | null }) : null;
+  // Server-side enforcement already exists via requireModule() on the API
+  // routes (see RequireModule.tsx) — this is nav-hiding only. While
+  // permissions are still loading, show every module rather than flashing
+  // the nav empty then populating it — matches today's behaviour (every
+  // authenticated user sees all 7) for the common case where the request
+  // resolves in a moment anyway.
+  const { hasModule, loading: permLoading } = usePermissions();
+  const allowModule = (m: string) => permLoading || hasModule(m as any);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [studentsOpen, setStudentsOpen] = useState(false);
@@ -53,7 +63,12 @@ export default function Navbar() {
   const devRef = useRef<HTMLDivElement>(null);
   const adminRef = useRef<HTMLDivElement>(null);
   const onFinanceRoute = !!useMatch('/operations/operating-costs');
-  const onOperationRoute = !!useMatch('/operations/sops/*');
+  // SOP Revisions still lives at /hr/sop-revisions (unchanged URL), but its
+  // nav entry moved to the Operation dropdown — so route-highlighting has
+  // to follow the nav placement, not the URL prefix, or visiting it would
+  // light up "HR" instead of (or as well as) "Operation".
+  const sopRevisionsMatch = useMatch('/hr/sop-revisions');
+  const onOperationRoute = !!useMatch('/operations/sops/*') || !!sopRevisionsMatch;
   const onToolsRoute = !!useMatch('/tools/*');
   // Both useMatch calls must run every render, unconditionally — `||`
   // short-circuits, which would skip the second call whenever the first
@@ -70,7 +85,7 @@ export default function Navbar() {
   const onStudentsRoute = !!(studentsMatch || onboardingMatch);
   const teachersRouteMatch = useMatch('/teachers/*');
   const hrRouteMatch = useMatch('/hr/*');
-  const onHrRoute = !!(teachersRouteMatch || hrRouteMatch);
+  const onHrRoute = !!(teachersRouteMatch || hrRouteMatch) && !sopRevisionsMatch;
 
   // Templates for WhatsApp modal
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
@@ -147,15 +162,33 @@ export default function Navbar() {
 
     return (
       <>
+        {/* My Profile — a teacher-linked account's own self-service app
+            (Career / Pay / Rewards), separate from the admin-facing
+            Module system: shown whenever the account is linked to a
+            Teacher, regardless of what (if any) AuthRole/modules it also
+            has. Always first — for a Teacher-tier account this is often
+            the only thing they have. */}
+        {user?.teacherId && (
+          <NavLink to={`/teachers/${user.teacherId}/my-career`} onClick={closeAll}
+            className={mobile ? '' : 'nav-link'}
+            style={({ isActive }) => mobile
+              ? { ...mLink, ...(isActive ? mLinkActive : {}) }
+              : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
+            }>{navIcon(faIdCard)}My Profile</NavLink>
+        )}
+
         {/* Leads link */}
-        <NavLink to="/leads" end onClick={closeAll}
-          className={mobile ? '' : 'nav-link'}
-          style={({ isActive }) => mobile
-            ? { ...mLink, ...(isActive ? mLinkActive : {}) }
-            : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
-          }>{navIcon(faBullhorn)}Leads</NavLink>
+        {allowModule(MODULES.LEADS) && (
+          <NavLink to="/leads" end onClick={closeAll}
+            className={mobile ? '' : 'nav-link'}
+            style={({ isActive }) => mobile
+              ? { ...mLink, ...(isActive ? mLinkActive : {}) }
+              : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
+            }>{navIcon(faBullhorn)}Leads</NavLink>
+        )}
 
         {/* Students dropdown */}
+        {allowModule(MODULES.STUDENTS) && (
         <div ref={mobile ? undefined : studentsRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setStudentsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onStudentsRoute && !mobile ? styles.activeLink : {}), ...(onStudentsRoute && mobile ? mLinkActive : {}) }}>
@@ -183,11 +216,13 @@ export default function Navbar() {
             </div>
           )}
         </div>
+        )}
 
         {/* HR dropdown — Teachers + Candidates grouped under one people-ops
             umbrella (matches the app's documented IA: HR = people-ops
             workflows, already the route prefix for /hr/candidates). Used
             to be two flat top-level items with no shared home. */}
+        {allowModule(MODULES.HR) && (
         <div ref={mobile ? undefined : hrRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setHrOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onHrRoute && !mobile ? styles.activeLink : {}), ...(onHrRoute && mobile ? mLinkActive : {}) }}>
@@ -212,15 +247,17 @@ export default function Navbar() {
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
                 <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                SOP Observations
+                Practice Observations
               </NavLink>
             </div>
           )}
         </div>
+        )}
 
         {/* Finance dropdown — grouped with the people-pipeline cluster
             (Leads/Students/HR) rather than Analysis: it's a workflow
             surface (operating costs), not a report. */}
+        {allowModule(MODULES.FINANCE) && (
         <div ref={mobile ? undefined : financeRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setFinanceOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onFinanceRoute && !mobile ? styles.activeLink : {}) }}>
@@ -238,11 +275,14 @@ export default function Navbar() {
             </div>
           )}
         </div>
+        )}
 
-        {/* Operation dropdown — the org-wide procedure library (SOP
-            Library). Separate from Finance/HR since it isn't scoped to a
-            person or a cost line, and separate from Settings since it's a
-            working library admins add to regularly, not config set once. */}
+        {/* Operation dropdown — the org-wide library of How-To Guides (how we
+            currently do each task). Separate from Finance/HR since it isn't
+            scoped to a person or a cost line, and separate from Settings
+            since it's a working library staff add to and improve regularly,
+            not config set once. */}
+        {allowModule(MODULES.OPERATION) && (
         <div ref={mobile ? undefined : operationRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setOperationOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onOperationRoute && !mobile ? styles.activeLink : {}) }}>
@@ -255,11 +295,35 @@ export default function Navbar() {
                 style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
                 onClick={closeAll}>
                 <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                SOP Library
+                How-To Guides
               </NavLink>
+              <NavLink to="/hr/sop-revisions" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Improvement Inbox
+              </NavLink>
+              {/* Dev-only — the How-To Guides link above always renders
+                  as the admin sees it (edit controls, "Add How-To Guide"
+                  going straight to create). This forces the teacher view via
+                  a query param that both SopLibraryPage and
+                  SopTemplateStepsPage honour (only under DEV), and it
+                  carries through when clicking into a guide, so an admin
+                  can walk the whole teacher experience — list through
+                  detail, including the real "Suggest an Improvement" button
+                  — without a separate USER login. */}
+              {import.meta.env.DEV && (
+                <NavLink to="/operations/sops?previewTeacher=1" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <FontAwesomeIcon icon={faFlask} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  How-To Guides (Teacher View, Dev)
+                </NavLink>
+              )}
             </div>
           )}
         </div>
+        )}
 
         {/* Groups the nav into three clusters: people pipeline (Leads →
             Finance), operations/insights (Operation, Analysis), and
@@ -268,6 +332,7 @@ export default function Navbar() {
         {!mobile && <div style={styles.groupDivider} />}
 
         {/* Analysis dropdown */}
+        {allowModule(MODULES.ANALYSIS) && (
         <div ref={mobile ? undefined : analysisRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setAnalysisOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onAnalysisRoute && !mobile ? styles.activeLink : {}), ...(onAnalysisRoute && mobile ? mLinkActive : {}) }}>
@@ -327,10 +392,12 @@ export default function Navbar() {
             </div>
           )}
         </div>
+        )}
 
         {!mobile && <div style={styles.groupDivider} />}
 
         {/* Tools dropdown */}
+        {allowModule(MODULES.TOOLS) && (
         <div ref={mobile ? undefined : toolsRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setToolsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onToolsRoute && !mobile ? styles.activeLink : {}) }}>
@@ -385,6 +452,7 @@ export default function Navbar() {
             );
           })()}
         </div>
+        )}
 
         {/* Settings dropdown — admin only */}
         {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
@@ -401,7 +469,6 @@ export default function Navbar() {
                   { to: '/settings/leads', icon: faUsers, label: 'CRM' },
                   { to: '/settings/onboarding', icon: faGraduationCap, label: 'Students' },
                   { to: '/settings/packages', icon: faBoxesStacked, label: 'Packages & Pricing' },
-                  { to: '/settings/timetable/classes', icon: faCalendarDays, label: 'Timetable' },
                   {
                     to: '/settings/hr', icon: faCoins, label: 'HR & Payroll',
                     subItems: [
@@ -410,6 +477,7 @@ export default function Navbar() {
                     ],
                   },
                   { to: '/settings/operating-cost', icon: faReceipt, label: 'Operating Cost' },
+                  { to: '/settings/operation', icon: faGears, label: 'Operation' },
                   { to: '/settings/finance', icon: faMoneyBillTrendUp, label: 'Finance' },
                   { to: '/settings/whatsapp-templates', icon: faMessage, label: 'Communication' },
                   { to: '/settings/calendar', icon: faPlug, label: 'Integrations' },
@@ -457,6 +525,15 @@ export default function Navbar() {
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
                   <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8' }} /> Manage Users
+                </NavLink>
+                <NavLink to="/settings/auth-roles" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
+                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
+                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
+                  })}>
+                  <FontAwesomeIcon icon={faUserShield} style={{ fontSize: 12, color: '#94a3b8' }} /> Access Roles
                 </NavLink>
                 <NavLink to="/admin/year-rollover" onClick={closeAll}
                   className={mobile ? '' : 'nav-drop-item'}

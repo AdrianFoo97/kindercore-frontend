@@ -67,7 +67,7 @@ const TRANSITION = 'all 160ms cubic-bezier(0.4, 0, 0.2, 1)';
 
 export const CATEGORY_META: Record<MissionCategory, { label: string; color: string; bg: string; icon: any }> = {
   CLASSROOM:  { label: 'Classroom',  color: '#1e40af', bg: '#dbeafe', icon: faRoad },
-  SOP:        { label: 'SOP',        color: '#0e7490', bg: '#cffafe', icon: faClipboardCheck },
+  SOP:        { label: 'Guides',     color: '#0e7490', bg: '#cffafe', icon: faClipboardCheck },
   EVENT:      { label: 'Event',      color: '#9a3412', bg: '#ffedd5', icon: faCalendarDays },
   PARENT:     { label: 'Parent',     color: '#86198f', bg: '#fae8ff', icon: faPeopleArrows },
   LEADERSHIP: { label: 'Leadership', color: '#92400e', bg: '#fef3c7', icon: faStar },
@@ -85,7 +85,7 @@ const STATUS_META: Record<MissionStatus, { label: string; color: string; bg: str
 // earned identity, not just a counter.
 const CAPABILITY_IDENTITY: Record<MissionCategory, string> = {
   CLASSROOM:  'Classroom Leader',
-  SOP:        'SOP Reliable',
+  SOP:        'Guide Reliable',
   EVENT:      'Event Leader',
   PARENT:     'Parent Communication Ready',
   LEADERSHIP: 'Team Builder',
@@ -96,7 +96,7 @@ const CAPABILITY_IDENTITY: Record<MissionCategory, string> = {
 // not just an icon and a name.
 const CAPABILITY_DESCRIPTION: Record<MissionCategory, string> = {
   CLASSROOM:  'Demonstrated independent classroom routines and lesson delivery.',
-  SOP:        'Reliably follows school standard operating procedures.',
+  SOP:        'Reliably follows our best ways of doing things.',
   EVENT:      'Plans and leads school events end-to-end.',
   PARENT:     'Owns parent relationships with confidence.',
   LEADERSHIP: 'Mentors and develops other teachers.',

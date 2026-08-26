@@ -228,13 +228,19 @@ export default function SalesAnalysisPage() {
 
         const unit = chartMode === 'closed' ? 'enrolments' : 'sales talks';
         return (
-          <div style={{ ...s.kpiStrip, gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? 10 : 16 }}>
+          <div style={{ ...s.kpiStrip, gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: isMobile ? 10 : 16 }}>
             <KpiCard
               label="Closing Rate"
               value={`${kpiClosingPct}%`}
               accent={C.indigo}
               bar={{ fill: kpiClosingPct, color: C.indigo, title: `${kpiEnrolled} closed out of ${closingDenom} sales talks` }}
               breakdown={`${kpiEnrolled} closed out of ${closingDenom} sales talks`}
+            />
+            <KpiCard
+              label="Total Sales Closed"
+              value={data.enrolledLeads}
+              accent={C.green}
+              breakdown={`Enrolments to date in ${data.selectedYear}`}
             />
             <KpiCard
               label="Top Marketing Channel"

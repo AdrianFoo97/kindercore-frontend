@@ -6,6 +6,7 @@ import {
   faChevronLeft, faChevronRight, faUpload, faXmark, faSpinner, faStar,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchPositions, upsertPosition, fetchDepartments } from '../../api/salary.js';
+import { fetchAuthRoles } from '../../api/auth-roles.js';
 import { uploadBadge, uploadUrl } from '../../api/upload.js';
 import { Position } from '../../types/index.js';
 import { useToast } from '../../components/common/Toast.js';
@@ -43,12 +44,14 @@ function numOnly(val: string): string { return val.replace(/[^\d.]/g, ''); }
 
 // Like numOnly but collapses to a single decimal point, so a field can hold
 // intermediate typing states like "1." without a controlled re-render
-// snapping it back to "1" and blocking further digits.
-function decimalOnly(val: string): string {
+// snapping it back to "1" and blocking further digits. maxDecimals caps how
+// many digits are kept after that point (e.g. 1 → "0.5" but not "0.55").
+function decimalOnly(val: string, maxDecimals?: number): string {
   const cleaned = numOnly(val);
   const firstDot = cleaned.indexOf('.');
   if (firstDot === -1) return cleaned;
-  return cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+  const fraction = cleaned.slice(firstDot + 1).replace(/\./g, '');
+  return cleaned.slice(0, firstDot + 1) + (maxDecimals != null ? fraction.slice(0, maxDecimals) : fraction);
 }
 
 export default function PositionEditPage() {
@@ -66,6 +69,10 @@ export default function PositionEditPage() {
     queryKey: ['departments'],
     queryFn: fetchDepartments,
   });
+  const { data: authRoleList = [] } = useQuery({
+    queryKey: ['auth-roles'],
+    queryFn: fetchAuthRoles,
+  });
   const existing = isEdit ? positions.find(p => p.positionId === id) ?? null : null;
 
   const [form, setForm] = useState({
@@ -80,6 +87,7 @@ export default function PositionEditPage() {
     starColor: '',
     roleFocus: '',
     description: '',
+    authRoleId: '',
   });
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -102,6 +110,7 @@ export default function PositionEditPage() {
         starColor: existing.starColor ?? '',
         roleFocus: existing.roleFocus ?? '',
         description: existing.description ?? '',
+        authRoleId: existing.authRoleId ?? '',
       });
       setHydrated(true);
     } else if (!isEdit) {
@@ -163,6 +172,7 @@ export default function PositionEditPage() {
         starColor: form.starColor.trim() || null,
         roleFocus: form.roleFocus.trim() || null,
         description: form.description.trim() || null,
+        authRoleId: form.authRoleId || null,
       });
       qc.invalidateQueries({ queryKey: ['salary-positions'] });
       qc.invalidateQueries({ queryKey: ['salary-incentives'] });
@@ -255,6 +265,22 @@ export default function PositionEditPage() {
             </select>
           </label>
 
+          {/* Access role — controls what a teacher holding this position can see/do, separate from Department */}
+          <label style={{ ...s.label, marginTop: 16 }}>
+            <span style={s.labelText}>Access role</span>
+            <select
+              value={form.authRoleId}
+              onChange={e => setForm(f => ({ ...f, authRoleId: e.target.value }))}
+              style={s.input}
+            >
+              <option value="">No access (fails closed)</option>
+              {authRoleList.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+            <span style={s.help}>Determines which nav modules and actions teachers in this position can access. Managed under Admin → Access Roles.</span>
+          </label>
+
           {/* Role Focus — short headline shown above the description */}
           <label style={{ ...s.label, marginTop: 16 }}>
             <span style={s.labelText}>Role focus</span>
@@ -298,7 +324,7 @@ export default function PositionEditPage() {
                 type="text"
                 inputMode="numeric"
                 value={form.titleWeight}
-                onChange={e => setForm(f => ({ ...f, titleWeight: decimalOnly(e.target.value) }))}
+                onChange={e => setForm(f => ({ ...f, titleWeight: decimalOnly(e.target.value, 1) }))}
                 style={s.input}
               />
               <span style={s.help}>Profit-sharing weight multiplier.</span>

@@ -3,29 +3,52 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserPlus, faCopy, faCheck, faTrash, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../../api/client.js';
+import { fetchTeachers } from '../../api/planner.js';
 import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
+import { useToast } from '../../components/common/Toast.js';
 
 interface UserRecord {
   id: string;
   email: string;
   name: string;
-  role: 'SUPERADMIN' | 'ADMIN' | 'STAFF';
+  role: 'SUPERADMIN' | 'ADMIN' | 'USER';
   activated: boolean;
   inviteLink: string | null;
   createdAt: string;
+  teacherId: string | null;
 }
 
 export default function ManageUsersPage() {
   const qc = useQueryClient();
+  const { showToast } = useToast();
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}') as { id: string; role: string };
+
+  const { data: teachers = [] } = useQuery({
+    queryKey: ['planner-teachers'],
+    queryFn: fetchTeachers,
+  });
+
+  const [teacherLinkSavingId, setTeacherLinkSavingId] = useState('');
+  const handleTeacherLinkChange = async (userId: string, teacherId: string) => {
+    setTeacherLinkSavingId(userId);
+    try {
+      await apiFetch(`/api/auth/users/${userId}/teacher`, { method: 'PATCH', body: JSON.stringify({ teacherId: teacherId || null }) });
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e: any) {
+      const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to link teacher'; } })();
+      showToast(msg, 'error');
+    } finally {
+      setTeacherLinkSavingId('');
+    }
+  };
 
   const canDelete = (u: UserRecord) => {
     // Can't delete yourself
     if (u.id === currentUser.id) return false;
     // SUPERADMIN can delete anyone
     if (currentUser.role === 'SUPERADMIN') return true;
-    // ADMIN can only delete STAFF
-    if (currentUser.role === 'ADMIN' && u.role === 'STAFF') return true;
+    // ADMIN can only delete USER
+    if (currentUser.role === 'ADMIN' && u.role === 'USER') return true;
     return false;
   };
   const { data: users = [], isLoading } = useQuery({
@@ -35,7 +58,7 @@ export default function ManageUsersPage() {
 
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'STAFF' | 'ADMIN'>('STAFF');
+  const [inviteRole, setInviteRole] = useState<'USER' | 'ADMIN'>('USER');
   const [copiedId, setCopiedId] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [resendingId, setResendingId] = useState('');
@@ -153,14 +176,14 @@ export default function ManageUsersPage() {
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Role</label>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    {(['STAFF', 'ADMIN'] as const).map(r => (
+                    {(['USER', 'ADMIN'] as const).map(r => (
                       <button key={r} type="button" onClick={() => setInviteRole(r)} style={{
                         padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600,
                         border: inviteRole === r ? '1.5px solid #1d4ed8' : '1.5px solid #d1d5db',
                         background: inviteRole === r ? '#eff6ff' : '#fff',
                         color: inviteRole === r ? '#1d4ed8' : '#6b7280',
                         cursor: 'pointer', fontFamily: 'inherit',
-                      }}>{r === 'STAFF' ? 'Staff' : 'Admin'}</button>
+                      }}>{r === 'USER' ? 'User' : 'Admin'}</button>
                     ))}
                   </div>
                 </div>
@@ -212,6 +235,22 @@ export default function ManageUsersPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <select
+                  value={u.teacherId ?? ''}
+                  disabled={teacherLinkSavingId === u.id}
+                  onChange={e => handleTeacherLinkChange(u.id, e.target.value)}
+                  style={{
+                    padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db',
+                    background: '#fff', color: u.teacherId ? '#0f172a' : '#94a3b8', fontSize: 12,
+                    fontFamily: 'inherit', maxWidth: 160,
+                    cursor: teacherLinkSavingId === u.id ? 'default' : 'pointer',
+                  }}
+                >
+                  <option value="">No teacher linked</option>
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
                 <span style={{
                   fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
                   background: u.role === 'SUPERADMIN' ? '#fef3c7' : u.role === 'ADMIN' ? '#eff6ff' : '#f1f5f9',

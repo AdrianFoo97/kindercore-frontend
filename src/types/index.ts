@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   role: string;
+  teacherId?: string | null;
 }
 
 export type LeadStatus =
@@ -200,6 +201,10 @@ export interface Position {
   /** Free-form description of the rank — shown on the position edit
    *  page and (later) on the teacher-facing career journey. */
   description: string | null;
+  /** References AuthRole.id — what a teacher holding this position can
+   *  access. Null falls back to no access (fail closed), except positions
+   *  backfilled onto the seeded "All Access (default)" role. */
+  authRoleId: string | null;
 }
 
 // ── Recruitment / Candidates ─────────────────────────────────────────────────

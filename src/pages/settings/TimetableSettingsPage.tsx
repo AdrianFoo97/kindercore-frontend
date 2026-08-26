@@ -45,11 +45,18 @@ const TABS: { key: 'classes' | 'subjects' | 'tasks'; label: string; icon: any }[
   { key: 'tasks', label: 'Tasks', icon: faListCheck },
 ];
 
-export default function TimetableSettingsPage() {
+export default function TimetableSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { type } = useParams<{ type: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const resourceType = (type || 'teachers') as ResourceType;
+  // Embedded (inside Settings > Operation's tab strip) has no :type route
+  // param to read, so tab switching is local state instead of navigate() —
+  // otherwise clicking Classes/Subjects/Tasks would jump out to the
+  // standalone /settings/timetable/:type route and lose the outer tab bar.
+  // Defaults to 'classes' rather than the standalone route's 'teachers'
+  // fallback, since Teachers isn't one of the three tabs actually shown.
+  const [localType, setLocalType] = useState<'classes' | 'subjects' | 'tasks'>('classes');
+  const resourceType = (embedded ? localType : (type || 'teachers')) as ResourceType;
 
   const { data: teachers = [] } = useQuery({ queryKey: ['planner-teachers'], queryFn: fetchTeachers });
   const { data: classrooms = [] } = useQuery({ queryKey: ['planner-classrooms'], queryFn: fetchClassrooms });
@@ -181,17 +188,17 @@ export default function TimetableSettingsPage() {
   };
 
   return (
-    <div style={{ padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
+    <div style={embedded ? undefined : { padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
       <style>{`.tt-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
-      <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: '4px 0 20px' }}>Timetable</h1>
+      <div style={embedded ? undefined : { maxWidth: 960, margin: '0 auto' }}>
+        {!embedded && <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: '4px 0 20px' }}>Timetable</h1>}
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, borderBottom: `1px solid ${C.border}`, marginBottom: 20 }}>
           {TABS.map(t => (
             <button
               key={t.key}
               className="tt-settings-tab"
-              onClick={() => navigate(`/settings/timetable/${t.key}`)}
+              onClick={() => embedded ? setLocalType(t.key) : navigate(`/settings/timetable/${t.key}`)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', fontSize: 13,
                 color: resourceType === t.key ? C.primary : C.muted, background: 'none', border: 'none',
