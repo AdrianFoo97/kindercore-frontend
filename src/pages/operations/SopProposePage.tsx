@@ -125,12 +125,16 @@ export default function SopProposePage() {
   const fromRevisionId = searchParams.get('fromRevision');
   const rawUser = localStorage.getItem('user');
   const currentUser = rawUser ? (JSON.parse(rawUser) as { id?: string }) : null;
-  const { hasView } = usePermissions();
+  const { isAdmin, hasView } = usePermissions();
   // A supervisor already holds the approval permission this whole flow's
   // decisions are gated on — Save Draft / Publish Now (see the footer
   // below) replace the plain teacher's single "Submit for approval" for
-  // exactly this reason.
-  const canSelfPublish = hasView('OPERATION_SOP_APPROVE');
+  // exactly this reason. ADMIN/SUPERADMIN roles bypass OPERATION_SOP_APPROVE
+  // entirely on the backend (requireView short-circuits for them — see
+  // auth.middleware.ts), so they need the same OR here, or a platform admin
+  // using "Add How-To Guide" would fall through to "Submit for approval"
+  // and need to approve their own submission as a separate step.
+  const canSelfPublish = isAdmin || hasView('OPERATION_SOP_APPROVE');
 
   const { data: allTemplates = [] } = useQuery({ queryKey: ['sop-templates'], queryFn: () => fetchTemplates() });
   const target = isEditingExisting ? allTemplates.find(t => t.id === templateId) : null;
@@ -605,8 +609,8 @@ export default function SopProposePage() {
               H1 instead of the desktop heading. */}
           <h1 style={themeIsTeacher ? sTeacher.heading : s.heading}>
             {themeIsTeacher
-              ? (isEditingExisting ? 'Suggest an Edit' : 'Suggest a Guide')
-              : (isEditingExisting ? 'Suggest an Improvement' : 'Suggest a New How-To Guide')}
+              ? (isEditingExisting ? (canSelfPublish ? 'Edit This Guide' : 'Suggest an Edit') : (canSelfPublish ? 'Add a Guide' : 'Suggest a Guide'))
+              : (isEditingExisting ? (canSelfPublish ? 'Edit How-To Guide' : 'Suggest an Improvement') : (canSelfPublish ? 'Add a New How-To Guide' : 'Suggest a New How-To Guide'))}
           </h1>
           {/* Dropped entirely for the teacher new-guide wizard (both
               steps) — the H1 + "STEP X OF 2" caption already carry
@@ -619,8 +623,12 @@ export default function SopProposePage() {
           {(!themeIsTeacher || isEditingExisting) && (
             <p style={themeIsTeacher ? sTeacher.subheading : s.subheading}>
               {isEditingExisting
-                ? "Improve it together, follow it together — this won't change the current How-To Guide until a supervisor reviews and approves it."
-                : 'A supervisor reviews and approves this before it appears in How-To Guides.'}
+                ? (canSelfPublish
+                  ? 'Save a draft to keep working, or publish to update the live guide immediately.'
+                  : "Improve it together, follow it together — this won't change the current How-To Guide until a supervisor reviews and approves it.")
+                : (canSelfPublish
+                  ? 'Save a draft to keep working, or publish to add it to How-To Guides immediately.'
+                  : 'A supervisor reviews and approves this before it appears in How-To Guides.')}
             </p>
           )}
           {!isEditingExisting && (

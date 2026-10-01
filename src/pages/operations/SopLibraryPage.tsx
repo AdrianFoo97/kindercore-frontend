@@ -94,7 +94,15 @@ export default function SopLibraryPage() {
   // teacherSopTopBar) and, below, reserves top padding to clear that bar.
   const fromTeacherApp = searchParams.get('app') === 'teacher';
   const isAdmin = previewingTeacher ? false : realIsAdmin;
-  const addSopPath = isAdmin ? '/operations/sops/new' : '/operations/sops/propose';
+  // Both roles go through the same Basic Info -> Steps wizard now
+  // (SopProposePage.tsx) — admin used to get a separate single-step
+  // "instant create" form (SopTemplateFormPage.tsx) with no steps editor
+  // at all, which routinely produced zero-step "shell" guides that then
+  // had to be populated one step at a time, after the fact, on the
+  // guide's own detail page. canSelfPublish there already covers admin
+  // (see SopProposePage.tsx), so Publish Now still goes live immediately
+  // — same end result, just with steps authored up front instead of never.
+  const addSopPath = '/operations/sops/propose';
   // Carried through so clicking into a guide keeps the same context on
   // the next page — the DEV-only teacher preview and/or the real teacher
   // app's chrome (see SopTemplateStepsPage.tsx / SopProposePage.tsx).

@@ -49,7 +49,6 @@ import PositionEditPage from './pages/settings/PositionEditPage.js';
 import CareerMissionSettingsPage from './pages/settings/CareerMissionSettingsPage.js';
 import MissionCategoriesPage from './pages/settings/MissionCategoriesPage.js';
 import SopLibraryPage from './pages/operations/SopLibraryPage.js';
-import SopTemplateFormPage from './pages/operations/SopTemplateFormPage.js';
 import SopProposePage from './pages/operations/SopProposePage.js';
 import HrSopRevisionsPage from './pages/HrSopRevisionsPage.js';
 import HrSopRevisionReviewPage from './pages/HrSopRevisionReviewPage.js';
@@ -348,7 +347,6 @@ export default function App() {
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><OperatingCostsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopLibraryPage /></ErrorBoundary></RequireModule>} />
-          <Route path="/operations/sops/new" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopTemplateFormPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops/propose" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopProposePage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops/:templateId" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopTemplateStepsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops/:templateId/propose" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopProposePage /></ErrorBoundary></RequireModule>} />
