@@ -3,12 +3,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faChevronRight, faChevronLeft, faCopy, faCheck,
+  faCopy, faCheck,
 } from '@fortawesome/free-solid-svg-icons';
-import { fetchTeachers } from '../api/planner.js';
-import {
-  myRewards, RedemptionStatus,
-} from '../data/pointsRewardsMock.js';
+import { fetchMyRewards, RedemptionStatus } from '../api/points.js';
+import { resolveRewardIcon } from '../constants/pointsMeta.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mobile-friendly details surface for a single redeemed reward. Reached
@@ -56,23 +55,19 @@ function fmtDate(iso: string): string {
 
 function statusBadge(status: RedemptionStatus): { label: string; bg: string; color: string; border: string } {
   switch (status) {
-    case 'available': return { label: 'Available', bg: POINTS_C.soft, color: POINTS_C.accent, border: POINTS_C.border };
+    case 'redeemed':  return { label: 'In your wallet', bg: POINTS_C.soft, color: POINTS_C.accent, border: POINTS_C.border };
     case 'pending':   return { label: 'Pending',   bg: C.warningSoft, color: C.warning,      border: C.warningBorder };
     case 'delivered': return { label: 'Delivered', bg: C.successSoft, color: C.success,      border: C.successBorder };
-    case 'used':      return { label: 'Used',      bg: C.slateSoft,   color: C.slate,        border: '#e2e8f0' };
-    case 'expired':   return { label: 'Expired',   bg: C.dangerSoft,  color: C.danger,       border: C.dangerBorder };
   }
 }
 
 export default function TeacherRedeemedRewardPage() {
   const { id, redemptionId } = useParams<{ id: string; redemptionId: string }>();
   const navigate = useNavigate();
-  const { data: teachers = [] } = useQuery({
-    queryKey: ['planner-teachers'],
-    queryFn: fetchTeachers,
+  const { data: myRewards, isLoading } = useQuery({
+    queryKey: ['points-redemptions', id], queryFn: () => fetchMyRewards(id!), enabled: !!id,
   });
-  const teacher = (teachers as any[]).find(t => t.id === id);
-  const reward = myRewards.find(r => r.id === redemptionId);
+  const reward = myRewards?.find(r => r.id === redemptionId);
 
   const [copied, setCopied] = useState(false);
   const copy = async (text: string) => {
@@ -86,11 +81,22 @@ export default function TeacherRedeemedRewardPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div style={s.page}>
+        <div style={s.inner}>
+          <div style={{ marginTop: SP.xl, padding: '48px 24px', textAlign: 'center', color: C.muted, fontSize: 13 }}>
+            Loading…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!reward) {
     return (
       <div style={s.page}>
         <div style={s.inner}>
-          <Breadcrumb teacherId={id!} teacherName={teacher?.name ?? '...'} crumb="Not found" />
           <div style={{
             marginTop: SP.xl,
             padding: '48px 24px', textAlign: 'center',
@@ -125,18 +131,11 @@ export default function TeacherRedeemedRewardPage() {
   return (
     <div style={s.page}>
       <style>{`
-        .trr-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }
         .trr-copy-btn:hover { background: ${POINTS_C.soft}; color: ${POINTS_C.accent}; border-color: ${POINTS_C.border}; }
         .trr-done:hover { background: ${POINTS_C.deep}; }
       `}</style>
 
       <div style={s.inner}>
-        <Breadcrumb
-          teacherId={id!}
-          teacherName={teacher?.name ?? '...'}
-          crumb={reward.label}
-        />
-
         {/* Single card — mirrors the catalog details page so the two
             detail surfaces feel like the same product. Hero block at
             the top, then content sections separated by hairline
@@ -156,7 +155,7 @@ export default function TeacherRedeemedRewardPage() {
                 border: `1px solid ${POINTS_C.border}`,
                 fontSize: 26, flexShrink: 0,
               }}>
-                <FontAwesomeIcon icon={reward.icon} />
+                <FontAwesomeIcon icon={resolveRewardIcon(reward.icon)} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={s.eyebrow}>My Reward</div>
@@ -200,19 +199,17 @@ export default function TeacherRedeemedRewardPage() {
             </div>
           </div>
 
-          {/* Redemption ID — optional, monospace */}
-          {reward.redemptionId && (
-            <div style={s.section}>
-              <div style={s.sectionLabel}>Redemption ID</div>
-              <span style={{
-                fontSize: 14, fontWeight: 700, color: C.text,
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                letterSpacing: '-0.005em',
-              }}>
-                {reward.redemptionId}
-              </span>
-            </div>
-          )}
+          {/* Redemption code — monospace, always present */}
+          <div style={s.section}>
+            <div style={s.sectionLabel}>Redemption code</div>
+            <span style={{
+              fontSize: 14, fontWeight: 700, color: C.text,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              letterSpacing: '-0.005em',
+            }}>
+              {reward.redemptionCode}
+            </span>
+          </div>
 
           {/* Voucher code — only if the reward carries one */}
           {reward.voucherCode && (
@@ -298,29 +295,16 @@ export default function TeacherRedeemedRewardPage() {
   );
 }
 
-function Breadcrumb({ teacherId, teacherName, crumb }: {
-  teacherId: string; teacherName: string; crumb: string;
-}) {
-  const navigate = useNavigate();
-  return (
-    <div style={s.breadcrumb}>
-      <button onClick={() => navigate(`/teachers/${teacherId}/rewards`)} className="trr-back-btn" style={s.backBtn} title="Back">
-        <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
-      </button>
-      <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
-      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-      <Link to={`/teachers/${teacherId}`} style={s.crumbLink}>{teacherName}</Link>
-      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-      <Link to={`/teachers/${teacherId}/rewards`} style={s.crumbLink}>Rewards</Link>
-      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-      <span style={s.crumbCurrent}>{crumb}</span>
-    </div>
-  );
-}
 
 const s: Record<string, React.CSSProperties> = {
   page: {
-    padding: `${SP.xxxl}px ${SP.xxxl}px ${SP.xxxl + SP.lg}px`,
+    // Bottom padding intentionally untouched here — see STICKY_CTA in
+    // TeacherMobileNav.tsx, which suppresses the bottom tab bar on this
+    // route.
+    paddingTop: TEACHER_CONTENT_TOP,
+    paddingRight: SP.xxxl,
+    paddingBottom: SP.xxxl + SP.lg,
+    paddingLeft: SP.xxxl,
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     background: C.bg, minHeight: '100vh', color: C.text,
   },

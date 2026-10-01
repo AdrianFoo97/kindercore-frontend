@@ -1,18 +1,21 @@
-import { useState, useReducer } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faChevronRight, faChevronLeft, faSackDollar,
+  faChevronRight, faSackDollar,
   faArrowUp, faArrowDown, faGift, faBolt,
   faBullseye, faXmark, faArrowRight,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers } from '../api/planner.js';
 import {
-  pointsBalance, pointTransactions, myRewards,
-  rewardCatalog, getGoal, clearGoal,
-  RedeemedReward, RedemptionStatus,
-} from '../data/pointsRewardsMock.js';
+  fetchTeacherPoints, fetchTransactions, fetchMyRewards, fetchRewardCatalog,
+  clearGoal as clearGoalApi,
+  RewardRedemption, RedemptionStatus,
+} from '../api/points.js';
+import { resolveRewardIcon } from '../constants/pointsMeta.js';
+import { useToast } from '../components/common/Toast.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens — kept local so the Rewards surface owns its dialect
@@ -57,25 +60,26 @@ function fmtDate(iso: string): string {
   return d.toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-// Map redemption status → badge palette + label. Keeps the My Rewards
-// section consistent with the rest of the page's badge grammar.
+// Map redemption status → badge palette + label. Real lifecycle is only
+// 3 states: redeemed (sits in wallet, unused) -> pending (teacher applied
+// to use it, awaiting HR) -> delivered (terminal). Labelled "In your
+// wallet" rather than the bare word "Redeemed" since this page also has
+// a "Redeem rewards" CTA — reusing that word as a status label next to
+// the action that produces it reads as confusing.
 function statusBadge(status: RedemptionStatus): { label: string; bg: string; color: string; border: string } {
   switch (status) {
-    case 'available': return { label: 'Available', bg: POINTS_C.soft,    color: POINTS_C.accent, border: POINTS_C.border };
-    case 'pending':   return { label: 'Pending',   bg: C.warningSoft,   color: C.warning,        border: C.warningBorder };
-    case 'delivered': return { label: 'Delivered', bg: C.successSoft,   color: C.success,        border: C.successBorder };
-    case 'used':      return { label: 'Used',      bg: C.slateSoft,     color: C.slate,          border: '#e2e8f0' };
-    case 'expired':   return { label: 'Expired',   bg: C.dangerSoft,    color: C.danger,         border: C.dangerBorder };
+    case 'redeemed':  return { label: 'In your wallet', bg: POINTS_C.soft,  color: POINTS_C.accent, border: POINTS_C.border };
+    case 'pending':   return { label: 'Pending',        bg: C.warningSoft, color: C.warning,        border: C.warningBorder };
+    case 'delivered': return { label: 'Delivered',      bg: C.successSoft, color: C.success,        border: C.successBorder };
   }
 }
 
 type ActivityFilter = 'all' | 'earned' | 'redeemed';
-type MyRewardsFilter = 'all' | 'available' | 'used';
+type MyRewardsFilter = 'all' | RedemptionStatus;
 const RECENT_ACTIVITY_LIMIT = 5;
 
 export default function TeacherRewardsPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { data: teachers = [] } = useQuery({
     queryKey: ['planner-teachers'],
     queryFn: fetchTeachers,
@@ -88,13 +92,10 @@ export default function TeacherRewardsPage() {
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [myRewardsFilter, setMyRewardsFilter] = useState<MyRewardsFilter>('all');
-  // Force re-render after clearing the pinned goal (mutates module state).
-  const [, bumpGoal] = useReducer((x: number) => x + 1, 0);
 
   return (
     <div style={s.page}>
       <style>{`
-        .trew-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }
         .trew-link:hover { text-decoration: underline; text-underline-offset: 2px; }
         .trew-filter-pill { transition: background 120ms ease, color 120ms ease, border-color 120ms ease; }
         .trew-filter-pill:hover { background: ${C.slateSoft}; }
@@ -105,20 +106,6 @@ export default function TeacherRewardsPage() {
       `}</style>
 
       <div style={s.inner}>
-        {/* Breadcrumb */}
-        <div style={s.breadcrumb}>
-          <button onClick={() => navigate(`/teachers/${id}/compensation`)} className="trew-back-btn" style={s.backBtn} title="Back">
-            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
-          </button>
-          <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <Link to={`/teachers/${id}`} style={s.crumbLink}>{teacher?.name ?? '...'}</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <Link to={`/teachers/${id}/compensation`} style={s.crumbLink}>Compensation</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <span style={s.crumbCurrent}>Rewards</span>
-        </div>
-
         {/* Page header */}
         <div style={{ marginTop: SP.xl, marginBottom: SP.lg }}>
           <div style={s.eyebrow}>Points & Rewards</div>
@@ -134,7 +121,7 @@ export default function TeacherRewardsPage() {
             a reward from the catalog as their current goal. Sits just
             below the balance hero so they always see what they're
             saving toward when they land on the rewards page. */}
-        <MyGoalCard teacherId={id!} onCleared={bumpGoal} />
+        <MyGoalCard teacherId={id!} />
 
         {/* Sectioned layout — Owned items first (My Rewards), then
             the ledger (Recent Activity). The two reference surfaces —
@@ -148,6 +135,7 @@ export default function TeacherRewardsPage() {
             onFilterChange={setMyRewardsFilter}
           />
           <RecentActivity
+            teacherId={id!}
             filter={activityFilter}
             onFilterChange={setActivityFilter}
             showAll={showAllActivity}
@@ -162,6 +150,11 @@ export default function TeacherRewardsPage() {
 // ─── Balance hero ─────────────────────────────────────────────────────────
 
 function BalanceHero({ teacherId }: { teacherId: string }) {
+  const { data: tp } = useQuery({
+    queryKey: ['points-teacher', teacherId],
+    queryFn: () => fetchTeacherPoints(teacherId),
+  });
+  const balance = tp?.balance ?? { current: 0, earnedThisMonth: 0, lifetimeEarned: 0 };
   return (
     <div className="trew-card" style={{
       ...s.card,
@@ -201,7 +194,7 @@ function BalanceHero({ teacherId }: { teacherId: string }) {
               letterSpacing: '-0.03em', lineHeight: 1.05,
               fontVariantNumeric: 'tabular-nums',
             }}>
-              {pointsBalance.current.toLocaleString('en-MY')}
+              {balance.current.toLocaleString('en-MY')}
               <span style={{
                 fontSize: 14, fontWeight: 700, color: C.muted,
                 marginLeft: 6, letterSpacing: '0.02em',
@@ -217,9 +210,9 @@ function BalanceHero({ teacherId }: { teacherId: string }) {
           display: 'flex', alignItems: 'center',
           gap: SP.lg, flexWrap: 'wrap',
         }}>
-          <InlineStat label="Earned this month" value={`+${pointsBalance.earnedThisMonth.toLocaleString('en-MY')} pts`} tone="success" />
+          <InlineStat label="Earned this month" value={`+${balance.earnedThisMonth.toLocaleString('en-MY')} pts`} tone="success" />
           <span style={{ width: 1, height: 28, background: POINTS_C.border, alignSelf: 'center' }} aria-hidden />
-          <InlineStat label="Lifetime earned" value={`${pointsBalance.lifetimeEarned.toLocaleString('en-MY')} pts`} />
+          <InlineStat label="Lifetime earned" value={`${balance.lifetimeEarned.toLocaleString('en-MY')} pts`} />
         </div>
 
         {/* Spacer pushes the CTA group to the right on wide widths;
@@ -300,25 +293,44 @@ function InlineStat({ label, value, tone = 'default' }: {
 // goal has become affordable / inactive — we don't want a stale
 // "saving for X" message after the teacher has already redeemed it.
 
-function MyGoalCard({ teacherId, onCleared }: {
+function MyGoalCard({ teacherId }: {
   teacherId: string;
-  onCleared: () => void;
 }) {
-  const goal = getGoal();
+  const qc = useQueryClient();
+  const { showToast } = useToast();
+  const { data: tp } = useQuery({
+    queryKey: ['points-teacher', teacherId],
+    queryFn: () => fetchTeacherPoints(teacherId),
+  });
+  const { data: catalog = [] } = useQuery({
+    queryKey: ['points-rewards'],
+    queryFn: fetchRewardCatalog,
+  });
+  const goal = tp?.goal ?? null;
   const item = goal
-    ? rewardCatalog.find(r => r.id === goal.rewardId && r.active)
+    ? catalog.find(r => r.id === goal.rewardId && r.active)
     : undefined;
 
+  const clearGoal = async () => {
+    try {
+      await clearGoalApi(teacherId);
+      qc.invalidateQueries({ queryKey: ['points-teacher', teacherId] });
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to remove goal', 'error');
+    }
+  };
+
   if (!item) return null;
+  const current = tp?.balance?.current ?? 0;
   // Goal already reached — surface a quick "ready to redeem" call to
   // action instead of progress, then clear itself when the teacher
   // acts. We keep it rendered (not hidden) so the teacher gets the
   // payoff for hitting their target.
-  const reached = pointsBalance.current >= item.cost;
+  const reached = current >= item.cost;
   const progressPct = reached
     ? 100
-    : Math.max(1, Math.round((pointsBalance.current / item.cost) * 100));
-  const need = reached ? 0 : item.cost - pointsBalance.current;
+    : Math.max(1, Math.round((current / item.cost) * 100));
+  const need = reached ? 0 : item.cost - current;
   // `from=rewards` tells the details page to send the user back here
   // instead of to the catalog when they hit Back / "Back to …".
   const detailsHref = `/teachers/${teacherId}/rewards/catalog/${item.id}?from=rewards`;
@@ -360,7 +372,7 @@ function MyGoalCard({ teacherId, onCleared }: {
           fontSize: 17, flexShrink: 0,
           boxShadow: '0 1px 2px rgba(91,33,182,0.05)',
         }}>
-          <FontAwesomeIcon icon={item.icon} />
+          <FontAwesomeIcon icon={resolveRewardIcon(item.icon)} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
@@ -390,7 +402,7 @@ function MyGoalCard({ teacherId, onCleared }: {
         </div>
         <button
           type="button"
-          onClick={() => { clearGoal(); onCleared(); }}
+          onClick={clearGoal}
           className="trew-goal-clear"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -494,13 +506,18 @@ function MyGoalCard({ teacherId, onCleared }: {
 // ─── Recent Activity ──────────────────────────────────────────────────────
 
 function RecentActivity({
-  filter, onFilterChange, showAll, onToggleShowAll,
+  teacherId, filter, onFilterChange, showAll, onToggleShowAll,
 }: {
+  teacherId: string;
   filter: ActivityFilter;
   onFilterChange: (f: ActivityFilter) => void;
   showAll: boolean;
   onToggleShowAll: () => void;
 }) {
+  const { data: pointTransactions = [] } = useQuery({
+    queryKey: ['points-tx', teacherId],
+    queryFn: () => fetchTransactions(teacherId),
+  });
   const filtered = pointTransactions.filter(t => {
     if (filter === 'earned')   return t.kind === 'earned';
     if (filter === 'redeemed') return t.kind === 'redeemed';
@@ -661,17 +678,11 @@ function MyRewards({ teacherId, filter, onFilterChange }: {
   filter: MyRewardsFilter;
   onFilterChange: (f: MyRewardsFilter) => void;
 }) {
-  // Filter mapping — "Used" buckets 'used' (voucher consumed) and
-  // 'delivered' (item received) since both mean "redemption complete
-  // from the teacher's perspective". 'pending' and 'expired' stay
-  // visible only in "All" — not every reward expires, so a dedicated
-  // Expired filter would mostly stay empty.
-  const matchesFilter = (r: RedeemedReward) => {
-    if (filter === 'all') return true;
-    if (filter === 'available') return r.status === 'available';
-    if (filter === 'used')      return r.status === 'used' || r.status === 'delivered';
-    return true;
-  };
+  const { data: myRewards = [] } = useQuery({
+    queryKey: ['points-redemptions', teacherId],
+    queryFn: () => fetchMyRewards(teacherId),
+  });
+  const matchesFilter = (r: RewardRedemption) => filter === 'all' ? true : r.status === filter;
   const filtered = myRewards.filter(matchesFilter);
 
   return (
@@ -682,8 +693,9 @@ function MyRewards({ teacherId, filter, onFilterChange }: {
         right={
           <div style={{ display: 'inline-flex', gap: 4 }}>
             <FilterPill active={filter === 'all'}       onClick={() => onFilterChange('all')}>All</FilterPill>
-            <FilterPill active={filter === 'available'} onClick={() => onFilterChange('available')}>Available</FilterPill>
-            <FilterPill active={filter === 'used'}      onClick={() => onFilterChange('used')}>Used</FilterPill>
+            <FilterPill active={filter === 'redeemed'}  onClick={() => onFilterChange('redeemed')}>In wallet</FilterPill>
+            <FilterPill active={filter === 'pending'}   onClick={() => onFilterChange('pending')}>Pending</FilterPill>
+            <FilterPill active={filter === 'delivered'} onClick={() => onFilterChange('delivered')}>Delivered</FilterPill>
           </div>
         }
       />
@@ -692,7 +704,7 @@ function MyRewards({ teacherId, filter, onFilterChange }: {
         <div style={s.emptyInline}>
           {myRewards.length === 0
             ? 'Nothing redeemed yet. Spend points from the catalog to start your collection.'
-            : `No ${filter === 'all' ? '' : filter} rewards.`}
+            : `No ${filter === 'all' ? '' : statusBadge(filter as RedemptionStatus).label.toLowerCase()} rewards.`}
         </div>
       ) : (
         <div style={{
@@ -724,7 +736,7 @@ function MyRewards({ teacherId, filter, onFilterChange }: {
                     border: `1px solid ${POINTS_C.border}`,
                     fontSize: 14, flexShrink: 0,
                   }}>
-                    <FontAwesomeIcon icon={r.icon} />
+                    <FontAwesomeIcon icon={resolveRewardIcon(r.icon)} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
@@ -749,12 +761,12 @@ function MyRewards({ teacherId, filter, onFilterChange }: {
                     flexShrink: 0,
                   }}>
                     {/* Status dot — solid for actionable states
-                        (available/pending), hollow for terminal states
-                        (used/delivered/expired) so the eye picks up
-                        "still claimable" vs "history" at a glance. */}
+                        (redeemed/pending), hollow for the terminal
+                        (delivered) state so the eye picks up "still
+                        claimable" vs "history" at a glance. */}
                     <span style={{
                       width: 6, height: 6, borderRadius: '50%',
-                      background: r.status === 'available' || r.status === 'pending' ? badge.color : 'transparent',
+                      background: r.status !== 'delivered' ? badge.color : 'transparent',
                       border: `1.5px solid ${badge.color}`,
                       flexShrink: 0,
                     }} />
@@ -811,7 +823,7 @@ function SectionHeader({
       display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
       gap: 12, marginBottom: 14, flexWrap: 'wrap',
     }}>
-      <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <div style={{ minWidth: 140, flex: '1 1 180px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <span style={{ width: 3, height: 14, borderRadius: 999, background: accent, flexShrink: 0, marginTop: 3 }} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <h3 style={{
@@ -830,7 +842,7 @@ function SectionHeader({
           )}
         </div>
       </div>
-      {right}
+      {right && <div style={{ flexShrink: 0 }}>{right}</div>}
     </div>
   );
 }
@@ -839,7 +851,10 @@ function SectionHeader({
 
 const s: Record<string, React.CSSProperties> = {
   page: {
-    padding: `${SP.xxxl}px ${SP.xxxl}px ${SP.xxxl + SP.lg}px`,
+    paddingTop: TEACHER_CONTENT_TOP,
+    paddingRight: SP.xxxl,
+    paddingBottom: SP.xxxl + SP.lg,
+    paddingLeft: SP.xxxl,
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     background: C.bg, minHeight: '100vh', color: C.text,
   },

@@ -43,3 +43,31 @@ export async function uploadBadge(file: File): Promise<{ url: string }> {
   }
   return res.json();
 }
+
+/**
+ * Upload up to 4 bug-report screenshots. Returns their public URLs (e.g.
+ * `/uploads/bug-reports/xxx.jpg`) to attach to a bug report. Server enforces
+ * image type and a 5 MB per-file limit.
+ */
+export async function uploadBugReportPhotos(files: File[]): Promise<{ urls: string[] }> {
+  const token = localStorage.getItem('token');
+  const form = new FormData();
+  files.forEach(f => form.append('photos', f));
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/api/upload/bug-report-photos`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+  } catch {
+    throw new ApiError('Unable to connect to server.', 0, 'NETWORK_ERROR');
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Upload failed' }));
+    throw new ApiError(body.message ?? 'Upload failed', res.status, body.code);
+  }
+  return res.json();
+}

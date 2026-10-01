@@ -1,18 +1,19 @@
-import { useReducer, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faChevronRight, faChevronLeft, faSackDollar, faGift,
+  faGift,
   faBullseye, faXmark,
 } from '@fortawesome/free-solid-svg-icons';
-import { fetchTeachers } from '../api/planner.js';
 import {
-  pointsBalance, rewardCatalog, redeemReward,
-  getGoal, setGoal, clearGoal,
-} from '../data/pointsRewardsMock.js';
+  fetchTeacherPoints, fetchRewardCatalog, redeemReward as redeemRewardApi,
+  setGoal as setGoalApi, clearGoal as clearGoalApi,
+} from '../api/points.js';
+import { resolveRewardIcon } from '../constants/pointsMeta.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.js';
 import { useToast } from '../components/common/Toast.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Catalog item details — reached when a teacher taps a card on the
@@ -53,7 +54,7 @@ export default function TeacherRewardDetailsPage() {
   const { id, rewardId } = useParams<{ id: string; rewardId: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [, bump] = useReducer((x: number) => x + 1, 0);
+  const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [redeeming, setRedeeming] = useState(false);
   // `from=rewards` is set when the teacher arrived via the goal card
@@ -67,18 +68,31 @@ export default function TeacherRewardDetailsPage() {
     : `/teachers/${id}/rewards/catalog`;
   const backLabel = fromRewards ? 'Back to rewards' : 'Back to catalog';
 
-  const { data: teachers = [] } = useQuery({
-    queryKey: ['planner-teachers'],
-    queryFn: fetchTeachers,
+  const { data: catalog, isLoading: catalogLoading } = useQuery({
+    queryKey: ['points-rewards'], queryFn: fetchRewardCatalog,
   });
-  const teacher = (teachers as any[]).find(t => t.id === id);
-  const item = rewardCatalog.find(r => r.id === rewardId && r.active);
+  const { data: tp, isLoading: tpLoading } = useQuery({
+    queryKey: ['points-teacher', id], queryFn: () => fetchTeacherPoints(id!), enabled: !!id,
+  });
+  const balance = tp?.balance?.current ?? 0;
+  const item = catalog?.find(r => r.id === rewardId && r.active);
+
+  if (catalogLoading || tpLoading) {
+    return (
+      <div style={s.page}>
+        <div style={s.inner}>
+          <div style={{ marginTop: SP.xl, padding: '48px 24px', textAlign: 'center', color: C.muted, fontSize: 13 }}>
+            Loading…
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!item) {
     return (
       <div style={s.page}>
         <div style={s.inner}>
-          <Breadcrumb teacherId={id!} teacherName={teacher?.name ?? '...'} crumb="Not found" fromRewards={fromRewards} backPath={backPath} />
           <div style={{
             marginTop: SP.xl,
             padding: '48px 24px', textAlign: 'center',
@@ -100,61 +114,65 @@ export default function TeacherRewardDetailsPage() {
     );
   }
 
-  const affordable = pointsBalance.current >= item.cost;
+  const affordable = balance >= item.cost;
   const inStock = item.stock !== 'out';
   const canRedeem = affordable && inStock;
-  const balanceAfter = pointsBalance.current - item.cost;
+  const balanceAfter = balance - item.cost;
 
   // Goal state — the teacher can pin a single reward as their "goal"
   // so it surfaces on the main rewards page as motivation. Only one
   // goal at a time: setting a new one replaces the previous (the
   // button label reads "Replace goal" so the swap is explicit).
-  const currentGoal = getGoal();
+  const currentGoal = tp?.goal ?? null;
   const isGoal = currentGoal?.rewardId === item.id;
   const hasOtherGoal = !!currentGoal && !isGoal;
-  const toggleGoal = () => {
-    if (isGoal) {
-      clearGoal();
-      showToast(`Removed goal: ${item.label}`);
-    } else {
-      setGoal(item.id);
-      showToast(hasOtherGoal
-        ? `Goal updated: ${item.label}`
-        : `Goal set: ${item.label}`);
+  const toggleGoal = async () => {
+    if (!id) return;
+    try {
+      if (isGoal) {
+        await clearGoalApi(id);
+        showToast(`Removed goal: ${item.label}`);
+      } else {
+        await setGoalApi(id, item.id);
+        showToast(hasOtherGoal
+          ? `Goal updated: ${item.label}`
+          : `Goal set: ${item.label}`);
+      }
+      qc.invalidateQueries({ queryKey: ['points-teacher', id] });
+    } catch {
+      showToast('Could not update goal', 'error');
     }
-    bump();
   };
 
-  const onConfirmRedeem = () => {
+  const onConfirmRedeem = async () => {
+    if (!id) return;
     setRedeeming(true);
-    setTimeout(() => {
-      const created = redeemReward(item.id);
+    try {
+      const created = await redeemRewardApi(id, item.id);
       setRedeeming(false);
       setConfirmOpen(false);
-      if (created) {
-        showToast(`Redeemed: ${item.label}`);
-        bump();
-        // Land the teacher on the redeemed-reward page so they can see
-        // the voucher code / instructions immediately.
-        navigate(`/teachers/${id}/rewards/my/${created.id}`);
-      } else {
-        showToast('Could not redeem this item', 'error');
-      }
-    }, 250);
+      showToast(`Redeemed: ${item.label}`);
+      qc.invalidateQueries({ queryKey: ['points-teacher', id] });
+      qc.invalidateQueries({ queryKey: ['points-tx', id] });
+      qc.invalidateQueries({ queryKey: ['points-redemptions', id] });
+      // Land the teacher on the redeemed-reward page so they can see
+      // the voucher code / instructions immediately.
+      navigate(`/teachers/${id}/rewards/my/${created.id}`);
+    } catch {
+      setRedeeming(false);
+      showToast('Could not redeem this item', 'error');
+    }
   };
 
   return (
     <div style={s.page}>
       <style>{`
-        .trd-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }
         .trd-redeem:not(:disabled):hover { background: ${POINTS_C.deep}; }
         .trd-goal-btn:hover { border-color: ${POINTS_C.accent} !important; color: ${POINTS_C.deep} !important; background: ${POINTS_C.soft} !important; }
         .trd-goal-btn[data-active="true"]:hover { background: ${POINTS_C.soft} !important; }
       `}</style>
 
       <div style={s.inner}>
-        <Breadcrumb teacherId={id!} teacherName={teacher?.name ?? '...'} crumb={item.label} fromRewards={fromRewards} backPath={backPath} />
-
         {/* Single card — hero block + description + footer actions
             grouped so the page reads as one composed unit. */}
         <div style={s.card}>
@@ -170,7 +188,7 @@ export default function TeacherRewardDetailsPage() {
                 border: `1px solid ${POINTS_C.border}`,
                 fontSize: 26, flexShrink: 0,
               }}>
-                <FontAwesomeIcon icon={item.icon} />
+                <FontAwesomeIcon icon={resolveRewardIcon(item.icon)} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={s.eyebrow}>Redeem rewards</div>
@@ -293,7 +311,7 @@ export default function TeacherRewardDetailsPage() {
             {!inStock
               ? 'Out of stock'
               : !affordable
-                ? `Need ${(item.cost - pointsBalance.current).toLocaleString('en-MY')} more pts`
+                ? `Need ${(item.cost - balance).toLocaleString('en-MY')} more pts`
                 : `Redeem for ${item.cost.toLocaleString('en-MY')} pts`}
             </button>
             </div>
@@ -339,36 +357,6 @@ export default function TeacherRewardDetailsPage() {
   );
 }
 
-function Breadcrumb({ teacherId, teacherName, crumb, fromRewards, backPath }: {
-  teacherId: string; teacherName: string; crumb: string;
-  /** Drop the "Redeem rewards" crumb when the teacher arrived from
-   *  the rewards page (via the goal card) — they didn't actually pass
-   *  through the catalog, so showing it would misrepresent the trail. */
-  fromRewards: boolean;
-  backPath: string;
-}) {
-  const navigate = useNavigate();
-  return (
-    <div style={s.breadcrumb}>
-      <button onClick={() => navigate(backPath)} className="trd-back-btn" style={s.backBtn} title="Back">
-        <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
-      </button>
-      <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
-      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-      <Link to={`/teachers/${teacherId}`} style={s.crumbLink}>{teacherName}</Link>
-      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-      <Link to={`/teachers/${teacherId}/rewards`} style={s.crumbLink}>Rewards</Link>
-      {!fromRewards && (
-        <>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <Link to={`/teachers/${teacherId}/rewards/catalog`} style={s.crumbLink}>Redeem rewards</Link>
-        </>
-      )}
-      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-      <span style={s.crumbCurrent}>{crumb}</span>
-    </div>
-  );
-}
 
 const primaryLinkBtn: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -379,7 +367,13 @@ const primaryLinkBtn: React.CSSProperties = {
 
 const s: Record<string, React.CSSProperties> = {
   page: {
-    padding: `${SP.xxxl}px ${SP.xxxl}px ${SP.xxxl + SP.lg}px`,
+    // Bottom padding intentionally untouched here — see STICKY_CTA in
+    // TeacherMobileNav.tsx, which suppresses the bottom tab bar on this
+    // route.
+    paddingTop: TEACHER_CONTENT_TOP,
+    paddingRight: SP.xxxl,
+    paddingBottom: SP.xxxl + SP.lg,
+    paddingLeft: SP.xxxl,
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     background: C.bg, minHeight: '100vh', color: C.text,
   },

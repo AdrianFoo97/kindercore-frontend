@@ -1,10 +1,9 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { useParams } from 'react-router-dom';
 import {
   MoneyQuests,
   useCompensationData,
 } from './TeacherCompensationPage.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Earn More — teacher-facing mobile subpage. Drilled into from the
@@ -24,29 +23,21 @@ const C = {
 
 export default function TeacherMyCompensationEarnMorePage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { teacher, eligibility } = useCompensationData(id);
+  const { eligibility } = useCompensationData(id);
 
   return (
     <div style={s.page}>
-      <style>{`
-        .tmcem-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }
-      `}</style>
-
       <div style={s.inner}>
-        <div style={s.breadcrumb}>
-          <button onClick={() => navigate(`/teachers/${id}/my-compensation`)} className="tmcem-back-btn" style={s.backBtn} title="Back">
-            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
-          </button>
-          <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <Link to={`/teachers/${id}`} style={s.crumbLink}>{teacher?.name ?? '...'}</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <Link to={`/teachers/${id}/my-compensation`} style={s.crumbLink}>My Compensation</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <span style={s.crumbCurrent}>Earn More</span>
-        </div>
-
+        {/* Was missing entirely — the shared bar suppresses its own
+            at-rest title on every teacher page, so without an in-page
+            heading this screen showed no title at all until scrolled
+            far enough to trigger the small collapsed one. */}
+        <h1 style={{
+          margin: '0 0 16px', paddingLeft: 4, fontSize: 30, fontWeight: 800,
+          color: C.text, letterSpacing: '-0.02em',
+        }}>
+          Grow My Pay
+        </h1>
         <MoneyQuests eligibility={eligibility} />
       </div>
     </div>
@@ -55,7 +46,10 @@ export default function TeacherMyCompensationEarnMorePage() {
 
 const s: Record<string, React.CSSProperties> = {
   page: {
-    padding: '16px 12px',
+    paddingTop: TEACHER_CONTENT_TOP,
+    paddingRight: 12,
+    paddingBottom: 16,
+    paddingLeft: 12,
     background: C.bg, minHeight: '100vh',
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     color: C.text,

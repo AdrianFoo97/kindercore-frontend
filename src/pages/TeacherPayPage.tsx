@@ -1,11 +1,12 @@
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faChevronLeft, faChevronRight, faSackDollar,
-  faMedal, faReceipt, faArrowTrendUp, faStar, faBolt,
+  faChevronRight, faSackDollar,
+  faMedal, faReceipt, faArrowTrendUp, faStar, faClipboardCheck,
 } from '@fortawesome/free-solid-svg-icons';
 import { uploadUrl } from '../api/upload.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import { TEACHER_TOPBAR_SPACE } from '../components/common/TeacherTopBar.js';
 import {
   compensationData,
   computeMonthlyTotal, rewardStreamSummary, formatService,
@@ -18,8 +19,17 @@ import {
 // hub that mirrors the career hub's hub-and-spoke pattern:
 //
 //   Pay Breakdown  ↔  Career Journey   (the anatomy / "where am I")
-//   Grow My Pay    ↔  Mission Board    (the actionable quests)
 //   Benefits       ↔  Skill Badges     (the unlockable gallery)
+//
+// "Grow My Pay" (earning levers: promotion, qualifications, commission)
+// used to have its own hub-level spoke + a "Next Pay Quest" callout
+// here, styled with quest/bolt framing. Pulled both: growing pay is an
+// occasional, slow-moving thing, not something that should read as a
+// daily-check quest — that vocabulary belongs to Rewards/Leaderboard,
+// not this honest-money hub. The content itself now lives as a quieter
+// section on Pay Breakdown instead (see MoneyQuests usage there); the
+// standalone /my-compensation/earn-more route still exists (the legacy
+// TeacherMyCompensationPage still links to it) but nothing here does.
 //
 // Honest-money gamification only: a real Tier ladder (driven by the
 // appraisal score gates) + real-RM deltas. No points/XP layered on
@@ -29,7 +39,7 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FONT =
-  '"Nunito", ui-rounded, -apple-system, "SF Pro Rounded", "Avenir Next", "Segoe UI", system-ui, sans-serif';
+  '"Segoe UI", Roboto, Arial, sans-serif';
 
 // Shared soft palette — same dialect as the career hub so the two
 // teacher surfaces read as one app. Money accents (gold = the bright
@@ -117,17 +127,8 @@ function deriveTier(): TierInfo {
 
 export default function TeacherPayPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
   const { isMobile } = useIsMobile();
   const { teacher, teacherSalary } = useCompensationData(id);
-
-  // History-aware back (same pattern as the Mission Board): pop real
-  // in-app history, else fall back to the teacher overview.
-  const goBack = () => {
-    if (location.key !== 'default') navigate(-1);
-    else navigate(`/teachers/${id}`);
-  };
 
   const tier = deriveTier();
   // Real appraisal scale + the two configurable thresholds (from the
@@ -142,31 +143,6 @@ export default function TeacherPayPage() {
   const allowanceCount = compensationData.allowances.length;
   const uplift = compensationData.basicSalaryUplift;
   const nextPos = compensationData.nextPositionName;
-  const promoDone = compensationData.promotionMissionsCompleted;
-  const promoTotal = compensationData.promotionMissionsTotal;
-
-  // The single highest-RM honest lever, surfaced as "best next move".
-  const bestMove = (() => {
-    if (nextPos && uplift > 0) {
-      return {
-        title: `Get promoted to ${nextPos}`,
-        sub: `+${rm(uplift)}/mo · ${promoDone}/${promoTotal} promotion missions done`,
-        to: `/teachers/${id}/my-compensation/earn-more`,
-      };
-    }
-    if (tier.key !== 'high') {
-      return {
-        title: `Climb to ${tier.nextLabel}`,
-        sub: `${tier.pointsToNext} appraisal points away · ${tier.unlockCopy}`,
-        to: `/teachers/${id}/my-compensation/benefits`,
-      };
-    }
-    return {
-      title: 'You’re at the top tier',
-      sub: 'Keep your appraisal up to hold every perk.',
-      to: `/teachers/${id}/my-compensation/benefits`,
-    };
-  })();
 
   const spokes: {
     icon: any; title: string; summary: string; to: string;
@@ -178,14 +154,6 @@ export default function TeacherPayPage() {
       to: `/teachers/${id}/my-compensation/breakdown`,
     },
     {
-      icon: faArrowTrendUp,
-      title: 'Grow My Pay',
-      summary: nextPos && uplift > 0
-        ? `Promotion to ${nextPos} = +${rm(uplift)}/mo`
-        : 'Qualifications, commission & bonuses',
-      to: `/teachers/${id}/my-compensation/earn-more`,
-    },
-    {
       icon: faMedal,
       title: 'Benefits & Perks',
       summary: tier.key === 'high'
@@ -195,15 +163,33 @@ export default function TeacherPayPage() {
           : `Locked — reach ${benefitRules.minimumAppraisalForEligibility} appraisal`,
       to: `/teachers/${id}/my-compensation/benefits`,
     },
+    {
+      icon: faClipboardCheck,
+      title: 'My Appraisal',
+      summary: `${Math.round(score)}% current average`,
+      to: `/teachers/${id}/my-compensation/appraisal`,
+    },
   ];
 
   const pageStyle: React.CSSProperties = {
-    padding: isMobile ? '16px 12px 28px' : '28px 32px',
+    // Clears just the back/"⋯" row (TEACHER_TOPBAR_SPACE), not the
+    // full TEACHER_CONTENT_TOP reservation — the page's own <h1> below
+    // is the title now (see titleMovedToPage in TeacherTopBar.tsx), so
+    // there's no separate title row to also clear.
+    paddingTop: isMobile ? TEACHER_TOPBAR_SPACE : 28,
+    paddingRight: isMobile ? 12 : 32,
+    paddingBottom: isMobile ? 28 : 32,
+    paddingLeft: isMobile ? 12 : 32,
     minHeight: '100vh',
     fontFamily: FONT,
     color: C.text,
+    // Ramps up gradually from 0, not a hard C.bg→HERO_BG step at the
+    // title's edge — two stops at the same position is an instant
+    // colour jump, which reads as a hard line under the title no
+    // matter how well the colours either side "match" at that single
+    // point (same fix as TeacherHomePage.tsx).
     background: isMobile
-      ? `linear-gradient(to bottom, ${HERO_BG} 0, ${HERO_BG} 195px, ${C.bg} 245px, ${C.bg} 100%)`
+      ? `linear-gradient(to bottom, ${C.bg} 0, ${HERO_BG} 140px, ${HERO_BG} 195px, ${C.bg} 245px, ${C.bg} 100%)`
       : C.bg,
   };
 
@@ -216,31 +202,19 @@ export default function TeacherPayPage() {
       `}</style>
 
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        {/* Header — bare chevron + title beside it (same compact
-            phone-app pattern as the Mission Board). */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isMobile ? 18 : 20, minWidth: 0 }}>
-          <button
-            onClick={goBack}
-            className="tpay-back"
-            aria-label="Back"
-            style={{
-              width: 28, height: 28, border: 'none', background: 'transparent',
-              cursor: 'pointer', color: C.text, display: 'inline-flex',
-              alignItems: 'center', justifyContent: 'center', fontSize: 19,
-              padding: 0, flexShrink: 0, outline: 'none',
-              WebkitAppearance: 'none' as const,
-            }}
-          >
-            <FontAwesomeIcon icon={faChevronLeft} />
-          </button>
+        {/* Page title — lives here as plain content (same left margin
+            as every card below it), not in the shared floating bar.
+            TeacherTopBar suppresses its own at-rest title for this
+            route to match; it still shows a small centered version
+            once scrolled (see TeacherTopBar.tsx's titleMovedToPage). */}
+        {isMobile && (
           <h1 style={{
-            margin: 0, fontSize: 20, fontWeight: 800, color: C.textStrong,
-            letterSpacing: '-0.02em', flex: 1, minWidth: 0,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            margin: '0 0 16px', paddingLeft: 4, fontSize: 30, fontWeight: 800,
+            color: C.textStrong, letterSpacing: '-0.02em',
           }}>
             My Pay
           </h1>
-        </div>
+        )}
 
         {/* ── Hero: the teacher's current pay status. Calm white card
             (no heavy gold) so the amount is the single clear focus;
@@ -443,86 +417,6 @@ export default function TeacherPayPage() {
           </div>
         </div>
 
-        {/* ── Next Pay Quest — the one action that grows pay most.
-            Sits above the list cards with a tinted surface so it
-            reads as the priority objective, not just another row. */}
-        {(() => {
-          const isPromoQuest = !!(nextPos && uplift > 0);
-          const questPct = promoTotal > 0
-            ? Math.max(0, Math.min(100, Math.round((promoDone / promoTotal) * 100)))
-            : 0;
-          return (
-            <Link
-              to={bestMove.to}
-              className="tpay-row"
-              style={{
-                display: 'block',
-                textDecoration: 'none', color: 'inherit',
-                background: `linear-gradient(135deg, ${C.primary}12, ${C.primary}05), ${C.card}`,
-                border: `1px solid ${C.primaryBorder}`,
-                borderRadius: 16, padding: '16px 16px', marginBottom: 14,
-                boxShadow: `0 1px 2px ${C.primary}14, 0 4px 12px ${C.primary}0a`,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: 12, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: C.primarySoft, color: C.primary, fontSize: 15,
-                }}>
-                  <FontAwesomeIcon icon={faBolt} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: 10, fontWeight: 800, color: C.primaryDeep,
-                    textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 3,
-                  }}>
-                    Next Pay Quest
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: C.textStrong, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
-                    {bestMove.title}
-                  </div>
-                </div>
-                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 12, color: C.primary, flexShrink: 0 }} />
-              </div>
-
-              {isPromoQuest ? (
-                <div style={{ marginTop: 12 }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    gap: 10, marginBottom: 7, fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      fontSize: 12, fontWeight: 800, color: C.success,
-                    }}>
-                      <FontAwesomeIcon icon={faArrowTrendUp} style={{ fontSize: 10 }} />
-                      +{rm(uplift)}/mo
-                    </span>
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: C.muted }}>
-                      {promoDone}/{promoTotal} missions done
-                    </span>
-                  </div>
-                  <div style={{ height: 6, borderRadius: 999, background: C.slateSoft, overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', width: `${questPct}%`, borderRadius: 999,
-                      background: C.primary,
-                      transition: 'width 500ms cubic-bezier(0.4,0,0.2,1)',
-                    }} />
-                  </div>
-                </div>
-              ) : (
-                <div style={{
-                  marginTop: 8, fontSize: 12, fontWeight: 600, color: C.muted,
-                  lineHeight: 1.4,
-                }}>
-                  {bestMove.sub}
-                </div>
-              )}
-            </Link>
-          );
-        })()}
-
         {/* ── Spokes ───────────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {spokes.map(sp => (
@@ -562,26 +456,6 @@ export default function TeacherPayPage() {
           ))}
         </div>
 
-        {/* Quiet link to the (separate) redeemable Rewards wallet —
-            kept distinct from salary on purpose: those are real
-            redeemable points, not a score layered on pay. */}
-        <Link
-          to={`/teachers/${id}/rewards`}
-          className="tpay-row"
-          style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            marginTop: 14, padding: '12px 14px',
-            textDecoration: 'none',
-            background: 'transparent',
-            border: `1px dashed ${C.cardBorder}`,
-            borderRadius: 12,
-            color: C.muted, fontSize: 12, fontWeight: 700,
-          }}
-        >
-          <FontAwesomeIcon icon={faSackDollar} style={{ fontSize: 12 }} />
-          Rewards wallet
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 10, marginLeft: 'auto' }} />
-        </Link>
       </div>
     </div>
   );

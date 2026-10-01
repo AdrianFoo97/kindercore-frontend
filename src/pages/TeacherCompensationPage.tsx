@@ -20,7 +20,6 @@ import { fetchSettings } from '../api/settings.js';
 import { fetchAllowanceTypes } from '../api/allowance.js';
 import { fetchTeacherCareer } from '../api/career-missions.js';
 import { uploadUrl } from '../api/upload.js';
-import { pointsBalance } from '../data/pointsRewardsMock.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import {
   PERFORMER_THRESHOLD_KEY,
@@ -29,6 +28,7 @@ import {
   DEFAULT_HIGH_PERFORMER_THRESHOLD,
   readScore,
 } from './settings/CompensationSettingsPage.js';
+import { DEFAULT_EXPENSE_RATIO_TARGET } from './FinanceSettingsPage.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens — page-scoped so the compensation surface owns its dialect
@@ -163,14 +163,8 @@ const enrollmentCommissionTiers: { enrollments: number; rate: number; label: str
 
 // Points chip palette — violet to distinguish points from the RM
 // dialect used by the rest of this page (gold/green/blue). Balance
-// itself comes from the shared pointsRewardsMock module so the chip
+// itself comes from the shared points-teacher query so the chip
 // stays in sync with the full rewards page.
-const POINTS_C = {
-  accent: '#7c3aed',
-  soft: '#f5f3ff',
-  border: '#ddd6fe',
-};
-
 // Derived eligibility — single function, used everywhere on the page.
 // Thresholds are inclusive: a score of N qualifies as "N and above". So
 // setting High-Performer to 80 means 80 itself is high-performer (the
@@ -678,14 +672,11 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
               margin: isMobile ? 0 : '4px 0 0', fontSize: isMobile ? 20 : 28, fontWeight: 800, color: C.text,
               letterSpacing: '-0.025em', lineHeight: 1.15,
             }}>
-              {teacher?.name ? `${teacher.name}'s Rewards Wallet` : 'Your Rewards Wallet'}
+              {teacher?.name ? `${teacher.name}'s Compensation` : 'Your Compensation'}
             </h1>
             {/* Service period chip — long-term context relevant to
                 loyalty incentive eligibility. Sits with identity info,
-                not as a separate stat. Points chip sits beside it as a
-                discoverable link to the full Rewards page. Mobile uses
-                tighter padding + a lower-cased "1y 1m" service format
-                so both pills fit on one line in the narrow column. */}
+                not as a separate stat. */}
             <div style={{
               marginTop: isMobile ? 8 : 10,
               display: 'flex', alignItems: 'center', flexWrap: 'wrap',
@@ -704,23 +695,6 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
                   ? formatService(compensationData.yearsOfService)
                   : `Tenure · ${formatService(compensationData.yearsOfService)}`}
               </span>
-              <Link
-                to={`/teachers/${teacherId}/rewards`}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: isMobile ? 4 : 6,
-                  padding: isMobile ? '2px 8px' : '3px 10px', borderRadius: 999,
-                  background: POINTS_C.soft, color: POINTS_C.accent,
-                  border: `1px solid ${POINTS_C.border}`,
-                  fontSize: isMobile ? 10 : 11, fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: isMobile ? '0.04em' : '0.06em',
-                  textDecoration: 'none',
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
-                <FontAwesomeIcon icon={faSackDollar} style={{ fontSize: 9 }} />
-                {pointsBalance.current.toLocaleString('en-MY')} pts
-                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 8 }} />
-              </Link>
             </div>
           </div>
         </div>
@@ -953,9 +927,9 @@ export function MonthlySalaryBreakdown({ compact = false }: { compact?: boolean 
   // stretch keeps all chips the same height in a row.
   const chipFlex: React.CSSProperties = { flex: '1 1 220px', minWidth: 0 };
 
-  return (
-    <section style={compact ? undefined : s.section}>
-      {compact ? (
+  if (compact) {
+    return (
+      <section>
         <SubSectionHeader
           title="Monthly Pay"
           right={
@@ -972,26 +946,188 @@ export function MonthlySalaryBreakdown({ compact = false }: { compact?: boolean 
             </div>
           }
         />
-      ) : (
-        <SectionHeader eyebrow="Monthly Pay" title="Your reward streams" />
-      )}
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: SP.md, alignItems: 'stretch',
+        }}>
+          {guaranteedLines.map(l => (
+            <RewardChip key={l.label} item={l} style={chipFlex} />
+          ))}
+          {hasBothGroups && (
+            <div style={{
+              alignSelf: 'stretch', width: 1, background: C.divider, flexShrink: 0,
+            }} />
+          )}
+          {confirmedLines.map(l => (
+            <RewardChip key={l.label} item={l} style={chipFlex} />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
-      <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: SP.md, alignItems: 'stretch',
+  // Full (non-compact) mode — used only by the teacher-facing Pay
+  // Breakdown spoke. Total leads as a hero at the top (like a
+  // payslip's net-pay line) instead of being buried below every row —
+  // finding "what do I make" shouldn't require scrolling past a column
+  // of RM 0 allowances first. Those zero rows stay fully visible below
+  // though, not hidden: knowing what you *could* be earning is the
+  // point of a breakdown, not noise to collapse away. Same `lines`
+  // data as the compact chip grid above, just laid out as rows.
+  return (
+    <section style={s.section}>
+      {/* Plain title, no eyebrow — this page has no separate page-level
+          heading of its own (unlike Home/Pay hub/Guides), so this is
+          effectively the page's title. Sized to match those pages'
+          in-content magazine-style titles (30px), not the smaller
+          SectionHeader h2 size — this reads as the page title, not a
+          subsection label. Written directly rather than via
+          SectionHeader, whose eyebrow is a required prop used by
+          every other section on the admin page this component is
+          shared with. */}
+      <h2 style={{
+        margin: '0 0 16px', paddingLeft: 4, fontSize: 30, fontWeight: 800,
+        color: C.text, letterSpacing: '-0.02em', lineHeight: 1.15,
       }}>
-        {guaranteedLines.map(l => (
-          <RewardChip key={l.label} item={l} style={chipFlex} />
-        ))}
-        {hasBothGroups && (
+        Pay Breakdown
+      </h2>
+      <div style={{ ...s.card, padding: '18px 16px 16px' }}>
+        <div style={{
+          paddingBottom: 16, marginBottom: 4,
+          borderBottom: `2px solid ${C.divider}`,
+        }}>
           <div style={{
-            alignSelf: 'stretch', width: 1, background: C.divider, flexShrink: 0,
-          }} />
+            fontSize: 11, fontWeight: 700, color: C.muted,
+            textTransform: 'uppercase', letterSpacing: '0.07em',
+          }}>
+            Total Monthly Pay
+          </div>
+          {/* Smaller than the 30px page title above (not the original
+              32px) — at that size the two competed for attention;
+              this still reads clearly as the headline figure of the
+              card without outranking the actual page title. */}
+          <div style={{
+            marginTop: 4, fontSize: 24, fontWeight: 800, color: C.text,
+            letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums',
+          }}>
+            {rm(monthlyTotal)}
+          </div>
+        </div>
+        {guaranteedLines.length > 0 && (
+          <BreakdownGroup title="Guaranteed" items={guaranteedLines} />
         )}
-        {confirmedLines.map(l => (
-          <RewardChip key={l.label} item={l} style={chipFlex} />
-        ))}
+        {confirmedLines.length > 0 && (
+          <BreakdownGroup title="Subject to Criteria" items={confirmedLines} />
+        )}
       </div>
     </section>
+  );
+}
+
+type BreakdownLine = {
+  icon: any; label: string; amount: number; status: RewardStatus; accent: string;
+  sub?: string; muted?: boolean; breakdownItems?: { name: string; amount: number }[];
+};
+
+function BreakdownGroup({ title, items }: { title: string; items: BreakdownLine[] }) {
+  return (
+    <div>
+      <div style={{
+        fontSize: 10.5, fontWeight: 800, color: C.muted,
+        textTransform: 'uppercase', letterSpacing: '0.07em',
+        padding: '12px 4px 6px',
+      }}>
+        {title}
+      </div>
+      {items.map((l, i) => (
+        <BreakdownRow key={l.label} item={l} showDivider={i > 0} />
+      ))}
+    </div>
+  );
+}
+
+function BreakdownRow({ item, showDivider }: { item: BreakdownLine; showDivider: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasBreakdown = !!item.breakdownItems && item.breakdownItems.length > 0;
+  const sortedItems = hasBreakdown
+    ? [...item.breakdownItems!].sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name))
+    : [];
+  const TOP_N = 2;
+  const visibleItems = expanded ? sortedItems : sortedItems.slice(0, TOP_N);
+  const hiddenCount = Math.max(0, sortedItems.length - TOP_N);
+  const hasMore = hiddenCount > 0;
+
+  return (
+    <div style={{
+      borderTop: showDivider ? `1px solid ${C.divider}` : 'none',
+      opacity: item.muted ? 0.55 : 1,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px' }}>
+        <div style={{
+          width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: `${item.accent}14`, color: item.accent, fontSize: 11,
+        }}>
+          <FontAwesomeIcon icon={item.icon} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 13.5, fontWeight: 700, color: C.text,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {item.label}
+          </div>
+          {item.sub && !hasBreakdown && (
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{item.sub}</div>
+          )}
+        </div>
+        <div style={{
+          fontSize: 15, fontWeight: 800, color: C.text, flexShrink: 0,
+          fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em',
+        }}>
+          {rm(item.amount)}
+        </div>
+      </div>
+      {hasBreakdown && (
+        <div style={{
+          paddingLeft: 36, paddingRight: 4, paddingBottom: 10,
+          display: 'flex', flexDirection: 'column', gap: 5,
+        }}>
+          {visibleItems.map(child => (
+            <div key={child.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{
+                fontSize: 11.5, color: C.muted, minWidth: 0,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {child.name}
+              </span>
+              <span style={{
+                fontSize: 11.5, fontWeight: 700, color: C.textSub,
+                fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+              }}>
+                {rm(child.amount)}
+              </span>
+            </div>
+          ))}
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => setExpanded(e => !e)}
+              style={{
+                marginTop: 2, alignSelf: 'flex-start',
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: 0, background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: 600, color: C.primary, fontFamily: 'inherit',
+              }}
+              aria-expanded={expanded}
+              aria-label={expanded ? 'Show fewer items' : `Show ${hiddenCount} more items`}
+            >
+              {expanded ? 'Show less' : `+ ${hiddenCount} more`}
+              <FontAwesomeIcon icon={expanded ? faChevronUp : faChevronDown} style={{ fontSize: 9 }} />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1516,6 +1652,21 @@ export function CompanyGoalRewards({ eligibility, compact = false }: { eligibili
   // hit its goals.
   const teacherEligible = eligibility !== 'not_eligible';
 
+  // Expense-ratio target drives the "operating cost below X%" copy below —
+  // read from the real setting instead of a hardcoded literal so this
+  // text can never drift from ProfitSharingPage's actual math.
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  const expenseTargetRaw = settings?.expense_ratio_target;
+  const expenseTargetFrac =
+    typeof expenseTargetRaw === 'number' ? expenseTargetRaw
+    : typeof expenseTargetRaw === 'string' ? parseFloat(expenseTargetRaw)
+    : NaN;
+  const expenseTargetPct = Math.round(
+    (Number.isFinite(expenseTargetFrac) && expenseTargetFrac > 0 && expenseTargetFrac <= 2
+      ? expenseTargetFrac
+      : DEFAULT_EXPENSE_RATIO_TARGET) * 100
+  );
+
   return (
     <section style={compact ? undefined : s.section}>
       {compact ? (
@@ -1590,10 +1741,10 @@ export function CompanyGoalRewards({ eligibility, compact = false }: { eligibili
           icon={faPiggyBank}
           title="Quarterly Profit Sharing"
           badgeLabel="Variable"
-          description="Added to the pool only in months where school fee collection exceeds the revenue target and operating cost stays below 85%."
+          description={`Added to the pool only in months where school fee collection exceeds the revenue target and operating cost stays below ${expenseTargetPct}%.`}
           conditions={[
             'School fees hit target',
-            'Operating cost below 85%',
+            `Operating cost below ${expenseTargetPct}%`,
             'Appraisal score ≥ 60',
             'Attendance ≥ 97%',
           ]}

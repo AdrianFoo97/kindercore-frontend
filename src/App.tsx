@@ -1,6 +1,9 @@
 import { Component, ReactNode, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import Navbar from './components/common/Navbar.js';
+import TeacherMobileNav, { teacherNavMatch, TEACHER_NAV_SPACE } from './components/common/TeacherMobileNav.js';
+import TeacherTopBar from './components/common/TeacherTopBar.js';
+import { useIsMobile } from './hooks/useIsMobile.js';
 import { ToastProvider } from './components/common/Toast.js';
 import { DeleteDialogProvider } from './components/common/DeleteDialog.js';
 import LoginPage from './pages/LoginPage.js';
@@ -31,6 +34,7 @@ import TestToolsPage from './pages/TestToolsPage.js';
 import GoogleCalendarSettingsPage from './pages/GoogleCalendarSettingsPage.js';
 import ImportStudentsPage from './pages/ImportStudentsPage.js';
 import OperationsPlannerPage from './pages/OperationsPlannerPage.js';
+import BugReportsPage from './pages/BugReportsPage.js';
 import ProfitSharingPage from './pages/ProfitSharingPage.js';
 import AnnualBonusPage from './pages/AnnualBonusPage.js';
 import OperatingCostsPage from './pages/operations/OperatingCostsPage.js';
@@ -48,6 +52,8 @@ import SopLibraryPage from './pages/operations/SopLibraryPage.js';
 import SopTemplateFormPage from './pages/operations/SopTemplateFormPage.js';
 import SopProposePage from './pages/operations/SopProposePage.js';
 import HrSopRevisionsPage from './pages/HrSopRevisionsPage.js';
+import HrSopRevisionReviewPage from './pages/HrSopRevisionReviewPage.js';
+import SopAuthorPage from './pages/operations/SopAuthorPage.js';
 import SopTemplateStepsPage from './pages/operations/SopTemplateStepsPage.js';
 import SopCategoriesPage from './pages/settings/SopCategoriesPage.js';
 import SopSectionsPage from './pages/settings/SopSectionsPage.js';
@@ -57,6 +63,12 @@ import SopObservationNewPage from './pages/SopObservationNewPage.js';
 import SopObservationDetailPage from './pages/SopObservationDetailPage.js';
 import TeachersPage from './pages/TeachersPage.js';
 import TeacherCareerPage from './pages/TeacherCareerPage.js';
+import TeacherHomePage from './pages/TeacherHomePage.js';
+import TeacherMySettingsPage from './pages/TeacherMySettingsPage.js';
+import TeacherReportBugPage from './pages/TeacherReportBugPage.js';
+import TeacherLeaderboardPage from './pages/TeacherLeaderboardPage.js';
+import TeacherMyCompensationPoolsPage from './pages/TeacherMyCompensationPoolsPage.js';
+import TeacherMyAnnualBonusPage from './pages/TeacherMyAnnualBonusPage.js';
 import TeacherMyCareerPage from './pages/TeacherMyCareerPage.js';
 import TeacherMyJourneyPage from './pages/TeacherMyJourneyPage.js';
 import TeacherSkillBadgesPage from './pages/TeacherSkillBadgesPage.js';
@@ -67,6 +79,7 @@ import TeacherPayPage from './pages/TeacherPayPage.js';
 import TeacherPayBreakdownPage from './pages/TeacherPayBreakdownPage.js';
 import TeacherMyCompensationEarnMorePage from './pages/TeacherMyCompensationEarnMorePage.js';
 import TeacherMyCompensationBenefitsPage from './pages/TeacherMyCompensationBenefitsPage.js';
+import TeacherMyAppraisalPage from './pages/TeacherMyAppraisalPage.js';
 import TeacherRewardsPage from './pages/TeacherRewardsPage.js';
 import TeacherRedeemCatalogPage from './pages/TeacherRedeemCatalogPage.js';
 import TeacherEarnPointsPage from './pages/TeacherEarnPointsPage.js';
@@ -76,6 +89,7 @@ import ManageUsersPage from './pages/settings/ManageUsersPage.js';
 import AuthRolesPage from './pages/settings/AuthRolesPage.js';
 import AuthRoleEditPage from './pages/settings/AuthRoleEditPage.js';
 import { RequireModule } from './components/common/RequireModule.js';
+import { RequireView } from './components/common/RequireView.js';
 import { MODULES } from './constants/authModules.js';
 import NoAccessPage from './pages/NoAccessPage.js';
 import YearRolloverPage from './pages/settings/YearRolloverPage.js';
@@ -111,6 +125,36 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
+// Any teacher-facing gamified surface (Home, My Career, My Pay,
+// Rewards, Leaderboard, Mission Board — hubs AND their spokes). On
+// these the admin chrome (top Navbar, footer) is suppressed in favour
+// of the teacher app's own floating TeacherTopBar/TeacherMobileNav, so
+// they read as a focused phone-first app, not a back-office screen.
+// Single source of truth so navbar + footer suppression never drift
+// apart from what TeacherMobileNav itself treats as a teacher route.
+const TEACHER_SURFACE = /\/teachers\/[^/]+\/(home|my-career|my-compensation|rewards|leaderboard|career\/missions|settings)/;
+// Mission Board is shared: the gamified teacher app links here with the
+// phone chrome, but the HR Career Path page (TeacherCareerPage.tsx) also
+// links into this exact same route to let a supervisor browse a teacher's
+// missions — and must keep the admin chrome (Navbar + footer, no floating
+// teacher bars) there. That admin entry point tags its links with
+// `?view=hr` so this one route can stay context-aware on the query string.
+const HR_MISSIONS = /\/teachers\/[^/]+\/career\/missions/;
+// Guides (How-To Guide library, src/pages/operations/SopLibraryPage.tsx
+// and its detail/propose spokes) is the inverse case: a shared admin/HR
+// page outside /teachers/:id that the teacher app's bottom nav also
+// links into. The plain admin entry point (Navbar's Operation menu) has
+// no query tag and keeps the normal admin chrome; only the teacher
+// app's own link — tagged ?app=teacher — switches this page over to the
+// floating TeacherTopBar/TeacherMobileNav.
+const TEACHER_SOP = /^\/operations\/sops(?:\/|$)/;
+function isTeacherSurface(pathname: string, search: string): boolean {
+  if (TEACHER_SOP.test(pathname)) return new URLSearchParams(search).get('app') === 'teacher';
+  if (!TEACHER_SURFACE.test(pathname)) return false;
+  if (HR_MISSIONS.test(pathname) && new URLSearchParams(search).get('view') === 'hr') return false;
+  return true;
+}
+
 function ProtectedLayout() {
   const token = localStorage.getItem('token');
   // The page content scrolls inside this div (the shell is
@@ -119,32 +163,54 @@ function ProtectedLayout() {
   // Keyed on pathname only: navigating to a new page always starts
   // at the top, while query/hash-only updates leave scroll alone.
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const { isMobile } = useIsMobile();
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, left: 0 });
   }, [pathname]);
   if (!token) return <Navigate to="/login" replace />;
+  const teacherSurface = isTeacherSurface(pathname, search);
+  // The floating teacher chrome (top bar + bottom tab capsule) is a
+  // phone-first pattern — on desktop these routes fall back to the
+  // normal admin Navbar/footer, same as every other page, so the
+  // gate is teacherSurface AND isMobile, not teacherSurface alone.
+  const showTeacherChrome = teacherSurface && isMobile;
+  const showBottomNavSpace = showTeacherChrome && !!teacherNavMatch(pathname, search);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      <Navbar />
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      {!showTeacherChrome && <Navbar />}
+      <div
+        ref={scrollRef}
+        style={{
+          flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column',
+          paddingBottom: showBottomNavSpace ? TEACHER_NAV_SPACE : undefined,
+          // Collapses TEACHER_CONTENT_TOP to 0 on every teacher page when
+          // the real Navbar (in-flow, not floating) is what's showing —
+          // see TeacherTopBar.tsx's TEACHER_CONTENT_TOP comment.
+          ...(!showTeacherChrome ? { '--teacher-content-top': '0px' } as React.CSSProperties : null),
+        }}
+      >
+        {showTeacherChrome && <TeacherTopBar />}
         <div style={{ flex: 1, background: '#f8fafc' }}>
           <Outlet />
         </div>
         <AppFooter />
       </div>
+      {showTeacherChrome && <TeacherMobileNav />}
     </div>
   );
 }
 
-// Footer is suppressed on the teacher-facing mobile hubs (`/my-career`,
-// `/my-compensation`, `/my-journey`) so those pages read as a focused
-// app surface, not a back-office screen with corporate chrome. Every
-// other route (admin / HR) keeps it.
+// Footer is suppressed on the teacher-facing mobile hubs — same
+// surface definition TeacherMobileNav/TeacherTopBar already use, kept
+// as one shared helper so this can't drift narrower than the real set
+// of teacher routes again.
 function AppFooter() {
-  const { pathname } = useLocation();
-  const isTeacherView = /\/teachers\/[^/]+\/(my-career|my-compensation|my-journey)/.test(pathname);
-  if (isTeacherView) return null;
+  const { isMobile } = useIsMobile();
+  // Copyright/version clutter on a narrow screen — hidden on every
+  // mobile view now, not just the teacher-surface routes that already
+  // hid it for their own floating-chrome reasons.
+  if (isMobile) return null;
   return (
     <footer style={{
       padding: '12px 24px', borderTop: '1px solid #e2e8f0',
@@ -207,8 +273,21 @@ export default function App() {
           <Route path="/hr/sop-observations/new" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationNewPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/sop-observations/:id" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationDetailPage /></ErrorBoundary></RequireModule>} />
           {/* Lives at /hr/* but its nav entry is under the Operation dropdown
-              (see Navbar.tsx) — gate follows the nav placement, not the URL prefix. */}
-          <Route path="/hr/sop-revisions" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><HrSopRevisionsPage /></ErrorBoundary></RequireModule>} />
+              (see Navbar.tsx) — gate follows the nav placement, not the URL
+              prefix. RequireModule alone isn't enough here: every AuthRole
+              with Operation access (teachers included, so they can reach
+              How-To Guides) would land on the reviewer workbench itself —
+              RequireView narrows it to roles actually granted
+              OPERATION_SOP_APPROVE (real enforcement is server-side; see
+              listRevisions' scoping in sop-revisions.controller.ts). */}
+          <Route path="/hr/sop-revisions" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_SOP_APPROVE"><ErrorBoundary><HrSopRevisionsPage /></ErrorBoundary></RequireView></RequireModule>} />
+          <Route path="/hr/sop-revisions/:id" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_SOP_APPROVE"><ErrorBoundary><HrSopRevisionReviewPage /></ErrorBoundary></RequireView></RequireModule>} />
+          {/* A supervisor's own unpublished work — deliberately separate
+              from the Improvement Inbox above (a review queue about OTHER
+              people's submissions), not a tab on it. Same permission gate
+              since only someone who can self-publish (see SopProposePage.tsx's
+              Save Draft/Publish Now) ever has drafts to see here. */}
+          <Route path="/operations/sops/author" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_SOP_APPROVE"><ErrorBoundary><SopAuthorPage /></ErrorBoundary></RequireView></RequireModule>} />
           <Route path="/settings/data" element={<ErrorBoundary><SettingsDataPage /></ErrorBoundary>} />
           <Route path="/settings/recruitment" element={<ErrorBoundary><RecruitmentSettingsPage /></ErrorBoundary>} />
           {/* Admin/legacy views of a teacher's record — see the
@@ -224,6 +303,10 @@ export default function App() {
               Deliberately NOT gated by RequireModule here; ownership
               enforcement (a teacher only ever reaching their own :id) is a
               separate, still-open gap tracked in CLAUDE.md's known debt. */}
+          <Route path="/teachers/:id/home" element={<ErrorBoundary><TeacherHomePage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/settings" element={<ErrorBoundary><TeacherMySettingsPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/settings/report-bug" element={<ErrorBoundary><TeacherReportBugPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/leaderboard" element={<ErrorBoundary><TeacherLeaderboardPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-career" element={<ErrorBoundary><TeacherMyCareerPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-career/journey" element={<ErrorBoundary><TeacherMyJourneyPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-career/skill-badges" element={<ErrorBoundary><TeacherSkillBadgesPage /></ErrorBoundary>} />
@@ -232,6 +315,9 @@ export default function App() {
           <Route path="/teachers/:id/my-compensation/breakdown" element={<ErrorBoundary><TeacherPayBreakdownPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-compensation/earn-more" element={<ErrorBoundary><TeacherMyCompensationEarnMorePage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-compensation/benefits" element={<ErrorBoundary><TeacherMyCompensationBenefitsPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/my-compensation/appraisal" element={<ErrorBoundary><TeacherMyAppraisalPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/my-compensation/pools" element={<ErrorBoundary><TeacherMyCompensationPoolsPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/my-compensation/annual-bonus" element={<ErrorBoundary><TeacherMyAnnualBonusPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/rewards" element={<ErrorBoundary><TeacherRewardsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/rewards/catalog" element={<ErrorBoundary><TeacherRedeemCatalogPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/rewards/catalog/:rewardId" element={<ErrorBoundary><TeacherRewardDetailsPage /></ErrorBoundary>} />
@@ -258,6 +344,7 @@ export default function App() {
           <Route path="/settings/auth-roles/:id/edit" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
           <Route path="/admin/year-rollover" element={<ErrorBoundary><YearRolloverPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><OperationsPlannerPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/tools/bug-reports" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><OperatingCostsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopLibraryPage /></ErrorBoundary></RequireModule>} />

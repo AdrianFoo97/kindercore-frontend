@@ -3,11 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChevronLeft, faChevronRight, faSackDollar, faChartLine,
-  faGift, faMedal, faTrophy, faCircleCheck, faLock, faAward,
+  faMedal, faTrophy, faCircleCheck, faLock, faAward,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers } from '../api/planner.js';
 import { uploadUrl } from '../api/upload.js';
-import { pointsBalance, getGoal, rewardCatalog } from '../data/pointsRewardsMock.js';
 import {
   compensationData,
   computeMonthlyTotal, rewardStreamSummary, formatService,
@@ -46,13 +45,6 @@ const C = {
   primaryBorder: '#c7d2fe',
 };
 
-const POINTS_C = {
-  accent: '#7c3aed',
-  soft: '#f5f3ff',
-  border: '#ddd6fe',
-  deep: '#5b21b6',
-};
-
 export default function TeacherMyCompensationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -71,15 +63,6 @@ export default function TeacherMyCompensationPage() {
     eligibility === 'high_performer' ? { color: C.gold, bg: C.goldSoft, border: C.goldBorder, icon: faTrophy }
     : eligibility === 'eligible' ? { color: C.success, bg: C.successSoft, border: C.successBorder, icon: faCircleCheck }
     : { color: C.danger, bg: C.dangerSoft, border: C.dangerBorder, icon: faLock };
-
-  // Pinned goal — surfaces the teacher's next reward target on the
-  // comp surface too. Only renders when the item exists AND is still
-  // locked (i.e. the teacher hasn't hit the cost yet).
-  const goal = getGoal();
-  const goalItem = goal
-    ? rewardCatalog.find(r => r.id === goal.rewardId && r.active)
-    : undefined;
-  const showGoal = !!goalItem && pointsBalance.current < goalItem.cost;
 
   return (
     <div style={s.page}>
@@ -160,7 +143,7 @@ export default function TeacherMyCompensationPage() {
                 margin: 0, fontSize: 18, fontWeight: 800, color: C.text,
                 letterSpacing: '-0.02em', lineHeight: 1.2,
               }}>
-                {teacher?.name ? `${teacher.name}'s Rewards Wallet` : 'My Rewards Wallet'}
+                {teacher?.name ? `${teacher.name}'s Compensation` : 'My Compensation'}
               </h1>
               <div style={{
                 marginTop: 4,
@@ -177,23 +160,6 @@ export default function TeacherMyCompensationPage() {
                   <FontAwesomeIcon icon={faAward} style={{ fontSize: 9 }} />
                   {formatService(compensationData.yearsOfService)}
                 </span>
-                <Link
-                  to={`/teachers/${id}/rewards`}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '2px 8px', borderRadius: 999,
-                    background: POINTS_C.soft, color: POINTS_C.accent,
-                    border: `1px solid ${POINTS_C.border}`,
-                    fontSize: 10, fontWeight: 700,
-                    textTransform: 'uppercase', letterSpacing: '0.04em',
-                    textDecoration: 'none',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  <FontAwesomeIcon icon={faSackDollar} style={{ fontSize: 9 }} />
-                  {pointsBalance.current.toLocaleString('en-MY')} pts
-                  <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 8 }} />
-                </Link>
               </div>
             </div>
           </div>
@@ -261,55 +227,6 @@ export default function TeacherMyCompensationPage() {
             </Link>
           </div>
         </div>
-
-        {/* Saving-toward callout — links to the rewards page with the
-            goal context. Only renders when the teacher has actually
-            pinned a goal AND hasn't reached its cost yet. */}
-        {showGoal && goalItem && (
-          <Link
-            to={`/teachers/${id}/rewards/catalog/${goalItem.id}?from=rewards`}
-            style={{
-              display: 'block',
-              marginTop: 14,
-              padding: 14,
-              background: `linear-gradient(135deg, ${POINTS_C.soft} 0%, #fff 70%)`,
-              border: `1px solid ${POINTS_C.border}`,
-              borderRadius: 14,
-              textDecoration: 'none', color: 'inherit',
-            }}
-          >
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 10, fontWeight: 800, color: POINTS_C.deep,
-              textTransform: 'uppercase', letterSpacing: '0.08em',
-            }}>
-              <FontAwesomeIcon icon={faGift} style={{ fontSize: 10 }} />
-              Saving toward
-            </div>
-            <div style={{
-              marginTop: 6,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 10,
-            }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{
-                  fontSize: 14, fontWeight: 800, color: C.text,
-                  letterSpacing: '-0.01em', lineHeight: 1.2,
-                }}>
-                  {goalItem.label}
-                </div>
-                <div style={{
-                  marginTop: 2,
-                  fontSize: 11, fontWeight: 600, color: C.muted,
-                  fontVariantNumeric: 'tabular-nums',
-                }}>
-                  {pointsBalance.current.toLocaleString('en-MY')} <span style={{ color: C.mutedSoft }}>/</span> {goalItem.cost.toLocaleString('en-MY')} pts
-                </div>
-              </div>
-              <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 11, color: POINTS_C.accent, flexShrink: 0 }} />
-            </div>
-          </Link>
-        )}
 
         {/* What You Earn — Monthly Pay + Shared Rewards. The
             headline pay info stays on the hub since it's the answer

@@ -1,17 +1,15 @@
 import { useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faChevronRight, faChevronLeft, faSackDollar, faLock,
+  faChevronRight, faSackDollar, faLock,
   faGem, faGift, faCheck,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers } from '../api/planner.js';
-import {
-  pointsBalance, rewardCatalog, stockMeta,
-  REWARD_CATEGORY_META,
-} from '../data/pointsRewardsMock.js';
-import type { RewardCategory, RewardItem } from '../data/pointsRewardsMock.js';
+import { fetchTeacherPoints, fetchRewardCatalog, PointsRewardItem } from '../api/points.js';
+import { stockMeta, REWARD_CATEGORY_META, resolveRewardIcon, RewardCategory } from '../constants/pointsMeta.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Standalone catalog page reached from the "View redeem catalog" CTA
@@ -58,12 +56,21 @@ type FilterKey = 'all' | RewardCategory;
 
 export default function TeacherRedeemCatalogPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { data: teachers = [] } = useQuery({
     queryKey: ['planner-teachers'],
     queryFn: fetchTeachers,
   });
   const teacher = (teachers as any[]).find(t => t.id === id);
+  const { data: tp } = useQuery({
+    queryKey: ['points-teacher', id],
+    queryFn: () => fetchTeacherPoints(id!),
+    enabled: !!id,
+  });
+  const { data: rewardCatalog = [] } = useQuery({
+    queryKey: ['points-rewards'],
+    queryFn: fetchRewardCatalog,
+  });
+  const balance = tp?.balance?.current ?? 0;
   const [filter, setFilter] = useState<FilterKey>('all');
   // Independent toggle layered on top of the category filter. Hides
   // the "Save up to unlock" group so the teacher can scan only what
@@ -74,12 +81,12 @@ export default function TeacherRedeemCatalogPage() {
   // so we never show a chip that filters to nothing.
   const availableCategories = useMemo<RewardCategory[]>(() => {
     const order: RewardCategory[] = ['food', 'wellness', 'merch', 'leave', 'experience', 'other'];
-    const present = new Set<RewardCategory>();
+    const present = new Set<string>();
     rewardCatalog
       .filter(i => i.active)
       .forEach(i => { if (i.category) present.add(i.category); });
     return order.filter(c => present.has(c));
-  }, []);
+  }, [rewardCatalog]);
 
   // Only active items reach teachers. Apply the category filter first,
   // then split by affordability. Within each group sort by cost
@@ -91,13 +98,13 @@ export default function TeacherRedeemCatalogPage() {
     : active.filter(i => i.category === filter);
 
   const canRedeem = filtered
-    .filter(i => pointsBalance.current >= i.cost)
+    .filter(i => balance >= i.cost)
     .slice()
     .sort((a, b) => a.cost - b.cost);
   const cannotRedeem = affordableOnly
     ? []
     : filtered
-        .filter(i => pointsBalance.current < i.cost)
+        .filter(i => balance < i.cost)
         .slice()
         .sort((a, b) => a.cost - b.cost);
 
@@ -112,7 +119,6 @@ export default function TeacherRedeemCatalogPage() {
   return (
     <div style={s.page}>
       <style>{`
-        .trc-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }
         .trc-chip { transition: background 140ms ease, border-color 140ms ease, color 140ms ease; }
         .trc-chip:hover { border-color: ${POINTS_C.border}; color: ${POINTS_C.deep}; }
         .trc-chip[data-active="true"]:hover { background: ${POINTS_C.deep}; }
@@ -121,19 +127,6 @@ export default function TeacherRedeemCatalogPage() {
       `}</style>
 
       <div style={s.inner}>
-        <div style={s.breadcrumb}>
-          <button onClick={() => navigate(`/teachers/${id}/rewards`)} className="trc-back-btn" style={s.backBtn} title="Back">
-            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
-          </button>
-          <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <Link to={`/teachers/${id}`} style={s.crumbLink}>{teacher?.name ?? '...'}</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <Link to={`/teachers/${id}/rewards`} style={s.crumbLink}>Rewards</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <span style={s.crumbCurrent}>Redeem rewards</span>
-        </div>
-
         {/* Header — title on the left, compact balance chip on the right
             so the teacher always knows their spending power without
             scrolling back to the rewards page. */}
@@ -151,7 +144,7 @@ export default function TeacherRedeemCatalogPage() {
               fontSize: 18, fontWeight: 800, color: POINTS_C.deep,
               fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.015em',
             }}>
-              {pointsBalance.current.toLocaleString('en-MY')}
+              {balance.toLocaleString('en-MY')}
             </span>
             <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.02em' }}>
               pts
@@ -229,6 +222,7 @@ export default function TeacherRedeemCatalogPage() {
                 items={canRedeem}
                 stockChip={stockChip}
                 teacherId={id!}
+                balance={balance}
                 locked={false}
                 isFirst
               />
@@ -242,6 +236,7 @@ export default function TeacherRedeemCatalogPage() {
                 items={cannotRedeem}
                 stockChip={stockChip}
                 teacherId={id!}
+                balance={balance}
                 locked
                 isFirst={canRedeem.length === 0}
               />
@@ -297,17 +292,18 @@ function FilterChip({ label, count, active, onClick }: {
 // ─── Catalog group ────────────────────────────────────────────────────────
 
 function CatalogGroup({
-  label, description, count, tone, items, stockChip, teacherId, locked, isFirst,
+  label, description, count, tone, items, stockChip, teacherId, balance, locked, isFirst,
 }: {
   label: string;
   description: string;
   count: number;
   /** Tints the group's accent bar + count chip. */
   tone: 'success' | 'muted';
-  items: typeof rewardCatalog;
+  items: PointsRewardItem[];
   stockChip: (st: 'in' | 'limited' | 'out') =>
     { text: string; color: string; bg: string; border: string };
   teacherId: string;
+  balance: number;
   /** Whether this group's items are above the teacher's current
    *  balance. Drives the locked card variant. */
   locked: boolean;
@@ -349,6 +345,7 @@ function CatalogGroup({
             locked={locked}
             stockChip={stockChip}
             teacherId={teacherId}
+            balance={balance}
           />
         ))}
       </div>
@@ -358,12 +355,13 @@ function CatalogGroup({
 
 // ─── Reward card ──────────────────────────────────────────────────────────
 
-function RewardCard({ item, locked, stockChip, teacherId }: {
-  item: RewardItem;
+function RewardCard({ item, locked, stockChip, teacherId, balance }: {
+  item: PointsRewardItem;
   locked: boolean;
   stockChip: (st: 'in' | 'limited' | 'out') =>
     { text: string; color: string; bg: string; border: string };
   teacherId: string;
+  balance: number;
 }) {
   const stock = stockChip(item.stock);
   const outOfStock = item.stock === 'out';
@@ -376,9 +374,9 @@ function RewardCard({ item, locked, stockChip, teacherId }: {
   // shows a sliver of fill (reads as "you've started" instead of
   // empty). Percentage rounded for the on-screen label.
   const progressPct = locked
-    ? Math.max(1, Math.round((pointsBalance.current / item.cost) * 100))
+    ? Math.max(1, Math.round((balance / item.cost) * 100))
     : 100;
-  const need = locked ? item.cost - pointsBalance.current : 0;
+  const need = locked ? item.cost - balance : 0;
 
   return (
     <div style={{
@@ -414,7 +412,7 @@ function RewardCard({ item, locked, stockChip, teacherId }: {
           border: `1px solid ${POINTS_C.border}`,
           fontSize: 19, flexShrink: 0,
         }}>
-          <FontAwesomeIcon icon={item.icon} />
+          <FontAwesomeIcon icon={resolveRewardIcon(item.icon)} />
         </div>
         {isPremium && (
           <span style={{
@@ -468,7 +466,7 @@ function RewardCard({ item, locked, stockChip, teacherId }: {
               fontSize: 11, fontWeight: 700, color: C.textSub,
               fontVariantNumeric: 'tabular-nums',
             }}>
-              {pointsBalance.current.toLocaleString('en-MY')} <span style={{ color: C.mutedSoft }}>/</span> {item.cost.toLocaleString('en-MY')} pts
+              {balance.toLocaleString('en-MY')} <span style={{ color: C.mutedSoft }}>/</span> {item.cost.toLocaleString('en-MY')} pts
             </span>
             <span style={{
               fontSize: 11, fontWeight: 800, color: POINTS_C.deep,
@@ -581,7 +579,10 @@ function RewardCard({ item, locked, stockChip, teacherId }: {
 
 const s: Record<string, React.CSSProperties> = {
   page: {
-    padding: `${SP.xxxl}px ${SP.xxxl}px ${SP.xxxl + SP.lg}px`,
+    paddingTop: TEACHER_CONTENT_TOP,
+    paddingRight: SP.xxxl,
+    paddingBottom: SP.xxxl + SP.lg,
+    paddingLeft: SP.xxxl,
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     background: C.bg, minHeight: '100vh', color: C.text,
   },

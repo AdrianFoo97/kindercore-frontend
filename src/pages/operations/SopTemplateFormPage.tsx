@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCheck, faPlus, faChevronRight, faVideo } from '@fortawesome/free-solid-svg-icons';
@@ -31,6 +31,7 @@ const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.
 // that already exists.
 export default function SopTemplateFormPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -76,7 +77,21 @@ export default function SopTemplateFormPage() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [categoryMenuOpen]);
 
+  // After a successful create, always land on the list (where the new
+  // guide now shows up) — a fixed destination is correct here.
   const backTo = () => navigate('/operations/sops');
+  // Cancel/back-arrow, though, need real history: "Add How-To Guide" is
+  // reachable from more than just the Guides list (e.g. deep-linked, or
+  // a future entry point elsewhere in the admin), so hardcoding the
+  // list as the answer to "back" surprised anyone who arrived from
+  // somewhere else — same bug class already fixed across the teacher
+  // app's spokes this session. `location.key === 'default'` means this
+  // is the first entry in the tab's history (a fresh load/deep link),
+  // where there's nothing to go back to.
+  const goBack = () => {
+    if (location.key !== 'default') navigate(-1);
+    else navigate('/operations/sops');
+  };
 
   const submit = async () => {
     if (!title.trim()) return;
@@ -103,7 +118,7 @@ export default function SopTemplateFormPage() {
         .sop-form-cat-item:hover { background: ${C.divider} !important; }
       `}</style>
       <div style={s.inner}>
-        <button onClick={backTo} style={s.backBtn}>
+        <button onClick={goBack} style={s.backBtn}>
           <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
           How-To Guides
         </button>
@@ -236,7 +251,7 @@ export default function SopTemplateFormPage() {
         </div>
 
         <div style={s.footer}>
-          <button onClick={backTo} style={s.cancelBtn}>Cancel</button>
+          <button onClick={goBack} style={s.cancelBtn}>Cancel</button>
           <button
             onClick={submit}
             disabled={!title.trim() || saving}

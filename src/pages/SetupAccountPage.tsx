@@ -342,8 +342,8 @@ export default function SetupAccountPage() {
     <>
       <style>{globalStyles}</style>
       <div style={S.page}>
-        <div style={S.formPanel}>
-          <div style={S.formCard}>
+        <div className="kc-setup-panel" style={S.formPanel}>
+          <div className="kc-setup-card" style={S.formCard}>
             {renderContent()}
           </div>
         </div>
@@ -368,6 +368,34 @@ const globalStyles = `
   .kc-submit-btn:not(:disabled):active {
     transform: translateY(0);
     opacity: 0.88 !important;
+  }
+  @media (max-width: 768px) {
+    /* Matches LoginPage.tsx's own mobile fix — this page is reached
+       from an invite link a teacher opens straight on their phone, so
+       it needs the same iOS Safari auto-zoom-on-focus prevention
+       (anything under 16px triggers it) and bigger touch targets. This
+       page had neither: it was built without any isMobile handling at
+       all while LoginPage.tsx already had it. */
+    input[id^="setup-"] {
+      padding: 15px 16px !important;
+      border-radius: 12px !important;
+      font-size: 16px !important;
+    }
+    .kc-submit-btn {
+      padding: 16px !important;
+      border-radius: 12px !important;
+      font-size: 16px !important;
+    }
+    .kc-setup-card {
+      border-radius: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 24px !important;
+    }
+    .kc-setup-panel {
+      padding: 0 !important;
+      background: #ffffff !important;
+    }
   }
 `;
 

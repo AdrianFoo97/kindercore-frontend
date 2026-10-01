@@ -1,11 +1,11 @@
-import React, { useMemo, useState } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft, faChevronLeft, faChevronRight, faRoad, faTriangleExclamation,
   faCircleCheck, faCircle, faClock, faPaperPlane, faCircleInfo,
-  faStar, faCheck, faTrophy,
+  faStar, faCheck, faTrophy, faThumbtack,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchTeacherCareer,
@@ -13,6 +13,8 @@ import {
 } from '../api/career-missions.js';
 import { useCategoryMeta } from '../utils/missionCategoryIcons.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import { useMissionTargets } from '../hooks/useMissionTargets.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 
 const C = {
   bg: '#f8fafc',
@@ -65,6 +67,17 @@ export default function TeacherMissionBoardPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  // Reached from the HR Career Path page (?view=hr) — keeps the admin
+  // chrome (breadcrumb, Navbar, footer; see App.tsx's isTeacherSurface)
+  // and so renders its own header below. Reached from the teacher's own
+  // gamified My Career hub, this page renders its own left-aligned title
+  // further down instead (see the `!isHrView` block near the top of the
+  // return) — titleMovedToPage in TeacherTopBar.tsx suppresses the
+  // shared bar's own at-rest title on every teacher route, so relying on
+  // the bar alone (as this used to) left the screen with no title at all
+  // until scrolled.
+  const isHrView = searchParams.get('view') === 'hr';
   // Back goes to wherever the teacher actually came from. `location.key`
   // is 'default' only when this is the first in-app entry (deep link /
   // refresh) — in that case there's no history to pop, so fall back to
@@ -75,6 +88,7 @@ export default function TeacherMissionBoardPage() {
   };
   const { categories: missionCategories, getMeta } = useCategoryMeta();
   const { isMobile } = useIsMobile();
+  const { isTargeted, toggle: toggleTarget } = useMissionTargets(id);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['teacher-career', id],
@@ -90,6 +104,18 @@ export default function TeacherMissionBoardPage() {
   // sidebar radios.
   const [showMode, setShowMode] = useState<ShowMode>('all');
   const [editingMission, setEditingMission] = useState<MissionWithProgress | null>(null);
+  const openMission = (m: MissionWithProgress) => setEditingMission(m);
+
+  // Deep link from Home's "Current Focus" card (?focus=<missionId>) —
+  // opens straight into that mission's own detail popup instead of
+  // landing on the board and making the teacher find it again themselves.
+  useEffect(() => {
+    const focusId = searchParams.get('focus');
+    if (!focusId || !data?.missions) return;
+    const match = data.missions.find(m => m.id === focusId);
+    if (match) setEditingMission(match);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, data?.missions]);
 
   const currentPositionId = data?.currentPosition?.positionId ?? null;
 
@@ -180,12 +206,28 @@ export default function TeacherMissionBoardPage() {
   // hard line. Sky blue pairs cleanly with the purple primary in the
   // card without competing with it.
   const HERO_BG = '#dbeafe';
-  const pageStyle = {
-    ...s.page,
-    ...(isMobile ? sMobile.page : null),
-    ...(isMobile ? {
-      background: `linear-gradient(to bottom, ${HERO_BG} 0, ${HERO_BG} 195px, ${C.bg} 245px, ${C.bg} 100%)`,
-    } : null),
+  // Longhand paddingTop only — never mix the `padding` shorthand with a
+  // paddingTop longhand override in the same style object (React can drop
+  // the longhand on a later re-render, collapsing the top inset). In HR
+  // view the page keeps its own header above, so top padding stays the
+  // original fixed value; in the teacher gamified view that header is
+  // suppressed in favour of the shared floating TeacherTopBar, so content
+  // must instead clear TEACHER_CONTENT_TOP.
+  const pageStyle: React.CSSProperties = isMobile ? {
+    paddingTop: isHrView ? SP.lg : TEACHER_CONTENT_TOP,
+    paddingRight: SP.md,
+    paddingBottom: SP.xxl,
+    paddingLeft: SP.md,
+    fontFamily: '"Segoe UI", Roboto, Arial, sans-serif',
+    background: `linear-gradient(to bottom, ${HERO_BG} 0, ${HERO_BG} 195px, ${C.bg} 245px, ${C.bg} 100%)`,
+    minHeight: '100vh', color: C.text,
+  } : {
+    paddingTop: isHrView ? 28 : TEACHER_CONTENT_TOP,
+    paddingRight: 32,
+    paddingBottom: 28,
+    paddingLeft: 32,
+    fontFamily: '"Segoe UI", Roboto, Arial, sans-serif',
+    background: C.bg, minHeight: '100vh', color: C.text,
   };
   // Filter row: only categories that have missions, sorted alphabetically
   // by their displayed name (achievement name when set, else category
@@ -289,43 +331,60 @@ export default function TeacherMissionBoardPage() {
             lines on phone widths without giving teachers useful
             navigation context. Back button + title is the iOS-native
             pattern and reclaims valuable vertical space. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isMobile ? 18 : SP.lg, minWidth: 0 }}>
-          <button
-            onClick={goBack}
-            style={isMobile ? s.backBtnMobile : s.backBtn}
-            aria-label="Back"
-          >
-            <FontAwesomeIcon icon={isMobile ? faChevronLeft : faArrowLeft} />
-          </button>
-          {!isMobile && (
-            <div style={{ ...s.breadcrumb, flexWrap: 'wrap', rowGap: 4, minWidth: 0 }}>
-              <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
-              <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-              <Link to={`/teachers/${id}`} style={s.crumbLink}>{teacher.name}</Link>
-              <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-              <Link to={`/teachers/${id}/career`} style={s.crumbLink}>Career</Link>
-              <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-              <span style={s.crumbCurrent}>Mission Board</span>
-            </div>
-          )}
-          {isMobile && (
-            <>
-              {/* Title sits right next to the back chevron — the
-                  compact phone-app pattern (chevron + label inline). */}
-              <h1 style={{
-                ...s.heading, fontSize: 20, margin: 0, flex: 1, minWidth: 0,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>Mission Board</h1>
-            </>
-          )}
-        </div>
+        {isHrView && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isMobile ? 18 : SP.lg, minWidth: 0 }}>
+            <button
+              onClick={goBack}
+              style={isMobile ? s.backBtnMobile : s.backBtn}
+              aria-label="Back"
+            >
+              <FontAwesomeIcon icon={isMobile ? faChevronLeft : faArrowLeft} />
+            </button>
+            {!isMobile && (
+              <div style={{ ...s.breadcrumb, flexWrap: 'wrap', rowGap: 4, minWidth: 0 }}>
+                <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
+                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
+                <Link to={`/teachers/${id}`} style={s.crumbLink}>{teacher.name}</Link>
+                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
+                <Link to={`/teachers/${id}/career`} style={s.crumbLink}>Career</Link>
+                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
+                <span style={s.crumbCurrent}>Mission Board</span>
+              </div>
+            )}
+            {isMobile && (
+              <>
+                {/* Title sits right next to the back chevron — the
+                    compact phone-app pattern (chevron + label inline). */}
+                <h1 style={{
+                  ...s.heading, fontSize: 20, margin: 0, flex: 1, minWidth: 0,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>Mission Board</h1>
+              </>
+            )}
+          </div>
+        )}
 
         {/* ── Title block (desktop only — mobile shows the title in
             the back-button row above to save vertical space). ──── */}
-        {!isMobile && (
+        {isHrView && !isMobile && (
           <div style={{ marginBottom: SP.xl }}>
             <h1 style={{ ...s.heading, fontSize: 26 }}>Mission Board</h1>
           </div>
+        )}
+
+        {/* Teacher gamified view — plain left-aligned title as real
+            page content, same magazine-style convention every other
+            teacher page uses (Home, My Career, Pay hub, Guides). The
+            shared TeacherTopBar's own back chevron already handles
+            back navigation here, so unlike the isHrView block above
+            this needs no manual back button of its own. */}
+        {!isHrView && (
+          <h1 style={{
+            margin: `0 0 ${isMobile ? 16 : 20}px`, paddingLeft: isMobile ? 4 : 0,
+            fontSize: isMobile ? 30 : 26, fontWeight: 800, color: C.text, letterSpacing: '-0.02em',
+          }}>
+            Mission Board
+          </h1>
         )}
 
         {/* ── Body ─────────────────────────────────────────────────────── */}
@@ -416,11 +475,17 @@ export default function TeacherMissionBoardPage() {
                           // a clean white disc with a coloured accent
                           // outline so it reads as an outlined chip and
                           // the active (filled) state clearly pops.
-                          background: active ? accent : '#fff',
+                          // backgroundColor, not the `background`
+                          // shorthand — mixing shorthand and longhand
+                          // (backgroundClip below) on the same element
+                          // is what React was warning about on rerender
+                          // ("can lead to styling bugs"), since it can't
+                          // guarantee which one wins.
+                          backgroundColor: active ? accent : '#fff',
                           color: active ? '#fff' : `${accent}cc`,
                           border: `2px solid ${active ? accent : `${accent}b3`}`,
                           backgroundClip: 'padding-box',
-                          transition: 'background 160ms ease, color 160ms ease, border-color 160ms ease',
+                          transition: 'background-color 160ms ease, color 160ms ease, border-color 160ms ease',
                           pointerEvents: 'none',
                         }}
                       >
@@ -659,7 +724,7 @@ export default function TeacherMissionBoardPage() {
                           <BoardMissionCard
                             mission={m}
                             variant="required"
-                            onOpen={() => setEditingMission(m)}
+                            onOpen={() => openMission(m)}
                           />
                         )}
                       />
@@ -677,7 +742,7 @@ export default function TeacherMissionBoardPage() {
                           <BoardMissionCard
                             mission={m}
                             variant="optional"
-                            onOpen={() => setEditingMission(m)}
+                            onOpen={() => openMission(m)}
                           />
                         )}
                       />
@@ -695,7 +760,7 @@ export default function TeacherMissionBoardPage() {
                           <BoardMissionCard
                             mission={m}
                             variant={m.required && m.positionId === currentPositionId ? 'required' : 'optional'}
-                            onOpen={() => setEditingMission(m)}
+                            onOpen={() => openMission(m)}
                           />
                         )}
                       />
@@ -713,6 +778,13 @@ export default function TeacherMissionBoardPage() {
         <TeacherMissionDetailView
           mission={editingMission}
           onClose={() => setEditingMission(null)}
+          // Pin-as-focus is the teacher's own call — not offered in
+          // HR's read-only browse of a teacher's missions (?view=hr),
+          // which already has its own pin control elsewhere (the
+          // Career Path page's MissionCard) and shouldn't gain a second,
+          // different-looking one here.
+          isTargeted={isHrView ? undefined : isTargeted(editingMission.id)}
+          onToggleTarget={isHrView ? undefined : () => toggleTarget(editingMission.id)}
         />
       )}
     </div>
@@ -722,18 +794,26 @@ export default function TeacherMissionBoardPage() {
 // ── Teacher mission detail view ──────────────────────────────────────────────
 // Read-only viewer for teachers — replaces the editable
 // MissionDetailModal (status / evidence count / notes inputs are
-// supervisor-only territory). Renders as a bottom sheet on mobile
-// (anchored, slides up) and as a centered modal on desktop. Shows
-// title, category, description, and "why this matters" — nothing
-// the teacher can change.
+// supervisor-only territory). Shows title, category, description, and
+// "why this matters" — nothing the teacher can change.
+//
+// Always a centered popup, mobile included — a bottom-anchored sheet
+// (the original shape here) pinned the description at the very bottom
+// of the screen, below natural reading position; a page-per-mission
+// was tried after that, but a mission is a quick look-up, not a
+// destination worth its own URL/back-navigation — a centered popup is
+// the right weight for it.
 
 function TeacherMissionDetailView({
-  mission, onClose,
+  mission, onClose, isTargeted, onToggleTarget,
 }: {
   mission: MissionWithProgress;
   onClose: () => void;
+  /** Undefined (not just false) in HR's read-only browse — omits the
+   *  pin button entirely there instead of rendering it always-off. */
+  isTargeted?: boolean;
+  onToggleTarget?: () => void;
 }) {
-  const { isMobile } = useIsMobile();
   const { getMeta } = useCategoryMeta();
   const cat = getMeta(mission.category);
   const status: MissionStatus = mission.progress?.status ?? 'PENDING';
@@ -750,19 +830,13 @@ function TeacherMissionDetailView({
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(15,23,42,0.45)',
         backdropFilter: 'blur(2px)',
-        display: 'flex',
-        alignItems: isMobile ? 'flex-end' : 'center',
-        justifyContent: 'center',
-        padding: isMobile ? 0 : 24,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20, boxSizing: 'border-box' as const,
         animation: 'tmbv-fade 180ms ease',
       }}
     >
       <style>{`
         @keyframes tmbv-fade { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes tmbv-slide-up {
-          from { transform: translateY(24px); opacity: 0; }
-          to   { transform: translateY(0);    opacity: 1; }
-        }
         @keyframes tmbv-pop-in {
           from { transform: scale(0.96); opacity: 0; }
           to   { transform: scale(1);    opacity: 1; }
@@ -772,27 +846,14 @@ function TeacherMissionDetailView({
         onClick={e => e.stopPropagation()}
         style={{
           background: '#fff',
-          width: '100%',
-          maxWidth: isMobile ? '100%' : 480,
-          maxHeight: isMobile ? '85vh' : '90vh',
+          width: '100%', maxWidth: 480, maxHeight: '85vh',
           overflowY: 'auto' as const,
-          borderRadius: isMobile ? '20px 20px 0 0' : 16,
-          padding: isMobile ? '14px 20px 28px' : '22px 24px',
-          boxShadow: '0 -8px 32px rgba(15,23,42,0.16)',
-          animation: isMobile
-            ? 'tmbv-slide-up 220ms cubic-bezier(0.4, 0, 0.2, 1)'
-            : 'tmbv-pop-in 180ms cubic-bezier(0.4, 0, 0.2, 1)',
+          borderRadius: 20,
+          padding: '20px 20px 24px',
+          boxShadow: '0 12px 40px rgba(15,23,42,0.22)',
+          animation: 'tmbv-pop-in 200ms cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {/* Pull handle (mobile only) */}
-        {isMobile && (
-          <div style={{
-            width: 40, height: 4, borderRadius: 999,
-            background: '#eceef2',
-            margin: '0 auto 16px',
-          }} />
-        )}
-
         {/* Top row — category pill (left) + close button (right) */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -931,6 +992,32 @@ function TeacherMissionDetailView({
               })}
             </div>
           </div>
+        )}
+
+        {/* Pin as Focus — the actual missing piece Home's "Active
+            Quests" empty state pointed at ("Browse missions" led here,
+            but nothing here could set one as your focus). Hidden
+            entirely once completed — nothing left to focus on. */}
+        {onToggleTarget && !isCompleted && (
+          <button
+            type="button"
+            onClick={onToggleTarget}
+            aria-pressed={isTargeted}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              width: '100%', marginTop: 16, padding: '12px', border: 'none',
+              borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 13.5, fontWeight: 700,
+              background: isTargeted ? C.primarySoft : C.primary,
+              color: isTargeted ? C.primary : '#fff',
+            }}
+          >
+            <FontAwesomeIcon
+              icon={faThumbtack}
+              style={{ fontSize: 12, transform: isTargeted ? 'rotate(0deg)' : 'rotate(45deg)', transition: 'transform 200ms ease' }}
+            />
+            {isTargeted ? 'Remove as Focus' : 'Pin as Focus'}
+          </button>
         )}
       </div>
     </div>
@@ -1474,7 +1561,7 @@ function BoardMissionCard({
       }}>
         <div style={{
           // Bold (700) — clear, strong title weight that reads
-          // confidently in Nunito without going extra-heavy.
+          // confidently without going extra-heavy.
           fontSize: 15, fontWeight: 700, color: C.text,
           letterSpacing: '-0.008em', lineHeight: 1.3,
           display: '-webkit-box' as any,
@@ -1580,10 +1667,9 @@ function EmptyState({ icon, title, hint }: { icon: any; title: string; hint: Rea
 const s: Record<string, React.CSSProperties> = {
   page: {
     padding: '28px 32px',
-    // Rounded/friendly type stack — Nunito (Google Fonts) primary,
-    // then `ui-rounded` (Apple SF Pro Rounded) + system fallbacks so
-    // the teacher-facing page reads as soft & approachable.
-    fontFamily: '"Nunito", ui-rounded, -apple-system, "SF Pro Rounded", "Avenir Next", "Segoe UI", system-ui, sans-serif',
+    // Clean, modern cross-platform sans-serif — Segoe UI leads
+    // (Windows' own system font), Roboto/Arial cover Android/other.
+    fontFamily: '"Segoe UI", Roboto, Arial, sans-serif',
     background: C.bg, minHeight: '100vh', color: C.text,
   },
   inner: { maxWidth: 1440, margin: '0 auto' },

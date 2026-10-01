@@ -7,7 +7,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faFlask, faIdCard } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 /** Normalises a human-readable label into a URL-safe utm_source value.
@@ -22,18 +22,27 @@ function toApplyUtmSlug(label: string): string {
 }
 
 export default function Navbar() {
-  const { isMobile, isTablet } = useIsMobile();
+  const { isMobile, isTablet, width } = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { name: string; role: string; teacherId?: string | null }) : null;
+  // isTablet's normal 1024px cutoff is tuned for the plain admin row —
+  // a teacherId-linked account gets 4 extra flat links (My Profile/My
+  // Career/My Pay/Guides) ahead of whatever modules they also have, so
+  // that same row can run out of space well above 1024px (a full admin
+  // who's also a teacher, at a completely ordinary 1280px laptop width,
+  // was overflowing off the right edge with nowhere to go). Collapses to
+  // the hamburger earlier for exactly that account shape; everyone
+  // else's threshold is unchanged.
+  const navCollapsed = isTablet || (!!user?.teacherId && width < 1400);
   // Server-side enforcement already exists via requireModule() on the API
   // routes (see RequireModule.tsx) — this is nav-hiding only. While
   // permissions are still loading, show every module rather than flashing
   // the nav empty then populating it — matches today's behaviour (every
   // authenticated user sees all 7) for the common case where the request
   // resolves in a moment anyway.
-  const { hasModule, loading: permLoading } = usePermissions();
+  const { hasModule, hasView, loading: permLoading } = usePermissions();
   const allowModule = (m: string) => permLoading || hasModule(m as any);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -69,6 +78,17 @@ export default function Navbar() {
   // light up "HR" instead of (or as well as) "Operation".
   const sopRevisionsMatch = useMatch('/hr/sop-revisions');
   const onOperationRoute = !!useMatch('/operations/sops/*') || !!sopRevisionsMatch;
+  // The flat "Guides" link (`/operations/sops?app=teacher`) used NavLink's
+  // default prefix match, so it lit up for every route under
+  // /operations/sops/* — including /operations/sops/author (the Author
+  // Guides hub) and /operations/sops/propose, which are reached from the
+  // Operation dropdown, not from "Guides" itself. Both "Guides" and
+  // "Operation" ended up highlighted at once on those pages. "author",
+  // "propose", "new" are reserved route segments here, not real guide ids,
+  // so they're excluded from counting as "browsing a guide".
+  const guidesDetailMatch = useMatch('/operations/sops/:segment');
+  const onGuidesRoute = !!useMatch('/operations/sops') ||
+    (!!guidesDetailMatch && !['author', 'propose', 'new'].includes(guidesDetailMatch.params.segment ?? ''));
   const onToolsRoute = !!useMatch('/tools/*');
   // Both useMatch calls must run every render, unconditionally — `||`
   // short-circuits, which would skip the second call whenever the first
@@ -134,7 +154,7 @@ export default function Navbar() {
   };
 
   // Close mobile menu on navigate
-  useEffect(() => { setMobileMenuOpen(false); }, [isMobile]);
+  useEffect(() => { setMobileMenuOpen(false); }, [navCollapsed]);
 
   const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
 
@@ -160,6 +180,21 @@ export default function Navbar() {
     // object at all nine top-level triggers.
     const navIcon = (icon: any) => <FontAwesomeIcon icon={icon} style={{ fontSize: 13, marginRight: 7, opacity: 0.9 }} />;
 
+    // The two groupDividers below used to render unconditionally — fine
+    // for a full admin (all three clusters populated), but an account
+    // with only the teacherId-linked flat links and zero module grants
+    // (a plain Teacher AuthRole, most of them) got both dividers anyway,
+    // dangling right after "Guides" with nothing ever following either
+    // one. Each divider now only shows when there's real content on
+    // both sides of it — same admin-role checks as the dropdowns they
+    // sit next to (lines ~503/~556 for Settings/Admin).
+    const isAdminRole = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+    const hasPeoplePipelineCluster = allowModule(MODULES.LEADS) || allowModule(MODULES.STUDENTS) || allowModule(MODULES.HR) || allowModule(MODULES.FINANCE);
+    const hasOpsInsightsCluster = (allowModule(MODULES.OPERATION) && (!user?.teacherId || hasView('OPERATION_SOP_APPROVE'))) || allowModule(MODULES.ANALYSIS);
+    const hasConfigAdminCluster = allowModule(MODULES.TOOLS) || isAdminRole;
+    const showDivider1 = hasPeoplePipelineCluster && (hasOpsInsightsCluster || hasConfigAdminCluster);
+    const showDivider2 = hasOpsInsightsCluster && hasConfigAdminCluster;
+
     return (
       <>
         {/* My Profile — a teacher-linked account's own self-service app
@@ -169,12 +204,43 @@ export default function Navbar() {
             has. Always first — for a Teacher-tier account this is often
             the only thing they have. */}
         {user?.teacherId && (
-          <NavLink to={`/teachers/${user.teacherId}/my-career`} onClick={closeAll}
+          <NavLink to={`/teachers/${user.teacherId}/home`} onClick={closeAll}
             className={mobile ? '' : 'nav-link'}
             style={({ isActive }) => mobile
               ? { ...mLink, ...(isActive ? mLinkActive : {}) }
               : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
             }>{navIcon(faIdCard)}My Profile</NavLink>
+        )}
+        {/* Career / Pay / Guides — same three destinations as the other
+            tabs on the floating bottom nav (TeacherMobileNav.tsx), which
+            only renders on mobile. Without these, a teacher signed in on
+            desktop had "My Profile" (Home) and nothing else pointing at
+            their own app — everything past that page required knowing a
+            URL. Same icons as their mobile-tab counterparts, same
+            teacherId gate as My Profile above. */}
+        {user?.teacherId && (
+          <NavLink to={`/teachers/${user.teacherId}/my-career`} onClick={closeAll}
+            className={mobile ? '' : 'nav-link'}
+            style={({ isActive }) => mobile
+              ? { ...mLink, ...(isActive ? mLinkActive : {}) }
+              : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
+            }>{navIcon(faStar)}My Career</NavLink>
+        )}
+        {user?.teacherId && (
+          <NavLink to={`/teachers/${user.teacherId}/my-compensation`} onClick={closeAll}
+            className={mobile ? '' : 'nav-link'}
+            style={({ isActive }) => mobile
+              ? { ...mLink, ...(isActive ? mLinkActive : {}) }
+              : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
+            }>{navIcon(faSackDollar)}My Pay</NavLink>
+        )}
+        {user?.teacherId && (
+          <NavLink to="/operations/sops?app=teacher" onClick={closeAll}
+            className={mobile ? '' : 'nav-link'}
+            style={mobile
+              ? { ...mLink, ...(onGuidesRoute ? mLinkActive : {}) }
+              : { ...styles.link, ...(onGuidesRoute ? styles.activeLink : {}) }
+            }>{navIcon(faBookOpen)}Guides</NavLink>
         )}
 
         {/* Leads link */}
@@ -281,8 +347,14 @@ export default function Navbar() {
             currently do each task). Separate from Finance/HR since it isn't
             scoped to a person or a cost line, and separate from Settings
             since it's a working library staff add to and improve regularly,
-            not config set once. */}
-        {allowModule(MODULES.OPERATION) && (
+            not config set once.
+            "How-To Guides" itself is skipped for a teacherId-linked account
+            — the flat "Guides" link above (same destination) already covers
+            it, so this stayed pointless-only duplicate for exactly that
+            account. If that leaves nothing else granted inside (no
+            OPERATION_SOP_APPROVE for Improvement Inbox either), the whole
+            trigger is hidden rather than opening onto an empty panel. */}
+        {allowModule(MODULES.OPERATION) && (!user?.teacherId || hasView('OPERATION_SOP_APPROVE')) && (
         <div ref={mobile ? undefined : operationRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setOperationOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onOperationRoute && !mobile ? styles.activeLink : {}) }}>
@@ -291,33 +363,35 @@ export default function Navbar() {
           </button>
           {operationOpen && (
             <div style={mPanel}>
-              <NavLink to="/operations/sops" className={mobile ? '' : 'nav-drop-item'}
-                style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
-                onClick={closeAll}>
-                <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                How-To Guides
-              </NavLink>
-              <NavLink to="/hr/sop-revisions" onClick={closeAll}
-                className={mobile ? '' : 'nav-drop-item'}
-                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                Improvement Inbox
-              </NavLink>
-              {/* Dev-only — the How-To Guides link above always renders
-                  as the admin sees it (edit controls, "Add How-To Guide"
-                  going straight to create). This forces the teacher view via
-                  a query param that both SopLibraryPage and
-                  SopTemplateStepsPage honour (only under DEV), and it
-                  carries through when clicking into a guide, so an admin
-                  can walk the whole teacher experience — list through
-                  detail, including the real "Suggest an Improvement" button
-                  — without a separate USER login. */}
-              {import.meta.env.DEV && (
-                <NavLink to="/operations/sops?previewTeacher=1" onClick={closeAll}
+              {!user?.teacherId && (
+                <NavLink to="/operations/sops" className={mobile ? '' : 'nav-drop-item'}
+                  style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                  onClick={closeAll}>
+                  <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  How-To Guides
+                </NavLink>
+              )}
+              {/* The reviewer workbench (Approve/Reject, everyone's
+                  pending proposals) — not every role sharing the
+                  Operation module should land here, same reasoning as
+                  the route guard on /hr/sop-revisions itself. */}
+              {hasView('OPERATION_SOP_APPROVE') && (
+                <NavLink to="/hr/sop-revisions" onClick={closeAll}
                   className={mobile ? '' : 'nav-drop-item'}
-                  style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <FontAwesomeIcon icon={faFlask} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                  How-To Guides (Teacher View, Dev)
+                  style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                  <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  Improvement Inbox
+                </NavLink>
+              )}
+              {/* Own unpublished work — deliberately not a tab on the
+                  Improvement Inbox above, since that's a review queue of
+                  OTHER people's submissions and this is private to you. */}
+              {hasView('OPERATION_SOP_APPROVE') && (
+                <NavLink to="/operations/sops/author" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                  <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  Author Guides
                 </NavLink>
               )}
             </div>
@@ -329,7 +403,7 @@ export default function Navbar() {
             Finance), operations/insights (Operation, Analysis), and
             config/admin (Tools → Admin) — was previously nine items with
             no visual grouping at all. */}
-        {!mobile && <div style={styles.groupDivider} />}
+        {!mobile && showDivider1 && <div style={styles.groupDivider} />}
 
         {/* Analysis dropdown */}
         {allowModule(MODULES.ANALYSIS) && (
@@ -394,7 +468,7 @@ export default function Navbar() {
         </div>
         )}
 
-        {!mobile && <div style={styles.groupDivider} />}
+        {!mobile && showDivider2 && <div style={styles.groupDivider} />}
 
         {/* Tools dropdown */}
         {allowModule(MODULES.TOOLS) && (
@@ -448,6 +522,14 @@ export default function Navbar() {
                 {section('Candidates')}
                 {item(faArrowUpRightFromSquare, '#94a3b8', 'Apply Form', () => { closeAll(); window.open('/apply', '_blank'); })}
                 {item(faLink, '#94a3b8', 'Apply Links', () => { closeAll(); setApplyLinksModal(true); })}
+                {sep}
+                {section('Support')}
+                <NavLink to="/tools/bug-reports" className={mobile ? '' : 'nav-drop-item'}
+                  style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
+                  onClick={closeAll}>
+                  <FontAwesomeIcon icon={faBug} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  Bug Reports
+                </NavLink>
               </div>
             );
           })()}
@@ -601,10 +683,22 @@ export default function Navbar() {
       .nav-link { transition: all 0.15s ease; }
       .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.12); }
     `}</style>
-    <nav style={{ ...styles.nav, padding: isTablet ? '0 12px' : '0 24px' }}>
-      {/* ── Mobile/Tablet: hamburger on left ── */}
-      {isTablet && (
-        <button onClick={() => setMobileMenuOpen(o => !o)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: '4px 8px', marginRight: 8 }}>
+    <nav style={{ ...styles.nav, padding: navCollapsed ? '0 12px' : '0 24px' }}>
+      {/* ── Mobile/Tablet/overflow: hamburger on left ── */}
+      {navCollapsed && (
+        <button onClick={() => setMobileMenuOpen(o => !o)} aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} style={{
+          width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+          // Frosted-glass circle on the navbar's own solid colour —
+          // same round, translucent language as the teacher app's other
+          // icon-only buttons (back chevron, "⋯"), just against a
+          // colour instead of a page background this time.
+          background: 'rgba(255,255,255,0.16)',
+          backdropFilter: 'blur(8px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(8px) saturate(180%)',
+          border: '1px solid rgba(255,255,255,0.28)',
+          color: '#fff', fontSize: 16, cursor: 'pointer', marginRight: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
           <FontAwesomeIcon icon={mobileMenuOpen ? faXmark : faBars} />
         </button>
       )}
@@ -615,7 +709,7 @@ export default function Navbar() {
       </span>
 
       {/* ── Desktop nav ── */}
-      {!isTablet && (
+      {!navCollapsed && (
         <>
           <div style={styles.divider} />
           <div style={styles.links}>{renderNavItems(false)}</div>
@@ -634,7 +728,7 @@ export default function Navbar() {
     </nav>
 
     {/* ── Mobile drawer ── */}
-    {isTablet && mobileMenuOpen && (
+    {navCollapsed && mobileMenuOpen && (
       <>
         <div onClick={closeAll} style={{ position: 'fixed', inset: 0, top: 50, background: 'rgba(0,0,0,0.3)', zIndex: 99 }} />
         <div style={{ position: 'fixed', top: 50, left: 0, right: 0, bottom: 0, background: '#fff', zIndex: 100, overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>

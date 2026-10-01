@@ -13,6 +13,7 @@ import { uploadUrl } from '../api/upload.js';
 import { useMissionTargets } from '../hooks/useMissionTargets.js';
 import { AchievementStrip } from '../components/career/AchievementStrip.js';
 import { useCategoryMeta } from '../utils/missionCategoryIcons.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher-facing career hub — mobile-first.
@@ -843,7 +844,6 @@ function FocusMissionCard({ mission, teacherId, requiredTotal }: {
     {openSheet && (
       <QuestDetailSheet
         mission={mission}
-        requiredTotal={requiredTotal}
         onClose={() => setOpenSheet(false)}
       />
     )}
@@ -852,14 +852,14 @@ function FocusMissionCard({ mission, teacherId, requiredTotal }: {
 }
 
 // ─── Quest detail sheet (mobile) ─────────────────────────────────────────────
-// Opens from a tap on a FocusMissionCard. Bottom-anchored sheet that
-// surfaces the full mission story — description, why-it-matters, and
-// progress — as a read-only "tell me more" view. No CTA: tapping the
-// backdrop or close button dismisses.
+// Opens from a tap on a FocusMissionCard. Centered modal (same pop-in
+// pattern as Mission Board's own mission detail modal) that surfaces
+// the full mission story — description, why-it-matters, and progress —
+// as a read-only "tell me more" view. No CTA: tapping the backdrop or
+// close button dismisses.
 
-function QuestDetailSheet({ mission, requiredTotal, onClose }: {
+function QuestDetailSheet({ mission, onClose }: {
   mission: MissionWithProgress;
-  requiredTotal: number;
   onClose: () => void;
 }) {
   const { getMeta } = useCategoryMeta();
@@ -870,11 +870,6 @@ function QuestDetailSheet({ mission, requiredTotal, onClose }: {
   const rawCount = mission.progress?.evidenceCount ?? 0;
   const filled = completed ? evidenceTotal : rawCount;
   const pct = Math.max(0, Math.min(100, Math.round((filled / evidenceTotal) * 100)));
-  // Same formula as the card — ceil(100 / N) floored at 5 so chips
-  // never read as thin at high mission counts.
-  const growthPoints = requiredTotal > 0
-    ? Math.max(5, Math.ceil(100 / requiredTotal))
-    : 10;
 
   return (
     <div
@@ -883,36 +878,34 @@ function QuestDetailSheet({ mission, requiredTotal, onClose }: {
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(15,23,42,0.45)',
         backdropFilter: 'blur(2px)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20, boxSizing: 'border-box' as const,
         animation: 'tmcar-sheet-fade 180ms ease',
       }}
     >
+      {/* Centered pop-in, same pattern as the Mission Board's own
+          mission detail modal (TeacherMissionBoardPage.tsx's
+          tmbv-pop-in) — was a bottom sheet before, inconsistent with
+          that one for what's otherwise the same kind of dialog. */}
       <style>{`
         @keyframes tmcar-sheet-fade { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes tmcar-sheet-slide {
-          from { transform: translateY(24px); opacity: 0; }
-          to   { transform: translateY(0);    opacity: 1; }
+        @keyframes tmcar-sheet-pop-in {
+          from { transform: scale(0.96); opacity: 0; }
+          to   { transform: scale(1);    opacity: 1; }
         }
       `}</style>
       <div
         onClick={e => e.stopPropagation()}
         style={{
           background: '#fff',
-          width: '100%', maxWidth: 520, maxHeight: '85vh',
+          width: '100%', maxWidth: 480, maxHeight: '85vh',
           overflowY: 'auto' as const,
-          borderRadius: '20px 20px 0 0',
-          padding: '14px 20px 28px',
-          boxShadow: '0 -8px 32px rgba(15,23,42,0.16)',
-          animation: 'tmcar-sheet-slide 220ms cubic-bezier(0.4, 0, 0.2, 1)',
+          borderRadius: 20,
+          padding: '20px 20px 24px',
+          boxShadow: '0 12px 40px rgba(15,23,42,0.22)',
+          animation: 'tmcar-sheet-pop-in 200ms cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {/* Pull handle */}
-        <div style={{
-          width: 40, height: 4, borderRadius: 999,
-          background: '#eceef2',
-          margin: '0 auto 16px',
-        }} />
-
         {/* Top row — category pill (left) + close button (right) */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1053,31 +1046,6 @@ function QuestDetailSheet({ mission, requiredTotal, onClose }: {
             }} />
           </div>
         </div>
-
-        {/* Reward chip — the small "what you earn" hint, repeated
-            from the card so the teacher sees the prize alongside the
-            full description. */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 10,
-        }}>
-          <span style={{
-            fontSize: 11, fontWeight: 600, color: C.muted,
-          }}>
-            Growth Points earned on completion
-          </span>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            padding: '3px 10px', borderRadius: 999,
-            background: C.primarySoft,
-            color: C.primary,
-            fontSize: 11, fontWeight: 800,
-            fontVariantNumeric: 'tabular-nums' as const,
-          }}>
-            <FontAwesomeIcon icon={faBolt} style={{ fontSize: 10 }} />
-            +{growthPoints}
-          </span>
-        </div>
       </div>
     </div>
   );
@@ -1090,16 +1058,29 @@ const s: Record<string, React.CSSProperties> = {
     // flows all the way to the bottom of the viewport so the page
     // feels anchored. A very subtle radial primary tint at the top
     // frames the hero badge without adding visible chrome.
-    padding: '18px 18px 0',
+    paddingTop: TEACHER_CONTENT_TOP,
+    paddingLeft: 18,
+    paddingRight: 18,
+    paddingBottom: 0,
     background: `radial-gradient(120% 280px at 50% 0%, ${C.primary}14 0%, ${C.primary}06 40%, ${C.bg} 70%), ${C.bg}`,
     minHeight: '100vh',
-    // Rounded/friendly type stack — matches the Mission Board page so
-    // the teacher-facing hub reads as one app: Nunito (Google Fonts)
-    // primary, then ui-rounded + system fallbacks.
-    fontFamily: '"Nunito", ui-rounded, -apple-system, "SF Pro Rounded", "Avenir Next", "Segoe UI", system-ui, sans-serif',
+    // Flex column so `inner` (and in turn the tray) can be stretched to
+    // actually reach the bottom of the viewport on short pages — a
+    // plain block layout only reaches as far as its content, leaving a
+    // strip of this grey canvas exposed between the tray and the
+    // floating bottom nav whenever there isn't enough content to fill
+    // the screen (e.g. one active quest, no unlocked skill badges).
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+    // Clean cross-platform sans-serif — matches the Mission Board
+    // page so the teacher-facing hub reads as one app.
+    fontFamily: '"Segoe UI", Roboto, Arial, sans-serif',
     color: C.text,
   },
-  inner: { maxWidth: 640, margin: '0 auto', position: 'relative' as const },
+  inner: {
+    maxWidth: 640, width: '100%', margin: '0 auto', position: 'relative' as const,
+    display: 'flex' as const, flexDirection: 'column' as const, flex: '1' as const,
+  },
 
   // Floating back button — sits in the top-left of the page,
   // letting the hero badge dominate the page intro without a
@@ -1138,6 +1119,7 @@ const s: Record<string, React.CSSProperties> = {
   // card reads as a "tray" lifting up from the bottom of the page,
   // tucked against the screen edges on the sides.
   softCard: {
+    flex: '1' as const,
     marginTop: 14,
     marginLeft: -18,
     marginRight: -18,

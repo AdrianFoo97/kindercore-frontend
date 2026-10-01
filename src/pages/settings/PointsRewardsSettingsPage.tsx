@@ -1,17 +1,19 @@
-import { useReducer } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChevronRight, faPlus, faTrash, faPen, faSackDollar, faGift, faBolt,
   faEye, faChartLine,
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  earningRules, rewardCatalog,
-  removeReward, removeRule,
-  stockMeta, RULE_CATEGORY_META,
-  EarningRule, RewardItem,
-} from '../../data/pointsRewardsMock.js';
+  fetchEarningRules, fetchRewardCatalog,
+  deleteRule as deleteRuleApi, deleteReward as deleteRewardApi,
+  PointsEarningRule, PointsRewardItem,
+} from '../../api/points.js';
+import {
+  stockMeta, RULE_CATEGORY_META, RuleCategory,
+  resolveRuleIcon, resolveRewardIcon,
+} from '../../constants/pointsMeta.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
 import { useToast } from '../../components/common/Toast.js';
 import { fetchTeachers } from '../../api/planner.js';
@@ -59,12 +61,7 @@ const SHADOW = '0 1px 2px rgba(15,23,42,0.03)';
 const SHADOW_HOVER = '0 1px 2px rgba(15,23,42,0.04), 0 6px 18px rgba(15,23,42,0.05)';
 
 export default function PointsRewardsSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
-  // Read directly from the shared mock module — single source of truth
-  // across this page, the editor page, and the teacher rewards view.
-  // The reducer forces a re-render after a delete or toggle; once a
-  // real backend exists, swap to react-query and the manual bump
-  // disappears.
-  const [, bump] = useReducer((x: number) => x + 1, 0);
+  const qc = useQueryClient();
   const { confirm } = useDeleteDialog();
   const { showToast } = useToast();
 
@@ -76,6 +73,9 @@ export default function PointsRewardsSettingsPage({ embedded = false }: { embedd
     queryFn: fetchTeachers,
   });
   const previewTeacherId = (teachers as any[])[0]?.id ?? null;
+
+  const { data: earningRules = [] } = useQuery({ queryKey: ['points-rules'], queryFn: fetchEarningRules });
+  const { data: rewardCatalog = [] } = useQuery({ queryKey: ['points-rewards'], queryFn: fetchRewardCatalog });
 
   // ── Aggregates for the summary cards ────────────────────────────
   const activeRulesCount = earningRules.filter(r => r.active).length;
@@ -89,21 +89,29 @@ export default function PointsRewardsSettingsPage({ embedded = false }: { embedd
     ? null
     : rewardCatalog.reduce((a, b) => (a.cost >= b.cost ? a : b)).label;
 
-  const handleDeleteRule = async (rule: EarningRule) => {
+  const handleDeleteRule = async (rule: PointsEarningRule) => {
     await confirm({
       entityType: 'Earning rule',
       entityName: rule.label,
       dependencies: [],
-      onConfirm: () => { removeRule(rule.id); bump(); showToast('Rule deleted'); },
+      onConfirm: async () => {
+        await deleteRuleApi(rule.id);
+        qc.invalidateQueries({ queryKey: ['points-rules'] });
+        showToast('Rule deleted');
+      },
     });
   };
 
-  const handleDeleteReward = async (reward: RewardItem) => {
+  const handleDeleteReward = async (reward: PointsRewardItem) => {
     await confirm({
       entityType: 'Reward',
       entityName: reward.label,
       dependencies: [],
-      onConfirm: () => { removeReward(reward.id); bump(); showToast('Reward deleted'); },
+      onConfirm: async () => {
+        await deleteRewardApi(reward.id);
+        qc.invalidateQueries({ queryKey: ['points-rewards'] });
+        showToast('Reward deleted');
+      },
     });
   };
 
@@ -201,8 +209,8 @@ export default function PointsRewardsSettingsPage({ embedded = false }: { embedd
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xl }}>
-          <EarningRulesSection onDelete={handleDeleteRule} />
-          <CatalogSection onDelete={handleDeleteReward} />
+          <EarningRulesSection rules={earningRules} onDelete={handleDeleteRule} />
+          <CatalogSection items={rewardCatalog} onDelete={handleDeleteReward} />
         </div>
       </div>
     </div>
@@ -267,8 +275,9 @@ function SummaryCard({
 // Earning rules
 // ─────────────────────────────────────────────────────────────────────────────
 
-function EarningRulesSection({ onDelete }: {
-  onDelete: (rule: EarningRule) => void;
+function EarningRulesSection({ rules: earningRules, onDelete }: {
+  rules: PointsEarningRule[];
+  onDelete: (rule: PointsEarningRule) => void;
 }) {
   return (
     <section className="prs-card" style={s.section}>
@@ -315,11 +324,11 @@ function EarningRulesSection({ onDelete }: {
 const RULES_GRID = 'minmax(0, 1fr) 120px 90px 100px';
 
 function RuleRow({ rule, onDelete }: {
-  rule: EarningRule;
+  rule: PointsEarningRule;
   onDelete: () => void;
 }) {
   const dim = rule.active ? 1 : 0.5;
-  const cat = RULE_CATEGORY_META[rule.category];
+  const cat = RULE_CATEGORY_META[rule.category as RuleCategory] ?? RULE_CATEGORY_META.other;
   return (
     <div className="prs-row" style={{ ...s.row, gridTemplateColumns: RULES_GRID }}>
       {/* Rule column — icon + title row (name + subtle category badge)
@@ -327,7 +336,7 @@ function RuleRow({ rule, onDelete }: {
           horizontal slack the row otherwise had. */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0, opacity: dim }}>
         <div style={{ ...iconTile(POINTS_C.soft, POINTS_C.accent, POINTS_C.border), marginTop: 1 }}>
-          {rule.icon && <FontAwesomeIcon icon={rule.icon} style={{ fontSize: 13 }} />}
+          {rule.icon && <FontAwesomeIcon icon={resolveRuleIcon(rule.icon)} style={{ fontSize: 13 }} />}
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -389,8 +398,9 @@ function RuleRow({ rule, onDelete }: {
 // Reward catalog
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CatalogSection({ onDelete }: {
-  onDelete: (item: RewardItem) => void;
+function CatalogSection({ items: rewardCatalog, onDelete }: {
+  items: PointsRewardItem[];
+  onDelete: (item: PointsRewardItem) => void;
 }) {
   return (
     <section className="prs-card" style={s.section}>
@@ -435,7 +445,7 @@ function CatalogSection({ onDelete }: {
 const REWARDS_GRID = 'minmax(0, 1fr) 110px 110px 90px 100px';
 
 function RewardRow({ item, onDelete }: {
-  item: RewardItem;
+  item: PointsRewardItem;
   onDelete: () => void;
 }) {
   const sm = stockMeta(item.stock);
@@ -448,7 +458,7 @@ function RewardRow({ item, onDelete }: {
       {/* Reward column — icon + label + description sub-line */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0, opacity: dim }}>
         <div style={{ ...iconTile(POINTS_C.soft, POINTS_C.accent, POINTS_C.border), marginTop: 1 }}>
-          {item.icon && <FontAwesomeIcon icon={item.icon} style={{ fontSize: 13 }} />}
+          {item.icon && <FontAwesomeIcon icon={resolveRewardIcon(item.icon)} style={{ fontSize: 13 }} />}
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={s.rowTitle}>{item.label}</div>

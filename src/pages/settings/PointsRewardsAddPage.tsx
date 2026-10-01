@@ -1,16 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChevronRight, faChevronLeft, faCheck, faSackDollar,
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  addReward, addRule, updateReward, updateRule,
-  getReward, getRule,
+  fetchEarningRules, fetchRewardCatalog,
+  createRule, updateRule as updateRuleApi,
+  createReward, updateReward as updateRewardApi,
+  PointsEarningRule, PointsRewardItem,
+} from '../../api/points.js';
+import {
   REWARD_ICON_OPTIONS, RULE_ICON_OPTIONS,
-  RULE_CATEGORY_META,
-  RewardItem, RuleCategory,
-} from '../../data/pointsRewardsMock.js';
+  RULE_CATEGORY_META, RuleCategory,
+} from '../../constants/pointsMeta.js';
+import { useToast } from '../../components/common/Toast.js';
 
 // One page, four modes — picked from the route params. Same form
 // chrome, icon picker, and validation for add vs edit; rule vs reward
@@ -44,68 +49,95 @@ export default function PointsRewardsAddPage() {
   const mode: Mode = kind === 'rule' ? 'rule' : 'reward';
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { showToast } = useToast();
 
   const iconOptions = mode === 'rule' ? RULE_ICON_OPTIONS : REWARD_ICON_OPTIONS;
 
-  // Pre-fill state from the existing item when editing. Falls back to
-  // defaults if the id is bogus (e.g. stale link) — the form is still
-  // usable as an add.
+  // Pre-fill state from the existing item when editing. There's no
+  // single-item fetch endpoint — reuse the same list queries (and
+  // cache keys) the settings page already populates, and find this
+  // row client-side. Falls back to defaults if the id is bogus (e.g.
+  // stale link) — the form is still usable as an add.
+  const { data: rulesList, isLoading: rulesLoading } = useQuery({
+    queryKey: ['points-rules'], queryFn: fetchEarningRules, enabled: mode === 'rule',
+  });
+  const { data: rewardsList, isLoading: rewardsLoading } = useQuery({
+    queryKey: ['points-rewards'], queryFn: fetchRewardCatalog, enabled: mode === 'reward',
+  });
   const existing = isEdit
-    ? (mode === 'rule' ? getRule(id!) : getReward(id!))
+    ? (mode === 'rule' ? rulesList?.find(r => r.id === id) : rewardsList?.find(r => r.id === id))
     : undefined;
-  const existingIconName = existing
-    ? iconOptions.find(o => o.icon === existing.icon)?.name
-    : undefined;
+  const stillLoadingExisting = isEdit && (mode === 'rule' ? rulesLoading : rewardsLoading) && !existing;
 
-  const [iconName, setIconName] = useState<string>(existingIconName ?? iconOptions[0].name);
-  const [label, setLabel] = useState(existing?.label ?? '');
+  const [iconName, setIconName] = useState<string>(iconOptions[0].name);
+  const [label, setLabel] = useState('');
   // Rule mode reuses `sub` state to hold the rule's description so we
   // don't need a parallel variable. The shape difference between rule
   // and reward is hidden behind the save function below.
-  const [sub, setSub] = useState(
-    existing
-      ? ('sub' in existing ? existing.sub : (existing as { description?: string }).description ?? '')
-      : ''
-  );
-  const [category, setCategory] = useState<RuleCategory>(
-    existing && 'category' in existing ? (existing.category as RuleCategory) : 'mission',
-  );
-  const [amount, setAmount] = useState<number>(
-    existing
-      ? ('amount' in existing ? existing.amount : existing.cost)
-      : (mode === 'rule' ? 50 : 100)
-  );
-  const [stock, setStock] = useState<RewardItem['stock']>(
-    existing && 'stock' in existing ? existing.stock : 'in',
-  );
+  const [sub, setSub] = useState('');
+  const [category, setCategory] = useState<RuleCategory>('mission');
+  const [amount, setAmount] = useState<number>(mode === 'rule' ? 50 : 100);
+  const [stock, setStock] = useState<PointsRewardItem['stock']>('in');
   // Active state is editable here. New items default to active so they
   // immediately surface to teachers; admins can flip them off here or
   // any time later from the settings list.
-  const [active, setActive] = useState<boolean>(existing?.active ?? true);
+  const [active, setActive] = useState<boolean>(true);
+  const [saving, setSaving] = useState(false);
 
-  const canSave = label.trim().length > 0 && amount > 0;
+  // Sync form fields once the existing row has loaded (edit mode only —
+  // runs once, guarded by `hydrated` so it never clobbers user edits).
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    if (!isEdit || !existing || hydrated) return;
+    setIconName(existing.icon);
+    setLabel(existing.label);
+    if (mode === 'rule') {
+      const r = existing as PointsEarningRule;
+      setSub(r.description ?? '');
+      setCategory((r.category as RuleCategory) ?? 'mission');
+      setAmount(r.amount);
+    } else {
+      const r = existing as PointsRewardItem;
+      setSub(r.sub ?? '');
+      setAmount(r.cost);
+      setStock(r.stock);
+    }
+    setActive(existing.active);
+    setHydrated(true);
+  }, [existing, isEdit, hydrated, mode]);
+
+  const canSave = label.trim().length > 0 && amount > 0 && !saving;
 
   const selectedIcon = iconOptions.find(o => o.name === iconName)?.icon
     ?? iconOptions[0].icon;
 
-  const save = () => {
+  const save = async () => {
     if (!canSave) return;
-    if (mode === 'rule') {
-      const payload = {
-        icon: selectedIcon, label: label.trim(),
-        description: sub.trim(), amount, category, active,
-      };
-      if (isEdit && id) updateRule(id, payload);
-      else addRule(payload);
-    } else {
-      const payload = {
-        icon: selectedIcon, label: label.trim(), sub: sub.trim(),
-        cost: amount, stock, active,
-      };
-      if (isEdit && id) updateReward(id, payload);
-      else addReward(payload);
+    setSaving(true);
+    try {
+      if (mode === 'rule') {
+        const payload = {
+          icon: iconName, label: label.trim(),
+          description: sub.trim() || null, amount, category, active,
+        };
+        if (isEdit && id) await updateRuleApi(id, payload);
+        else await createRule(payload);
+        qc.invalidateQueries({ queryKey: ['points-rules'] });
+      } else {
+        const payload = {
+          icon: iconName, label: label.trim(), sub: sub.trim() || null,
+          cost: amount, stock, active,
+        };
+        if (isEdit && id) await updateRewardApi(id, payload);
+        else await createReward(payload);
+        qc.invalidateQueries({ queryKey: ['points-rewards'] });
+      }
+      navigate('/settings/points-rewards');
+    } catch {
+      setSaving(false);
+      showToast(`Could not save this ${mode === 'rule' ? 'rule' : 'reward'}`, 'error');
     }
-    navigate('/settings/points-rewards');
   };
 
   const title = isEdit
@@ -116,6 +148,16 @@ export default function PointsRewardsAddPage() {
     : 'Define a reward teachers can redeem with their points.';
   const amountLabel = mode === 'rule' ? 'Points granted' : 'Cost (points)';
   const saveLabel = isEdit ? 'Save changes' : (mode === 'rule' ? 'Save rule' : 'Save reward');
+
+  if (stillLoadingExisting) {
+    return (
+      <div style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh', color: C.text }}>
+        <div style={{ maxWidth: 680, margin: '0 auto', padding: '48px 0', textAlign: 'center', color: C.muted, fontSize: 13 }}>
+          Loading…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh', color: C.text }}>
@@ -329,7 +371,7 @@ export default function PointsRewardsAddPage() {
                 <select
                   className="pra-input"
                   value={stock}
-                  onChange={e => setStock(e.target.value as RewardItem['stock'])}
+                  onChange={e => setStock(e.target.value as PointsRewardItem['stock'])}
                   style={inputStyle}
                 >
                   <option value="in">In stock</option>

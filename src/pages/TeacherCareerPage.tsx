@@ -276,7 +276,7 @@ export default function TeacherCareerPage() {
           );
           const allMissionsLink = (
             <Link
-              to={`/teachers/${id}/career/missions`}
+              to={`/teachers/${id}/career/missions?view=hr`}
               style={{
                 fontSize: 12, fontWeight: 600, color: C.primary,
                 textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -366,7 +366,7 @@ export default function TeacherCareerPage() {
                     Pin 2–3 missions on the board to focus on this cycle.
                   </p>
                   <Link
-                    to={`/teachers/${id}/career/missions`}
+                    to={`/teachers/${id}/career/missions?view=hr`}
                     className="tcp-cta"
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -709,7 +709,7 @@ function CareerHero({
               </div>
               {requiredTotal > 0 && (
                 <Link
-                  to={`/teachers/${teacherId}/career/missions`}
+                  to={`/teachers/${teacherId}/career/missions?view=hr`}
                   className="tcp-link"
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -2161,36 +2161,37 @@ function PositionDetailSheet({
         position: 'fixed', inset: 0, zIndex: 1000,
         background: 'rgba(15,23,42,0.45)',
         backdropFilter: 'blur(2px)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        // Was bottom-anchored (a drag-to-dismiss sheet look), which left
+        // the actual content — the ability description, the thing
+        // someone opened this to read — pinned at the very bottom edge
+        // of the screen, below natural eye level. Centered instead, so
+        // the card (and its text) sits where a reader's eyes already
+        // are. The 20px padding keeps it off the raw screen edges on
+        // short viewports.
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20, boxSizing: 'border-box' as const,
         animation: 'kc-sheet-fade 180ms ease',
       }}
     >
       <style>{`
         @keyframes kc-sheet-fade { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes kc-sheet-slide {
-          from { transform: translateY(24px); opacity: 0; }
-          to   { transform: translateY(0);    opacity: 1; }
+        @keyframes kc-sheet-pop {
+          from { transform: scale(0.96); opacity: 0; }
+          to   { transform: scale(1);    opacity: 1; }
         }
       `}</style>
       <div
         onClick={e => e.stopPropagation()}
         style={{
           background: '#fff',
-          width: '100%', maxWidth: 520, maxHeight: '85vh',
+          width: '100%', maxWidth: 480, maxHeight: '85vh',
           overflowY: 'auto' as const,
-          borderRadius: '20px 20px 0 0',
-          padding: '14px 20px 28px',
-          boxShadow: '0 -8px 32px rgba(15,23,42,0.16)',
-          animation: 'kc-sheet-slide 220ms cubic-bezier(0.4, 0, 0.2, 1)',
+          borderRadius: 20,
+          padding: '20px 20px 24px',
+          boxShadow: '0 12px 40px rgba(15,23,42,0.22)',
+          animation: 'kc-sheet-pop 200ms cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {/* Pull handle */}
-        <div style={{
-          width: 40, height: 4, borderRadius: 999,
-          background: '#eceef2',
-          margin: '0 auto 16px',
-        }} />
-
         {/* Top status row — state pill centered as a "tag" for the
             rank; close button anchored top-right. The level number is
             already conveyed by the "YOU'RE AT Level N" label on the
@@ -2329,20 +2330,22 @@ function PositionDetailSheet({
                   {abilityLabel}
                 </div>
               </div>
-              {pos.roleFocus && (
-                <div style={{
-                  fontSize: 17, fontWeight: 800, color: C.text,
-                  letterSpacing: '-0.012em', lineHeight: 1.3,
-                  marginBottom: pos.description ? 8 : 0,
-                }}>
-                  {pos.roleFocus}
-                </div>
-              )}
-              {pos.description && (
+              {/* roleFocus + description used to stack as their own
+                  label → bold heading → paragraph, three distinct type
+                  sizes crammed tight — busy for what's really one
+                  thought. Merged into a single flowing paragraph
+                  instead: roleFocus (when present) leads it in bold,
+                  description continues in the same sentence flow. */}
+              {(pos.roleFocus || pos.description) && (
                 <p style={{
                   margin: 0, fontSize: 14, fontWeight: 500, color: C.textSub,
-                  lineHeight: 1.55, whiteSpace: 'pre-wrap' as const,
+                  lineHeight: 1.6, whiteSpace: 'pre-wrap' as const,
                 }}>
+                  {pos.roleFocus && (
+                    <strong style={{ color: C.text, fontWeight: 800 }}>
+                      {pos.roleFocus}{pos.description ? '. ' : ''}
+                    </strong>
+                  )}
                   {pos.description}
                 </p>
               )}
@@ -2516,7 +2519,7 @@ function PositionDetailSheet({
                   detail screen. */}
               {teacherId && (state === 'current' || state === 'next') && (
                 <Link
-                  to={`/teachers/${teacherId}/career/missions`}
+                  to={`/teachers/${teacherId}/career/missions?view=hr`}
                   onClick={onClose}
                   style={{
                     marginTop: 18,

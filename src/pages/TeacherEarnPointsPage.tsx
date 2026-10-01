@@ -1,11 +1,12 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faChevronRight, faChevronLeft, faSackDollar,
+  faSackDollar,
 } from '@fortawesome/free-solid-svg-icons';
-import { fetchTeachers } from '../api/planner.js';
-import { pointsBalance, earningRules } from '../data/pointsRewardsMock.js';
+import { fetchTeacherPoints, fetchEarningRules } from '../api/points.js';
+import { resolveRuleIcon } from '../constants/pointsMeta.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Standalone "How to earn" page reached from the rewards page CTA.
@@ -36,17 +37,17 @@ const POINTS_C = {
 
 export default function TeacherEarnPointsPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { data: teachers = [] } = useQuery({
-    queryKey: ['planner-teachers'],
-    queryFn: fetchTeachers,
+
+  const { data: tp } = useQuery({
+    queryKey: ['points-teacher', id], queryFn: () => fetchTeacherPoints(id!), enabled: !!id,
   });
-  const teacher = (teachers as any[]).find(t => t.id === id);
+  const { data: allRules } = useQuery({ queryKey: ['points-rules'], queryFn: fetchEarningRules });
+  const balance = tp?.balance?.current ?? 0;
 
   // Show only active rules — admins use the settings page to enable /
   // disable. Sort by highest reward first so the most motivating
   // earning paths sit at the top.
-  const rules = earningRules
+  const rules = (allRules ?? [])
     .filter(r => r.active)
     .slice()
     .sort((a, b) => b.amount - a.amount);
@@ -54,25 +55,11 @@ export default function TeacherEarnPointsPage() {
   return (
     <div style={s.page}>
       <style>{`
-        .tep-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }
         .tep-item { transition: border-color 140ms ease, box-shadow 140ms ease; }
         .tep-item:hover { border-color: ${POINTS_C.border}; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 6px 18px rgba(15,23,42,0.05); }
       `}</style>
 
       <div style={s.inner}>
-        <div style={s.breadcrumb}>
-          <button onClick={() => navigate(`/teachers/${id}/rewards`)} className="tep-back-btn" style={s.backBtn} title="Back">
-            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
-          </button>
-          <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <Link to={`/teachers/${id}`} style={s.crumbLink}>{teacher?.name ?? '...'}</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <Link to={`/teachers/${id}/rewards`} style={s.crumbLink}>Rewards</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <span style={s.crumbCurrent}>How to earn</span>
-        </div>
-
         <div style={s.header}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={s.eyebrow}>Points & Rewards</div>
@@ -87,7 +74,7 @@ export default function TeacherEarnPointsPage() {
               fontSize: 18, fontWeight: 800, color: POINTS_C.deep,
               fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.015em',
             }}>
-              {pointsBalance.current.toLocaleString('en-MY')}
+              {balance.toLocaleString('en-MY')}
             </span>
             <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: '0.02em' }}>
               pts
@@ -115,7 +102,7 @@ export default function TeacherEarnPointsPage() {
                   border: `1px solid ${POINTS_C.border}`,
                   fontSize: 17, flexShrink: 0,
                 }}>
-                  <FontAwesomeIcon icon={rule.icon} />
+                  <FontAwesomeIcon icon={resolveRuleIcon(rule.icon)} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
@@ -154,7 +141,10 @@ export default function TeacherEarnPointsPage() {
 
 const s: Record<string, React.CSSProperties> = {
   page: {
-    padding: `${SP.xxxl}px ${SP.xxxl}px ${SP.xxxl + SP.lg}px`,
+    paddingTop: TEACHER_CONTENT_TOP,
+    paddingRight: SP.xxxl,
+    paddingBottom: SP.xxxl + SP.lg,
+    paddingLeft: SP.xxxl,
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     background: C.bg, minHeight: '100vh', color: C.text,
   },

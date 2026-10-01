@@ -5,6 +5,8 @@ import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import { login } from '../api/auth.js';
 import { fetchMyPermissions } from '../api/me.js';
 import { ALL_MODULE_KEYS, ModuleKey } from '../constants/authModules.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
+import { APP_VERSION } from '../version.js';
 
 // Home page for each module, in the same left-to-right priority as the
 // Navbar dropdowns — picks the first one this account actually has so a
@@ -25,7 +27,7 @@ async function resolveLandingPath(teacherId?: string | null): Promise<string> {
   // them in their own Career/Pay/Rewards app, not an admin module. Any
   // admin modules their AuthRole grants are still reachable via the nav
   // from there (see Navbar.tsx's "My Profile" link for the way back).
-  if (teacherId) return `/teachers/${teacherId}/my-career`;
+  if (teacherId) return `/teachers/${teacherId}/home`;
   try {
     const perms = await fetchMyPermissions();
     if (perms.isAdmin) return '/leads';
@@ -208,6 +210,7 @@ function SignedInSection({ onLogout }: { onLogout: () => void }) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { isMobile } = useIsMobile();
 
   // Form state
   const [email, setEmail] = useState('');
@@ -283,23 +286,51 @@ export default function LoginPage() {
   return (
     <>
       <style>{globalStyles}</style>
-      <div style={S.page}>
+      <div
+        style={
+          isMobile
+            ? { ...S.page, background: '#ffffff', flexDirection: 'column', minHeight: '100dvh' }
+            : S.page
+        }
+      >
 
         {/* ── Form panel ──────────────────────────────────────────────────── */}
-        <div style={S.formPanel}>
-          <div style={S.formCard}>
+        <div
+          style={
+            isMobile
+              // Vertically centered (not top-aligned) — the mobile card has
+              // no floating chrome to anchor it, so without centering, the
+              // form reads as stranded at the top with a dead void below it.
+              ? { ...S.formPanel, background: '#ffffff', padding: '24px' }
+              : S.formPanel
+          }
+        >
+          <div
+            style={
+              isMobile
+                ? {
+                    ...S.formCard,
+                    maxWidth: 420,
+                    borderRadius: 0,
+                    border: 'none',
+                    boxShadow: 'none',
+                    padding: 0,
+                  }
+                : S.formCard
+            }
+          >
             {!isLoggedIn ? (
               <>
                 <div style={S.formHeader}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, marginBottom: 24 }}>
-                    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'flex-start' : 'center', gap: 9, marginBottom: isMobile ? 32 : 24 }}>
+                    <svg width={isMobile ? 34 : 30} height={isMobile ? 34 : 30} viewBox="0 0 30 30" fill="none">
                       <rect width="30" height="30" rx="8" fill="#1d4ed8" />
                       <text x="15" y="21" textAnchor="middle" fill="white" fontSize="17" fontWeight="800">K</text>
                     </svg>
-                    <span style={{ fontSize: 19, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px' }}>KinderTech</span>
+                    <span style={{ fontSize: isMobile ? 21 : 19, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px' }}>KinderTech</span>
                   </div>
-                  <h2 style={S.formTitle}>Welcome back</h2>
-                  <p style={S.formSubtitle}>Sign in to your account to access the admin portal.</p>
+                  <h2 style={{ ...S.formTitle, fontSize: isMobile ? 26 : S.formTitle.fontSize, textAlign: isMobile ? 'left' : undefined }}>Welcome back</h2>
+                  <p style={{ ...S.formSubtitle, textAlign: isMobile ? 'left' : undefined }}>Sign in to your account to access the admin portal.</p>
                 </div>
 
                 {/* Auth error banner */}
@@ -378,6 +409,17 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* Anchors the bottom of the screen so the centered card doesn't
+            leave the mobile layout feeling unfinished — same copyright/
+            version convention as the desktop AppFooter. */}
+        {isMobile && (
+          <div style={S.mobileFooter}>
+            <span>&copy; {new Date().getFullYear()} KinderTech</span>
+            <span style={{ margin: '0 6px' }}>&middot;</span>
+            <span>v{APP_VERSION}</span>
+          </div>
+        )}
+
       </div>
     </>
   );
@@ -403,6 +445,18 @@ const globalStyles = `
   @media (max-width: 768px) {
     .kc-brand-panel { display: none !important; }
     .kc-mobile-logo { display: flex !important; }
+    /* Bigger touch targets, and 16px input font stops iOS Safari's
+       auto-zoom-on-focus (anything under 16px triggers it). */
+    input[id^="login-"] {
+      padding: 15px 16px !important;
+      border-radius: 12px !important;
+      font-size: 16px !important;
+    }
+    .kc-submit-btn {
+      padding: 16px !important;
+      border-radius: 12px !important;
+      font-size: 16px !important;
+    }
   }
 `;
 
@@ -635,6 +689,18 @@ const S: Record<string, React.CSSProperties> = {
     fontSize: 13.5,
     fontWeight: 600,
     marginBottom: 14,
+  },
+
+  // ── Mobile footer ────────────────────────────────────────────────────────
+  mobileFooter: {
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '16px 24px calc(env(safe-area-inset-bottom) + 16px)',
+    fontSize: 11.5,
+    color: '#cbd5e1',
+    fontWeight: 500,
   },
 
   // ── Ghost button ─────────────────────────────────────────────────────────

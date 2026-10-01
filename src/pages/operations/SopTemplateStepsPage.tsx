@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faPlus, faTrash, faPen, faGripVertical, faArrowLeft, faCircleExclamation, faBullseye,
+  faPlus, faTrash, faPen, faPenToSquare, faGripVertical, faArrowLeft, faCircleExclamation, faBullseye,
   faCheck, faXmark, faArrowTurnDown, faChevronRight, faChevronDown, faLink, faVideo, faCirclePlay, faDownload,
-  faMagnifyingGlass, faEllipsisVertical,
+  faMagnifyingGlass, faEllipsisVertical, faArrowUp, faArrowDown, faCopy,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchTemplates, updateTemplate, deleteTemplate, setTemplateCategories, SopTemplate } from '../../api/sop-templates.js';
 import { fetchSteps, createStep, updateStep, deleteStep, reorderSteps, SopStep, UpsertSopStepPayload } from '../../api/sop-steps.js';
@@ -17,6 +18,9 @@ import { downloadSopPdf } from '../../utils/sopPdf.js';
 import { ALLOWED_SOP_ICONS, resolveSopIcon } from '../../utils/sopTemplateIcons.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { useScrolledPast } from '../../hooks/useScrolledPast.js';
+import { useScrollSpySection } from '../../hooks/useScrollSpySection.js';
+import { TEACHER_CONTENT_TOP } from '../../components/common/TeacherTopBar.js';
 
 const C = {
   bg: '#f8fafc',
@@ -37,6 +41,12 @@ const C = {
   primaryBorder: '#c7d2fe',
   danger: '#dc2626',
 };
+// The teacher app's own accent + font, applied instead of C's indigo/
+// system-ui when this page is reached from its Guides tab on mobile (see
+// themeIsTeacher below) — matches TeacherHomePage.tsx / TeacherTopBar.tsx.
+const TEACHER_ACCENT = { accent: '#7c3aed', soft: '#f5f3ff', border: '#ddd6fe' };
+const TEACHER_FONT =
+  '"Segoe UI", Roboto, Arial, sans-serif';
 const RADIUS = 14;
 const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 const NAVBAR_HEIGHT = 50;
@@ -51,6 +61,10 @@ type DrawerState =
   | { mode: 'closed' }
   | { mode: 'new'; section: string; insertAfterId: string | null }
   | { mode: 'edit'; step: SopStep };
+
+function fmtUpdated(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
 // A line only becomes a bullet if the admin actually typed one ("- …") —
 // plain multi-line text (e.g. a short paragraph split for readability)
@@ -86,6 +100,7 @@ function renderDetailLines(lines: string[]): React.ReactNode[] {
 export default function SopTemplateStepsPage() {
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { confirm: confirmDelete } = useDeleteDialog();
@@ -104,7 +119,20 @@ export default function SopTemplateStepsPage() {
   // admin, carried over when navigating in from the library's own
   // teacher-preview link (see SopLibraryPage.tsx) so the two stay in sync.
   const [searchParams] = useSearchParams();
-  const isAdmin = import.meta.env.DEV && searchParams.get('previewTeacher') === '1' ? false : realIsAdmin;
+  const previewingTeacher = import.meta.env.DEV && searchParams.get('previewTeacher') === '1';
+  // Reached via the teacher app's Guides tab (see TeacherMobileNav.tsx) —
+  // keeps the floating TeacherTopBar/TeacherMobileNav showing here too
+  // instead of the admin Navbar (App.tsx's isTeacherSurface), and this
+  // page reserves top padding to clear that bar (see pageStyle below).
+  const fromTeacherApp = searchParams.get('app') === 'teacher';
+  const isAdmin = previewingTeacher ? false : realIsAdmin;
+  // Carried through every further navigation out of this page (back to
+  // the library, into a linked guide, into "Suggest an Improvement") so
+  // the same preview/teacher-app context survives the whole visit.
+  const contextParams = new URLSearchParams();
+  if (previewingTeacher) contextParams.set('previewTeacher', '1');
+  if (fromTeacherApp) contextParams.set('app', 'teacher');
+  const contextSuffix = contextParams.size > 0 ? `?${contextParams.toString()}` : '';
   // Only one button in this row should carry marginLeft: auto — whichever
   // is first pushes the rest to the right edge. If both did, the flex row
   // would split the leftover space into two gaps and strand Suggest in the
@@ -395,14 +423,153 @@ export default function SopTemplateStepsPage() {
     }
   };
 
+  // HTML5 drag-and-drop (the grip handle above) never fires from a touch
+  // gesture — there's no mobile equivalent without a gesture polyfill —
+  // so the mobile card list gets explicit Move up/down buttons instead.
+  // Same "splice within displayed ids, persist the full reordered set"
+  // logic as onDrop, just with the target computed from direction.
+  const moveStep = async (id: string, direction: -1 | 1) => {
+    if (!templateId) return;
+    const ids = displaySteps.map(s => s.id);
+    const fromIdx = ids.indexOf(id);
+    const toIdx = fromIdx + direction;
+    if (fromIdx < 0 || toIdx < 0 || toIdx >= ids.length) return;
+    const reordered = [...ids];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    try {
+      await reorderSteps(templateId, reordered);
+      invalidate();
+    } catch (err: any) {
+      showToast(err?.message ?? 'Reorder failed', 'error');
+    }
+  };
+
+  // Reached from the teacher app's Guides tab, on the phone-sized surface
+  // where that app's own chrome is showing (see App.tsx's isTeacherSurface)
+  // — the only case where this shared page should also pick up the teacher
+  // app's violet look instead of its own admin indigo one.
+  const themeIsTeacher = fromTeacherApp && isMobile;
+  // The teacher app's "⋯" menu for this page lives inside the floating
+  // TeacherTopBar (mounted once in ProtectedLayout, outside this page's
+  // own tree) so it sits on the same row as the back chevron instead of
+  // cramped into the page content next to the title. Portaled there via
+  // this DOM anchor — see TeacherTopBar.tsx's #teacher-topbar-right-slot.
+  // Looked up post-mount (not during render) since the topbar and this
+  // page mount in the same pass; the slot isn't in the real DOM yet
+  // while this component is still rendering.
+  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (themeIsTeacher) setTopbarSlot(document.getElementById('teacher-topbar-right-slot'));
+  }, [themeIsTeacher]);
+  // Anchored to this page's own root div (rather than the portaled "⋯"
+  // button itself) — attached below on BOTH the "template not found"
+  // early return and the real page below, since which one mounts first
+  // is exactly the timing useScrolledPast's callback ref is built to
+  // not care about.
+  const { ref: pageRootRef, scrolled } = useScrolledPast(4, themeIsTeacher);
+  // Scroll-position-aware title — as the teacher scrolls through a
+  // long guide, the shared bar shows whichever section they're
+  // currently reading (e.g. "Pre-shift Preparation", then "Main
+  // Process") instead of a generic "Guide" label, same idea as iOS
+  // Contacts' sticky index letter. Synced into the `section` query
+  // param below so TeacherTopBar.tsx's teacherSopTopBar (a pure
+  // function of pathname/search, outside this page's own component
+  // tree) can read it — same pattern SopProposePage.tsx already uses
+  // for its own wizardStep.
+  const { anchorRef: sectionSpyAnchorRef, sectionRef, currentSection } = useScrollSpySection();
+  const combinedRootRef = useCallback((el: HTMLDivElement | null) => {
+    pageRootRef(el);
+    sectionSpyAnchorRef(el);
+  }, [pageRootRef, sectionSpyAnchorRef]);
+  useEffect(() => {
+    if (!themeIsTeacher) return;
+    // Guide name synced alongside the section — teacherSopTopBar reads
+    // both to build "Picking - Main Process", not just the section
+    // alone, so the teacher always knows which guide they're in, not
+    // only which part of it.
+    const guideName = template?.title ?? null;
+    const existingSection = searchParams.get('section');
+    const existingGuide = searchParams.get('guide');
+    if ((currentSection ?? null) === existingSection && guideName === existingGuide) return;
+    const params = new URLSearchParams(searchParams);
+    if (currentSection) params.set('section', currentSection);
+    else params.delete('section');
+    if (guideName) params.set('guide', guideName);
+    else params.delete('guide');
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+  }, [themeIsTeacher, currentSection, template?.title, searchParams, location.pathname, navigate]);
+  const sopAccentVars = {
+    '--sop-accent': themeIsTeacher ? TEACHER_ACCENT.accent : C.primary,
+    '--sop-accent-soft': themeIsTeacher ? TEACHER_ACCENT.soft : C.primarySoft,
+    '--sop-accent-border': themeIsTeacher ? TEACHER_ACCENT.border : C.primaryBorder,
+  } as React.CSSProperties;
+
+  // Longhand only when mobile — never mix the `padding` shorthand with a
+  // `paddingTop` override in the same style object (React can drop the
+  // longhand on re-render). Desktop keeps s.page's shorthand untouched;
+  // fromTeacherApp only matters on mobile, since desktop always shows the
+  // normal admin chrome regardless (see App.tsx's isTeacherSurface).
+  const pageStyle: React.CSSProperties = isMobile
+    ? {
+        paddingTop: fromTeacherApp ? TEACHER_CONTENT_TOP : 16,
+        paddingRight: 12,
+        paddingBottom: 16,
+        paddingLeft: 12,
+        fontFamily: themeIsTeacher ? TEACHER_FONT : 'system-ui, -apple-system, "Segoe UI", sans-serif',
+        background: C.bg, minHeight: '100vh', color: C.text,
+        ...sopAccentVars,
+      }
+    : { ...s.page, ...sopAccentVars };
+
+  // outerWrapStyle wraps the WHOLE document — header AND Steps
+  // together — for admin's "one continuous document" layout (see the
+  // comment above the JSX below); it must stay a no-op for teacher
+  // mode, or Steps (and every individual step card) ends up nested
+  // inside the same visible card as the header. headerCardStyle's own
+  // div is the one that actually closes right after Purpose/video,
+  // before Steps starts — that's the one that becomes the identity
+  // card: icon/title, action buttons, tags, and Purpose all read as
+  // one card for the guide, not several pieces floating separately on
+  // the page background. A single neutral card holding one highlighted
+  // Purpose sub-section isn't "nesting cards" in the problem sense —
+  // it's a card with a callout inside it, a normal pattern.
+  const outerWrapStyle: React.CSSProperties = themeIsTeacher ? {} : { ...s.card, ...(isMobile ? sMobile.card : null) };
+  // Teacher mode's whole identity card carries the same soft gradient-
+  // tint background already used for "Active Quests"
+  // (TeacherMyCareerPage.tsx) — a light wash of the accent fading to
+  // white — so the card itself, not just a callout nested inside it,
+  // reads as the established teacher-app pattern. Admin/plain-mobile
+  // keeps its plain white card.
+  const headerCardStyle: React.CSSProperties = themeIsTeacher
+    ? {
+        ...s.card, ...(isMobile ? sMobile.card : null),
+        background: 'linear-gradient(180deg, var(--sop-accent-soft) 0%, #ffffff 70%)',
+        border: '1px solid var(--sop-accent-border)',
+        marginBottom: 16,
+      }
+    : {};
+  // Purpose no longer carries its own tinted box — the card around it
+  // already is one — just a thin divider to separate it from the tags
+  // above, same reasoning as before: a second colored box nested in an
+  // already-tinted card would compete with it, not complement it.
+  const goalCalloutStyle: React.CSSProperties = themeIsTeacher
+    ? { paddingTop: 14, borderTop: '1px solid var(--sop-accent-border)' }
+    : s.goalCallout;
+  // Never carries its own card styling in either mode now — kept as its
+  // own variable (rather than removing the wrapping div) so a future
+  // admin-only treatment can still be added here without touching the
+  // teacher branch above.
+  const stepsCardStyle: React.CSSProperties = {};
+
   if (!template) {
     return (
-      <div style={s.page}>
+      <div ref={pageRootRef} style={pageStyle}>
         <div style={s.inner}>
           <div style={{ ...s.card, textAlign: 'center', padding: '64px 32px' }}>
             <FontAwesomeIcon icon={faCircleExclamation} style={{ fontSize: 28, color: C.mutedSoft, marginBottom: 14 }} />
             <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700, color: C.text }}>How-To Guide not found</h3>
-            <button onClick={() => navigate('/operations/sops')} style={s.primaryBtnGhost}>
+            <button onClick={() => navigate(`/operations/sops${contextSuffix}`)} style={s.primaryBtnGhost}>
               <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6 }} />
               Back to How-To Guides
             </button>
@@ -419,20 +586,30 @@ export default function SopTemplateStepsPage() {
   let lastSection: string | null = null;
 
   return (
-    <div style={{ ...s.page, ...(isMobile ? sMobile.page : null) }}>
+    <div ref={combinedRootRef} style={pageStyle}>
       <style>{`
-        .sop-step-row:hover { background: ${C.divider} !important; }
-        .sop-step-row:hover .sop-row-action { opacity: 1 !important; }
+        .sop-pill-scroll::-webkit-scrollbar { display: none; }
         .sop-row-action:focus-visible { opacity: 1 !important; }
-        .sop-grip:hover { color: ${C.primary} !important; }
         .sop-grip:active { cursor: grabbing !important; }
         .sop-detail-cell > :last-child { margin-bottom: 0 !important; }
         .sop-row-action:last-child { margin-right: 0 !important; }
-        .sop-cat-item:hover { background: ${C.divider} !important; }
-        .sop-cat-add:hover { border-color: ${C.primary} !important; color: ${C.primary} !important; }
-        .sop-download-btn:hover { border-color: ${C.primaryBorder} !important; background: ${C.primarySoft} !important; color: ${C.primary} !important; }
-        .sop-more-menu-item:hover { background: ${C.divider} !important; }
-        .sop-more-menu-item-danger:hover { background: #fef2f2 !important; }
+        /* hover-only guard — without it, tapping a row/button on a
+           touchscreen triggers :hover with no mouse ever "leaving" to
+           clear it, so whatever was last tapped stays stuck highlighted
+           until something else is tapped. The desktop-only table row's
+           .sop-row-action reveal is unaffected on mobile either way —
+           the mobile step-card layout renders its own action buttons
+           unconditionally, never gated behind row hover. */
+        @media (hover: hover) {
+          .sop-step-row:hover { background: ${C.divider} !important; }
+          .sop-step-row:hover .sop-row-action { opacity: 1 !important; }
+          .sop-grip:hover { color: ${'var(--sop-accent)'} !important; }
+          .sop-cat-item:hover { background: ${C.divider} !important; }
+          .sop-cat-add:hover { border-color: ${'var(--sop-accent)'} !important; color: ${'var(--sop-accent)'} !important; }
+          .sop-download-btn:hover { border-color: ${'var(--sop-accent-border)'} !important; background: ${'var(--sop-accent-soft)'} !important; color: ${'var(--sop-accent)'} !important; }
+          .sop-more-menu-item:hover { background: ${C.divider} !important; }
+          .sop-more-menu-item-danger:hover { background: #fef2f2 !important; }
+        }
       `}</style>
       {/* The panel is a floating overlay, not a layout push — it never
           resizes or shifts this content. On a wide viewport it simply has
@@ -441,16 +618,25 @@ export default function SopTemplateStepsPage() {
           itself never reflows, so nothing here needs to react to whether
           the panel is open. */}
       <div style={s.inner}>
-        <button onClick={() => navigate('/operations/sops')} style={s.backBtn}>
-          <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
-          How-To Guides
-        </button>
+        {/* Reached from the teacher app, the floating TeacherTopBar
+            already shows a back chevron to the guides list — this
+            in-page link would just repeat it right underneath. */}
+        {!themeIsTeacher && (
+          <button onClick={() => navigate(`/operations/sops${contextSuffix}`)} style={s.backBtn}>
+            <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
+            How-To Guides
+          </button>
+        )}
 
         {/* Title, purpose, and steps read as one continuous document — not
             three separate floating pieces — with a divider marking where
-            the free-text header ends and the structured step list begins. */}
-        <div style={{ ...s.card, ...(isMobile ? sMobile.card : null) }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, minHeight: 36, flexWrap: isMobile ? 'wrap' as const : 'nowrap' as const }}>
+            the free-text header ends and the structured step list begins.
+            (In the teacher app, headerCardStyle becomes its own identity
+            card instead — icon/title through Purpose — and Steps sits
+            below it on the page background, uncarded.) */}
+        <div style={outerWrapStyle}>
+        <div style={headerCardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: themeIsTeacher ? 14 : 18, minHeight: 36, flexWrap: isMobile ? 'wrap' as const : 'nowrap' as const }}>
           {canEdit ? (
             <div style={{ position: 'relative' }} ref={iconMenuRef}>
               <button
@@ -472,9 +658,9 @@ export default function SopTemplateStepsPage() {
                         onClick={() => pickIcon(name)}
                         style={{
                           ...s.iconMenuItem,
-                          background: active ? C.primarySoft : '#fff',
-                          border: `2px solid ${active ? C.primary : C.cardBorder}`,
-                          color: active ? C.primary : C.muted,
+                          background: active ? 'var(--sop-accent-soft)' : '#fff',
+                          border: `2px solid ${active ? 'var(--sop-accent)' : C.cardBorder}`,
+                          color: active ? 'var(--sop-accent)' : C.muted,
                         }}
                       >
                         <FontAwesomeIcon icon={resolveSopIcon(name)} />
@@ -506,15 +692,21 @@ export default function SopTemplateStepsPage() {
           ) : (
             <>
               <h1 style={s.heading}>{template.title}</h1>
-              <span style={s.versionBadge} title={`Current version — bumps only when a proposed revision is approved`}>
-                v{template.currentVersion}
-              </span>
+              {/* On teacher mobile this moves to a "Last updated" line at
+                  the end of the guide instead — see fmtUpdated below —
+                  so the version number reads as dated context after
+                  reading, not a badge competing with the title. */}
+              {!themeIsTeacher && (
+                <span style={s.versionBadge} title={`Current version — bumps only when a proposed revision is approved`}>
+                  v{template.currentVersion}
+                </span>
+              )}
               {canEdit && (
                 <button onClick={startEditTitle} style={s.editIconBtn} aria-label="Edit title" title="Edit title">
                   <FontAwesomeIcon icon={faPen} style={{ fontSize: 11 }} />
                 </button>
               )}
-              {isAdmin && (
+              {!themeIsTeacher && isAdmin && (
                 <div style={{ position: 'relative' }} ref={moreMenuRef}>
                   <button
                     type="button"
@@ -537,6 +729,15 @@ export default function SopTemplateStepsPage() {
                       </button>
                       <button
                         type="button"
+                        className="sop-more-menu-item"
+                        onClick={() => { setMoreMenuOpen(false); navigate(`/operations/sops/propose?duplicateFrom=${templateId}${contextSuffix ? '&' + contextSuffix.slice(1) : ''}`); }}
+                        style={s.moreMenuItem}
+                      >
+                        <FontAwesomeIcon icon={faCopy} style={{ fontSize: 11, marginRight: 8 }} />
+                        Duplicate this guide
+                      </button>
+                      <button
+                        type="button"
                         className="sop-more-menu-item-danger"
                         onClick={() => { setMoreMenuOpen(false); onDeleteTemplate(); }}
                         style={s.moreMenuDeleteItem}
@@ -550,37 +751,154 @@ export default function SopTemplateStepsPage() {
               )}
             </>
           )}
-          {showSuggestButton && (
-            <button
-              onClick={() => navigate(`/operations/sops/${templateId}/propose`)}
-              style={{
-                ...s.secondaryBtn, marginLeft: 'auto', color: C.primary, borderColor: C.primaryBorder,
-                ...(isMobile ? { width: '100%', justifyContent: 'center' } : null),
-              }}
-            >
-              <FontAwesomeIcon icon={faPen} style={{ marginRight: 6, fontSize: 11 }} />
-              Suggest an Improvement
-            </button>
+          {/* Teacher mobile: one "⋯" menu holds every secondary action
+              (Download, Suggest an edit, and — for a supervisor/
+              principal with real modify rights — Edit/Delete too).
+              Portaled into the floating TeacherTopBar's own right-side
+              slot so it sits on the same row as the back chevron,
+              instead of cramped into the page content next to the
+              title. See topbarSlot above. */}
+          {themeIsTeacher && topbarSlot && createPortal(
+            <div style={{ position: 'relative' }} ref={moreMenuRef}>
+              <button
+                type="button"
+                onClick={() => setMoreMenuOpen(o => !o)}
+                // A round frosted-glass circle here (matches the bottom
+                // nav capsule's own liquid-glass look), only once
+                // `scrolled` — at rest, right under the still-visible
+                // title row, a glass chip would be a redundant
+                // background. s.moreBtn itself stays a bordered white
+                // square for the admin-desktop rendering above, which
+                // shares the same style object. Color/size match
+                // TeacherTopBar.tsx's back chevron (#334155) — they sit
+                // in the same row and should read as a matched pair.
+                style={{
+                  ...s.moreBtn,
+                  width: 30, height: 30, borderRadius: '50%',
+                  // Transparent 1px border, not `none` — see
+                  // SopLibraryPage.tsx's moreBtn comment: transitioning
+                  // straight from no-border into a real bordered ring
+                  // flashed a default black edge for a frame first.
+                  // border-box keeps the circle at exactly 30x30 either way.
+                  border: '1px solid transparent', boxSizing: 'border-box' as const, background: 'transparent',
+                  color: '#334155', fontSize: 16,
+                  transition: 'background 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
+                  ...(scrolled ? {
+                    border: '1px solid rgba(255,255,255,0.32)',
+                    background: 'rgba(255,255,255,0.22)',
+                    backdropFilter: 'blur(22px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+                    boxShadow: '0 2px 8px rgba(15,23,42,0.08)',
+                  } : null),
+                }}
+                aria-label="More actions"
+              >
+                <FontAwesomeIcon icon={faEllipsisVertical} />
+              </button>
+              {moreMenuOpen && (
+                <div style={s.moreMenu}>
+                  <button
+                    type="button"
+                    className="sop-more-menu-item"
+                    onClick={() => { setMoreMenuOpen(false); downloadSopPdf(template, steps); }}
+                    style={s.moreMenuItem}
+                  >
+                    <FontAwesomeIcon icon={faDownload} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
+                    Download PDF
+                  </button>
+                  {showSuggestButton && (
+                    <button
+                      type="button"
+                      className="sop-more-menu-item"
+                      onClick={() => { setMoreMenuOpen(false); navigate(`/operations/sops/${templateId}/propose${contextSuffix}`); }}
+                      style={s.moreMenuItem}
+                    >
+                      <FontAwesomeIcon icon={faPenToSquare} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
+                      Suggest an edit
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <>
+                      <button
+                        type="button"
+                        className="sop-more-menu-item"
+                        onClick={() => { setMoreMenuOpen(false); setEditMode(m => !m); }}
+                        style={s.moreMenuItem}
+                      >
+                        <FontAwesomeIcon icon={faPen} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
+                        {editMode ? 'Done Editing' : 'Edit'}
+                      </button>
+                      <button
+                        type="button"
+                        className="sop-more-menu-item"
+                        onClick={() => { setMoreMenuOpen(false); navigate(`/operations/sops/propose?duplicateFrom=${templateId}${contextSuffix ? '&' + contextSuffix.slice(1) : ''}`); }}
+                        style={s.moreMenuItem}
+                      >
+                        <FontAwesomeIcon icon={faCopy} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
+                        Duplicate this guide
+                      </button>
+                      <button
+                        type="button"
+                        className="sop-more-menu-item-danger"
+                        onClick={() => { setMoreMenuOpen(false); onDeleteTemplate(); }}
+                        style={s.moreMenuDeleteItem}
+                      >
+                        <FontAwesomeIcon icon={faTrash} style={{ fontSize: 11, marginRight: 8 }} />
+                        Delete
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>,
+            topbarSlot,
           )}
-          <button
-            className="sop-download-btn"
-            onClick={() => downloadSopPdf(template, steps)}
-            style={{
-              ...s.secondaryBtn, ...(!showSuggestButton && isAdmin ? { marginLeft: 'auto' } : {}),
-              ...(isMobile ? { width: '100%', justifyContent: 'center' } : null),
-            }}
-          >
-            <FontAwesomeIcon icon={faDownload} style={{ marginRight: 6 }} />
-            Download PDF
-          </button>
+          {!themeIsTeacher && (
+            <>
+              {showSuggestButton && (
+                <button
+                  onClick={() => navigate(`/operations/sops/${templateId}/propose${contextSuffix}`)}
+                  style={{
+                    ...s.secondaryBtn, marginLeft: 'auto', color: 'var(--sop-accent)', borderColor: 'var(--sop-accent-border)',
+                    ...(isMobile ? { width: '100%', justifyContent: 'center' } : null),
+                  }}
+                >
+                  <FontAwesomeIcon icon={faPenToSquare} style={{ marginRight: 6, fontSize: 11 }} />
+                  Suggest an Improvement
+                </button>
+              )}
+              <button
+                className="sop-download-btn"
+                onClick={() => downloadSopPdf(template, steps)}
+                style={{
+                  ...s.secondaryBtn, ...(!showSuggestButton && isAdmin ? { marginLeft: 'auto' } : {}),
+                  ...(isMobile ? { width: '100%', justifyContent: 'center' } : null),
+                }}
+              >
+                <FontAwesomeIcon icon={faDownload} style={{ marginRight: 6 }} />
+                Download PDF
+              </button>
+            </>
+          )}
         </div>
 
-        <div style={s.categorySection} ref={categoryMenuRef}>
-          <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap' as const, alignItems: 'center', gap: 7 }}>
+        <div style={{ ...s.categorySection, ...(themeIsTeacher ? { marginBottom: 14 } : null) }} ref={categoryMenuRef}>
+          <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap' as const, alignItems: 'center', gap: themeIsTeacher ? 12 : 7 }}>
             {template.categories?.map(c => (
-              <span key={c.id} style={{ ...s.categoryChip, background: `${c.color}1a`, color: c.color, border: `1px solid ${c.color}40` }}>
-                {c.name}
-              </span>
+              // Plain color-dot + text on teacher mobile — filled pills
+              // right under the title compete with it for attention;
+              // this reads as a quiet label instead of a second button
+              // row. Admin/desktop keeps the original chip look.
+              themeIsTeacher ? (
+                <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: c.color }}>
+                  <span style={{ ...s.categoryDot, background: c.color }} />
+                  {c.name}
+                </span>
+              ) : (
+                <span key={c.id} style={{ ...s.categoryChip, background: `${c.color}1a`, color: c.color, border: `1px solid ${c.color}40` }}>
+                  {c.name}
+                </span>
+              )
             ))}
             {canEdit && (
               <button
@@ -628,7 +946,7 @@ export default function SopTemplateStepsPage() {
           </div>
         </div>
 
-        <div style={s.goalCallout}>
+        <div style={goalCalloutStyle}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={s.goalLabel}>
@@ -673,6 +991,12 @@ export default function SopTemplateStepsPage() {
           )}
         </div>
 
+        {/* On teacher mobile, a bare "No video" line is a whole row spent
+            saying nothing — skip it there unless there's an actual video,
+            an edit in progress, or the affordance to add one. Admin/plain
+            mobile keeps it, matching this page's own always-show
+            convention for every other field. */}
+        {(!themeIsTeacher || template.videoUrl || editingVideo || canEdit) && (
         <div style={s.videoRow}>
           <FontAwesomeIcon icon={faVideo} style={{ fontSize: 11, color: C.mutedSoft, flexShrink: 0 }} />
           {editingVideo ? (
@@ -710,9 +1034,12 @@ export default function SopTemplateStepsPage() {
             </button>
           )}
         </div>
+        )}
+        </div>
 
-        <div style={s.docDivider} />
+        {!themeIsTeacher && <div style={s.docDivider} />}
 
+        <div style={stepsCardStyle}>
           <div style={s.cardHeader}>
             <div>
               <h3 style={s.cardTitle}>Steps</h3>
@@ -733,14 +1060,18 @@ export default function SopTemplateStepsPage() {
           </div>
 
           {steps.length > 0 && (
-            <div style={s.pillRow}>
-              <button
-                onClick={() => setSectionFilter('ALL')}
-                style={{ ...s.pill, ...(sectionFilter === 'ALL' ? s.pillActive : {}) }}
-              >
-                All sections
-                <span style={{ ...s.pillCount, ...(sectionFilter === 'ALL' ? s.pillCountActive : {}) }}>{steps.length}</span>
-              </button>
+            <div
+              className={isMobile ? 'sop-pill-scroll' : undefined}
+              style={{
+                ...s.pillRow,
+                ...(isMobile ? { flexWrap: 'nowrap', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' as const, msOverflowStyle: 'none' as const } : null),
+              }}
+            >
+              {/* "All sections" sits last, after the real sections — a
+                  teacher filtering by section reaches for a specific one
+                  (Pre-shift Prep, Main Process…) far more often than the
+                  reset-to-everything option, so that shouldn't be the
+                  first (and, unscrolled, most prominent) pill. */}
               {sections.map(sec => {
                 const active = sectionFilter === sec;
                 const accent = sectionAccent(sec);
@@ -758,6 +1089,13 @@ export default function SopTemplateStepsPage() {
                   </button>
                 );
               })}
+              <button
+                onClick={() => setSectionFilter('ALL')}
+                style={{ ...s.pill, ...(sectionFilter === 'ALL' ? s.pillActive : {}) }}
+              >
+                All sections
+                <span style={{ ...s.pillCount, ...(sectionFilter === 'ALL' ? s.pillCountActive : {}) }}>{steps.length}</span>
+              </button>
             </div>
           )}
 
@@ -776,7 +1114,7 @@ export default function SopTemplateStepsPage() {
               )}
             </div>
           ) : (() => {
-            const rows = displaySteps.map(st => {
+            const rows = displaySteps.map((st, i) => {
               const isDrag = dragId === st.id;
               const isDrop = dropId === st.id && dragId !== st.id;
               const showHeader = sectionFilter === 'ALL' && st.section !== lastSection;
@@ -791,7 +1129,9 @@ export default function SopTemplateStepsPage() {
               const linkedTemplate = st.linkedTemplateId
                 ? allTemplates.find(t => t.id === st.linkedTemplateId)
                 : undefined;
-              return { st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate };
+              const isFirst = i === 0;
+              const isLast = i === displaySteps.length - 1;
+              return { st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate, isFirst, isLast };
             });
 
             // A table with a "read the detail column" job doesn't survive a
@@ -802,31 +1142,74 @@ export default function SopTemplateStepsPage() {
             // top-to-bottom instead, at full width, no sideways scrolling.
             return isMobile ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {rows.map(({ st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate }) => (
+                {rows.map(({ st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate, isFirst, isLast }) => (
                   <React.Fragment key={st.id}>
                     {showHeader && (
-                      <div style={{ ...sMobile.sectionHeader, borderLeftColor: accent }}>
-                        <span style={{ color: accent }}>{st.section}</span>
-                        <span style={s.sectionGroupCount}>{sectionCounts.get(st.section) ?? 0}</span>
+                      <div
+                        ref={themeIsTeacher ? sectionRef(st.section) : undefined}
+                        style={{
+                          ...sMobile.sectionHeader,
+                          // More generous gap before a section title than
+                          // between a title and its own first step — matches
+                          // how Career separates "Skill Badges"/"Active
+                          // Quests" from whatever's above them.
+                          ...(themeIsTeacher ? { paddingTop: 28 } : null),
+                        }}>
+                        {themeIsTeacher ? (
+                          // Same title treatment as the Career tab's
+                          // "Skill Badges"/"Active Quests" — plain bold
+                          // heading, no small-caps/colour coding.
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                            <h3 style={{
+                              margin: 0, fontSize: 17, fontWeight: 800, color: C.text,
+                              letterSpacing: '-0.018em', lineHeight: 1.2,
+                              textTransform: 'none', // override sMobile.sectionHeader's inherited uppercase
+                            }}>
+                              {st.section}
+                            </h3>
+                            <span style={s.sectionGroupCount}>{sectionCounts.get(st.section) ?? 0}</span>
+                          </div>
+                        ) : (
+                          // Accent bar sized to the text line itself (via
+                          // this inner row), not the outer div's full
+                          // padded height — a border-left on the padded
+                          // container stretched taller than the label.
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, borderLeft: `3px solid ${accent}`, paddingLeft: 10 }}>
+                            <span style={{ color: accent }}>{st.section}</span>
+                            <span style={s.sectionGroupCount}>{sectionCounts.get(st.section) ?? 0}</span>
+                          </div>
+                        )}
                       </div>
                     )}
-                    <div
-                      style={{ ...sMobile.stepCard, opacity: isDrag ? 0.45 : 1, background: isDrop ? C.primarySoft : '#fff' }}
-                      onDragOver={onDragOver(st.id)}
-                      onDrop={onDrop(st.id)}
-                    >
+                    <div style={{ ...sMobile.stepCard, background: '#fff' }}>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        {/* HTML5 drag (the desktop table's grip handle)
+                            never fires from a touch gesture, so mobile
+                            gets explicit Move up/down buttons instead —
+                            stacked in the same slot the grip occupied. */}
                         {canEdit && (
-                          <span
-                            className="sop-grip"
-                            draggable
-                            onDragStart={onDragStart(st.id)}
-                            onDragEnd={onDragEnd}
-                            style={{ ...s.dragHandle, color: C.mutedSoft }}
-                            title="Drag to reorder"
-                          >
-                            <FontAwesomeIcon icon={faGripVertical} />
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 1 }}>
+                            <button
+                              type="button"
+                              onClick={() => moveStep(st.id, -1)}
+                              disabled={isFirst}
+                              aria-label="Move step up"
+                              title="Move step up"
+                              style={{ ...s.iconBtn, width: 20, height: 16, fontSize: 9, opacity: isFirst ? 0.35 : 1, cursor: isFirst ? 'default' : 'pointer' }}
+                            >
+                              <FontAwesomeIcon icon={faArrowUp} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveStep(st.id, 1)}
+                              disabled={isLast}
+                              aria-label="Move step down"
+                              title="Move step down"
+                              style={{ ...s.iconBtn, width: 20, height: 16, fontSize: 9, opacity: isLast ? 0.35 : 1, cursor: isLast ? 'default' : 'pointer' }}
+                            >
+                              <FontAwesomeIcon icon={faArrowDown} />
+                            </button>
+                          </div>
                         )}
                         <span style={{ ...s.stepNumber, background: `${accent}1c`, color: accent, marginTop: 1 }}>{stepNumber}</span>
                         <span style={{ flex: 1, fontWeight: 600, color: C.text }}>{st.title}</span>
@@ -835,7 +1218,7 @@ export default function SopTemplateStepsPage() {
                         <div style={sMobile.stepCardDetail}>
                           {renderDetailLines(detailLines)}
                           {linkedTemplate && (
-                            <Link to={`/operations/sops/${linkedTemplate.id}`} style={s.linkedChip}>
+                            <Link to={`/operations/sops/${linkedTemplate.id}${contextSuffix}`} style={s.linkedChip}>
                               <FontAwesomeIcon icon={faLink} style={{ fontSize: 9, marginRight: 5 }} />
                               See: {linkedTemplate.title}
                             </Link>
@@ -905,7 +1288,7 @@ export default function SopTemplateStepsPage() {
                           onDrop={onDrop(st.id)}
                           style={{
                             opacity: isDrag ? 0.45 : 1,
-                            background: isDrop ? C.primarySoft : undefined,
+                            background: isDrop ? 'var(--sop-accent-soft)' : undefined,
                           }}
                         >
                           <td style={s.tdStep}>
@@ -929,7 +1312,7 @@ export default function SopTemplateStepsPage() {
                           <td className="sop-detail-cell" style={s.tdDetail}>
                             {renderDetailLines(detailLines)}
                             {linkedTemplate && (
-                              <Link to={`/operations/sops/${linkedTemplate.id}`} style={s.linkedChip}>
+                              <Link to={`/operations/sops/${linkedTemplate.id}${contextSuffix}`} style={s.linkedChip}>
                                 <FontAwesomeIcon icon={faLink} style={{ fontSize: 9, marginRight: 5 }} />
                                 See: {linkedTemplate.title}
                               </Link>
@@ -974,6 +1357,14 @@ export default function SopTemplateStepsPage() {
               </div>
             );
           })()}
+          {/* Version now reads as dated context here instead of a bare
+              "v1" badge competing with the title up top. */}
+          {themeIsTeacher && (
+            <div style={{ marginTop: 18, fontSize: 11.5, color: C.mutedSoft, textAlign: 'center' }}>
+              Last updated {fmtUpdated(template.updatedAt)} · v{template.currentVersion}
+            </div>
+          )}
+        </div>
         </div>
       </div>
 
@@ -1340,12 +1731,12 @@ const s: Record<string, React.CSSProperties> = {
   // <input> doesn't visibly reflow the page.
   headingInput: {
     margin: 0, fontSize: 26, fontWeight: 700, color: C.text, letterSpacing: '-0.02em',
-    border: `1px solid ${C.primaryBorder}`, borderRadius: 8, padding: '2px 8px',
+    border: `1px solid ${'var(--sop-accent-border)'}`, borderRadius: 8, padding: '2px 8px',
     outline: 'none', fontFamily: 'inherit', background: '#fff', flex: 1, maxWidth: 480,
   },
   iconPickBtn: {
     width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.cardBorder}`,
-    background: C.primarySoft, color: C.primary, cursor: 'pointer', display: 'inline-flex',
+    background: 'var(--sop-accent-soft)', color: 'var(--sop-accent)', cursor: 'pointer', display: 'inline-flex',
     alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15,
   },
   iconMenu: {
@@ -1393,10 +1784,10 @@ const s: Record<string, React.CSSProperties> = {
   categoryManageLink: {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
     padding: '9px 8px', borderTop: `1px solid ${C.divider}`, background: C.bg,
-    fontSize: 12, fontWeight: 600, color: C.primary, textDecoration: 'none',
+    fontSize: 12, fontWeight: 600, color: 'var(--sop-accent)', textDecoration: 'none',
   },
   goalCallout: {
-    background: C.primarySoft, borderLeft: `4px solid ${C.primary}`, borderRadius: 10,
+    background: 'var(--sop-accent-soft)', borderLeft: `4px solid ${'var(--sop-accent)'}`, borderRadius: 10,
     padding: '12px 16px',
   },
   docDivider: { height: 1, background: C.divider, margin: '16px 0' },
@@ -1405,26 +1796,26 @@ const s: Record<string, React.CSSProperties> = {
   },
   videoInput: {
     flex: 1, minWidth: 0, padding: '6px 10px', fontSize: 13,
-    border: `1px solid ${C.primaryBorder}`, borderRadius: 8, outline: 'none',
+    border: `1px solid ${'var(--sop-accent-border)'}`, borderRadius: 8, outline: 'none',
     color: C.text, boxSizing: 'border-box' as const, fontFamily: 'inherit', background: '#fff',
   },
   videoLink: {
     display: 'inline-flex', alignItems: 'center', fontSize: 12.5, fontWeight: 600,
-    color: C.primary, textDecoration: 'none',
+    color: 'var(--sop-accent)', textDecoration: 'none',
   },
   goalLabel: {
-    display: 'flex', alignItems: 'center', fontSize: 10.5, fontWeight: 700, color: C.primary,
+    display: 'flex', alignItems: 'center', fontSize: 10.5, fontWeight: 700, color: 'var(--sop-accent)',
     textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 4,
   },
   goalText: { margin: 0, fontSize: 13.5, color: C.textSub, lineHeight: 1.6 },
   goalTextarea: {
     width: '100%', minHeight: 80, padding: '8px 10px', fontSize: 13.5,
-    border: `1px solid ${C.primaryBorder}`, borderRadius: 8, outline: 'none',
+    border: `1px solid ${'var(--sop-accent-border)'}`, borderRadius: 8, outline: 'none',
     color: C.text, boxSizing: 'border-box' as const, fontFamily: 'inherit',
     lineHeight: 1.6, resize: 'vertical' as const, background: '#fff',
   },
   goalSaveBtn: {
-    padding: '5px 12px', borderRadius: 7, border: 'none', background: C.primary,
+    padding: '5px 12px', borderRadius: 7, border: 'none', background: 'var(--sop-accent)',
     color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer',
   },
   goalCancelBtn: {
@@ -1443,11 +1834,11 @@ const s: Record<string, React.CSSProperties> = {
   cardSub: { fontSize: 11, color: C.mutedSoft, marginTop: 2 },
   primaryBtn: {
     padding: '8px 16px', borderRadius: 10, border: 'none',
-    background: C.primary, color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer',
+    background: 'var(--sop-accent)', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer',
   },
   primaryBtnGhost: {
-    padding: '8px 16px', borderRadius: 10, border: `1px dashed ${C.primaryBorder}`,
-    background: C.primarySoft, color: C.primary, fontWeight: 600, fontSize: 13, cursor: 'pointer',
+    padding: '8px 16px', borderRadius: 10, border: `1px dashed ${'var(--sop-accent-border)'}`,
+    background: 'var(--sop-accent-soft)', color: 'var(--sop-accent)', fontWeight: 600, fontSize: 13, cursor: 'pointer',
   },
   // Solid border, not dashed — dashed reads as "add something new" (the
   // empty-state CTAs above), which is the wrong signal for a real,
@@ -1490,8 +1881,9 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 12.5, fontWeight: 600, borderRadius: 20,
     borderWidth: 1, borderStyle: 'solid' as const, borderColor: C.cardBorder,
     background: '#fff', color: C.textSub, cursor: 'pointer', whiteSpace: 'nowrap' as const,
+    flexShrink: 0,
   },
-  pillActive: { borderColor: C.primary, background: C.primary, color: '#fff' },
+  pillActive: { borderColor: 'var(--sop-accent)', background: 'var(--sop-accent)', color: '#fff' },
   pillCount: {
     padding: '1px 6px', borderRadius: 999, fontSize: 10.5, fontWeight: 700,
     background: C.divider, color: C.mutedSoft,
@@ -1538,8 +1930,8 @@ const s: Record<string, React.CSSProperties> = {
   detailPara: { margin: '0 0 4px' },
   linkedChip: {
     display: 'inline-flex', alignItems: 'center', marginTop: 4, padding: '3px 9px',
-    borderRadius: 999, fontSize: 11, fontWeight: 600, background: C.primarySoft,
-    color: C.primary, textDecoration: 'none', border: `1px solid ${C.primaryBorder}`,
+    borderRadius: 999, fontSize: 11, fontWeight: 600, background: 'var(--sop-accent-soft)',
+    color: 'var(--sop-accent)', textDecoration: 'none', border: `1px solid ${'var(--sop-accent-border)'}`,
   },
   // userSelect:none matters here — a draggable element that contains/sits
   // near text otherwise shows the browser's text-selection (I-beam) cursor
@@ -1571,7 +1963,7 @@ const s: Record<string, React.CSSProperties> = {
   resumeTab: {
     position: 'fixed' as const, top: NAVBAR_HEIGHT + 24, right: 0, zIndex: 20,
     width: 40, height: 40, border: 'none', borderRadius: '10px 0 0 10px',
-    background: C.primary, color: '#fff', cursor: 'pointer',
+    background: 'var(--sop-accent)', color: '#fff', cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     boxShadow: '0 4px 16px rgba(15,23,42,0.18)',
   },
@@ -1581,7 +1973,11 @@ const drawerS: Record<string, React.CSSProperties> = {
   panel: {
     position: 'fixed', top: NAVBAR_HEIGHT, right: 0, bottom: 0, width: 440,
     background: '#fff', borderLeft: `1px solid ${C.cardBorder}`,
-    boxShadow: '-8px 0 28px rgba(15,23,42,0.08)', zIndex: 30,
+    boxShadow: '-8px 0 28px rgba(15,23,42,0.08)',
+    // Above TeacherMobileNav's floating capsule (zIndex 50) — this panel
+    // reaches all the way to the bottom of the screen, and without this
+    // the nav sat on top of its own footer buttons in teacher mode.
+    zIndex: 56,
     display: 'flex', flexDirection: 'column',
     transition: 'transform 200ms ease',
   },
@@ -1591,7 +1987,7 @@ const drawerS: Record<string, React.CSSProperties> = {
   },
   title: { margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: C.text },
   context: {
-    display: 'flex', alignItems: 'center', fontSize: 11.5, color: C.primary, fontWeight: 600,
+    display: 'flex', alignItems: 'center', fontSize: 11.5, color: 'var(--sop-accent)', fontWeight: 600,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
   },
   closeBtn: {
@@ -1607,10 +2003,10 @@ const drawerS: Record<string, React.CSSProperties> = {
     padding: '6px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600,
     border: `1px solid ${C.cardBorder}`, background: '#fff', color: C.textSub, cursor: 'pointer',
   },
-  chipActive: { borderColor: C.primary, background: C.primary, color: '#fff' },
+  chipActive: { borderColor: 'var(--sop-accent)', background: 'var(--sop-accent)', color: '#fff' },
   manageLink: {
     display: 'inline-flex', alignItems: 'center', marginTop: 8,
-    fontSize: 11.5, fontWeight: 600, color: C.primary, textDecoration: 'none',
+    fontSize: 11.5, fontWeight: 600, color: 'var(--sop-accent)', textDecoration: 'none',
   },
   input: {
     width: '100%', padding: '9px 11px', fontSize: 13,
@@ -1631,14 +2027,14 @@ const drawerS: Record<string, React.CSSProperties> = {
     padding: '4px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 600,
     border: `1px solid ${C.cardBorder}`, background: '#fff', color: C.textSub, cursor: 'pointer',
   },
-  filterChipActive: { borderColor: C.primary, background: C.primary, color: '#fff' },
+  filterChipActive: { borderColor: 'var(--sop-accent)', background: 'var(--sop-accent)', color: '#fff' },
   linkMenuList: { maxHeight: 220, overflowY: 'auto' as const, padding: 6 },
   linkMenuItem: {
     display: 'block', width: '100%', padding: '8px 10px', marginTop: 2,
     border: 'none', borderRadius: 7, background: 'transparent', cursor: 'pointer',
     fontSize: 13, color: C.text, textAlign: 'left' as const,
   },
-  linkMenuItemActive: { background: C.primarySoft, color: C.primary, fontWeight: 700 },
+  linkMenuItemActive: { background: 'var(--sop-accent-soft)', color: 'var(--sop-accent)', fontWeight: 700 },
   linkMenuChip: {
     display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
     borderRadius: 999, fontSize: 10.5, fontWeight: 700,
@@ -1653,7 +2049,7 @@ const drawerS: Record<string, React.CSSProperties> = {
   },
   saveBtn: {
     padding: '10px 18px', borderRadius: 10, border: 'none',
-    background: C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    background: 'var(--sop-accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
   },
 };
 
@@ -1663,12 +2059,12 @@ const drawerS: Record<string, React.CSSProperties> = {
 // minWidth above) rather than becoming a card list, so the document still
 // reads as the same table a trainer would recognise from a printed SOP.
 const sMobile: Record<string, React.CSSProperties> = {
-  page: { padding: '16px 12px' },
+  // page's mobile padding is computed inline above (pageStyle) since it
+  // depends on fromTeacherApp — this object no longer carries it.
   card: { padding: '16px 14px' },
   sectionHeader: {
-    padding: '14px 4px 4px', fontSize: 12.5, fontWeight: 700,
+    padding: '16px 4px 4px', fontSize: 12.5, fontWeight: 700,
     textTransform: 'uppercase' as const, letterSpacing: '0.05em',
-    borderLeft: '3px solid transparent',
   },
   stepCard: {
     border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: '12px 12px 10px',

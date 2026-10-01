@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faTriangleExclamation, faLock, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faTriangleExclamation, faLock, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeacherCareer, MissionCategory } from '../api/career-missions.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 import {
   BadgeDetailSheet,
   BadgeView,
@@ -43,7 +44,6 @@ const C = {
 
 export default function TeacherSkillBadgesPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { isMobile } = useIsMobile();
   const { data, isLoading, isError } = useQuery({
     queryKey: ['teacher-career', id],
@@ -69,7 +69,6 @@ export default function TeacherSkillBadgesPage() {
   return (
     <div style={s.page}>
       <style>{`
-        .tsb-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }
         .tsb-tile { transition: transform 140ms ease, box-shadow 140ms ease; }
         .tsb-tile:active { transform: scale(0.97); }
         @keyframes tsb-shine {
@@ -80,21 +79,7 @@ export default function TeacherSkillBadgesPage() {
       `}</style>
 
       <div style={s.inner}>
-        {/* Header row — back button + centered title. The right-side
-            spacer balances the back button so the title is optically
-            centered between them. */}
-        <div style={s.headerRow}>
-          <button
-            onClick={() => navigate(`/teachers/${id}/my-career`)}
-            className="tsb-back-btn"
-            style={s.backBtn}
-            title="Back"
-          >
-            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 12 }} />
-          </button>
-          <h1 style={s.heading}>Skill Badges</h1>
-          <div style={{ width: 36, height: 36, flexShrink: 0 }} />
-        </div>
+        <h1 style={s.heading}>Skill Badges</h1>
 
         {/* Quiet subtitle + stats line — short, never dominates. */}
         <div style={s.subheading}>
@@ -423,26 +408,16 @@ export function BadgeCard({
 
 const s: Record<string, React.CSSProperties> = {
   page: {
-    padding: '18px 18px 40px',
+    paddingTop: TEACHER_CONTENT_TOP,
+    paddingRight: 18,
+    paddingBottom: 40,
+    paddingLeft: 18,
     background: C.bg, minHeight: '100vh',
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     color: C.text,
   },
   inner: { maxWidth: 640, margin: '0 auto' },
 
-  headerRow: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    gap: 12, marginBottom: 4,
-  },
-  backBtn: {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    width: 36, height: 36, borderRadius: 10,
-    border: `1px solid ${C.cardBorder}`,
-    background: C.card, color: C.muted,
-    cursor: 'pointer',
-    boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
-    flexShrink: 0,
-  },
   heading: {
     margin: 0, fontSize: 18, fontWeight: 800, color: C.text,
     letterSpacing: '-0.018em', lineHeight: 1.2,

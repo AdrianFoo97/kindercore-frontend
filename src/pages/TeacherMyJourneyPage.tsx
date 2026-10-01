@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faChevronRight, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeacherCareer } from '../api/career-missions.js';
 import { CareerJourneyVertical } from './TeacherCareerPage.js';
+import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher-facing Career Journey — drilldown from the My Career hub.
@@ -26,7 +27,6 @@ const C = {
 
 export default function TeacherMyJourneyPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { data, isLoading, isError } = useQuery({
     queryKey: ['teacher-career', id],
     queryFn: () => fetchTeacherCareer(id!),
@@ -129,23 +129,7 @@ export default function TeacherMyJourneyPage() {
 
   return (
     <div style={s.page}>
-      <style>{`
-        .tmj-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }
-      `}</style>
-
       <div style={s.inner}>
-        {/* Floating back button (replaces the breadcrumb). Stays in
-            the upper-left corner so the centered title can dominate
-            the page intro. */}
-        <button
-          onClick={() => navigate(`/teachers/${id}/my-career`)}
-          className="tmj-back-btn"
-          style={s.floatingBack}
-          title="Back"
-        >
-          <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 12 }} />
-        </button>
-
         {/* Page intro — centered, punchy framing so the timeline
             below reads as the answer to a clear question. */}
         <div style={s.intro}>
@@ -193,7 +177,11 @@ export default function TeacherMyJourneyPage() {
 
 const s: Record<string, React.CSSProperties> = {
   page: {
-    padding: '16px 12px 96px',  // bigger bottom padding so the Summit trophy + label breathe above the viewport edge
+    // bigger bottom padding so the Summit trophy + label breathe above the viewport edge
+    paddingTop: TEACHER_CONTENT_TOP,
+    paddingRight: 12,
+    paddingBottom: 96,
+    paddingLeft: 12,
     background: C.bg, minHeight: '100vh',
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     color: C.text,
@@ -244,15 +232,4 @@ const s: Record<string, React.CSSProperties> = {
     lineHeight: 1.45, letterSpacing: '-0.003em',
   },
 
-  floatingBack: {
-    position: 'absolute' as const,
-    top: 16, left: 12,
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    width: 36, height: 36, borderRadius: 10,
-    border: `1px solid ${C.cardBorder}`,
-    background: C.card, color: C.muted,
-    cursor: 'pointer',
-    boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
-    zIndex: 2,
-  },
 };
