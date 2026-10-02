@@ -496,8 +496,7 @@ export default function SopProposePage() {
       await persistDraft(true);
       qc.invalidateQueries({ queryKey: ['sop-revisions'] });
       showToast('Draft saved');
-      // Deliberately stays on the page — Save Draft is a checkpoint, not
-      // an exit, so the supervisor can keep working right after it.
+      navigate(`/operations/sops/author${contextSuffix}`);
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to save draft', 'error');
     } finally {
