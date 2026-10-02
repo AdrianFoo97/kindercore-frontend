@@ -509,12 +509,12 @@ export default function SopProposePage() {
     setSaving(true);
     try {
       const id = await persistDraft(false);
-      const approved = await approveRevision(id);
+      await approveRevision(id);
       qc.invalidateQueries({ queryKey: ['sop-revisions'] });
       qc.invalidateQueries({ queryKey: ['sop-templates'] });
       qc.invalidateQueries({ queryKey: ['sop-steps'] });
       showToast(isEditingExisting ? 'Published — now live' : 'Guide published');
-      navigate(`/operations/sops/${approved.sopTemplateId}${contextSuffix}`);
+      navigate(`/operations/sops${contextSuffix}`);
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to publish', 'error');
     } finally {
