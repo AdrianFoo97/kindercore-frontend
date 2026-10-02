@@ -72,23 +72,29 @@ export default function Navbar() {
   const devRef = useRef<HTMLDivElement>(null);
   const adminRef = useRef<HTMLDivElement>(null);
   const onFinanceRoute = !!useMatch('/operations/operating-costs');
-  // SOP Revisions still lives at /hr/sop-revisions (unchanged URL), but its
-  // nav entry moved to the Operation dropdown — so route-highlighting has
-  // to follow the nav placement, not the URL prefix, or visiting it would
-  // light up "HR" instead of (or as well as) "Operation".
-  const sopRevisionsMatch = useMatch('/hr/sop-revisions');
-  const onOperationRoute = !!useMatch('/operations/sops/*') || !!sopRevisionsMatch;
   // The flat "Guides" link (`/operations/sops?app=teacher`) used NavLink's
   // default prefix match, so it lit up for every route under
   // /operations/sops/* — including /operations/sops/author (the Author
   // Guides hub) and /operations/sops/propose, which are reached from the
-  // Operation dropdown, not from "Guides" itself. Both "Guides" and
-  // "Operation" ended up highlighted at once on those pages. "author",
-  // "propose", "new" are reserved route segments here, not real guide ids,
-  // so they're excluded from counting as "browsing a guide".
+  // Operation dropdown, not from "Guides" itself. "author", "propose",
+  // "new" are reserved route segments here, not real guide ids, so
+  // they're excluded from counting as "browsing a guide".
   const guidesDetailMatch = useMatch('/operations/sops/:segment');
   const onGuidesRoute = !!useMatch('/operations/sops') ||
     (!!guidesDetailMatch && !['author', 'propose', 'new'].includes(guidesDetailMatch.params.segment ?? ''));
+  // SOP Revisions still lives at /hr/sop-revisions (unchanged URL), but its
+  // nav entry moved to the Operation dropdown — so route-highlighting has
+  // to follow the nav placement, not the URL prefix, or visiting it would
+  // light up "HR" instead of (or as well as) "Operation". Operation's own
+  // library-page match is deliberately narrowed to exclude whatever
+  // onGuidesRoute already owns (the bare library list and a single guide's
+  // detail page) — otherwise "Guides" and "Operation" both lit up at once
+  // on those shared pages, since Operation's dropdown also links to the
+  // same library ("How-To Guides"). Operation still owns the pages that
+  // are genuinely its own: Author Guides, the propose/edit wizard, and
+  // Improvement Inbox.
+  const sopRevisionsMatch = useMatch('/hr/sop-revisions');
+  const onOperationRoute = (!!useMatch('/operations/sops/*') && !onGuidesRoute) || !!sopRevisionsMatch;
   const onToolsRoute = !!useMatch('/tools/*');
   // Both useMatch calls must run every render, unconditionally — `||`
   // short-circuits, which would skip the second call whenever the first
