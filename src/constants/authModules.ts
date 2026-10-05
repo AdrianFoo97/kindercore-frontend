@@ -26,18 +26,12 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   TOOLS: 'Tools',
 };
 
-export const VIEWS = {
-  OPERATION_SOP_APPROVE: 'OPERATION_SOP_APPROVE',
-} as const;
-export type ViewKey = typeof VIEWS[keyof typeof VIEWS];
-export const ALL_VIEW_KEYS: ViewKey[] = Object.values(VIEWS);
-
-export const VIEW_LABELS: Record<ViewKey, string> = {
-  OPERATION_SOP_APPROVE: 'Approve/reject How-To Guide changes',
-};
-
-// Which module each view belongs to — drives the AuthRolesPage views
-// picker (only offer views whose module is currently checked).
-export const VIEW_MODULE: Record<ViewKey, ModuleKey> = {
-  OPERATION_SOP_APPROVE: 'OPERATION',
-};
+// Views used to be a hardcoded object here too. They're now a real,
+// admin-managed catalog fetched from the backend (see src/api/auth-views.ts,
+// the "Views" admin page) instead of a fixed TS union — a view created
+// there still does nothing on its own until a developer hardcodes a
+// matching hasView(...)/RequireView call somewhere in code, same as
+// before; the catalog just makes key/label/description admin-editable
+// without a deploy. Kept as a plain string alias (not a union) so
+// usePermissions/RequireView/etc. don't need signature changes.
+export type ViewKey = string;

@@ -6,7 +6,8 @@ import { faChevronLeft, faChevronRight, faCheck } from '@fortawesome/free-solid-
 import {
   fetchAuthRoles, createAuthRole, updateAuthRole, setAuthRoleModules, setAuthRoleViews,
 } from '../../api/auth-roles.js';
-import { ALL_MODULE_KEYS, ALL_VIEW_KEYS, MODULE_LABELS, VIEW_LABELS, VIEW_MODULE, ModuleKey, ViewKey } from '../../constants/authModules.js';
+import { fetchAuthViews } from '../../api/auth-views.js';
+import { ALL_MODULE_KEYS, MODULE_LABELS, ModuleKey, ViewKey } from '../../constants/authModules.js';
 import { useToast } from '../../components/common/Toast.js';
 
 // Dedicated add/edit surface for an AuthRole, same shape as
@@ -36,6 +37,11 @@ export default function AuthRoleEditPage() {
     queryKey: ['auth-roles'],
     queryFn: fetchAuthRoles,
   });
+  const { data: viewCatalog = [] } = useQuery({
+    queryKey: ['auth-views'],
+    queryFn: fetchAuthViews,
+  });
+  const viewModule = new Map(viewCatalog.map(v => [v.key, v.module]));
   const existing = isEdit ? roles.find(r => r.id === id) ?? null : null;
 
   const [form, setForm] = useState({ name: '', description: '' });
@@ -62,7 +68,7 @@ export default function AuthRoleEditPage() {
       // Dropping a module drops any view that belongs to it — a view
       // can't be granted without its parent module being granted too.
       if (!next.includes(m)) {
-        setViews(vPrev => vPrev.filter(v => VIEW_MODULE[v] !== m));
+        setViews(vPrev => vPrev.filter(v => viewModule.get(v) !== m));
       }
       return next;
     });
@@ -107,7 +113,7 @@ export default function AuthRoleEditPage() {
     );
   }
 
-  const availableViews = ALL_VIEW_KEYS.filter(v => modules.includes(VIEW_MODULE[v]));
+  const availableViews = viewCatalog.filter(v => modules.includes(v.module));
 
   return (
     <div style={s.page}>
@@ -169,24 +175,28 @@ export default function AuthRoleEditPage() {
 
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.divider}` }}>
             <span style={s.labelText}>Views</span>
-            <p style={s.help}>Finer-grained actions within a module — only offered once that module is granted above.</p>
+            <p style={s.help}>
+              Finer-grained actions within a module — only offered once that module is granted above. Manage the
+              catalog of views under Admin → Views.
+            </p>
             {availableViews.length === 0 ? (
               <p style={{ margin: '10px 0 0', fontSize: 12, color: C.mutedSoft, fontStyle: 'italic' }}>
-                Grant a module above to see its views.
+                {viewCatalog.length === 0 ? 'No views defined yet — add one under Admin → Views.' : 'Grant a module above to see its views.'}
               </p>
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                 {availableViews.map(v => {
-                  const active = views.includes(v);
+                  const active = views.includes(v.key);
                   return (
                     <button
-                      key={v}
+                      key={v.key}
                       type="button"
-                      onClick={() => toggleView(v)}
+                      onClick={() => toggleView(v.key)}
                       style={{ ...s.chip, ...(active ? s.chipActiveView : {}) }}
+                      title={v.description ?? undefined}
                     >
                       {active && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10 }} />}
-                      {VIEW_LABELS[v]}
+                      {v.label}
                     </button>
                   );
                 })}
@@ -203,7 +213,7 @@ export default function AuthRoleEditPage() {
             type="button"
             onClick={onSave}
             disabled={!canSave || saving}
-            style={{ ...s.saveBtn, opacity: !canSave || saving ? 0.55 : 1, cursor: !canSave || saving ? 'not-allowed' : 'pointer' }}
+            style={{ ...s.saveBtn, opacity: !canSave || saving ? 0.55 : 1, cursor: !canSave || saving ? 'default' : 'pointer' }}
           >
             {saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Add access role')}
           </button>

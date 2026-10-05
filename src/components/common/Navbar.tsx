@@ -7,7 +7,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 /** Normalises a human-readable label into a URL-safe utm_source value.
@@ -613,6 +613,15 @@ export default function Navbar() {
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
                   <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8' }} /> Manage Users
+                </NavLink>
+                <NavLink to="/settings/auth-views" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
+                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
+                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
+                  })}>
+                  <FontAwesomeIcon icon={faEye} style={{ fontSize: 12, color: '#94a3b8' }} /> Views
                 </NavLink>
                 <NavLink to="/settings/auth-roles" onClick={closeAll}
                   className={mobile ? '' : 'nav-drop-item'}

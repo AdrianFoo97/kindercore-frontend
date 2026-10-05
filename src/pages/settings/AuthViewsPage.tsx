@@ -2,9 +2,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrash, faPen, faUserShield } from '@fortawesome/free-solid-svg-icons';
-import { fetchAuthRoles, deleteAuthRole, AuthRoleRecord } from '../../api/auth-roles.js';
-import { fetchAuthViews } from '../../api/auth-views.js';
+import { faPlus, faTrash, faPen, faEye } from '@fortawesome/free-solid-svg-icons';
+import { fetchAuthViews, deleteAuthView, AuthViewRecord } from '../../api/auth-views.js';
 import { MODULE_LABELS } from '../../constants/authModules.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
@@ -24,33 +23,28 @@ const C = {
 const RADIUS = 14;
 const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 
-export default function AuthRolesPage() {
+export default function AuthViewsPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { confirm } = useDeleteDialog();
 
-  const { data: roles = [], isLoading } = useQuery({
-    queryKey: ['auth-roles'],
-    queryFn: fetchAuthRoles,
-  });
-  const { data: views = [] } = useQuery({
+  const { data: views = [], isLoading } = useQuery({
     queryKey: ['auth-views'],
     queryFn: fetchAuthViews,
   });
-  const viewLabels = new Map(views.map(v => [v.key, v.label]));
 
-  const onDelete = async (role: AuthRoleRecord) => {
+  const onDelete = async (view: AuthViewRecord) => {
     await confirm({
-      entityType: 'access role',
-      entityName: role.name,
-      consequence: 'The access role will be permanently removed.',
-      blockedHint: 'Reassign any positions using this access role first, then try again.',
+      entityType: 'view',
+      entityName: view.label,
+      consequence: 'The view will be permanently removed from the catalog.',
+      blockedHint: 'Unassign this view from any access roles that still grant it, then try again.',
       onConfirm: async () => {
         try {
-          await deleteAuthRole(role.id);
-          qc.invalidateQueries({ queryKey: ['auth-roles'] });
-          showToast('Access role deleted');
+          await deleteAuthView(view.id);
+          qc.invalidateQueries({ queryKey: ['auth-views'] });
+          showToast('View deleted');
         } catch (e: any) {
           const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Delete failed'; } })();
           showToast(msg, 'error');
@@ -64,65 +58,62 @@ export default function AuthRolesPage() {
     <div style={s.page}>
       <div style={s.inner}>
         <div style={{ marginBottom: 24 }}>
-          <h1 style={s.heading}>Access Roles</h1>
+          <h1 style={s.heading}>Views</h1>
           <p style={s.subheading}>
-            Controls what each position can access. Assign an access role to a position on the career ladder,
-            then grant it modules (nav sections) and, within a module, specific finer-grained views.
+            The catalog of finer-grained actions within a module (e.g. "Approve/reject How-To Guide changes").
+            Defining a view here doesn't grant anyone anything by itself — a developer still has to wire an
+            actual permission check to its key in code. This is just what's available to assign under Access Roles.
           </p>
         </div>
 
         <div style={s.card}>
           <div style={s.cardHeader}>
             <div>
-              <h3 style={s.cardTitle}>Roles</h3>
+              <h3 style={s.cardTitle}>Views</h3>
               <div style={s.cardSub}>
-                {roles.length === 0 ? 'No access roles yet' : `${roles.length} access role${roles.length === 1 ? '' : 's'}`}
+                {views.length === 0 ? 'No views yet' : `${views.length} view${views.length === 1 ? '' : 's'}`}
               </div>
             </div>
-            <button onClick={() => navigate('/settings/auth-roles/new')} style={s.primaryBtn}>
+            <button onClick={() => navigate('/settings/auth-views/new')} style={s.primaryBtn}>
               <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />
-              Add access role
+              Add view
             </button>
           </div>
 
           {isLoading ? (
             <p style={{ padding: 24, color: C.mutedSoft, fontSize: 13 }}>Loading…</p>
-          ) : roles.length === 0 ? (
+          ) : views.length === 0 ? (
             <p style={{ padding: 24, textAlign: 'center', color: C.muted, fontSize: 13 }}>
-              No access roles configured yet.
+              No views configured yet.
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {roles.map(role => (
-                <div key={role.id} style={s.row}>
+              {views.map(view => (
+                <div key={view.id} style={s.row}>
                   <div style={s.iconSwatch}>
-                    <FontAwesomeIcon icon={faUserShield} />
+                    <FontAwesomeIcon icon={faEye} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>
-                      {role.name}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>
+                        {view.label}
+                      </span>
+                      <span style={s.moduleBadge}>{MODULE_LABELS[view.module]}</span>
                     </div>
-                    {role.description && (
-                      <p style={{ margin: '4px 0 0', fontSize: 12, color: C.mutedSoft, lineHeight: 1.5 }}>
-                        {role.description}
+                    <div style={{ fontSize: 11, color: C.mutedSoft, fontFamily: 'ui-monospace, monospace', marginTop: 3 }}>
+                      {view.key}
+                    </div>
+                    {view.description && (
+                      <p style={{ margin: '6px 0 0', fontSize: 12, color: C.mutedSoft, lineHeight: 1.5 }}>
+                        {view.description}
                       </p>
                     )}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-                      {role.modules.length === 0 ? (
-                        <span style={{ fontSize: 11, color: C.mutedSoft, fontStyle: 'italic' }}>No modules granted</span>
-                      ) : role.modules.map(m => (
-                        <span key={m} style={s.moduleBadge}>{MODULE_LABELS[m]}</span>
-                      ))}
-                      {role.views.map(v => (
-                        <span key={v} style={s.viewBadge}>{viewLabels.get(v) ?? v}</span>
-                      ))}
-                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => navigate(`/settings/auth-roles/${role.id}/edit`)} style={s.iconBtn} aria-label="Edit">
+                    <button onClick={() => navigate(`/settings/auth-views/${view.id}/edit`)} style={s.iconBtn} aria-label="Edit">
                       <FontAwesomeIcon icon={faPen} />
                     </button>
-                    <button onClick={() => onDelete(role)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete">
+                    <button onClick={() => onDelete(view)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete">
                       <FontAwesomeIcon icon={faTrash} />
                     </button>
                   </div>
@@ -164,10 +155,6 @@ const s: Record<string, React.CSSProperties> = {
   moduleBadge: {
     fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
     background: '#f1f5f9', color: C.textSub, textTransform: 'uppercase', letterSpacing: '0.03em',
-  },
-  viewBadge: {
-    fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
-    background: C.primarySoft, color: C.primary, letterSpacing: '0.01em',
   },
   iconBtn: {
     width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.cardBorder}`,
