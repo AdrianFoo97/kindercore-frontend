@@ -84,6 +84,11 @@ export default function AuthRoleViewsPage() {
   }
 
   const availableViews = viewCatalog.filter(v => v.modules.some(m => existing.modules.includes(m)));
+  // Grouped by module for display — a view with 2+ granted modules shows
+  // once under each, since it's genuinely reachable from either.
+  const viewsByModule = existing.modules
+    .map(m => ({ module: m, views: availableViews.filter(v => v.modules.includes(m)) }))
+    .filter(g => g.views.length > 0);
 
   return (
     <div style={s.page}>
@@ -125,27 +130,34 @@ export default function AuthRoleViewsPage() {
                   Finer-grained actions within a module — only views belonging to at least one module above are
                   offered.
                 </p>
-                {availableViews.length === 0 ? (
+                {viewsByModule.length === 0 ? (
                   <p style={{ margin: '10px 0 0', fontSize: 12, color: C.mutedSoft, fontStyle: 'italic' }}>
                     No views defined yet for {existing.modules.map(m => MODULE_LABELS[m]).join(', ')}.
                   </p>
                 ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                    {availableViews.map(v => {
-                      const active = views.includes(v.key);
-                      return (
-                        <button
-                          key={v.key}
-                          type="button"
-                          onClick={() => toggleView(v.key)}
-                          style={{ ...s.chip, ...(active ? s.chipActiveView : {}) }}
-                          title={v.description ?? undefined}
-                        >
-                          {active && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10 }} />}
-                          {v.label}
-                        </button>
-                      );
-                    })}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 10 }}>
+                    {viewsByModule.map(group => (
+                      <div key={group.module}>
+                        <div style={s.moduleGroupLabel}>{MODULE_LABELS[group.module]}</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                          {group.views.map(v => {
+                            const active = views.includes(v.key);
+                            return (
+                              <button
+                                key={v.key}
+                                type="button"
+                                onClick={() => toggleView(v.key)}
+                                style={{ ...s.chip, ...(active ? s.chipActiveView : {}) }}
+                                title={v.description ?? undefined}
+                              >
+                                {active && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10 }} />}
+                                {v.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -191,6 +203,7 @@ const s: Record<string, React.CSSProperties> = {
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
   },
   labelText: { fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase' as const, letterSpacing: '0.06em' },
+  moduleGroupLabel: { fontSize: 12, fontWeight: 700, color: C.text },
   help: { margin: '4px 0 0', fontSize: 11, color: C.mutedSoft },
   moduleBadge: {
     fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
