@@ -6,7 +6,7 @@ export interface AuthViewRecord {
   key: string;
   label: string;
   description: string | null;
-  module: ModuleKey;
+  modules: ModuleKey[];
   createdAt: string;
   updatedAt: string;
 }
@@ -15,14 +15,14 @@ export interface CreateAuthViewPayload {
   key: string;
   label: string;
   description?: string | null;
-  module: ModuleKey;
+  modules: ModuleKey[];
 }
 
 // `key` is deliberately absent from here — it's immutable after creation.
 export interface UpdateAuthViewPayload {
   label?: string;
   description?: string | null;
-  module?: ModuleKey;
+  modules?: ModuleKey[];
 }
 
 export function fetchAuthViews() {

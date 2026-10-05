@@ -41,7 +41,7 @@ export default function AuthRoleEditPage() {
     queryKey: ['auth-views'],
     queryFn: fetchAuthViews,
   });
-  const viewModule = new Map(viewCatalog.map(v => [v.key, v.module]));
+  const viewModules = new Map(viewCatalog.map(v => [v.key, v.modules]));
   const existing = isEdit ? roles.find(r => r.id === id) ?? null : null;
 
   const [form, setForm] = useState({ name: '', description: '' });
@@ -65,10 +65,11 @@ export default function AuthRoleEditPage() {
   const toggleModule = (m: ModuleKey) => {
     setModules(prev => {
       const next = prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m];
-      // Dropping a module drops any view that belongs to it — a view
-      // can't be granted without its parent module being granted too.
+      // Dropping a module drops any view that belonged ONLY to it — a
+      // multi-module view stays granted as long as at least one of its
+      // modules is still checked.
       if (!next.includes(m)) {
-        setViews(vPrev => vPrev.filter(v => viewModule.get(v) !== m));
+        setViews(vPrev => vPrev.filter(v => (viewModules.get(v) ?? []).some(vm => next.includes(vm))));
       }
       return next;
     });
@@ -113,7 +114,7 @@ export default function AuthRoleEditPage() {
     );
   }
 
-  const availableViews = viewCatalog.filter(v => modules.includes(v.module));
+  const availableViews = viewCatalog.filter(v => v.modules.some(m => modules.includes(m)));
 
   return (
     <div style={s.page}>

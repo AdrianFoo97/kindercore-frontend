@@ -98,7 +98,9 @@ export default function AuthViewsPage() {
                       <span style={{ fontSize: 14, fontWeight: 700, color: C.text, letterSpacing: '-0.01em' }}>
                         {view.label}
                       </span>
-                      <span style={s.moduleBadge}>{MODULE_LABELS[view.module]}</span>
+                      {view.modules.map(m => (
+                        <span key={m} style={s.moduleBadge}>{MODULE_LABELS[m]}</span>
+                      ))}
                     </div>
                     <div style={{ fontSize: 11, color: C.mutedSoft, fontFamily: 'ui-monospace, monospace', marginTop: 3 }}>
                       {view.key}

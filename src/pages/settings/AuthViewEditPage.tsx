@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faChevronRight, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { fetchAuthViews, createAuthView, updateAuthView } from '../../api/auth-views.js';
 import { ALL_MODULE_KEYS, MODULE_LABELS, ModuleKey } from '../../constants/authModules.js';
 import { useToast } from '../../components/common/Toast.js';
@@ -36,22 +36,28 @@ export default function AuthViewEditPage() {
   });
   const existing = isEdit ? views.find(v => v.id === id) ?? null : null;
 
-  const [form, setForm] = useState({ key: '', label: '', description: '', module: 'OPERATION' as ModuleKey });
+  const [form, setForm] = useState({ key: '', label: '', description: '' });
+  const [modules, setModules] = useState<ModuleKey[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (hydrated) return;
     if (isEdit && existing) {
-      setForm({ key: existing.key, label: existing.label, description: existing.description ?? '', module: existing.module });
+      setForm({ key: existing.key, label: existing.label, description: existing.description ?? '' });
+      setModules(existing.modules);
       setHydrated(true);
     } else if (!isEdit) {
       setHydrated(true);
     }
   }, [hydrated, isEdit, existing]);
 
+  const toggleModule = (m: ModuleKey) => {
+    setModules(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
+  };
+
   const keyValid = KEY_PATTERN.test(form.key.trim());
-  const canSave = form.label.trim().length > 0 && (isEdit || keyValid);
+  const canSave = form.label.trim().length > 0 && modules.length > 0 && (isEdit || keyValid);
 
   const onSave = async () => {
     if (!canSave) return;
@@ -61,14 +67,14 @@ export default function AuthViewEditPage() {
         await updateAuthView(id!, {
           label: form.label.trim(),
           description: form.description.trim() || null,
-          module: form.module,
+          modules,
         });
       } else {
         await createAuthView({
           key: form.key.trim(),
           label: form.label.trim(),
           description: form.description.trim() || null,
-          module: form.module,
+          modules,
         });
       }
       qc.invalidateQueries({ queryKey: ['auth-views'] });
@@ -153,19 +159,29 @@ export default function AuthViewEditPage() {
             />
           </label>
 
-          <label style={{ ...s.label, marginTop: 16 }}>
-            <span style={s.labelText}>Module <span style={s.req}>*</span></span>
-            <select
-              value={form.module}
-              onChange={e => setForm(f => ({ ...f, module: e.target.value as ModuleKey }))}
-              style={s.input}
-            >
-              {ALL_MODULE_KEYS.map(m => (
-                <option key={m} value={m}>{MODULE_LABELS[m]}</option>
-              ))}
-            </select>
-            <span style={s.help}>Which module this view belongs under — only offered to roles that already have this module granted.</span>
-          </label>
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.divider}` }}>
+            <span style={s.labelText}>Modules <span style={s.req}>*</span></span>
+            <p style={s.help}>
+              Which module(s) this view belongs under — a role only gets this view offered once it's granted at
+              least one of these modules.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+              {ALL_MODULE_KEYS.map(m => {
+                const active = modules.includes(m);
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => toggleModule(m)}
+                    style={{ ...s.chip, ...(active ? s.chipActive : {}) }}
+                  >
+                    {active && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10 }} />}
+                    {MODULE_LABELS[m]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <div style={s.footer}>
@@ -214,6 +230,12 @@ const s: Record<string, React.CSSProperties> = {
   },
   inputDisabled: { background: '#f8fafc', color: C.mutedSoft, cursor: 'default' },
   help: { margin: '4px 0 0', fontSize: 11, color: C.mutedSoft, lineHeight: 1.5 },
+  chip: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+    border: `1px solid ${C.border}`, background: '#fff', color: C.text, cursor: 'pointer',
+  },
+  chipActive: { background: C.primarySoft, borderColor: C.primary, color: C.primary },
   footer: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
   cancelBtn: {
     padding: '10px 18px', fontSize: 13, fontWeight: 600, color: C.text, background: '#fff',
