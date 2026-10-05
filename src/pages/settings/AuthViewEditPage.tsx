@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight, faCheck } from '@fortawesome/free-solid-svg-icons';
@@ -26,18 +26,9 @@ const KEY_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 export default function AuthViewEditPage() {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const { showToast } = useToast();
   const isEdit = !!id;
-  // Set when this page was opened from a module's "Create new view" button
-  // (/settings/modules/:moduleKey) — pre-selects that module and, on save,
-  // returns there instead of the flat Views list.
-  const presetModuleParam = searchParams.get('module');
-  const presetModule = presetModuleParam && (ALL_MODULE_KEYS as string[]).includes(presetModuleParam)
-    ? presetModuleParam as ModuleKey
-    : null;
-  const returnTo = presetModule ? `/settings/modules/${presetModule}` : '/settings/auth-views';
 
   const { data: views = [], isLoading } = useQuery({
     queryKey: ['auth-views'],
@@ -57,10 +48,9 @@ export default function AuthViewEditPage() {
       setModules(existing.modules);
       setHydrated(true);
     } else if (!isEdit) {
-      if (presetModule) setModules([presetModule]);
       setHydrated(true);
     }
-  }, [hydrated, isEdit, existing, presetModule]);
+  }, [hydrated, isEdit, existing]);
 
   const toggleModule = (m: ModuleKey) => {
     setModules(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
@@ -89,7 +79,7 @@ export default function AuthViewEditPage() {
       }
       qc.invalidateQueries({ queryKey: ['auth-views'] });
       showToast(isEdit ? 'View updated' : 'View added');
-      navigate(returnTo);
+      navigate('/settings/auth-views');
     } catch (e: any) {
       const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Save failed'; } })();
       showToast(msg, 'error');
@@ -117,10 +107,10 @@ export default function AuthViewEditPage() {
     <div style={s.page}>
       <div style={s.inner}>
         <div style={s.breadcrumb}>
-          <button onClick={() => navigate(returnTo)} style={s.backBtn} title="Back">
+          <button onClick={() => navigate('/settings/auth-views')} style={s.backBtn} title="Back">
             <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
           </button>
-          <Link to={returnTo} style={s.crumbLink}>{presetModule ? MODULE_LABELS[presetModule] : 'Views'}</Link>
+          <Link to="/settings/auth-views" style={s.crumbLink}>Views</Link>
           <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
           <span style={s.crumbCurrent}>{isEdit ? 'Edit View' : 'Add View'}</span>
         </div>
@@ -195,7 +185,7 @@ export default function AuthViewEditPage() {
         </div>
 
         <div style={s.footer}>
-          <button type="button" onClick={() => navigate(returnTo)} style={s.cancelBtn}>
+          <button type="button" onClick={() => navigate('/settings/auth-views')} style={s.cancelBtn}>
             Cancel
           </button>
           <button

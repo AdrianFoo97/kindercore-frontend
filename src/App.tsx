@@ -90,8 +90,6 @@ import AuthRoleEditPage from './pages/settings/AuthRoleEditPage.js';
 import AuthRoleViewsPage from './pages/settings/AuthRoleViewsPage.js';
 import AuthViewsPage from './pages/settings/AuthViewsPage.js';
 import AuthViewEditPage from './pages/settings/AuthViewEditPage.js';
-import ModulesPage from './pages/settings/ModulesPage.js';
-import ModuleViewsPage from './pages/settings/ModuleViewsPage.js';
 import { RequireModule } from './components/common/RequireModule.js';
 import { RequireView } from './components/common/RequireView.js';
 import { MODULES } from './constants/authModules.js';
@@ -350,8 +348,6 @@ export default function App() {
           <Route path="/settings/auth-views" element={<ErrorBoundary><AuthViewsPage /></ErrorBoundary>} />
           <Route path="/settings/auth-views/new" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
           <Route path="/settings/auth-views/:id/edit" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
-          <Route path="/settings/modules" element={<ErrorBoundary><ModulesPage /></ErrorBoundary>} />
-          <Route path="/settings/modules/:moduleKey" element={<ErrorBoundary><ModuleViewsPage /></ErrorBoundary>} />
           <Route path="/admin/year-rollover" element={<ErrorBoundary><YearRolloverPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><OperationsPlannerPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/bug-reports" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
