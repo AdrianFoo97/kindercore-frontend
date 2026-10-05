@@ -7,15 +7,16 @@ import {
   fetchAuthRoles, createAuthRole, updateAuthRole, setAuthRoleModules, setAuthRoleViews,
 } from '../../api/auth-roles.js';
 import { fetchAuthViews } from '../../api/auth-views.js';
-import { ALL_MODULE_KEYS, MODULE_LABELS, ModuleKey, ViewKey } from '../../constants/authModules.js';
+import { ALL_MODULE_KEYS, MODULE_LABELS, ModuleKey } from '../../constants/authModules.js';
 import { useToast } from '../../components/common/Toast.js';
+import RoleEditTabs from './RoleEditTabs.js';
 
-// Dedicated add/edit surface for an AuthRole, same shape as
-// PositionEditPage.tsx — a modal stopped being enough room once the
-// modules/views pickers grew, and this is expected to keep growing
-// (more views as more of the app adopts requireView).
+// Step 1 of 2 for an AuthRole: name/description + which Modules it gets.
+// Views are a separate page (AuthRoleViewsPage.tsx) so the view picker only
+// ever has to reason about "this role's current modules", not both at once.
 //
-//   /settings/auth-roles/new         → add (no :id)
+//   /settings/auth-roles/new         → add (no :id) — continues into the
+//                                       Views page after saving
 //   /settings/auth-roles/:id/edit    → edit
 
 const C = {
@@ -46,7 +47,6 @@ export default function AuthRoleEditPage() {
 
   const [form, setForm] = useState({ name: '', description: '' });
   const [modules, setModules] = useState<ModuleKey[]>([]);
-  const [views, setViews] = useState<ViewKey[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -55,7 +55,6 @@ export default function AuthRoleEditPage() {
     if (isEdit && existing) {
       setForm({ name: existing.name, description: existing.description ?? '' });
       setModules(existing.modules);
-      setViews(existing.views);
       setHydrated(true);
     } else if (!isEdit) {
       setHydrated(true);
@@ -63,19 +62,7 @@ export default function AuthRoleEditPage() {
   }, [hydrated, isEdit, existing]);
 
   const toggleModule = (m: ModuleKey) => {
-    setModules(prev => {
-      const next = prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m];
-      // Dropping a module drops any view that belonged ONLY to it — a
-      // multi-module view stays granted as long as at least one of its
-      // modules is still checked.
-      if (!next.includes(m)) {
-        setViews(vPrev => vPrev.filter(v => (viewModules.get(v) ?? []).some(vm => next.includes(vm))));
-      }
-      return next;
-    });
-  };
-  const toggleView = (v: ViewKey) => {
-    setViews(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+    setModules(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
   };
 
   const canSave = form.name.trim().length > 0;
@@ -87,10 +74,18 @@ export default function AuthRoleEditPage() {
       const payload = { name: form.name.trim(), description: form.description.trim() || null };
       const role = isEdit ? await updateAuthRole(id!, payload) : await createAuthRole(payload);
       await setAuthRoleModules(role.id, modules);
-      await setAuthRoleViews(role.id, views);
+      // A module just dropped here may have been the only module behind
+      // some of this role's already-granted views — prune those so a view
+      // grant never silently outlives every module that could reveal it.
+      if (isEdit && existing) {
+        const stillReachable = existing.views.filter(v => (viewModules.get(v) ?? []).some(vm => modules.includes(vm)));
+        if (stillReachable.length !== existing.views.length) {
+          await setAuthRoleViews(role.id, stillReachable);
+        }
+      }
       qc.invalidateQueries({ queryKey: ['auth-roles'] });
       showToast(isEdit ? 'Access role updated' : 'Access role added');
-      navigate('/settings/auth-roles');
+      navigate(isEdit ? '/settings/auth-roles' : `/settings/auth-roles/${role.id}/views`);
     } catch (e: any) {
       const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Save failed'; } })();
       showToast(msg, 'error');
@@ -114,8 +109,6 @@ export default function AuthRoleEditPage() {
     );
   }
 
-  const availableViews = viewCatalog.filter(v => v.modules.some(m => modules.includes(m)));
-
   return (
     <div style={s.page}>
       <div style={s.inner}>
@@ -125,10 +118,12 @@ export default function AuthRoleEditPage() {
           </button>
           <Link to="/settings/auth-roles" style={s.crumbLink}>Access Roles</Link>
           <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <span style={s.crumbCurrent}>{isEdit ? 'Edit Access Role' : 'Add Access Role'}</span>
+          <span style={s.crumbCurrent}>{isEdit ? `Edit — ${existing?.name}` : 'Add Access Role'}</span>
         </div>
 
         <h1 style={s.heading}>{isEdit ? `Edit Access Role — ${existing?.name}` : 'Add Access Role'}</h1>
+
+        {isEdit && <RoleEditTabs roleId={id!} active="modules" />}
 
         <div style={s.card}>
           <label style={s.label}>
@@ -155,7 +150,10 @@ export default function AuthRoleEditPage() {
 
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.divider}` }}>
             <span style={s.labelText}>Modules</span>
-            <p style={s.help}>Top-level nav sections this role can see.</p>
+            <p style={s.help}>
+              Top-level nav sections this role can see. Which Views it's offered within them is set on the Views
+              tab{isEdit ? '' : ', once this role is saved'}.
+            </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
               {ALL_MODULE_KEYS.map(m => {
                 const active = modules.includes(m);
@@ -173,37 +171,6 @@ export default function AuthRoleEditPage() {
               })}
             </div>
           </div>
-
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.divider}` }}>
-            <span style={s.labelText}>Views</span>
-            <p style={s.help}>
-              Finer-grained actions within a module — only offered once that module is granted above. Manage the
-              catalog of views under Admin → Views.
-            </p>
-            {availableViews.length === 0 ? (
-              <p style={{ margin: '10px 0 0', fontSize: 12, color: C.mutedSoft, fontStyle: 'italic' }}>
-                {viewCatalog.length === 0 ? 'No views defined yet — add one under Admin → Views.' : 'Grant a module above to see its views.'}
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                {availableViews.map(v => {
-                  const active = views.includes(v.key);
-                  return (
-                    <button
-                      key={v.key}
-                      type="button"
-                      onClick={() => toggleView(v.key)}
-                      style={{ ...s.chip, ...(active ? s.chipActiveView : {}) }}
-                      title={v.description ?? undefined}
-                    >
-                      {active && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10 }} />}
-                      {v.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
         <div style={s.footer}>
@@ -216,7 +183,7 @@ export default function AuthRoleEditPage() {
             disabled={!canSave || saving}
             style={{ ...s.saveBtn, opacity: !canSave || saving ? 0.55 : 1, cursor: !canSave || saving ? 'default' : 'pointer' }}
           >
-            {saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Add access role')}
+            {saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Save and continue to Views')}
           </button>
         </div>
       </div>
@@ -257,7 +224,6 @@ const s: Record<string, React.CSSProperties> = {
     border: `1px solid ${C.border}`, background: '#fff', color: C.text, cursor: 'pointer',
   },
   chipActive: { background: C.primarySoft, borderColor: C.primary, color: C.primary },
-  chipActiveView: { background: '#ecfdf5', borderColor: '#10b981', color: '#047857' },
   footer: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
   cancelBtn: {
     padding: '10px 18px', fontSize: 13, fontWeight: 600, color: C.text, background: '#fff',

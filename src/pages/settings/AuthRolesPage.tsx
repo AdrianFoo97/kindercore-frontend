@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrash, faPen, faUserShield } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faTrash, faPen, faUserShield, faEye } from '@fortawesome/free-solid-svg-icons';
 import { fetchAuthRoles, deleteAuthRole, AuthRoleRecord } from '../../api/auth-roles.js';
 import { fetchAuthViews } from '../../api/auth-views.js';
 import { MODULE_LABELS } from '../../constants/authModules.js';
@@ -119,8 +119,11 @@ export default function AuthRolesPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => navigate(`/settings/auth-roles/${role.id}/edit`)} style={s.iconBtn} aria-label="Edit">
+                    <button onClick={() => navigate(`/settings/auth-roles/${role.id}/edit`)} style={s.iconBtn} aria-label="Edit modules">
                       <FontAwesomeIcon icon={faPen} />
+                    </button>
+                    <button onClick={() => navigate(`/settings/auth-roles/${role.id}/views`)} style={s.iconBtn} aria-label="Edit views" title="Edit views">
+                      <FontAwesomeIcon icon={faEye} />
                     </button>
                     <button onClick={() => onDelete(role)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete">
                       <FontAwesomeIcon icon={faTrash} />

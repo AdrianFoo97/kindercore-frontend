@@ -87,6 +87,7 @@ import TeacherRewardDetailsPage from './pages/TeacherRewardDetailsPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
 import AuthRolesPage from './pages/settings/AuthRolesPage.js';
 import AuthRoleEditPage from './pages/settings/AuthRoleEditPage.js';
+import AuthRoleViewsPage from './pages/settings/AuthRoleViewsPage.js';
 import AuthViewsPage from './pages/settings/AuthViewsPage.js';
 import AuthViewEditPage from './pages/settings/AuthViewEditPage.js';
 import ModulesPage from './pages/settings/ModulesPage.js';
@@ -345,6 +346,7 @@ export default function App() {
           <Route path="/settings/auth-roles" element={<ErrorBoundary><AuthRolesPage /></ErrorBoundary>} />
           <Route path="/settings/auth-roles/new" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
           <Route path="/settings/auth-roles/:id/edit" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
+          <Route path="/settings/auth-roles/:id/views" element={<ErrorBoundary><AuthRoleViewsPage /></ErrorBoundary>} />
           <Route path="/settings/auth-views" element={<ErrorBoundary><AuthViewsPage /></ErrorBoundary>} />
           <Route path="/settings/auth-views/new" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
           <Route path="/settings/auth-views/:id/edit" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
