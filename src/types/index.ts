@@ -30,6 +30,8 @@ export interface Lead {
   googleEventLink: string | null;
   appointmentCreatedByUserId: string | null;
   appointmentIsPlaceholder: boolean;
+  attended: boolean;
+  visitOutcome: 'ATTENDED' | 'NO_SHOW' | null;
   lostReason: string | null;
   statusChangedAt: string | null;
   relationship: string | null;

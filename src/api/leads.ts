@@ -2,7 +2,7 @@ import { apiFetch } from './client.js';
 import { Lead, LeadStatus, LeadsResponse } from '../types/index.js';
 
 export function fetchLeadPhones() {
-  return apiFetch<{ id: string; parentPhone: string; childName: string; submittedAt: string }[]>('/api/leads/phones');
+  return apiFetch<{ id: string; parentPhone: string; childName: string; submittedAt: string; visitOutcome: 'ATTENDED' | 'NO_SHOW' | null }[]>('/api/leads/phones');
 }
 
 export function fetchLeadById(id: string) {

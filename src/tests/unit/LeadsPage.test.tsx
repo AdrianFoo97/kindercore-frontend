@@ -79,6 +79,8 @@ describe('LeadsPage', () => {
           leadTemperature: null,
           deletedAt: null,
           promoCode: null,
+          attended: false,
+          visitOutcome: null,
         },
       ],
       total: 1,

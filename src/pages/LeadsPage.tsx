@@ -37,8 +37,11 @@ function RelationshipIcon({ relationship }: { relationship?: string | null }) {
 // jumps to a status-unfiltered search on this phone (a duplicate might
 // still be sitting in an active stage, not just a closed one) so the
 // admin can see every prior submission in one place.
-function RepeatSubmissionsBadge(props: { count: number; onClick: () => void }) {
-  const { count, onClick } = props;
+function RepeatSubmissionsBadge(props: { count: number; hasNoShow: boolean; onClick: () => void }) {
+  const { count, hasNoShow, onClick } = props;
+  const title = hasNoShow
+    ? `${count}× — missed a previous appointment, click to see previous submissions`
+    : `${count}× — click to see previous submissions`;
   return (
     <button
       type="button"
@@ -46,9 +49,9 @@ function RepeatSubmissionsBadge(props: { count: number; onClick: () => void }) {
       style={{
         display: 'inline-flex', alignItems: 'center',
         padding: 0, border: 'none', background: 'none',
-        color: '#d97706', cursor: 'pointer', flexShrink: 0,
+        color: hasNoShow ? '#dc2626' : '#d97706', cursor: 'pointer', flexShrink: 0,
       }}
-      title={`${count}× — click to see previous submissions`}
+      title={title}
     >
       <FontAwesomeIcon icon={faArrowsRotate} style={{ fontSize: 11 }} />
     </button>
@@ -2338,6 +2341,20 @@ export default function LeadsPage() {
     return m;
   }, [leadPhoneIndex]);
   const repeatCountFor = (lead: Lead) => dupeCounts.get(normalizePhone(lead.parentPhone)) ?? 1;
+  // Any submission under this phone that didn't show up to a booked
+  // appointment — worth flagging on every repeat badge for that phone, not
+  // just the row that was actually the no-show, since it's really a
+  // signal about the family's reliability going into this new submission.
+  const noShowPhones = useMemo(() => {
+    const s = new Set<string>();
+    for (const p of (leadPhoneIndex ?? [])) {
+      if (p.visitOutcome !== 'NO_SHOW') continue;
+      const key = normalizePhone(p.parentPhone);
+      if (key) s.add(key);
+    }
+    return s;
+  }, [leadPhoneIndex]);
+  const hasNoShowFor = (lead: Lead) => noShowPhones.has(normalizePhone(lead.parentPhone));
   // Jump to every submission for this phone, any status — a duplicate
   // enquiry is just as likely to still be New/Contacted (parent submitted
   // twice before anyone followed up) as it is to be closed, so restricting
@@ -3127,6 +3144,7 @@ export default function LeadsPage() {
                           {repeatCountFor(lead) > 1 && (
                             <RepeatSubmissionsBadge
                               count={repeatCountFor(lead)}
+                              hasNoShow={hasNoShowFor(lead)}
                               onClick={() => jumpToRepeatHistory(lead.parentPhone)}
                             />
                           )}
@@ -3400,6 +3418,7 @@ export default function LeadsPage() {
                             {repeatCountFor(lead) > 1 && (
                               <RepeatSubmissionsBadge
                                 count={repeatCountFor(lead)}
+                                hasNoShow={hasNoShowFor(lead)}
                                 onClick={() => jumpToRepeatHistory(lead.parentPhone)}
                               />
                             )}
