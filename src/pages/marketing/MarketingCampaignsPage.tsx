@@ -55,6 +55,12 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function todayStr() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export default function MarketingCampaignsPage() {
   const qc = useQueryClient();
   const { showToast } = useToast();
@@ -205,7 +211,7 @@ function CampaignEditorModal({
 }) {
   const [name, setName] = useState(campaign?.name ?? '');
   const [code, setCode] = useState(campaign?.code ?? '');
-  const [startDate, setStartDate] = useState(campaign?.startDate.slice(0, 10) ?? '');
+  const [startDate, setStartDate] = useState(campaign?.startDate.slice(0, 10) ?? todayStr());
   const [endDate, setEndDate] = useState(campaign?.endDate.slice(0, 10) ?? '');
   const [saving, setSaving] = useState(false);
 
