@@ -894,7 +894,7 @@ export default function EnquiryFormPage() {
                   )}
                   {promoCodeStatus === 'valid' && (
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#16a34a' }}>
-                      &#10003; {promoCodeCampaign || '优惠码有效'}
+                      &#10003; 优惠码有效{promoCodeCampaign ? `（${promoCodeCampaign}）` : ''}
                     </p>
                   )}
                 </div>
