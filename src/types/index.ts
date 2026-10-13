@@ -52,6 +52,8 @@ export interface Lead {
    *  two different concepts. Optional until the backend ships it. */
   submissionChannel?: 'whatsapp_link' | 'website_form' | 'facebook_form' | 'qr_code' | 'manual_entry' | 'unknown' | null;
   deletedAt: string | null;
+  /** The marketing campaign promo code the enquirer entered, if any. */
+  promoCode: string | null;
 }
 
 export interface LeadsResponse {

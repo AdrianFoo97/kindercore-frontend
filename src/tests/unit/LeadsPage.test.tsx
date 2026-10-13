@@ -78,6 +78,7 @@ describe('LeadsPage', () => {
           utmSource: null,
           leadTemperature: null,
           deletedAt: null,
+          promoCode: null,
         },
       ],
       total: 1,

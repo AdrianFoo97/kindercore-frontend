@@ -17,7 +17,7 @@ import { useToast } from '../components/common/Toast.js';
 // Adding / renaming a channel happens in /constants/marketingChannels.ts.
 import { MARKETING_CHANNELS } from '../constants/marketingChannels.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate, faTag } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faFacebook, faGoogle, faTiktok, faInstagram } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
@@ -52,6 +52,24 @@ function RepeatSubmissionsBadge(props: { count: number; onClick: () => void }) {
     >
       <FontAwesomeIcon icon={faArrowsRotate} style={{ fontSize: 11 }} />
     </button>
+  );
+}
+
+// Promo code marker — same icon-only-plus-tooltip shape as
+// RepeatSubmissionsBadge above, but not clickable: there's nowhere
+// useful to jump to for a promo code, the tooltip alone answers "which
+// one did they use".
+function PromoCodeBadge({ code }: { code: string }) {
+  return (
+    <span
+      title={code}
+      style={{
+        display: 'inline-flex', alignItems: 'center',
+        color: '#5a67d8', cursor: 'default', flexShrink: 0,
+      }}
+    >
+      <FontAwesomeIcon icon={faTag} style={{ fontSize: 11 }} />
+    </span>
   );
 }
 
@@ -3112,6 +3130,7 @@ export default function LeadsPage() {
                               onClick={() => jumpToRepeatHistory(lead.parentPhone)}
                             />
                           )}
+                          {lead.promoCode && <PromoCodeBadge code={lead.promoCode} />}
                           {/* Heat indicator — icon + label. */}
                           {getLeadHeat(lead.ctaSource).label && (() => {
                             const heat = getLeadHeat(lead.ctaSource);
@@ -3384,6 +3403,7 @@ export default function LeadsPage() {
                                 onClick={() => jumpToRepeatHistory(lead.parentPhone)}
                               />
                             )}
+                            {lead.promoCode && <PromoCodeBadge code={lead.promoCode} />}
                             {/* Heat indicator — icon + Hot/Warm/Cold
                                 label, both in the heat color so the
                                 row carries an unambiguous lead-quality
