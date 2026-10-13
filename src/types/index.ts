@@ -202,8 +202,7 @@ export interface Position {
    *  page and (later) on the teacher-facing career journey. */
   description: string | null;
   /** References AuthRole.id — what a teacher holding this position can
-   *  access. Null falls back to no access (fail closed), except positions
-   *  backfilled onto the seeded "All Access (default)" role. */
+   *  access. Null falls back to no access (fail closed). */
   authRoleId: string | null;
 }
 
