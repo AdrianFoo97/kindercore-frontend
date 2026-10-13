@@ -3161,10 +3161,23 @@ export default function LeadsPage() {
                               </span>
                             );
                           })()}
-                          {/* Lead source — brand icon only, next to the heat. */}
+                          {/* Lead source — brand icon only, next to the heat.
+                              'unknown' still gets an icon (not a blank gap)
+                              since a free-text "其他" entry on the form is
+                              real information, just not one of the enum
+                              buckets — the tooltip is where it actually
+                              shows. */}
                           {(() => {
                             const ds = resolveDiscoverySource(lead);
-                            if (ds === 'unknown') return null;
+                            if (ds === 'unknown') {
+                              return (
+                                <span title={lead.howDidYouKnow ? `Lead Source: ${lead.howDidYouKnow}` : 'Lead Source: Unknown'} style={{
+                                  display: 'inline-flex', alignItems: 'center', cursor: 'default',
+                                }}>
+                                  <FontAwesomeIcon icon={faQuestion} fixedWidth style={{ fontSize: 11, color: '#94a3b8' }} />
+                                </span>
+                              );
+                            }
                             const dm = DISCOVERY_META[ds];
                             const refName = ds === 'referral' ? extractReferrerChildName(lead) : null;
                             const tip = refName
@@ -3492,16 +3505,26 @@ export default function LeadsPage() {
                           })()}
                         </td>
 
-                        {/* Source — brand icon only, centered. Empty
-                            cell when the lead's discovery source is
-                            unknown (not in the enum / no legacy
-                            match). Tooltip carries the full name and
+                        {/* Source — brand icon only, centered. 'unknown'
+                            still gets a question-mark icon (not a blank
+                            dash) since a free-text "其他" entry on the
+                            form is real information, just not one of the
+                            enum buckets — the tooltip is where it shows.
+                            Tooltip otherwise carries the full name and
                             the referrer's family name for Friend
                             Referral leads. */}
                         <td style={{ ...tD, textAlign: 'center' as const }}>
                           {(() => {
                             const ds = resolveDiscoverySource(lead);
-                            if (ds === 'unknown') return <span style={{ color: '#e2e8f0' }}>—</span>;
+                            if (ds === 'unknown') {
+                              return (
+                                <span title={lead.howDidYouKnow ? `Lead Source: ${lead.howDidYouKnow}` : 'Lead Source: Unknown'} style={{
+                                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'default',
+                                }}>
+                                  <FontAwesomeIcon icon={faQuestion} fixedWidth style={{ fontSize: 11, color: '#94a3b8' }} />
+                                </span>
+                              );
+                            }
                             const dm = DISCOVERY_META[ds];
                             const refName = ds === 'referral' ? extractReferrerChildName(lead) : null;
                             const tip = refName
