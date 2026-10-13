@@ -36,10 +36,24 @@ const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.
 
 type Status = 'upcoming' | 'active' | 'ended';
 
+// Calendar-date string ("YYYY-MM-DD"), anchored to Malaysia time rather
+// than whatever timezone the browser/server happens to be in — this app
+// has exactly one school, in one timezone, so "today" should mean Malaysia's
+// today regardless of who's viewing the page from where. Comparing these
+// as plain strings (not JS Date instants) sidesteps a real bug: comparing
+// `new Date()` (local midnight) against `new Date(c.startDate)` (UTC
+// midnight, since that's how the API serializes it) put the two several
+// hours apart depending on timezone offset, which made a campaign starting
+// "today" show as "Upcoming" for its entire first calendar day in MYT
+// (UTC+8 pushes the stored UTC-midnight instant 8h past local midnight).
+function todayStr() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+}
+
 function statusOf(c: MarketingCampaignRecord): Status {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const start = new Date(c.startDate);
-  const end = new Date(c.endDate);
+  const today = todayStr();
+  const start = c.startDate.slice(0, 10);
+  const end = c.endDate.slice(0, 10);
   if (today < start) return 'upcoming';
   if (today > end) return 'ended';
   return 'active';
@@ -52,13 +66,7 @@ const STATUS_STYLE: Record<Status, { label: string; bg: string; color: string }>
 };
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function todayStr() {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return new Date(d).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' });
 }
 
 export default function MarketingCampaignsPage() {
