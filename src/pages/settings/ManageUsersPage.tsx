@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserPlus, faCopy, faCheck, faTrash, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../../api/client.js';
 import { fetchTeachers } from '../../api/planner.js';
+import { fetchAuthRoles } from '../../api/auth-roles.js';
 import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
 import { useToast } from '../../components/common/Toast.js';
 
@@ -16,6 +17,7 @@ interface UserRecord {
   inviteLink: string | null;
   createdAt: string;
   teacherId: string | null;
+  authRoleId: string | null;
 }
 
 export default function ManageUsersPage() {
@@ -26,6 +28,10 @@ export default function ManageUsersPage() {
   const { data: teachers = [] } = useQuery({
     queryKey: ['planner-teachers'],
     queryFn: fetchTeachers,
+  });
+  const { data: authRoles = [] } = useQuery({
+    queryKey: ['auth-roles'],
+    queryFn: fetchAuthRoles,
   });
 
   const [teacherLinkSavingId, setTeacherLinkSavingId] = useState('');
@@ -39,6 +45,20 @@ export default function ManageUsersPage() {
       showToast(msg, 'error');
     } finally {
       setTeacherLinkSavingId('');
+    }
+  };
+
+  const [authRoleSavingId, setAuthRoleSavingId] = useState('');
+  const handleAuthRoleChange = async (userId: string, authRoleId: string) => {
+    setAuthRoleSavingId(userId);
+    try {
+      await apiFetch(`/api/auth/users/${userId}/auth-role`, { method: 'PATCH', body: JSON.stringify({ authRoleId: authRoleId || null }) });
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    } catch (e: any) {
+      const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to set access role'; } })();
+      showToast(msg, 'error');
+    } finally {
+      setAuthRoleSavingId('');
     }
   };
 
@@ -59,6 +79,7 @@ export default function ManageUsersPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'USER' | 'ADMIN'>('USER');
+  const [inviteAuthRoleId, setInviteAuthRoleId] = useState('');
   const [copiedId, setCopiedId] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [resendingId, setResendingId] = useState('');
@@ -66,7 +87,7 @@ export default function ManageUsersPage() {
   const [inviteSuccess, setInviteSuccess] = useState('');
 
   const inviteMutation = useMutation({
-    mutationFn: (payload: { email: string; role: string }) =>
+    mutationFn: (payload: { email: string; role: string; authRoleId: string | null }) =>
       apiFetch<{ inviteLink: string; emailSent: boolean }>('/api/auth/invite', { method: 'POST', body: JSON.stringify(payload) }),
     onSuccess: (data) => {
       setInviteError('');
@@ -84,7 +105,11 @@ export default function ManageUsersPage() {
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
-    inviteMutation.mutate({ email: inviteEmail.trim().toLowerCase(), role: inviteRole });
+    inviteMutation.mutate({
+      email: inviteEmail.trim().toLowerCase(),
+      role: inviteRole,
+      authRoleId: inviteRole === 'USER' ? (inviteAuthRoleId || null) : null,
+    });
   };
 
   const handleCopy = (id: string, link: string) => {
@@ -133,7 +158,7 @@ export default function ManageUsersPage() {
           <p style={{ fontSize: 14, color: '#64748b', margin: '4px 0 0' }}>Manage who has access to the admin portal.</p>
         </div>
         <button
-          onClick={() => { setShowInvite(true); setInviteEmail(''); setInviteError(''); }}
+          onClick={() => { setShowInvite(true); setInviteEmail(''); setInviteError(''); setInviteRole('USER'); setInviteAuthRoleId(''); }}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '10px 20px', background: '#1d4ed8', color: '#fff',
@@ -187,6 +212,29 @@ export default function ManageUsersPage() {
                     ))}
                   </div>
                 </div>
+                {inviteRole === 'USER' && (
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Access Role</label>
+                    <select
+                      value={inviteAuthRoleId}
+                      onChange={e => setInviteAuthRoleId(e.target.value)}
+                      style={{
+                        width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
+                        fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+                        background: '#fff', color: inviteAuthRoleId ? '#0f172a' : '#94a3b8',
+                      }}
+                    >
+                      <option value="">No access (fails closed)</option>
+                      {authRoles.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                    <p style={{ margin: '6px 0 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                      What modules/views they can see in the admin portal. Can also be set later from this page, or
+                      — for teaching staff — inherited from whichever Teacher record they get linked to instead.
+                    </p>
+                  </div>
+                )}
                 {inviteError && (
                   <p style={{ color: '#dc2626', fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{inviteError}</p>
                 )}
@@ -235,6 +283,25 @@ export default function ManageUsersPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {u.role === 'USER' && (
+                  <select
+                    value={u.authRoleId ?? ''}
+                    disabled={authRoleSavingId === u.id}
+                    onChange={e => handleAuthRoleChange(u.id, e.target.value)}
+                    title="Direct Access Role grant — separate from whatever a linked Teacher's position gives"
+                    style={{
+                      padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db',
+                      background: '#fff', color: u.authRoleId ? '#0f172a' : '#94a3b8', fontSize: 12,
+                      fontFamily: 'inherit', maxWidth: 160,
+                      cursor: authRoleSavingId === u.id ? 'default' : 'pointer',
+                    }}
+                  >
+                    <option value="">No access role</option>
+                    {authRoles.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                )}
                 <select
                   value={u.teacherId ?? ''}
                   disabled={teacherLinkSavingId === u.id}
