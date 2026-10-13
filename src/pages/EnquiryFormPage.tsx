@@ -82,9 +82,9 @@ export default function EnquiryFormPage() {
     if (!dob) { setAgeError(''); return; }
     const birthYear = new Date(dob).getFullYear();
     const age = year - birthYear;
-    if (age < 3) {
-      const earliestYear = birthYear + 3;
-      setAgeError(`目前年龄较小，本校目前接受 3 岁以上孩子\n建议选择 ${earliestYear} 年或之后的入学年份`);
+    if (age < 2) {
+      const earliestYear = birthYear + 2;
+      setAgeError(`目前年龄较小，本校目前接受 2 岁以上孩子\n建议选择 ${earliestYear} 年或之后的入学年份`);
     } else if (age > 6) {
       setAgeError('入学时年龄超过 6 岁，请确认出生日期与入学年份是否正确');
     } else {
@@ -116,9 +116,9 @@ export default function EnquiryFormPage() {
       } else {
         const birthYear = new Date(form.childDob).getFullYear();
         const age = form.enrolmentYear - birthYear;
-        if (age < 3) {
-          const earliestYear = birthYear + 3;
-          setAgeError(`目前年龄较小，本校目前接受 3 岁以上孩子\n建议选择 ${earliestYear} 年或之后的入学年份`);
+        if (age < 2) {
+          const earliestYear = birthYear + 2;
+          setAgeError(`目前年龄较小，本校目前接受 2 岁以上孩子\n建议选择 ${earliestYear} 年或之后的入学年份`);
           hasError = true;
         }
         if (age > 6) {
