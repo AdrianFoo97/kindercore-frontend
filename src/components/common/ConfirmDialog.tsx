@@ -66,7 +66,6 @@ export default function ConfirmDialog({
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1100,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
       }}
-      onClick={onCancel}
     >
       <div
         onClick={e => e.stopPropagation()}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faCopy, faCheck, faTrash, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
+import { faUserPlus, faCopy, faCheck, faTrash, faPaperPlane, faPen } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../../api/client.js';
 import { fetchTeachers } from '../../api/planner.js';
 import { fetchAuthRoles } from '../../api/auth-roles.js';
@@ -34,31 +34,36 @@ export default function ManageUsersPage() {
     queryFn: fetchAuthRoles,
   });
 
-  const [teacherLinkSavingId, setTeacherLinkSavingId] = useState('');
-  const handleTeacherLinkChange = async (userId: string, teacherId: string) => {
-    setTeacherLinkSavingId(userId);
-    try {
-      await apiFetch(`/api/auth/users/${userId}/teacher`, { method: 'PATCH', body: JSON.stringify({ teacherId: teacherId || null }) });
-      qc.invalidateQueries({ queryKey: ['admin-users'] });
-    } catch (e: any) {
-      const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to link teacher'; } })();
-      showToast(msg, 'error');
-    } finally {
-      setTeacherLinkSavingId('');
-    }
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
+  const [editAuthRoleId, setEditAuthRoleId] = useState('');
+  const [editTeacherId, setEditTeacherId] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEdit = (u: UserRecord) => {
+    setEditingUser(u);
+    setEditAuthRoleId(u.authRoleId ?? '');
+    setEditTeacherId(u.teacherId ?? '');
   };
 
-  const [authRoleSavingId, setAuthRoleSavingId] = useState('');
-  const handleAuthRoleChange = async (userId: string, authRoleId: string) => {
-    setAuthRoleSavingId(userId);
+  const handleSaveEdit = async () => {
+    if (!editingUser) return;
+    setEditSaving(true);
     try {
-      await apiFetch(`/api/auth/users/${userId}/auth-role`, { method: 'PATCH', body: JSON.stringify({ authRoleId: authRoleId || null }) });
+      const calls: Promise<unknown>[] = [
+        apiFetch(`/api/auth/users/${editingUser.id}/teacher`, { method: 'PATCH', body: JSON.stringify({ teacherId: editTeacherId || null }) }),
+      ];
+      if (editingUser.role === 'USER') {
+        calls.push(apiFetch(`/api/auth/users/${editingUser.id}/auth-role`, { method: 'PATCH', body: JSON.stringify({ authRoleId: editAuthRoleId || null }) }));
+      }
+      await Promise.all(calls);
       qc.invalidateQueries({ queryKey: ['admin-users'] });
+      showToast('Access updated');
+      setEditingUser(null);
     } catch (e: any) {
-      const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to set access role'; } })();
+      const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to save'; } })();
       showToast(msg, 'error');
     } finally {
-      setAuthRoleSavingId('');
+      setEditSaving(false);
     }
   };
 
@@ -179,8 +184,7 @@ export default function ManageUsersPage() {
 
       {/* Invite modal */}
       {showInvite && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-          onClick={() => setShowInvite(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: '32px', width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
             onClick={e => e.stopPropagation()}>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>Invite team member</h2>
@@ -257,6 +261,75 @@ export default function ManageUsersPage() {
         </div>
       )}
 
+      {/* Edit access modal */}
+      {editingUser && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '32px', width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
+            onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>
+              Edit access — {editingUser.name || editingUser.email}
+            </h2>
+            <p style={{ fontSize: 14, color: '#64748b', margin: '0 0 24px' }}>{editingUser.email}</p>
+
+            {editingUser.role === 'USER' && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Access Role</label>
+                <select
+                  value={editAuthRoleId}
+                  onChange={e => setEditAuthRoleId(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
+                    fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+                    background: '#fff', color: editAuthRoleId ? '#0f172a' : '#94a3b8',
+                  }}
+                >
+                  <option value="">No access role</option>
+                  {authRoles.map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                  Direct grant, separate from whatever a linked Teacher's position gives below.
+                </p>
+              </div>
+            )}
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Staff Link</label>
+              <select
+                value={editTeacherId}
+                onChange={e => setEditTeacherId(e.target.value)}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
+                  fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+                  background: '#fff', color: editTeacherId ? '#0f172a' : '#94a3b8',
+                }}
+              >
+                <option value="">No staff record linked</option>
+                {teachers.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" onClick={() => setEditingUser(null)} disabled={editSaving} style={{
+                padding: '9px 20px', border: '1.5px solid #d1d5db', borderRadius: 8,
+                background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600,
+                cursor: editSaving ? 'default' : 'pointer', fontFamily: 'inherit',
+              }}>Cancel</button>
+              <button type="button" onClick={handleSaveEdit} disabled={editSaving} style={{
+                padding: '9px 24px', background: '#1d4ed8', color: '#fff', border: 'none',
+                borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: editSaving ? 'default' : 'pointer', fontFamily: 'inherit',
+                opacity: editSaving ? 0.6 : 1,
+              }}>
+                {editSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Active users */}
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
@@ -283,47 +356,18 @@ export default function ManageUsersPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {u.role === 'USER' && (
-                  <select
-                    value={u.authRoleId ?? ''}
-                    disabled={authRoleSavingId === u.id}
-                    onChange={e => handleAuthRoleChange(u.id, e.target.value)}
-                    title="Direct Access Role grant — separate from whatever a linked Teacher's position gives"
-                    style={{
-                      padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db',
-                      background: '#fff', color: u.authRoleId ? '#0f172a' : '#94a3b8', fontSize: 12,
-                      fontFamily: 'inherit', maxWidth: 160,
-                      cursor: authRoleSavingId === u.id ? 'default' : 'pointer',
-                    }}
-                  >
-                    <option value="">No access role</option>
-                    {authRoles.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                )}
-                <select
-                  value={u.teacherId ?? ''}
-                  disabled={teacherLinkSavingId === u.id}
-                  onChange={e => handleTeacherLinkChange(u.id, e.target.value)}
-                  style={{
-                    padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db',
-                    background: '#fff', color: u.teacherId ? '#0f172a' : '#94a3b8', fontSize: 12,
-                    fontFamily: 'inherit', maxWidth: 160,
-                    cursor: teacherLinkSavingId === u.id ? 'default' : 'pointer',
-                  }}
-                >
-                  <option value="">No teacher linked</option>
-                  {teachers.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
                 <span style={{
                   fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
                   background: u.role === 'SUPERADMIN' ? '#fef3c7' : u.role === 'ADMIN' ? '#eff6ff' : '#f1f5f9',
                   color: u.role === 'SUPERADMIN' ? '#d97706' : u.role === 'ADMIN' ? '#1d4ed8' : '#64748b',
                   textTransform: 'uppercase', letterSpacing: '0.04em',
                 }}>{u.role}</span>
+                <button onClick={() => openEdit(u)} title="Edit access" style={{
+                  background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, color: '#374151',
+                  cursor: 'pointer', padding: 6, fontSize: 12, display: 'inline-flex', alignItems: 'center',
+                }}>
+                  <FontAwesomeIcon icon={faPen} />
+                </button>
                 {canDelete(u) && (
                   <button onClick={() => setDeleteTarget({ id: u.id, name: u.name || u.email })} style={{
                     background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 6, fontSize: 13,
@@ -396,8 +440,7 @@ export default function ManageUsersPage() {
 
       {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-          onClick={() => !deleting && setDeleteTarget(null)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: '32px', width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>

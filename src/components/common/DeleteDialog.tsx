@@ -144,7 +144,6 @@ export default function DeleteDialog({
       aria-modal="true"
       aria-labelledby="delete-dialog-title"
       style={s.backdrop}
-      onClick={() => { if (!loading) onCancel(); }}
     >
       <div style={s.card} onClick={e => e.stopPropagation()}>
         {/* Icon header */}
