@@ -77,6 +77,40 @@ export default function EnquiryFormPage() {
   const [timeError, setTimeError] = useState('');
   const [transportError, setTransportError] = useState('');
   const [sourceError, setSourceError] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  // 'idle' covers both an empty field (optional, no check needed) and a
+  // field that hasn't settled yet (debounce still pending) — both render
+  // the same "no feedback shown" state.
+  const [promoCodeStatus, setPromoCodeStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [promoCodeCampaign, setPromoCodeCampaign] = useState('');
+
+  // Debounced live-check against the backend — fires ~450ms after the
+  // parent stops typing, not on every keystroke. Optional field: an empty
+  // value just goes back to 'idle' with nothing shown, no request made.
+  useEffect(() => {
+    const trimmed = promoCode.trim();
+    if (!trimmed) { setPromoCodeStatus('idle'); setPromoCodeCampaign(''); return; }
+    setPromoCodeStatus('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API}/api/marketing-campaigns/check?code=${encodeURIComponent(trimmed)}`);
+        const data = await res.json();
+        if (data.valid) {
+          setPromoCodeStatus('valid');
+          setPromoCodeCampaign(data.campaignName ?? '');
+        } else {
+          setPromoCodeStatus('invalid');
+          setPromoCodeCampaign('');
+        }
+      } catch {
+        // Network hiccup — don't block submission over a check that
+        // couldn't run; treat as unverified rather than invalid.
+        setPromoCodeStatus('idle');
+        setPromoCodeCampaign('');
+      }
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [promoCode]);
 
   const validateAge = (dob: string, year: number) => {
     if (!dob) { setAgeError(''); return; }
@@ -182,6 +216,13 @@ export default function EnquiryFormPage() {
       setSourceError('请选择');
       hasError = true;
     }
+    // promoCode itself is optional, but a non-empty value must resolve to
+    // a real, active code — same hard-block idea as the other fields
+    // above, just keyed off the debounced check's result instead of a
+    // dedicated error string.
+    if (promoCode.trim() && (promoCodeStatus === 'invalid' || promoCodeStatus === 'checking')) {
+      hasError = true;
+    }
     if (hasError) return;
     // Friend Referral with a friend's name = qualified referral (HR
     // can verify the referrer and apply the discount). Friend
@@ -208,6 +249,7 @@ export default function EnquiryFormPage() {
           ...(ctaSource ? { ctaSource } : {}),
           ...(utmSource ? { utmSource } : {}),
           ...(referralNote ? { notes: referralNote } : {}),
+          ...(promoCodeStatus === 'valid' ? { promoCode: promoCode.trim() } : {}),
         }).filter(([k, v]) => k === 'needsTransport' ? true : v !== ''))),
       });
       if (!res.ok) throw new Error('提交失败，请稍后重试');
@@ -826,6 +868,34 @@ export default function EnquiryFormPage() {
                         🎁 如果他们的孩子正在 Ten Toes Bukit Indah 分校就读，您和他们都可以享受介绍优惠
                       </p>
                     </div>
+                  )}
+                </div>
+
+                <div style={{ marginBottom: 18 }}>
+                  <label style={labelStyle}>
+                    优惠码 <span style={{ color: '#94a3b8', fontWeight: 400 }}>（可选）</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="例：CNY2026"
+                    style={{
+                      ...inputStyle,
+                      ...(promoCodeStatus === 'invalid' ? { borderColor: '#ef4444' } : {}),
+                      ...(promoCodeStatus === 'valid' ? { borderColor: '#22c55e' } : {}),
+                    }}
+                  />
+                  {promoCodeStatus === 'checking' && (
+                    <p style={{ margin: '6px 0 0', fontSize: 12, color: '#94a3b8' }}>检查中…</p>
+                  )}
+                  {promoCodeStatus === 'invalid' && (
+                    <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444' }}>&#9888; 此优惠码无效</p>
+                  )}
+                  {promoCodeStatus === 'valid' && (
+                    <p style={{ margin: '6px 0 0', fontSize: 12, color: '#16a34a' }}>
+                      &#10003; {promoCodeCampaign || '优惠码有效'}
+                    </p>
                   )}
                 </div>
               </>

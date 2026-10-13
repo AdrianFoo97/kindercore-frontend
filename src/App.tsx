@@ -48,6 +48,7 @@ import SettingsHrPage from './pages/settings/SettingsHrPage.js';
 import PositionEditPage from './pages/settings/PositionEditPage.js';
 import CareerMissionSettingsPage from './pages/settings/CareerMissionSettingsPage.js';
 import MissionCategoriesPage from './pages/settings/MissionCategoriesPage.js';
+import MarketingCampaignsPage from './pages/marketing/MarketingCampaignsPage.js';
 import SopLibraryPage from './pages/operations/SopLibraryPage.js';
 import SopProposePage from './pages/operations/SopProposePage.js';
 import HrSopRevisionsPage from './pages/HrSopRevisionsPage.js';
@@ -245,8 +246,9 @@ export default function App() {
         <Route path="/apply" element={<ApplyPage />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/no-access" element={<ErrorBoundary><NoAccessPage /></ErrorBoundary>} />
-          <Route path="/leads" element={<RequireModule module={MODULES.LEADS}><ErrorBoundary><LeadsPage /></ErrorBoundary></RequireModule>} />
-          <Route path="/leads/import" element={<RequireModule module={MODULES.LEADS}><ErrorBoundary><ImportLeadsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/leads" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><LeadsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/leads/import" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><ImportLeadsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/marketing/campaigns" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><MarketingCampaignsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/packages" element={<ErrorBoundary><PackagesPage /></ErrorBoundary>} />
           <Route path="/settings/leads" element={<ErrorBoundary><LeadStatusSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/company" element={<ErrorBoundary><CompanySettingsPage /></ErrorBoundary>} />

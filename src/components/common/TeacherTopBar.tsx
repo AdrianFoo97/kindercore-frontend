@@ -22,7 +22,7 @@ import { MODULES } from '../../constants/authModules.js';
 // already has its own complete nav (including its own hamburger on a
 // narrow screen) once you land outside a teacher-surface route.
 const ADMIN_MENU_LINKS = [
-  { module: MODULES.LEADS, to: '/leads', label: 'Leads', icon: faBullhorn },
+  { module: MODULES.MARKETING, to: '/leads', label: 'Leads', icon: faBullhorn },
   { module: MODULES.STUDENTS, to: '/students', label: 'Students', icon: faGraduationCap },
   { module: MODULES.HR, to: '/teachers', label: 'HR', icon: faUsers },
   { module: MODULES.FINANCE, to: '/operations/operating-costs', label: 'Finance', icon: faMoneyBillTrendUp },

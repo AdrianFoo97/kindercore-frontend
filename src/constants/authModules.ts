@@ -1,11 +1,11 @@
 // Mirrors kindercore-backend/src/constants/authModules.ts — keep both in
 // sync by hand (no shared package, this isn't a monorepo). One entry per
 // Navbar dropdown currently shown to any authenticated user with zero role
-// gating: Leads, Students, HR, Finance, Operation, Analysis, Tools.
-// Settings/Admin/Dev stay hard-gated to ADMIN/SUPERADMIN as today — they
-// are NOT part of this catalog.
+// gating: Marketing (Leads + Campaigns), Students, HR, Finance, Operation,
+// Analysis, Tools. Settings/Admin/Dev stay hard-gated to ADMIN/SUPERADMIN
+// as today — they are NOT part of this catalog.
 export const MODULES = {
-  LEADS: 'LEADS',
+  MARKETING: 'MARKETING',
   STUDENTS: 'STUDENTS',
   HR: 'HR',
   FINANCE: 'FINANCE',
@@ -17,7 +17,7 @@ export type ModuleKey = typeof MODULES[keyof typeof MODULES];
 export const ALL_MODULE_KEYS: ModuleKey[] = Object.values(MODULES);
 
 export const MODULE_LABELS: Record<ModuleKey, string> = {
-  LEADS: 'Leads',
+  MARKETING: 'Marketing',
   STUDENTS: 'Students',
   HR: 'HR',
   FINANCE: 'Finance',

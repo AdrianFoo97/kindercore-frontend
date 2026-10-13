@@ -7,7 +7,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faTag } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 /** Normalises a human-readable label into a URL-safe utm_source value.
@@ -47,6 +47,7 @@ export default function Navbar() {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [studentsOpen, setStudentsOpen] = useState(false);
+  const [marketingOpen, setMarketingOpen] = useState(false);
   const [hrOpen, setHrOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
   const [operationOpen, setOperationOpen] = useState(false);
@@ -65,6 +66,7 @@ export default function Navbar() {
   const analysisRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const studentsRef = useRef<HTMLDivElement>(null);
+  const marketingRef = useRef<HTMLDivElement>(null);
   const hrRef = useRef<HTMLDivElement>(null);
   const financeRef = useRef<HTMLDivElement>(null);
   const operationRef = useRef<HTMLDivElement>(null);
@@ -109,6 +111,15 @@ export default function Navbar() {
   const studentsMatch = useMatch('/students');
   const onboardingMatch = useMatch('/onboarding');
   const onStudentsRoute = !!(studentsMatch || onboardingMatch);
+  // Three separate useMatch calls, each called unconditionally — `||`
+  // short-circuits, which would skip later calls once an earlier one
+  // matches, changing the number of hooks called between renders and
+  // crashing React's hook-order check on the next navigation (same
+  // footgun documented above for onOperationRoute/onAdminRoute).
+  const leadsRouteMatch = useMatch('/leads');
+  const leadsWildcardMatch = useMatch('/leads/*');
+  const marketingWildcardMatch = useMatch('/marketing/*');
+  const onMarketingRoute = !!(leadsRouteMatch || leadsWildcardMatch || marketingWildcardMatch);
   const teachersRouteMatch = useMatch('/teachers/*');
   const hrRouteMatch = useMatch('/hr/*');
   const onHrRoute = !!(teachersRouteMatch || hrRouteMatch) && !sopRevisionsMatch;
@@ -142,6 +153,7 @@ export default function Navbar() {
       if (analysisRef.current && !analysisRef.current.contains(e.target as Node)) setAnalysisOpen(false);
       if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) setSettingsOpen(false);
       if (studentsRef.current && !studentsRef.current.contains(e.target as Node)) setStudentsOpen(false);
+      if (marketingRef.current && !marketingRef.current.contains(e.target as Node)) setMarketingOpen(false);
       if (hrRef.current && !hrRef.current.contains(e.target as Node)) setHrOpen(false);
       if (financeRef.current && !financeRef.current.contains(e.target as Node)) setFinanceOpen(false);
       if (operationRef.current && !operationRef.current.contains(e.target as Node)) setOperationOpen(false);
@@ -162,7 +174,7 @@ export default function Navbar() {
   // Close mobile menu on navigate
   useEffect(() => { setMobileMenuOpen(false); }, [navCollapsed]);
 
-  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
+  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setMarketingOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
 
   // Shared nav items renderer (used for both desktop and mobile drawer)
   const renderNavItems = (mobile = false) => {
@@ -195,7 +207,7 @@ export default function Navbar() {
     // both sides of it — same admin-role checks as the dropdowns they
     // sit next to (lines ~503/~556 for Settings/Admin).
     const isAdminRole = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
-    const hasPeoplePipelineCluster = allowModule(MODULES.LEADS) || allowModule(MODULES.STUDENTS) || allowModule(MODULES.HR) || allowModule(MODULES.FINANCE);
+    const hasPeoplePipelineCluster = allowModule(MODULES.MARKETING) || allowModule(MODULES.STUDENTS) || allowModule(MODULES.HR) || allowModule(MODULES.FINANCE);
     const hasOpsInsightsCluster = (allowModule(MODULES.OPERATION) && (!user?.teacherId || hasView('OPERATION_SOP_APPROVE'))) || allowModule(MODULES.ANALYSIS);
     const hasConfigAdminCluster = allowModule(MODULES.TOOLS) || isAdminRole;
     const showDivider1 = hasPeoplePipelineCluster && (hasOpsInsightsCluster || hasConfigAdminCluster);
@@ -249,14 +261,33 @@ export default function Navbar() {
             }>{navIcon(faBookOpen)}Guides</NavLink>
         )}
 
-        {/* Leads link */}
-        {allowModule(MODULES.LEADS) && (
-          <NavLink to="/leads" end onClick={closeAll}
-            className={mobile ? '' : 'nav-link'}
-            style={({ isActive }) => mobile
-              ? { ...mLink, ...(isActive ? mLinkActive : {}) }
-              : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
-            }>{navIcon(faBullhorn)}Leads</NavLink>
+        {/* Marketing dropdown — Leads (the pipeline) + Campaigns (promo
+            codes tied to a marketing push), grouped the same way Students
+            groups "All Students" + "Onboarding" under one umbrella. */}
+        {allowModule(MODULES.MARKETING) && (
+        <div ref={mobile ? undefined : marketingRef} style={mobile ? {} : { position: 'relative' }}>
+          <button onClick={() => setMarketingOpen(o => !o)} className={mobile ? '' : 'nav-link'}
+            style={{ ...mDropBtn, ...(onMarketingRoute && !mobile ? styles.activeLink : {}), ...(onMarketingRoute && mobile ? mLinkActive : {}) }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faBullhorn)}Marketing</span>
+            {mobile ? (marketingOpen ? '−' : '+') : '▾'}
+          </button>
+          {marketingOpen && (
+            <div style={mPanel}>
+              <NavLink to="/leads" end onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Leads
+              </NavLink>
+              <NavLink to="/marketing/campaigns" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faTag} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Campaigns
+              </NavLink>
+            </div>
+          )}
+        </div>
         )}
 
         {/* Students dropdown */}

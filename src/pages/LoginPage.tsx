@@ -13,7 +13,7 @@ import { APP_VERSION } from '../version.js';
 // non-admin AuthRole (e.g. Teacher: Operation only) doesn't land on /leads
 // and immediately get bounced out by RequireModule.
 const MODULE_HOME: Record<ModuleKey, string> = {
-  LEADS: '/leads',
+  MARKETING: '/leads',
   STUDENTS: '/students',
   HR: '/teachers',
   FINANCE: '/operations/operating-costs',
