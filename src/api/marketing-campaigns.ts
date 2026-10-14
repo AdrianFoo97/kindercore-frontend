@@ -8,6 +8,7 @@ export interface MarketingCampaignRecord {
   endDate: string;
   createdAt: string;
   updatedAt: string;
+  leadCount: number;
 }
 
 export interface UpsertMarketingCampaignPayload {

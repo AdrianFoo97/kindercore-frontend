@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchLeads, updateLead, deleteLead, fetchTrashedLeads, restoreLead, permanentDeleteLead, createAppointment, confirmAppointment, confirmAppointmentNoCalendar, fetchUpcomingAppointments, fetchLeadStats, fetchLeadPhones, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
 import { fetchLeadLabels, createLeadLabel, updateLeadLabel, deleteLeadLabel, setLeadLabels as setLeadLabelsApi, LeadLabelRecord } from '../api/lead-labels.js';
+import { fetchMarketingCampaigns } from '../api/marketing-campaigns.js';
 import { COLOR_PALETTE } from '../api/mission-categories.js';
 import { fetchUpcomingInterviews, UpcomingInterview } from '../api/candidates.js';
 import { fetchSettings } from '../api/settings.js';
@@ -2464,6 +2465,8 @@ export default function LeadsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedLabelId, setSelectedLabelId] = useState('');
   const { data: labelCatalog = [] } = useQuery({ queryKey: ['lead-labels'], queryFn: fetchLeadLabels });
+  const [selectedCampaignCode, setSelectedCampaignCode] = useState('');
+  const { data: campaignCatalog = [] } = useQuery({ queryKey: ['marketing-campaigns'], queryFn: fetchMarketingCampaigns });
   const [labelPickerLeadId, setLabelPickerLeadId] = useState<string | null>(null);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState<string>(COLOR_PALETTE[0]);
@@ -2552,8 +2555,8 @@ export default function LeadsPage() {
   const apiSort = sortBy === 'intent' ? 'submittedAt' : sortBy;
   const apiOrder = sortBy === 'intent' ? 'desc' : sortOrder;
   const { data: rawData, isLoading, isError, error } = useQuery({
-    queryKey: ['leads', page, pageSize, apiFilterStatus, apiSort, apiOrder, debouncedSearch, apiYear, selectedLabelId],
-    queryFn: () => fetchLeads(page, pageSize, apiFilterStatus || undefined, apiSort, apiOrder, debouncedSearch || undefined, apiYear, selectedLabelId || undefined),
+    queryKey: ['leads', page, pageSize, apiFilterStatus, apiSort, apiOrder, debouncedSearch, apiYear, selectedLabelId, selectedCampaignCode],
+    queryFn: () => fetchLeads(page, pageSize, apiFilterStatus || undefined, apiSort, apiOrder, debouncedSearch || undefined, apiYear, selectedLabelId || undefined, selectedCampaignCode || undefined),
     enabled: selectedStage !== 'TRASH',
     refetchInterval: 30_000,
     staleTime: 0,
@@ -3269,6 +3272,21 @@ export default function LeadsPage() {
                   <option value="">All Labels</option>
                   {labelCatalog.map(l => (
                     <option key={l.id} value={l.id}>{l.name} ({l.leadCount})</option>
+                  ))}
+                </select>
+              )}
+              {/* Campaign filter — filters by the promo code a lead
+                  submitted with (Lead.promoCode), not a foreign key to
+                  MarketingCampaign, so matching is by code value. */}
+              {campaignCatalog.length > 0 && (
+                <select
+                  value={selectedCampaignCode}
+                  onChange={e => { setSelectedCampaignCode(e.target.value); setPage(1); }}
+                  style={{ padding: '7px 10px', border: '1px solid #e8ecf1', borderRadius: 7, fontSize: 13, color: '#64748b', background: '#fff', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  <option value="">All Campaigns</option>
+                  {campaignCatalog.map(c => (
+                    <option key={c.id} value={c.code}>{c.name} ({c.leadCount})</option>
                   ))}
                 </select>
               )}
