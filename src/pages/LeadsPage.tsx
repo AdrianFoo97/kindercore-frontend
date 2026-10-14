@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchLeads, updateLead, deleteLead, fetchTrashedLeads, restoreLead, permanentDeleteLead, createAppointment, confirmAppointment, confirmAppointmentNoCalendar, fetchUpcomingAppointments, fetchLeadStats, fetchLeadPhones, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
 import { fetchLeadLabels, createLeadLabel, updateLeadLabel, deleteLeadLabel, setLeadLabels as setLeadLabelsApi, LeadLabelRecord } from '../api/lead-labels.js';
-import { fetchMarketingCampaigns } from '../api/marketing-campaigns.js';
+import { fetchMarketingCampaigns, MarketingCampaignRecord } from '../api/marketing-campaigns.js';
 import { COLOR_PALETTE } from '../api/mission-categories.js';
 import { fetchUpcomingInterviews, UpcomingInterview } from '../api/candidates.js';
 import { fetchSettings } from '../api/settings.js';
@@ -20,7 +20,7 @@ import { useToast } from '../components/common/Toast.js';
 // Adding / renaming a channel happens in /constants/marketingChannels.ts.
 import { MARKETING_CHANNELS } from '../constants/marketingChannels.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate, faTag, faTags, faPlus, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate, faTag, faTags, faPlus, faCheck, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faFacebook, faGoogle, faTiktok, faInstagram } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
@@ -198,6 +198,98 @@ function LabelPickerPopover({
         </div>
       </div>
     </>
+  );
+}
+
+// Searchable campaign filter — a plain <select> doesn't scale once
+// there are many campaigns (long scroll, no search), so this swaps in
+// a text-filterable popover instead. Self-contained (owns its own
+// open/search state) since nothing else needs to read into it, unlike
+// LabelPickerPopover's inline-create flow.
+function CampaignFilterSelect({
+  campaigns, value, onChange,
+}: {
+  campaigns: MarketingCampaignRecord[];
+  value: string;
+  onChange: (code: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const selected = campaigns.find(c => c.code === value);
+  const q = query.toLowerCase();
+  const filtered = campaigns.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q));
+  const close = () => { setOpen(false); setQuery(''); };
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '7px 10px', border: '1px solid #e8ecf1', borderRadius: 7,
+          fontSize: 13, color: '#64748b', background: '#fff', cursor: 'pointer',
+          minWidth: 150, maxWidth: 220,
+        }}
+      >
+        <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {selected ? `${selected.name} (${selected.leadCount})` : 'All Campaigns'}
+        </span>
+        <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }} />
+      </button>
+      {open && (
+        <>
+          <div onClick={close} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 200,
+              background: '#fff', border: '1px solid #e8eaed', borderRadius: 10,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)',
+              minWidth: 220, padding: 6,
+            }}
+          >
+            <input
+              autoFocus
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search campaigns..."
+              style={{ width: '100%', boxSizing: 'border-box' as const, padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12.5, fontFamily: 'inherit', outline: 'none', marginBottom: 6 }}
+            />
+            <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+              <button
+                type="button"
+                onClick={() => { onChange(''); close(); }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  padding: '6px 8px', border: 'none', background: value === '' ? '#f1f5f9' : 'none',
+                  borderRadius: 7, cursor: 'pointer', fontSize: 12.5, color: '#374151',
+                }}
+              >
+                All Campaigns
+              </button>
+              {filtered.length === 0 && (
+                <p style={{ margin: 0, padding: '6px 8px', fontSize: 12, color: '#94a3b8' }}>No matches.</p>
+              )}
+              {filtered.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => { onChange(c.code); close(); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%',
+                    padding: '6px 8px', border: 'none', background: value === c.code ? '#f1f5f9' : 'none',
+                    borderRadius: 7, cursor: 'pointer', textAlign: 'left', fontSize: 12.5, color: '#374151',
+                  }}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                  <span style={{ color: '#94a3b8', fontSize: 11, flexShrink: 0 }}>{c.leadCount}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -3278,18 +3370,16 @@ export default function LeadsPage() {
               )}
               {/* Campaign filter — filters by the promo code a lead
                   submitted with (Lead.promoCode), not a foreign key to
-                  MarketingCampaign, so matching is by code value. */}
+                  MarketingCampaign, so matching is by code value.
+                  Searchable combobox rather than a plain <select> since
+                  the campaign list has no natural cap and a long native
+                  dropdown with no search doesn't scale. */}
               {campaignCatalog.length > 0 && (
-                <select
+                <CampaignFilterSelect
+                  campaigns={campaignCatalog}
                   value={selectedCampaignCode}
-                  onChange={e => { setSelectedCampaignCode(e.target.value); setPage(1); }}
-                  style={{ padding: '7px 10px', border: '1px solid #e8ecf1', borderRadius: 7, fontSize: 13, color: '#64748b', background: '#fff', cursor: 'pointer', flexShrink: 0 }}
-                >
-                  <option value="">All Campaigns</option>
-                  {campaignCatalog.map(c => (
-                    <option key={c.id} value={c.code}>{c.name} ({c.leadCount})</option>
-                  ))}
-                </select>
+                  onChange={code => { setSelectedCampaignCode(code); setPage(1); }}
+                />
               )}
               {/* Year filter — closed stages only */}
               {isClosed && (
