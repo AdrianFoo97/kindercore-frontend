@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchLeads, updateLead, deleteLead, fetchTrashedLeads, restoreLead, permanentDeleteLead, createAppointment, confirmAppointment, confirmAppointmentNoCalendar, fetchUpcomingAppointments, fetchLeadStats, fetchLeadPhones, UpcomingAppointment, UpdateLeadPayload } from '../api/leads.js';
+import { fetchLeadLabels, createLeadLabel, updateLeadLabel, deleteLeadLabel, setLeadLabels as setLeadLabelsApi, LeadLabelRecord } from '../api/lead-labels.js';
+import { COLOR_PALETTE } from '../api/mission-categories.js';
 import { fetchUpcomingInterviews, UpcomingInterview } from '../api/candidates.js';
 import { fetchSettings } from '../api/settings.js';
 import { getConnectToken } from '../api/google.js';
@@ -17,7 +19,7 @@ import { useToast } from '../components/common/Toast.js';
 // Adding / renaming a channel happens in /constants/marketingChannels.ts.
 import { MARKETING_CHANNELS } from '../constants/marketingChannels.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate, faTag } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate, faTag, faTags, faPlus, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faFacebook, faGoogle, faTiktok, faInstagram } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
@@ -73,6 +75,263 @@ function PromoCodeBadge({ code }: { code: string }) {
     >
       <FontAwesomeIcon icon={faTag} style={{ fontSize: 11 }} />
     </span>
+  );
+}
+
+// One label chip — small rounded pill, color comes from the label record.
+function LabelPill({ name, color }: { name: string; color: string }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+      background: `${color}1f`, color, whiteSpace: 'nowrap' as const, flexShrink: 0,
+    }}>
+      {name}
+    </span>
+  );
+}
+
+// Declared at module scope (not inside LeadsPage's render) per the
+// project's "no components defined inside a render function" rule —
+// everything it needs comes in as props, not closure.
+function LabelPickerPopover({
+  lead, labelCatalog, position, newLabelName, onNewLabelNameChange,
+  onToggle, onCreate, onManage, onClose,
+}: {
+  lead: Lead;
+  labelCatalog: LeadLabelRecord[];
+  position: { top: number; left: number };
+  newLabelName: string;
+  onNewLabelNameChange: (v: string) => void;
+  onToggle: (labelId: string) => void;
+  onCreate: () => void;
+  onManage: () => void;
+  onClose: () => void;
+}) {
+  const assignedIds = new Set(lead.labels.map(l => l.id));
+  return (
+    <>
+      {/* Invisible full-screen catcher, not a dim backdrop — this is a
+          lightweight picker, not a modal, so clicking away just closes
+          it without the "are you leaving something unsaved" weight a
+          dimmed overlay implies. Every toggle already saves immediately. */}
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          position: 'fixed', top: position.top, left: position.left, zIndex: 200,
+          background: '#fff', border: '1px solid #e8eaed', borderRadius: 10,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)',
+          minWidth: 200, maxWidth: 240, padding: 6,
+        }}
+      >
+        <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+          {labelCatalog.length === 0 && (
+            <p style={{ margin: 0, padding: '6px 8px', fontSize: 12, color: '#94a3b8' }}>No labels yet.</p>
+          )}
+          {labelCatalog.map(l => {
+            const active = assignedIds.has(l.id);
+            return (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => onToggle(l.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                  padding: '6px 8px', border: 'none', background: active ? '#f1f5f9' : 'none',
+                  borderRadius: 7, cursor: 'pointer', textAlign: 'left', fontSize: 12.5, color: '#374151',
+                }}
+              >
+                <span style={{ width: 14, height: 14, borderRadius: 4, background: l.color, flexShrink: 0 }} />
+                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
+                {active && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 11, color: '#5a67d8' }} />}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ borderTop: '1px solid #f1f5f9', marginTop: 4, paddingTop: 6 }}>
+          <div style={{ display: 'flex', gap: 4, padding: '0 2px' }}>
+            <input
+              value={newLabelName}
+              onChange={e => onNewLabelNameChange(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && newLabelName.trim()) onCreate(); }}
+              placeholder="New label..."
+              style={{ flex: 1, minWidth: 0, padding: '5px 7px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, fontFamily: 'inherit', outline: 'none' }}
+            />
+            <button
+              type="button"
+              onClick={onCreate}
+              disabled={!newLabelName.trim()}
+              style={{ padding: '0 8px', border: 'none', borderRadius: 6, background: '#5a67d8', color: '#fff', cursor: newLabelName.trim() ? 'pointer' : 'default', opacity: newLabelName.trim() ? 1 : 0.5, fontSize: 12 }}
+            >
+              <FontAwesomeIcon icon={faPlus} />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={onManage}
+            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 8px', marginTop: 2, border: 'none', background: 'none', color: '#64748b', fontSize: 11.5, cursor: 'pointer' }}
+          >
+            Manage labels…
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Rename/recolor/delete labels — reachable from the picker's "Manage
+// labels…" link rather than a dedicated settings page, since the catalog
+// is small and only ever touched from right here. Self-contained (own
+// query client + toast) since it's only ever mounted from one place.
+function ManageLabelsModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const { showToast } = useToast();
+  const { confirm } = useDeleteDialog();
+  const { data: labels = [] } = useQuery({ queryKey: ['lead-labels'], queryFn: fetchLeadLabels });
+
+  const [newName, setNewName] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [colorPickerId, setColorPickerId] = useState<string | null>(null);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['lead-labels'] });
+
+  const handleCreate = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    try {
+      const color = COLOR_PALETTE[labels.length % COLOR_PALETTE.length];
+      await createLeadLabel({ name, color });
+      invalidate();
+      setNewName('');
+    } catch (e: any) {
+      const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to create label'; } })();
+      showToast(msg, 'error');
+    }
+  };
+  const saveRename = async (id: string) => {
+    const name = editName.trim();
+    setEditingId(null);
+    if (!name) return;
+    try {
+      await updateLeadLabel(id, { name });
+      invalidate();
+    } catch (e: any) {
+      const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to rename label'; } })();
+      showToast(msg, 'error');
+    }
+  };
+  const pickColor = async (id: string, color: string) => {
+    setColorPickerId(null);
+    try {
+      await updateLeadLabel(id, { color });
+      invalidate();
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to update color', 'error');
+    }
+  };
+  const handleDelete = async (label: LeadLabelRecord) => {
+    await confirm({
+      entityType: 'label',
+      entityName: label.name,
+      consequence: `It'll be removed from ${label.leadCount} lead${label.leadCount === 1 ? '' : 's'} currently tagged with it.`,
+      onConfirm: async () => {
+        try {
+          await deleteLeadLabel(label.id);
+          invalidate();
+          qc.invalidateQueries({ queryKey: ['leads'] });
+          showToast('Label deleted');
+        } catch (e: any) {
+          const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Delete failed'; } })();
+          showToast(msg, 'error');
+          throw e;
+        }
+      },
+    });
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: 420, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a202c', margin: 0 }}>Manage Labels</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: '#718096' }}>
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+          <input
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) handleCreate(); }}
+            placeholder="New label name..."
+            style={{ flex: 1, padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+          />
+          <button
+            onClick={handleCreate}
+            disabled={!newName.trim()}
+            style={{ padding: '0 14px', border: 'none', borderRadius: 7, background: '#5a67d8', color: '#fff', cursor: newName.trim() ? 'pointer' : 'default', opacity: newName.trim() ? 1 : 0.5, fontSize: 13, fontWeight: 600 }}
+          >
+            Add
+          </button>
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {labels.length === 0 && (
+            <p style={{ margin: 0, padding: '12px 0', fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>No labels yet.</p>
+          )}
+          {labels.map(l => (
+            <div key={l.id} style={{ padding: '6px 4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => setColorPickerId(colorPickerId === l.id ? null : l.id)}
+                  title="Change color"
+                  style={{ width: 16, height: 16, borderRadius: 4, background: l.color, border: 'none', cursor: 'pointer', flexShrink: 0 }}
+                />
+                {editingId === l.id ? (
+                  <input
+                    autoFocus
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onBlur={() => saveRename(l.id)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveRename(l.id); if (e.key === 'Escape') setEditingId(null); }}
+                    style={{ flex: 1, padding: '3px 6px', border: '1px solid #c7d2fe', borderRadius: 5, fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => { setEditingId(l.id); setEditName(l.name); }}
+                    style={{ flex: 1, minWidth: 0, textAlign: 'left', padding: '3px 6px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {l.name}
+                  </button>
+                )}
+                <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>{l.leadCount} lead{l.leadCount === 1 ? '' : 's'}</span>
+                <button onClick={() => handleDelete(l)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px 4px', fontSize: 12, flexShrink: 0 }}>
+                  <FontAwesomeIcon icon={faTrash} />
+                </button>
+              </div>
+              {colorPickerId === l.id && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, paddingLeft: 24 }}>
+                  {COLOR_PALETTE.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => pickColor(l.id, c)}
+                      title={c}
+                      style={{
+                        width: 18, height: 18, borderRadius: '50%', background: c, cursor: 'pointer',
+                        border: c === l.color ? '2px solid #1a202c' : '2px solid transparent',
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2168,6 +2427,12 @@ export default function LeadsPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedLabelId, setSelectedLabelId] = useState('');
+  const { data: labelCatalog = [] } = useQuery({ queryKey: ['lead-labels'], queryFn: fetchLeadLabels });
+  const [labelPickerLeadId, setLabelPickerLeadId] = useState<string | null>(null);
+  const [labelPickerPos, setLabelPickerPos] = useState({ top: 0, left: 0 });
+  const [newLabelName, setNewLabelName] = useState('');
+  const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedSearch(searchInput.trim()); setPage(1); }, 300);
@@ -2252,8 +2517,8 @@ export default function LeadsPage() {
   const apiSort = sortBy === 'intent' ? 'submittedAt' : sortBy;
   const apiOrder = sortBy === 'intent' ? 'desc' : sortOrder;
   const { data: rawData, isLoading, isError, error } = useQuery({
-    queryKey: ['leads', page, pageSize, apiFilterStatus, apiSort, apiOrder, debouncedSearch, apiYear],
-    queryFn: () => fetchLeads(page, pageSize, apiFilterStatus || undefined, apiSort, apiOrder, debouncedSearch || undefined, apiYear),
+    queryKey: ['leads', page, pageSize, apiFilterStatus, apiSort, apiOrder, debouncedSearch, apiYear, selectedLabelId],
+    queryFn: () => fetchLeads(page, pageSize, apiFilterStatus || undefined, apiSort, apiOrder, debouncedSearch || undefined, apiYear, selectedLabelId || undefined),
     enabled: selectedStage !== 'TRASH',
     refetchInterval: 30_000,
     staleTime: 0,
@@ -2361,6 +2626,42 @@ export default function LeadsPage() {
     return s;
   }, [leadPhoneIndex]);
   const hasNoShowFor = (lead: Lead) => noShowPhones.has(normalizePhone(lead.parentPhone));
+
+  const invalidateLabelQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['leads'] });
+    queryClient.invalidateQueries({ queryKey: ['lead-labels'] });
+  };
+  const openLabelPicker = (lead: Lead, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setLabelPickerPos({ top: rect.bottom + 4, left: rect.left });
+    setNewLabelName('');
+    setLabelPickerLeadId(labelPickerLeadId === lead.id ? null : lead.id);
+  };
+  const toggleLeadLabel = async (lead: Lead, labelId: string) => {
+    const current = lead.labels.map(l => l.id);
+    const next = current.includes(labelId) ? current.filter(id => id !== labelId) : [...current, labelId];
+    try {
+      await setLeadLabelsApi(lead.id, next);
+      invalidateLabelQueries();
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to update labels', 'error');
+    }
+  };
+  const createAndAssignLabel = async (lead: Lead) => {
+    const name = newLabelName.trim();
+    if (!name) return;
+    try {
+      const color = COLOR_PALETTE[labelCatalog.length % COLOR_PALETTE.length];
+      const created = await createLeadLabel({ name, color });
+      await setLeadLabelsApi(lead.id, [...lead.labels.map(l => l.id), created.id]);
+      invalidateLabelQueries();
+      setNewLabelName('');
+    } catch (e: any) {
+      const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to create label'; } })();
+      showToast(msg, 'error');
+    }
+  };
   // Jump to every submission for this phone, any status — a duplicate
   // enquiry is just as likely to still be New/Contacted (parent submitted
   // twice before anyone followed up) as it is to be closed, so restricting
@@ -2594,9 +2895,12 @@ export default function LeadsPage() {
       <style>{`.kc-no-scrollbar::-webkit-scrollbar{display:none}.kc-no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}@keyframes kcFadeHL{0%{background:#fefce8}100%{background:transparent}}.kc-hl{animation:kcFadeHL 2s forwards}textarea:focus::placeholder{color:transparent}.kc-mi{display:flex;align-items:center;width:100%;padding:8px 12px;text-align:left;background:none;border:none;border-radius:8px;cursor:pointer;font-size:13px;color:#374151;font-weight:500;text-decoration:none;box-sizing:border-box;transition:all .12s ease;letter-spacing:-0.01em;line-height:1.3}.kc-mi:hover{background:#f1f5f9}.kc-mi:active{background:#e8ecf1}.kc-mi-danger{color:#dc2626!important;font-weight:500}.kc-mi-danger:hover{background:#fef2f2!important}.kc-row{transition:background .15s ease}.kc-row:hover{background:#f1f5f9!important}.kc-phone .kc-copy{opacity:0;transition:opacity .12s}.kc-phone:hover .kc-copy{opacity:1}@keyframes kc-slide-in{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
 
 
+      {/* Manage Labels modal */}
+      {manageLabelsOpen && <ManageLabelsModal onClose={() => setManageLabelsOpen(false)} />}
+
       {/* Attended modal */}
       {attendedLead && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setAttendedLead(null)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
             <h3 style={{ fontSize: 17, fontWeight: 700, color: '#1a202c', marginBottom: 4 }}>Mark as Attended</h3>
             <p style={{ fontSize: 13, color: '#718096', marginBottom: 18 }}>{attendedLead.childName} · {attendedLead.parentPhone}</p>
@@ -2918,6 +3222,19 @@ export default function LeadsPage() {
                 <option value="intent:desc">Intent Hot→Cool</option>
                 <option value="intent:asc">Intent Cool→Hot</option>
               </select>
+              {/* Label filter */}
+              {labelCatalog.length > 0 && (
+                <select
+                  value={selectedLabelId}
+                  onChange={e => { setSelectedLabelId(e.target.value); setPage(1); }}
+                  style={{ padding: '7px 10px', border: '1px solid #e8ecf1', borderRadius: 7, fontSize: 13, color: '#64748b', background: '#fff', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  <option value="">All Labels</option>
+                  {labelCatalog.map(l => (
+                    <option key={l.id} value={l.id}>{l.name} ({l.leadCount})</option>
+                  ))}
+                </select>
+              )}
               {/* Year filter — closed stages only */}
               {isClosed && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: '#f8fafc', border: '1px solid #e8ecf1', borderRadius: 7, flexShrink: 0 }}>
@@ -3155,6 +3472,32 @@ export default function LeadsPage() {
                             />
                           )}
                           {lead.promoCode && <PromoCodeBadge code={lead.promoCode} />}
+                          {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
+                          <button
+                            type="button"
+                            onClick={e => openLabelPicker(lead, e)}
+                            title="Labels"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 16, height: 16, padding: 0, border: 'none', background: 'none',
+                              color: '#cbd5e1', cursor: 'pointer', flexShrink: 0,
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faTags} style={{ fontSize: 11 }} />
+                          </button>
+                          {labelPickerLeadId === lead.id && (
+                            <LabelPickerPopover
+                              lead={lead}
+                              labelCatalog={labelCatalog}
+                              position={labelPickerPos}
+                              newLabelName={newLabelName}
+                              onNewLabelNameChange={setNewLabelName}
+                              onToggle={labelId => toggleLeadLabel(lead, labelId)}
+                              onCreate={() => createAndAssignLabel(lead)}
+                              onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
+                              onClose={() => setLabelPickerLeadId(null)}
+                            />
+                          )}
                           {/* Heat indicator — icon + label. */}
                           {getLeadHeat(lead.ctaSource).label && (() => {
                             const heat = getLeadHeat(lead.ctaSource);
@@ -3442,6 +3785,32 @@ export default function LeadsPage() {
                               />
                             )}
                             {lead.promoCode && <PromoCodeBadge code={lead.promoCode} />}
+                            {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
+                            <button
+                              type="button"
+                              onClick={e => openLabelPicker(lead, e)}
+                              title="Labels"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                width: 16, height: 16, padding: 0, border: 'none', background: 'none',
+                                color: '#cbd5e1', cursor: 'pointer', flexShrink: 0,
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faTags} style={{ fontSize: 11 }} />
+                            </button>
+                            {labelPickerLeadId === lead.id && (
+                              <LabelPickerPopover
+                                lead={lead}
+                                labelCatalog={labelCatalog}
+                                position={labelPickerPos}
+                                newLabelName={newLabelName}
+                                onNewLabelNameChange={setNewLabelName}
+                                onToggle={labelId => toggleLeadLabel(lead, labelId)}
+                                onCreate={() => createAndAssignLabel(lead)}
+                                onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
+                                onClose={() => setLabelPickerLeadId(null)}
+                              />
+                            )}
                             {/* Heat indicator — icon + Hot/Warm/Cold
                                 label, both in the heat color so the
                                 row carries an unambiguous lead-quality

@@ -56,6 +56,7 @@ export interface Lead {
   deletedAt: string | null;
   /** The marketing campaign promo code the enquirer entered, if any. */
   promoCode: string | null;
+  labels: { id: string; name: string; color: string }[];
 }
 
 export interface LeadsResponse {

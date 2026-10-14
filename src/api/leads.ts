@@ -17,6 +17,7 @@ export function fetchLeads(
   sortOrder?: string,
   search?: string,
   year?: number,
+  labelId?: string,
 ) {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (status) params.set('status', status);
@@ -24,6 +25,7 @@ export function fetchLeads(
   if (sortOrder) params.set('sortOrder', sortOrder);
   if (search) params.set('search', search);
   if (year) params.set('year', String(year));
+  if (labelId) params.set('labelId', labelId);
   return apiFetch<LeadsResponse>(`/api/leads?${params}`);
 }
 

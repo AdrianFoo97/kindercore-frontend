@@ -81,6 +81,7 @@ describe('LeadsPage', () => {
           promoCode: null,
           attended: false,
           visitOutcome: null,
+          labels: [],
         },
       ],
       total: 1,
