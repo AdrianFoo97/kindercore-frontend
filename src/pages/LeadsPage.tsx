@@ -3509,22 +3509,6 @@ export default function LeadsPage() {
                             />
                           )}
                           {lead.promoCode && <PromoCodeBadge code={lead.promoCode} />}
-                          {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
-                          {labelPickerLeadId === lead.id && (
-                            <LabelPickerPopover
-                              lead={lead}
-                              labelCatalog={labelCatalog}
-                              position={menuPos}
-                              newLabelName={newLabelName}
-                              onNewLabelNameChange={setNewLabelName}
-                              newLabelColor={newLabelColor}
-                              onNewLabelColorChange={setNewLabelColor}
-                              onToggle={labelId => toggleLeadLabel(lead, labelId)}
-                              onCreate={() => createAndAssignLabel(lead)}
-                              onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
-                              onClose={() => setLabelPickerLeadId(null)}
-                            />
-                          )}
                           {/* Heat indicator — icon + label. */}
                           {getLeadHeat(lead.ctaSource).label && (() => {
                             const heat = getLeadHeat(lead.ctaSource);
@@ -3636,6 +3620,28 @@ export default function LeadsPage() {
                             </div>
                           );
                         })()}
+                        {/* Labels — own row under the name/status lines,
+                            matching the table view's layout. */}
+                        {(lead.labels.length > 0 || labelPickerLeadId === lead.id) && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, position: 'relative' }}>
+                            {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
+                            {labelPickerLeadId === lead.id && (
+                              <LabelPickerPopover
+                                lead={lead}
+                                labelCatalog={labelCatalog}
+                                position={menuPos}
+                                newLabelName={newLabelName}
+                                onNewLabelNameChange={setNewLabelName}
+                                newLabelColor={newLabelColor}
+                                onNewLabelColorChange={setNewLabelColor}
+                                onToggle={labelId => toggleLeadLabel(lead, labelId)}
+                                onCreate={() => createAndAssignLabel(lead)}
+                                onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
+                                onClose={() => setLabelPickerLeadId(null)}
+                              />
+                            )}
+                          </div>
+                        )}
                       </div>
                       {!isClosed && (
                         <button onClick={e => { e.stopPropagation(); openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); }}
@@ -3813,22 +3819,6 @@ export default function LeadsPage() {
                               />
                             )}
                             {lead.promoCode && <PromoCodeBadge code={lead.promoCode} />}
-                            {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
-                            {labelPickerLeadId === lead.id && (
-                              <LabelPickerPopover
-                                lead={lead}
-                                labelCatalog={labelCatalog}
-                                position={menuPos}
-                                newLabelName={newLabelName}
-                                onNewLabelNameChange={setNewLabelName}
-                                newLabelColor={newLabelColor}
-                                onNewLabelColorChange={setNewLabelColor}
-                                onToggle={labelId => toggleLeadLabel(lead, labelId)}
-                                onCreate={() => createAndAssignLabel(lead)}
-                                onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
-                                onClose={() => setLabelPickerLeadId(null)}
-                              />
-                            )}
                             {/* Heat indicator — icon + Hot/Warm/Cold
                                 label, both in the heat color so the
                                 row carries an unambiguous lead-quality
@@ -3896,6 +3886,30 @@ export default function LeadsPage() {
                               </div>
                             );
                           })()}
+                          {/* Labels — own row under the name/status lines
+                              rather than inline, so a lead with several
+                              labels doesn't push the heat/referral icons
+                              off to the right or wrap awkwardly mid-name. */}
+                          {(lead.labels.length > 0 || labelPickerLeadId === lead.id) && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, position: 'relative' }}>
+                              {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
+                              {labelPickerLeadId === lead.id && (
+                                <LabelPickerPopover
+                                  lead={lead}
+                                  labelCatalog={labelCatalog}
+                                  position={menuPos}
+                                  newLabelName={newLabelName}
+                                  onNewLabelNameChange={setNewLabelName}
+                                  newLabelColor={newLabelColor}
+                                  onNewLabelColorChange={setNewLabelColor}
+                                  onToggle={labelId => toggleLeadLabel(lead, labelId)}
+                                  onCreate={() => createAndAssignLabel(lead)}
+                                  onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
+                                  onClose={() => setLabelPickerLeadId(null)}
+                                />
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         {/* Source — brand icon only, centered. 'unknown'
