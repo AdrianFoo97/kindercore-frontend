@@ -86,6 +86,7 @@ function LabelPill({ name, color }: { name: string; color: string }) {
       display: 'inline-flex', alignItems: 'center',
       padding: '1px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
       background: `${color}1f`, color, whiteSpace: 'nowrap' as const, flexShrink: 0,
+      cursor: 'default',
     }}>
       {name}
     </span>
