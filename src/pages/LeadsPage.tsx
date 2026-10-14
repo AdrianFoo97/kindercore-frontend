@@ -96,6 +96,7 @@ function LabelPill({ name, color }: { name: string; color: string }) {
 // everything it needs comes in as props, not closure.
 function LabelPickerPopover({
   lead, labelCatalog, position, newLabelName, onNewLabelNameChange,
+  newLabelColor, onNewLabelColorChange,
   onToggle, onCreate, onManage, onClose,
 }: {
   lead: Lead;
@@ -103,6 +104,8 @@ function LabelPickerPopover({
   position: { top: number; bottom: number; right: number };
   newLabelName: string;
   onNewLabelNameChange: (v: string) => void;
+  newLabelColor: string;
+  onNewLabelColorChange: (c: string) => void;
   onToggle: (labelId: string) => void;
   onCreate: () => void;
   onManage: () => void;
@@ -169,6 +172,20 @@ function LabelPickerPopover({
               <FontAwesomeIcon icon={faPlus} />
             </button>
           </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 2px 0' }}>
+            {COLOR_PALETTE.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onNewLabelColorChange(c)}
+                title={c}
+                style={{
+                  width: 14, height: 14, borderRadius: '50%', background: c, cursor: 'pointer', padding: 0,
+                  border: c === newLabelColor ? '2px solid #1a202c' : '2px solid transparent',
+                }}
+              />
+            ))}
+          </div>
           <button
             type="button"
             onClick={onManage}
@@ -193,6 +210,7 @@ function ManageLabelsModal({ onClose }: { onClose: () => void }) {
   const { data: labels = [] } = useQuery({ queryKey: ['lead-labels'], queryFn: fetchLeadLabels });
 
   const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState<string>(COLOR_PALETTE[0]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [colorPickerId, setColorPickerId] = useState<string | null>(null);
@@ -203,10 +221,10 @@ function ManageLabelsModal({ onClose }: { onClose: () => void }) {
     const name = newName.trim();
     if (!name) return;
     try {
-      const color = COLOR_PALETTE[labels.length % COLOR_PALETTE.length];
-      await createLeadLabel({ name, color });
+      await createLeadLabel({ name, color: newColor });
       invalidate();
       setNewName('');
+      setNewColor(COLOR_PALETTE[(labels.length + 1) % COLOR_PALETTE.length]);
     } catch (e: any) {
       const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to create label'; } })();
       showToast(msg, 'error');
@@ -263,21 +281,36 @@ function ManageLabelsModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-          <input
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) handleCreate(); }}
-            placeholder="New label name..."
-            style={{ flex: 1, padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
-          />
-          <button
-            onClick={handleCreate}
-            disabled={!newName.trim()}
-            style={{ padding: '0 14px', border: 'none', borderRadius: 7, background: '#5a67d8', color: '#fff', cursor: newName.trim() ? 'pointer' : 'default', opacity: newName.trim() ? 1 : 0.5, fontSize: 13, fontWeight: 600 }}
-          >
-            Add
-          </button>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) handleCreate(); }}
+              placeholder="New label name..."
+              style={{ flex: 1, padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+            />
+            <button
+              onClick={handleCreate}
+              disabled={!newName.trim()}
+              style={{ padding: '0 14px', border: 'none', borderRadius: 7, background: '#5a67d8', color: '#fff', cursor: newName.trim() ? 'pointer' : 'default', opacity: newName.trim() ? 1 : 0.5, fontSize: 13, fontWeight: 600 }}
+            >
+              Add
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            {COLOR_PALETTE.map(c => (
+              <button
+                key={c}
+                onClick={() => setNewColor(c)}
+                title={c}
+                style={{
+                  width: 18, height: 18, borderRadius: '50%', background: c, cursor: 'pointer',
+                  border: c === newColor ? '2px solid #1a202c' : '2px solid transparent',
+                }}
+              />
+            ))}
+          </div>
         </div>
 
         <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -2433,6 +2466,7 @@ export default function LeadsPage() {
   const { data: labelCatalog = [] } = useQuery({ queryKey: ['lead-labels'], queryFn: fetchLeadLabels });
   const [labelPickerLeadId, setLabelPickerLeadId] = useState<string | null>(null);
   const [newLabelName, setNewLabelName] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState<string>(COLOR_PALETTE[0]);
   const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
 
   useEffect(() => {
@@ -2638,6 +2672,7 @@ export default function LeadsPage() {
   const openLabelPickerFromMenu = (lead: Lead) => {
     setMenuOpenId(null);
     setNewLabelName('');
+    setNewLabelColor(COLOR_PALETTE[labelCatalog.length % COLOR_PALETTE.length]);
     setLabelPickerLeadId(lead.id);
   };
   const toggleLeadLabel = async (lead: Lead, labelId: string) => {
@@ -2654,11 +2689,11 @@ export default function LeadsPage() {
     const name = newLabelName.trim();
     if (!name) return;
     try {
-      const color = COLOR_PALETTE[labelCatalog.length % COLOR_PALETTE.length];
-      const created = await createLeadLabel({ name, color });
+      const created = await createLeadLabel({ name, color: newLabelColor });
       await setLeadLabelsApi(lead.id, [...lead.labels.map(l => l.id), created.id]);
       invalidateLabelQueries();
       setNewLabelName('');
+      setNewLabelColor(COLOR_PALETTE[(labelCatalog.length + 1) % COLOR_PALETTE.length]);
     } catch (e: any) {
       const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to create label'; } })();
       showToast(msg, 'error');
@@ -3482,6 +3517,8 @@ export default function LeadsPage() {
                               position={menuPos}
                               newLabelName={newLabelName}
                               onNewLabelNameChange={setNewLabelName}
+                              newLabelColor={newLabelColor}
+                              onNewLabelColorChange={setNewLabelColor}
                               onToggle={labelId => toggleLeadLabel(lead, labelId)}
                               onCreate={() => createAndAssignLabel(lead)}
                               onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
@@ -3784,6 +3821,8 @@ export default function LeadsPage() {
                                 position={menuPos}
                                 newLabelName={newLabelName}
                                 onNewLabelNameChange={setNewLabelName}
+                                newLabelColor={newLabelColor}
+                                onNewLabelColorChange={setNewLabelColor}
                                 onToggle={labelId => toggleLeadLabel(lead, labelId)}
                                 onCreate={() => createAndAssignLabel(lead)}
                                 onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
