@@ -3655,7 +3655,7 @@ export default function LeadsPage() {
                             )}
                             <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
                             <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
-                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Labels</button>
+                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Add Label</button>
                             {isMobile && (
                               <button onClick={() => { window.location.href = `tel:${lead.parentPhone}`; setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPhone} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Call</button>
                             )}
@@ -3733,17 +3733,18 @@ export default function LeadsPage() {
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                     <th style={{ width: 4, padding: 0, borderTopLeftRadius: 10 }} />
-                    <th style={{ ...tH, width: '22%' }}>Lead</th>
-                    <th style={{ ...tH, width: '6%', textAlign: 'center' as const }}>Source</th>
-                    <th style={{ ...tH, width: '11%' }}>Enrolment</th>
-                    <th style={{ ...tH, width: '15%' }}>Phone</th>
+                    <th style={{ ...tH, width: '19%' }}>Lead</th>
+                    <th style={{ ...tH, width: '12%' }}>Label</th>
+                    <th style={{ ...tH, width: '5%', textAlign: 'center' as const }}>Source</th>
+                    <th style={{ ...tH, width: '10%' }}>Enrolment</th>
+                    <th style={{ ...tH, width: '13%' }}>Phone</th>
                     {isClosed
-                      ? <th style={{ ...tH, width: '12%' }}>Closed</th>
-                      : <th style={{ ...tH, width: '19%' }}>Visit</th>
+                      ? <th style={{ ...tH, width: '11%' }}>Closed</th>
+                      : <th style={{ ...tH, width: '17%' }}>Visit</th>
                     }
                     {isClosed
                       ? <th style={{ ...tH }}>Reason</th>
-                      : <th style={{ ...tH, textAlign: 'right' as const, width: '33%' }}>Next Action</th>
+                      : <th style={{ ...tH, textAlign: 'right' as const, width: '24%' }}>Next Action</th>
                     }
                     <th style={{ ...tH, width: 44, textAlign: 'center' as const }} />
                   </tr>
@@ -3776,20 +3777,6 @@ export default function LeadsPage() {
                               />
                             )}
                             {lead.promoCode && <PromoCodeBadge code={lead.promoCode} />}
-                            {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
-                            {labelPickerLeadId === lead.id && (
-                              <LabelPickerPopover
-                                lead={lead}
-                                labelCatalog={labelCatalog}
-                                position={menuPos}
-                                newLabelName={newLabelName}
-                                onNewLabelNameChange={setNewLabelName}
-                                onToggle={labelId => toggleLeadLabel(lead, labelId)}
-                                onCreate={() => createAndAssignLabel(lead)}
-                                onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
-                                onClose={() => setLabelPickerLeadId(null)}
-                              />
-                            )}
                             {/* Heat indicator — icon + Hot/Warm/Cold
                                 label, both in the heat color so the
                                 row carries an unambiguous lead-quality
@@ -3857,6 +3844,31 @@ export default function LeadsPage() {
                               </div>
                             );
                           })()}
+                        </td>
+
+                        {/* Label — own column rather than inline with the
+                            name (unlike the card view, which has no
+                            columns and keeps them inline next to the
+                            name). Flex-wrap handles a lead with several
+                            labels by running onto a second line within
+                            the cell instead of overflowing. */}
+                        <td style={tD}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
+                          </div>
+                          {labelPickerLeadId === lead.id && (
+                            <LabelPickerPopover
+                              lead={lead}
+                              labelCatalog={labelCatalog}
+                              position={menuPos}
+                              newLabelName={newLabelName}
+                              onNewLabelNameChange={setNewLabelName}
+                              onToggle={labelId => toggleLeadLabel(lead, labelId)}
+                              onCreate={() => createAndAssignLabel(lead)}
+                              onManage={() => { setLabelPickerLeadId(null); setManageLabelsOpen(true); }}
+                              onClose={() => setLabelPickerLeadId(null)}
+                            />
+                          )}
                         </td>
 
                         {/* Source — brand icon only, centered. 'unknown'
@@ -4076,7 +4088,7 @@ export default function LeadsPage() {
                                       )}
                                       <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
                                       <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
-                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Labels</button>
+                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Add Label</button>
                                     </div>
                                     {hasEnroll && (<>
                                       {sep}
