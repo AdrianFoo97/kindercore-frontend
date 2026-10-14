@@ -100,7 +100,7 @@ function LabelPickerPopover({
 }: {
   lead: Lead;
   labelCatalog: LeadLabelRecord[];
-  position: { top: number; left: number };
+  position: { top: number; bottom: number; right: number };
   newLabelName: string;
   onNewLabelNameChange: (v: string) => void;
   onToggle: (labelId: string) => void;
@@ -119,7 +119,9 @@ function LabelPickerPopover({
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          position: 'fixed', top: position.top, left: position.left, zIndex: 200,
+          position: 'fixed',
+          ...(position.top > window.innerHeight * 0.6 ? { bottom: position.bottom } : { top: position.top }),
+          right: position.right, zIndex: 200,
           background: '#fff', border: '1px solid #e8eaed', borderRadius: 10,
           boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)',
           minWidth: 200, maxWidth: 240, padding: 6,
@@ -2430,7 +2432,6 @@ export default function LeadsPage() {
   const [selectedLabelId, setSelectedLabelId] = useState('');
   const { data: labelCatalog = [] } = useQuery({ queryKey: ['lead-labels'], queryFn: fetchLeadLabels });
   const [labelPickerLeadId, setLabelPickerLeadId] = useState<string | null>(null);
-  const [labelPickerPos, setLabelPickerPos] = useState({ top: 0, left: 0 });
   const [newLabelName, setNewLabelName] = useState('');
   const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
 
@@ -2631,12 +2632,13 @@ export default function LeadsPage() {
     queryClient.invalidateQueries({ queryKey: ['leads'] });
     queryClient.invalidateQueries({ queryKey: ['lead-labels'] });
   };
-  const openLabelPicker = (lead: Lead, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    setLabelPickerPos({ top: rect.bottom + 4, left: rect.left });
+  // Opened from the "⋮" row menu, same entry point as every other row
+  // action — reuses menuPos (already captured when that menu's trigger
+  // was clicked) instead of computing a new anchor point.
+  const openLabelPickerFromMenu = (lead: Lead) => {
+    setMenuOpenId(null);
     setNewLabelName('');
-    setLabelPickerLeadId(labelPickerLeadId === lead.id ? null : lead.id);
+    setLabelPickerLeadId(lead.id);
   };
   const toggleLeadLabel = async (lead: Lead, labelId: string) => {
     const current = lead.labels.map(l => l.id);
@@ -3473,23 +3475,11 @@ export default function LeadsPage() {
                           )}
                           {lead.promoCode && <PromoCodeBadge code={lead.promoCode} />}
                           {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
-                          <button
-                            type="button"
-                            onClick={e => openLabelPicker(lead, e)}
-                            title="Labels"
-                            style={{
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                              width: 16, height: 16, padding: 0, border: 'none', background: 'none',
-                              color: '#cbd5e1', cursor: 'pointer', flexShrink: 0,
-                            }}
-                          >
-                            <FontAwesomeIcon icon={faTags} style={{ fontSize: 11 }} />
-                          </button>
                           {labelPickerLeadId === lead.id && (
                             <LabelPickerPopover
                               lead={lead}
                               labelCatalog={labelCatalog}
-                              position={labelPickerPos}
+                              position={menuPos}
                               newLabelName={newLabelName}
                               onNewLabelNameChange={setNewLabelName}
                               onToggle={labelId => toggleLeadLabel(lead, labelId)}
@@ -3665,6 +3655,7 @@ export default function LeadsPage() {
                             )}
                             <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
                             <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
+                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Labels</button>
                             {isMobile && (
                               <button onClick={() => { window.location.href = `tel:${lead.parentPhone}`; setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPhone} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Call</button>
                             )}
@@ -3786,23 +3777,11 @@ export default function LeadsPage() {
                             )}
                             {lead.promoCode && <PromoCodeBadge code={lead.promoCode} />}
                             {lead.labels.map(l => <LabelPill key={l.id} name={l.name} color={l.color} />)}
-                            <button
-                              type="button"
-                              onClick={e => openLabelPicker(lead, e)}
-                              title="Labels"
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                width: 16, height: 16, padding: 0, border: 'none', background: 'none',
-                                color: '#cbd5e1', cursor: 'pointer', flexShrink: 0,
-                              }}
-                            >
-                              <FontAwesomeIcon icon={faTags} style={{ fontSize: 11 }} />
-                            </button>
                             {labelPickerLeadId === lead.id && (
                               <LabelPickerPopover
                                 lead={lead}
                                 labelCatalog={labelCatalog}
-                                position={labelPickerPos}
+                                position={menuPos}
                                 newLabelName={newLabelName}
                                 onNewLabelNameChange={setNewLabelName}
                                 onToggle={labelId => toggleLeadLabel(lead, labelId)}
@@ -4097,6 +4076,7 @@ export default function LeadsPage() {
                                       )}
                                       <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
                                       <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
+                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Labels</button>
                                     </div>
                                     {hasEnroll && (<>
                                       {sep}
