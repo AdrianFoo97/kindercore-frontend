@@ -2155,7 +2155,13 @@ export default function LeadsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [selectedStage, setSelectedStage] = useState<PipelineStage>('NEW');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Defaults collapsed on laptop-sized screens (1024–1439px — common
+  // native laptop widths like 1280/1366/1440) where the full pipeline
+  // sidebar eats a disproportionate share of a smaller display; wider
+  // desktop monitors have room to spare and start expanded. Only affects
+  // the *initial* state — the user's own toggle afterward isn't
+  // overridden by a later resize.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth >= 1024 && window.innerWidth < 1440);
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelTab, setPanelTab] = useState('appointments');
   const [sortBy, setSortBy] = useState<SortField>('submittedAt');
