@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { whatsappSendUrl } from '../../utils/whatsapp.js';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { NavLink, useNavigate, useMatch } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
@@ -7,8 +8,9 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faTag } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import MessageTemplatesModal from './MessageTemplatesModal.js';
 
 /** Normalises a human-readable label into a URL-safe utm_source value.
  *  "Facebook Ads" → "facebook_ads", "小红书" → "小红书" (kept as-is),
@@ -27,15 +29,26 @@ export default function Navbar() {
   const navigate = useNavigate();
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { name: string; role: string; teacherId?: string | null }) : null;
-  // isTablet's normal 1024px cutoff is tuned for the plain admin row —
-  // a teacherId-linked account gets 4 extra flat links (My Profile/My
-  // Career/My Pay/Guides) ahead of whatever modules they also have, so
-  // that same row can run out of space well above 1024px (a full admin
-  // who's also a teacher, at a completely ordinary 1280px laptop width,
-  // was overflowing off the right edge with nowhere to go). Collapses to
-  // the hamburger earlier for exactly that account shape; everyone
-  // else's threshold is unchanged.
-  const navCollapsed = isTablet || (!!user?.teacherId && width < 1400);
+  // How much room the row needs depends on which modules this account
+  // has, the teacher-linked flat links, browser zoom and OS display
+  // scaling (a 1920px laptop at 150% is a ~1280px CSS viewport) — no
+  // fixed breakpoint gets all of those right, and the old ones let a full
+  // admin row run off the right edge, taking Admin/Logout with it. So the
+  // fit is measured instead (see the layout effect below): full →
+  // compact (no top-level icons, avatar-only profile, tighter gaps) →
+  // hamburger. Below the tablet width it's always the hamburger.
+  type NavFit = 'full' | 'compact' | 'collapsed';
+  const [fit, setFit] = useState<NavFit>('full');
+  const navRef = useRef<HTMLElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
+  // Width each tier needed when it was last found overflowing — lets a
+  // widening window step back up without trial-and-error.
+  const fitNeeds = useRef<Partial<Record<NavFit, number>>>({});
+  const fitKey = useRef('');
+  const navCollapsed = isTablet || fit === 'collapsed';
+  const navCompact = !navCollapsed && fit === 'compact';
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   // Server-side enforcement already exists via requireModule() on the API
   // routes (see RequireModule.tsx) — this is nav-hiding only. While
   // permissions are still loading, show every module rather than flashing
@@ -44,6 +57,41 @@ export default function Navbar() {
   // resolves in a moment anyway.
   const { hasModule, hasView, loading: permLoading } = usePermissions();
   const allowModule = (m: string) => permLoading || hasModule(m as any);
+
+  // Measures before paint, so stepping a tier down never flashes the
+  // overflowing row. "Fits" = the right-hand profile cluster (last flex
+  // item, flexShrink 0) still ends inside the nav's padding box — not
+  // nav.scrollWidth, which would also count an open dropdown panel
+  // hanging past the edge. The set of rendered items changes when
+  // permissions finish loading (all modules → just the granted ones), so
+  // that resets the ladder to "full" and re-measures from the top.
+  const navItemsKey = `${permLoading}|${user?.role ?? ''}|${user?.teacherId ?? ''}`;
+  useLayoutEffect(() => {
+    if (fitKey.current !== navItemsKey) {
+      fitKey.current = navItemsKey;
+      fitNeeds.current = {};
+      if (fit !== 'full') { setFit('full'); return; }
+    }
+    const nav = navRef.current;
+    if (!nav || isTablet) return;
+    const avail = nav.clientWidth;
+    if (fit === 'collapsed') {
+      const need = fitNeeds.current.compact;
+      if (need !== undefined && avail >= need) setFit('compact');
+      return;
+    }
+    const right = rightRef.current;
+    if (!right) return;
+    const padRight = parseFloat(getComputedStyle(nav).paddingRight) || 0;
+    const need = right.getBoundingClientRect().right - nav.getBoundingClientRect().left + padRight;
+    if (need > avail + 1) {
+      fitNeeds.current[fit] = need;
+      setFit(fit === 'full' ? 'compact' : 'collapsed');
+    } else if (fit === 'compact') {
+      const fullNeed = fitNeeds.current.full;
+      if (fullNeed !== undefined && avail >= fullNeed) setFit('full');
+    }
+  }, [fit, width, isTablet, navItemsKey]);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [studentsOpen, setStudentsOpen] = useState(false);
@@ -55,6 +103,7 @@ export default function Navbar() {
   const [devOpen, setDevOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [whatsappModal, setWhatsappModal] = useState(false);
+  const [templatesModal, setTemplatesModal] = useState(false);
   const [shareLinksModal, setShareLinksModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState('');
   const [applyLinksModal, setApplyLinksModal] = useState(false);
@@ -160,6 +209,7 @@ export default function Navbar() {
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
       if (devRef.current && !devRef.current.contains(e.target as Node)) setDevOpen(false);
       if (adminRef.current && !adminRef.current.contains(e.target as Node)) setAdminOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -174,7 +224,7 @@ export default function Navbar() {
   // Close mobile menu on navigate
   useEffect(() => { setMobileMenuOpen(false); }, [navCollapsed]);
 
-  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setMarketingOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); };
+  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setMarketingOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); setProfileOpen(false); };
 
   // Shared nav items renderer (used for both desktop and mobile drawer)
   const renderNavItems = (mobile = false) => {
@@ -195,8 +245,12 @@ export default function Navbar() {
       : styles.panelItem;
 
     // One icon-before-label helper instead of repeating the same style
-    // object at all nine top-level triggers.
-    const navIcon = (icon: any) => <FontAwesomeIcon icon={icon} style={{ fontSize: 13, marginRight: 7, opacity: 0.9 }} />;
+    // object at all nine top-level triggers. Dropped in the compact tier —
+    // ~20px × every trigger is the cheapest room to win back before
+    // falling all the way to the hamburger; the labels carry the meaning.
+    const navIcon = (icon: any) => (!mobile && navCompact)
+      ? null
+      : <FontAwesomeIcon icon={icon} style={{ fontSize: 13, marginRight: 7, opacity: 0.9 }} />;
 
     // The two groupDividers below used to render unconditionally — fine
     // for a full admin (all three clusters populated), but an account
@@ -276,13 +330,13 @@ export default function Navbar() {
               <NavLink to="/leads" end onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faInbox} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
                 Leads
               </NavLink>
               <NavLink to="/marketing/campaigns" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faTag} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
                 Campaigns
               </NavLink>
             </div>
@@ -551,6 +605,7 @@ export default function Navbar() {
                 {sep}
                 {section('Messaging')}
                 {item(faWhatsapp, '#25D366', 'WhatsApp', () => { closeAll(); setWaPhone(''); setWaMessage(''); setWaTemplate('none'); setWaLang('zh'); setWhatsappModal(true); })}
+                {item(faCopy, '#94a3b8', 'Message Templates', () => { closeAll(); setTemplatesModal(true); })}
                 {sep}
                 {section('Enquiry')}
                 {item(faArrowUpRightFromSquare, '#94a3b8', 'Enquiry Form', () => { closeAll(); window.open('/enquiry', '_blank'); })}
@@ -598,7 +653,7 @@ export default function Navbar() {
                   { to: '/settings/operating-cost', icon: faReceipt, label: 'Operating Cost' },
                   { to: '/settings/operation', icon: faGears, label: 'Operation' },
                   { to: '/settings/finance', icon: faMoneyBillTrendUp, label: 'Finance' },
-                  { to: '/settings/whatsapp-templates', icon: faMessage, label: 'Communication' },
+                  { to: '/settings/whatsapp-templates', icon: faMessage, label: 'Message Templates' },
                   { to: '/settings/calendar', icon: faPlug, label: 'Integrations' },
                   { to: '/settings/data', icon: faFileImport, label: 'Data' },
                 ].map(it => (
@@ -672,6 +727,16 @@ export default function Navbar() {
                   })}>
                   <FontAwesomeIcon icon={faCalendarDays} style={{ fontSize: 12, color: '#94a3b8' }} /> Year Rollover
                 </NavLink>
+                {/* Read-only — a plain-English list of every automated test. */}
+                <NavLink to="/admin/test-catalog" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
+                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
+                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
+                  })}>
+                  <FontAwesomeIcon icon={faVial} style={{ fontSize: 12, color: '#94a3b8' }} /> Test Catalog
+                </NavLink>
                 {/* Destructive — coloured red so it doesn't blend in
                     with the safe admin actions above. Route is
                     role-gated at the wrapper (only ADMIN / SUPERADMIN
@@ -712,8 +777,7 @@ export default function Navbar() {
                   style={({ isActive }) => ({ ...mPanelItem, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>Seed Dummy Leads</NavLink>
                 <NavLink to="/settings/test/seed-candidates" onClick={closeAll}
                   className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({ ...mPanelItem, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>Seed Dummy Candidates</NavLink>
-              </div>
+                  style={({ isActive }) => ({ ...mPanelItem, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>Seed Dummy Candidates</NavLink>              </div>
             )}
           </div>
         )}
@@ -729,7 +793,7 @@ export default function Navbar() {
       .nav-link { transition: all 0.15s ease; }
       .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.12); }
     `}</style>
-    <nav style={{ ...styles.nav, padding: navCollapsed ? '0 12px' : '0 24px' }}>
+    <nav ref={navRef} style={{ ...styles.nav, padding: navCollapsed ? '0 12px' : navCompact ? '0 16px' : '0 24px', gap: navCompact ? 12 : styles.nav.gap }}>
       {/* ── Mobile/Tablet/overflow: hamburger on left ── */}
       {navCollapsed && (
         <button onClick={() => setMobileMenuOpen(o => !o)} aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} style={{
@@ -759,15 +823,36 @@ export default function Navbar() {
         <>
           <div style={styles.divider} />
           <div style={styles.links}>{renderNavItems(false)}</div>
-          <div style={styles.right}>
-            {user && (
-              <div style={styles.profileChip}>
-                <div style={styles.avatar}>{user.name.charAt(0).toUpperCase()}</div>
-                <span style={styles.userName}>{user.name}</span>
+          {/* Profile chip opens a small account menu holding Logout,
+              rather than Logout sitting as its own always-visible
+              button — Logout is a rare action, and that button plus its
+              divider was ~90px of the row the menus need. */}
+          <div ref={rightRef} style={styles.right}>
+            {user ? (
+              <div ref={profileRef} style={{ position: 'relative' }}>
+                <button onClick={() => setProfileOpen(o => !o)} className="nav-link" title={user.name}
+                  aria-label="Account menu" aria-expanded={profileOpen}
+                  style={{ ...styles.profileChip, ...(navCompact ? { padding: 4 } : {}), border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <div style={styles.avatar}>{user.name.charAt(0).toUpperCase()}</div>
+                  {!navCompact && <span style={styles.userName}>{user.name}</span>}
+                </button>
+                {profileOpen && (
+                  <div style={styles.profileMenu}>
+                    <div style={{ padding: '8px 12px 10px', borderBottom: '1px solid #f0f0f0', marginBottom: 4 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{user.name}</div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, textTransform: 'capitalize' as const }}>{user.role.toLowerCase()}</div>
+                    </div>
+                    <button onClick={handleLogout} className="nav-drop-item"
+                      style={{ ...styles.panelItem, width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' as const, display: 'flex', alignItems: 'center', gap: 10, color: '#c53030' }}>
+                      <FontAwesomeIcon icon={faRightFromBracket} style={{ fontSize: 12, width: 16 }} />
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
+            ) : (
+              <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
             )}
-            <div style={styles.divider} />
-            <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
           </div>
         </>
       )}
@@ -794,6 +879,12 @@ export default function Navbar() {
         </div>
       </>
     )}
+    {templatesModal && (
+      <MessageTemplatesModal
+        onClose={() => setTemplatesModal(false)}
+        canEdit={user?.role === 'ADMIN' || user?.role === 'SUPERADMIN'}
+      />
+    )}
     {whatsappModal && (() => {
       const raw = waPhone.replace(/[\s\-()]/g, '');
       const normalized = raw.startsWith('+') ? raw.replace(/\D/g, '')
@@ -803,10 +894,7 @@ export default function Navbar() {
       const valid = normalized.length >= 10;
       const open = () => {
         if (!valid) return;
-        const url = waMessage.trim()
-          ? `https://web.whatsapp.com/send?phone=${normalized}&text=${encodeURIComponent(waMessage.trim())}`
-          : `https://web.whatsapp.com/send?phone=${normalized}`;
-        window.open(url, '_blank', 'noopener,noreferrer');
+        window.open(whatsappSendUrl(normalized, waMessage), '_blank', 'noopener,noreferrer');
         setWhatsappModal(false);
       };
       return (
@@ -1163,6 +1251,20 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     top: 'calc(100% + 8px)',
     left: 0,
+    background: '#fff',
+    borderRadius: 10,
+    boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+    minWidth: 200,
+    zIndex: 100,
+    border: '1px solid #e8eaed',
+    padding: '6px',
+  },
+  // Same card as `panel`, anchored to the right edge — the chip is the
+  // last thing in the row, so a left-anchored panel would hang off-screen.
+  profileMenu: {
+    position: 'absolute',
+    top: 'calc(100% + 8px)',
+    right: 0,
     background: '#fff',
     borderRadius: 10,
     boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',

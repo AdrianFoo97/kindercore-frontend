@@ -1,3 +1,4 @@
+import { whatsappSendUrl } from '../../utils/whatsapp.js';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -133,7 +134,7 @@ export function CandidateQuickViewModal(props: Props) {
                 <>
                   <Section title="Contact">
                     <InfoRow icon={faPhone} label="Phone" value={candidate.phone}
-                      href={`https://web.whatsapp.com/send?phone=${candidate.phone.replace(/\D/g, '')}`} />
+                      href={whatsappSendUrl(candidate.phone.replace(/\D/g, ''))} />
                     {candidate.addressLocation && (
                       <InfoRow icon={faLocationDot} label="Will stay at"
                         value={candidate.addressLocation} />

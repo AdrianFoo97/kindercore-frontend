@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { whatsappSendUrl } from '../utils/whatsapp.js';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faSearch, faCheck, faLocationDot,
+  faSearch, faCheck, faLocationDot, faChevronDown,
   faChalkboardUser, faUserClock, faUserCheck, faUserXmark,
   faCircleNotch, faBullseye, faHeart,
   faBook, faUser, faGraduationCap, faQuestion,
@@ -144,16 +145,15 @@ const SHADOW = {
   focus: '0 0 0 3px rgba(79,70,229,0.15)',
 };
 
-/** Builds a WhatsApp Web URL from any phone shape. Strips non-digits and,
+/** Builds a WhatsApp send URL from any phone shape. Strips non-digits and,
  *  if the caller wrote a local Malaysian number (starting with '0'),
- *  swaps the leading 0 for '60'. Uses web.whatsapp.com (not wa.me) so it
- *  opens straight into WhatsApp Web instead of prompting to hand off to
- *  the desktop app. Callers appending a message should use `&text=...`
- *  since the URL already carries a `?phone=` query param. */
+ *  swaps the leading 0 for '60'. App on phones, WhatsApp Web on laptop+
+ *  (see whatsappSendUrl). Callers appending a message should use
+ *  `&text=...` since the URL already carries a `?phone=` query param. */
 function waLink(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   const normalized = digits.startsWith('0') ? `60${digits.slice(1)}` : digits;
-  return `https://web.whatsapp.com/send?phone=${normalized}`;
+  return whatsappSendUrl(normalized);
 }
 
 // ── Flag computation ────────────────────────────────────────────────────────
@@ -478,7 +478,7 @@ export default function CandidatesPage() {
   // overlay from the trigger's bounding rect so it isn't clipped by the
   // table's `overflow: hidden` wrapper.
   const [rowMenuOpenId, setRowMenuOpenId] = useState<string | null>(null);
-  const [rowMenuAnchor, setRowMenuAnchor] = useState<{ top: number; right: number } | null>(null);
+  const [rowMenuAnchor, setRowMenuAnchor] = useState<{ top: number; bottom: number; right: number } | null>(null);
   // Note editor modal target — null when closed.
   const [notingCandidate, setNotingCandidate] = useState<Candidate | null>(null);
   // Reject modal — collects a reason + optional note before setting the
@@ -512,7 +512,7 @@ export default function CandidatesPage() {
   // with REJECTION_SENTINELS in ImportCandidatesPage.
   const [noShowOnly, setNoShowOnly] = useState<boolean>(false);
   const [declinedOfferOnly, setDeclinedOfferOnly] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'salary_asc' | 'salary_desc' | 'name_asc'>('newest');
+  const [sortBy, setSortBy] = useState<'recent_action' | 'newest' | 'oldest' | 'salary_asc' | 'salary_desc' | 'name_asc'>('newest');
   // Client-side pagination for the terminal tabs (Hired / Rejected /
   // All closed) — those lists grow indefinitely as hires and rejections
   // accumulate (a bulk import can drop 800 rows at once), so they need
@@ -708,6 +708,12 @@ export default function CandidatesPage() {
       const timeOf = (c: Candidate) => c.interviewStart ? new Date(c.interviewStart).getTime() : Infinity;
       out = out.sort((a, b) => bucketRank(a) - bucketRank(b) || timeOf(a) - timeOf(b));
     }
+    else if (sortBy === 'recent_action') {
+      // statusChangedAt is stamped on every status flip (reject, hire,
+      // talent bank…); fall back to submission time for legacy rows.
+      const actedAt = (c: Candidate) => new Date(c.statusChangedAt ?? c.submittedAt).getTime();
+      out = out.sort((a, b) => actedAt(b) - actedAt(a));
+    }
     else if (sortBy === 'newest') out = out.sort(byDate);
     else if (sortBy === 'oldest') out = out.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
     else if (sortBy === 'salary_asc') out = out.sort((a, b) => (a.expectedSalary ?? Infinity) - (b.expectedSalary ?? Infinity));
@@ -725,6 +731,14 @@ export default function CandidatesPage() {
   // is closed out; the outcome (Hired / Rejected / Declined offer) is
   // the useful column at that point.
   const isTerminalTab = tab === 'HIRED' || tab === 'REJECTED' || tab === 'TALENT_BANK' || tab === 'closed';
+  // The archive is read as "what did we just close?" — so landing on any
+  // Closed view (tab click, dropdown, or the repeat-applicant jump) sorts
+  // by latest status change, putting a just-rejected candidate first.
+  // Still overridable from the sort menu; leaving the archive drops back
+  // to "Newest first" since latest-action means little for live stages.
+  useEffect(() => {
+    setSortBy(s => isTerminalTab ? 'recent_action' : (s === 'recent_action' ? 'newest' : s));
+  }, [isTerminalTab]);
 
   // Paginate the terminal tabs — a bulk import can drop hundreds of
   // rows onto Rejected in one go, and rendering that unpaginated melts
@@ -1057,9 +1071,27 @@ export default function CandidatesPage() {
   // centered (no jarring shift-left when the panel appears).
   const showCtxPanel = true;
 
+  // Height of the sticky tabs + toolbar block — re-measured when it wraps
+  // (narrow window) so the sticky review sidebar always parks just below it.
+  const stickyHeadRef = useRef<HTMLDivElement>(null);
+  const [stickyHeadH, setStickyHeadH] = useState(0);
+  useEffect(() => {
+    const el = stickyHeadRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setStickyHeadH(Math.round(el.offsetHeight)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // The context panel is position:fixed over the right edge, so reserve
+  // its width here — the shell then centres in what's left, keeping the
+  // gap to the panel equal to the gap from the screen's left edge.
+  const ctxPanelWidth = showCtxPanel ? (ctxPanelExpanded ? 280 : 44) : 0;
+
   return (
     <>
-    <div style={S.shell}>
+    <div style={{ paddingRight: ctxPanelWidth }}>
+    <div style={{ ...S.shell, ['--kc-sticky-h' as string]: `${stickyHeadH}px` }}>
       {/* Row-menu hover feedback — CSS-in-JS is inline everywhere else in
           this page, but for :hover state on the dropdown items a single
           scoped stylesheet is much lighter than wiring mouseEnter/Leave
@@ -1076,7 +1108,13 @@ export default function CandidatesPage() {
         </div>
       </div>
 
-      {/* Pipeline stage tabs — one row from NEW to Rejected. */}
+      {/* Tabs + toolbar stay pinned while the list / review card scrolls.
+          Its measured height is exposed as --kc-sticky-h so the review
+          sidebar (also sticky) parks below it instead of sliding under. */}
+      <div ref={stickyHeadRef} style={S.stickyHead}>
+      {/* Pipeline stage tabs — the five live stages stay flat (daily
+          work); the archive (Hired / Rejected / Talent Bank / All closed)
+          folds into one "Closed" dropdown, since you only look back at it. */}
       <div style={S.tabBar}>
         <TabBtn label="New"        count={counts?.NEW}              active={tab === 'NEW'}              onClick={() => selectTab('NEW')} />
         <TabBtn label="Contacted"  count={counts?.CONTACTED}        active={tab === 'CONTACTED'}        onClick={() => selectTab('CONTACTED')} />
@@ -1084,10 +1122,16 @@ export default function CandidatesPage() {
         <TabBtn label="Deciding"   count={counts?.PENDING_DECISION} active={tab === 'PENDING_DECISION'} onClick={() => selectTab('PENDING_DECISION')} />
         <TabBtn label="Offer sent" count={counts?.OFFER_SENT}       active={tab === 'OFFER_SENT'}       onClick={() => selectTab('OFFER_SENT')} />
         <div style={S.tabSep} />
-        <TabBtn label="Hired"       count={counts?.HIRED}        active={tab === 'HIRED'}        onClick={() => selectTab('HIRED')} />
-        <TabBtn label="Rejected"    count={counts?.REJECTED}     active={tab === 'REJECTED'}     onClick={() => selectTab('REJECTED')} />
-        <TabBtn label="Talent Bank" count={counts?.TALENT_BANK}  active={tab === 'TALENT_BANK'}  onClick={() => selectTab('TALENT_BANK')} />
-        <TabBtn label="All closed"  count={closedTotal}          active={tab === 'closed'}       onClick={() => selectTab('closed')} />
+        <ClosedTabMenu
+          current={tab}
+          options={[
+            { key: 'closed',      label: 'All closed',  count: counts ? closedTotal : undefined },
+            { key: 'HIRED',       label: 'Hired',       count: counts?.HIRED },
+            { key: 'REJECTED',    label: 'Rejected',    count: counts?.REJECTED },
+            { key: 'TALENT_BANK', label: 'Talent Bank', count: counts?.TALENT_BANK },
+          ]}
+          onSelect={selectTab}
+        />
       </div>
 
       {/* Toolbar — search + position + filter button + sort + density */}
@@ -1141,6 +1185,7 @@ export default function CandidatesPage() {
           onChange={e => setSortBy(e.target.value as any)}
           title="Sort"
         >
+          <option value="recent_action">Latest action first</option>
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="salary_asc">Salary ↑</option>
@@ -1165,6 +1210,7 @@ export default function CandidatesPage() {
           </button>
         </div>
 
+      </div>
       </div>
 
       {/* Filter drawer — chips + quick toggles. Collapses to save vertical
@@ -1290,31 +1336,6 @@ export default function CandidatesPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
                 {currentCandidate ? (
                   <>
-                    {/* Prev / position / Next — navigation only */}
-                    <div style={S.reviewNavBar}>
-                      <button
-                        onClick={goBack}
-                        disabled={!canBack}
-                        style={S.navPillBtn(canBack)}
-                        title="Previous candidate (←)"
-                      >
-                        <FontAwesomeIcon icon={faArrowLeft} />
-                        Previous
-                      </button>
-                      <span style={S.navPositionLabel}>
-                        <strong style={{ color: C.text, fontWeight: 700 }}>{currentIdx + 1}</strong>
-                        <span style={{ color: C.mutedSoft }}> / {queueSnapshot.length}</span>
-                      </span>
-                      <button
-                        onClick={goForward}
-                        style={S.navPillBtn(true)}
-                        title="Next candidate (→)"
-                      >
-                        Next
-                        <FontAwesomeIcon icon={faArrowRight} />
-                      </button>
-                    </div>
-
                     <InboxReviewCard
                       c={currentCandidate}
                       positions={positions}
@@ -1499,6 +1520,7 @@ export default function CandidatesPage() {
                   <div style={S.thLabel}>Salary ask</div>
                   <div style={S.thLabel}>Location</div>
                   {isTerminalTab && <div style={S.thLabel}>Submitted</div>}
+                  {isTerminalTab && <div style={S.thLabel}>Last action</div>}
                   <div style={S.thLabel}>
                     {isTerminalTab ? 'Status' : 'Scheduled'}
                   </div>
@@ -1603,9 +1625,11 @@ export default function CandidatesPage() {
                         if (rowMenuOpenId === row2.id) {
                           closeMenu();
                         } else {
+                          // Just the trigger's rect — RowMenuLayer measures
+                          // the real menu and picks below / above / clamped.
                           const rect = e.currentTarget.getBoundingClientRect();
                           setRowMenuAnchor({
-                            top: rect.bottom + 4,
+                            top: rect.top, bottom: rect.bottom,
                             right: window.innerWidth - rect.right,
                           });
                           setRowMenuOpenId(row2.id);
@@ -1617,9 +1641,10 @@ export default function CandidatesPage() {
                       <FontAwesomeIcon icon={faEllipsisVertical} />
                     </button>
                     {rowMenuOpenId === row2.id && rowMenuAnchor && (
+                      <RowMenuLayer anchor={rowMenuAnchor}>
                       <CandidateActionsMenu
                         candidate={row2}
-                        style={{ position: 'fixed', top: rowMenuAnchor.top, right: rowMenuAnchor.right }}
+                        style={{ position: 'static' }}
                         onClose={closeMenu}
                         onToggleShortlist={() => shortlistMut.mutate({ id: row2.id, next: !row2.isShortlisted })}
                         onNote={() => setNotingCandidate(row2)}
@@ -1631,6 +1656,7 @@ export default function CandidatesPage() {
                         onDelete={() => setDeleteTarget(row2)}
                         onViewDetails={() => setOpenId(row2.id)}
                       />
+                      </RowMenuLayer>
                     )}
                   </div>
                 );
@@ -1824,6 +1850,27 @@ export default function CandidatesPage() {
                             {fmtDate(c.submittedAt)}
                           </div>
                         )}
+                        {/* Col 5.75 — when the closing status change
+                            happened (statusChangedAt) — the key the
+                            archive's "Latest action first" sort uses, so
+                            the order is visible, not implied. */}
+                        {isTerminalTab && (c.statusChangedAt ? (() => {
+                          const d = new Date(c.statusChangedAt);
+                          const full = d.toLocaleString('en-GB', {
+                            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+                            hour: 'numeric', minute: '2-digit', hour12: true,
+                          });
+                          return (
+                            <div style={S.colLastAction} title={`Last action ${full}`}>
+                              <span>{fmtDate(c.statusChangedAt)}</span>
+                              <span style={S.colLastActionTime}>
+                                {d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                              </span>
+                            </div>
+                          );
+                        })() : (
+                          <div style={S.muted}>—</div>
+                        ))}
                         {/* Col 6 — swaps between "Scheduled" (interview
                             date) on active tabs and "Status" (terminal
                             outcome pill) on Hired / Rejected / closed. */}
@@ -2170,6 +2217,7 @@ export default function CandidatesPage() {
           }}
         />
       )}
+    </div>
     </div>
     {showCtxPanel && (
       <CandidateContextPanel
@@ -2744,6 +2792,40 @@ function ReviewSidebarItem(props: {
 // caller's job (list anchors it fixed to the row's rect; card view
 // just needs S.rowMenu's default absolute-under-the-button position),
 // hence the optional `style` override.
+/** Fixed-position layer for a row's kebab menu. Measures the real menu,
+ *  then opens below the trigger if it fits, else above, else slides to
+ *  wherever it's fully visible between the app navbar and the screen
+ *  bottom — only scrolling if the menu is taller than the whole viewport.
+ *  (A guessed height + plain flip put it under the navbar, scrolling.) */
+const APP_NAVBAR_H = 50;
+function RowMenuLayer(props: { anchor: { top: number; bottom: number; right: number }; children: React.ReactNode }) {
+  const { anchor } = props;
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; maxHeight?: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const h = el.scrollHeight;
+    const minTop = APP_NAVBAR_H + 8;
+    const maxBottom = window.innerHeight - 8;
+    let top: number;
+    if (anchor.bottom + 4 + h <= maxBottom) top = anchor.bottom + 4;
+    else if (anchor.top - 4 - h >= minTop) top = anchor.top - 4 - h;
+    else top = Math.max(minTop, maxBottom - h);
+    const avail = maxBottom - top;
+    setPos({ top, maxHeight: h > avail ? avail : undefined });
+  }, [anchor]);
+  return (
+    <div ref={ref} style={{
+      position: 'fixed', right: anchor.right, top: pos?.top ?? 0, zIndex: 30,
+      visibility: pos ? 'visible' : 'hidden',
+      maxHeight: pos?.maxHeight, overflowY: pos?.maxHeight ? 'auto' : undefined,
+    }}>
+      {props.children}
+    </div>
+  );
+}
+
 function CandidateActionsMenu(props: {
   candidate: Candidate;
   style?: React.CSSProperties;
@@ -2964,14 +3046,28 @@ function InboxReviewCard(props: {
     return () => document.removeEventListener('mousedown', onAway);
   }, [headerMenuOpen]);
 
+  // The qualification tile is a square as tall as the identity block
+  // beside it (name / applying-for / location). Measured rather than CSS
+  // aspect-ratio: a flex item's width is settled before align-self:stretch
+  // gives it a height, so aspect-ratio never widened the tile.
+  const identityRef = useRef<HTMLDivElement>(null);
+  const [identitySize, setIdentitySize] = useState(52);
+  useEffect(() => {
+    const el = identityRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setIdentitySize(Math.max(52, Math.round(el.offsetHeight))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div style={S.reviewCard}>
-      {/* Header — identity + applying-for chip in top-right */}
+      {/* Header — identity block + actions in top-right */}
       <div style={S.reviewCardHeader}>
-        <div style={S.reviewQualIcon(q.bg, q.fg)}>
+        <div style={{ ...S.reviewQualIcon(q.bg, q.fg), width: identitySize, height: identitySize }}>
           <FontAwesomeIcon icon={q.icon} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div ref={identityRef} style={{ flex: 1, minWidth: 0 }}>
           <div style={S.reviewName}>
             {displayName(c.fullName)}
             {age != null && <span style={S.reviewAge}>· {age} yrs</span>}
@@ -2996,6 +3092,13 @@ function InboxReviewCard(props: {
                 <span style={S.repeatCount}>{repeatCount}×</span>
               </button>
             )}
+          </div>
+          {/* Role sits under the name as a subtitle — it's part of "who is
+              this", and as a chip in the action row it squeezed the name
+              into wrapping. */}
+          <div style={S.applyingLine}>
+            <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 11, color: C.mutedSoft }} />
+            Applying for <strong style={{ color: C.primaryDeep, fontWeight: 700 }}>{c.desiredPosition ?? '—'}</strong>
           </div>
           <div style={S.reviewSub}>
             {c.addressLocation && (() => {
@@ -3076,10 +3179,6 @@ function InboxReviewCard(props: {
               <FontAwesomeIcon icon={faFileLines} />
             </span>
           )}
-          <span style={S.applyingChip}>
-            <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 11 }} />
-            Applying for <strong>{c.desiredPosition ?? '—'}</strong>
-          </span>
           <div ref={headerMenuRef} style={{ position: 'relative' }}>
             <button
               type="button"
@@ -5138,13 +5237,72 @@ function FilterChipRow(props: {
 }
 
 function TabBtn(props: { label: string; count?: number; active: boolean; onClick: () => void }) {
+  // Empty stages fade back so the ones with work in them stand out —
+  // still shown (not hidden) so tab positions never shift as counts change.
+  const empty = props.count === 0 && !props.active;
   return (
-    <button onClick={props.onClick} style={S.tabBtn(props.active)}>
+    <button onClick={props.onClick} style={{ ...S.tabBtn(props.active), ...(empty ? { color: C.mutedSoft } : {}) }}>
       {props.label}
       {typeof props.count === 'number' && (
-        <span style={S.tabCount(props.active)}>{props.count}</span>
+        <span style={{ ...S.tabCount(props.active), ...(empty ? { background: 'transparent', color: C.mutedSoft } : {}) }}>{props.count}</span>
       )}
     </button>
+  );
+}
+
+/** The archive half of the tab bar as one dropdown tab. Shows the sub-view
+ *  you're in ("Closed · Rejected") while active, plain "Closed" otherwise. */
+function ClosedTabMenu<K extends string>(props: {
+  current: string;
+  options: { key: K; label: string; count?: number }[];
+  onSelect: (key: K) => void;
+}) {
+  const { current, options, onSelect } = props;
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const activeOpt = options.find(o => o.key === current);
+  const shown = activeOpt ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center',
+      borderRadius: 6, background: activeOpt ? C.primary : 'transparent' }}>
+      {/* Split button: the label goes straight to the first option (All
+          closed); only the chevron opens the sub-view menu. */}
+      <button onClick={() => { onSelect(options[0].key); setOpen(false); }}
+        style={{ ...S.tabBtn(!!activeOpt), background: 'transparent', paddingRight: 6 }}>
+        {activeOpt && activeOpt.key !== options[0].key ? `Closed · ${activeOpt.label}` : 'Closed'}
+        {typeof shown.count === 'number' && <span style={S.tabCount(!!activeOpt)}>{shown.count}</span>}
+      </button>
+      <button onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label="Choose closed view"
+        style={{ ...S.tabBtn(!!activeOpt), background: 'transparent', padding: '6px 10px 6px 4px' }}>
+        <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 10, opacity: 0.8 }} />
+      </button>
+      {open && (
+        <div role="menu" style={S.closedMenu}>
+          {options.map(o => {
+            const sel = o.key === current;
+            return (
+              <button key={o.key} role="menuitem" className="kc-row-menu-item"
+                onClick={() => { onSelect(o.key); setOpen(false); }}
+                style={{ ...S.closedMenuItem, ...(sel ? { color: C.primary, fontWeight: 700 } : {}) }}>
+                <FontAwesomeIcon icon={faCheck} style={{ fontSize: 11, width: 12, visibility: sel ? 'visible' : 'hidden' }} />
+                <span style={{ flex: 1 }}>{o.label}</span>
+                {typeof o.count === 'number' && <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>{o.count}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -5187,6 +5345,16 @@ const S = {
     padding: '6px 4px',
     boxShadow: '0 12px 32px rgba(15,23,42,0.14)',
   } as React.CSSProperties,
+  // Pinned tabs + toolbar. Page-colour background so rows scroll out of
+  // sight beneath it; the 12px top padding (cancelled by a matching
+  // negative margin) is breathing room under the navbar once stuck.
+  // flow-root keeps the toolbar's bottom margin inside the box, so that
+  // gap is covered too and counts toward the measured height.
+  stickyHead: {
+    position: 'sticky', top: 0, zIndex: 20,
+    background: C.bg, display: 'flow-root',
+    paddingTop: 12, marginTop: -12,
+  } as React.CSSProperties,
   tabBar: {
     display: 'flex', alignItems: 'center', gap: 4,
     background: C.surface, border: `1px solid ${C.border}`,
@@ -5210,11 +5378,24 @@ const S = {
     color: active ? '#fff' : C.muted,
     fontSize: 11, fontWeight: 700,
   }),
+  closedMenu: {
+    position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 30,
+    minWidth: 200, padding: 4, background: C.surface,
+    border: `1px solid ${C.border}`, borderRadius: 10, boxShadow: SHADOW.md,
+  } as React.CSSProperties,
+  closedMenuItem: {
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+    padding: '8px 10px', border: 'none', borderRadius: 6,
+    fontSize: 13, fontWeight: 500, color: C.textSub, fontFamily: 'inherit',
+    textAlign: 'left', cursor: 'pointer',
+  } as React.CSSProperties,
   toolbar: {
     display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center',
     flexWrap: 'wrap',
   } as React.CSSProperties,
-  searchWrap: { position: 'relative', flex: 1, maxWidth: 380, minWidth: 220 } as React.CSSProperties,
+  // No max width — search takes whatever the toolbar's fixed-size controls
+  // leave, so the row always spans the full page width.
+  searchWrap: { position: 'relative', flex: 1, minWidth: 220 } as React.CSSProperties,
   searchIcon: {
     position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
     color: C.mutedSoft, fontSize: 13,
@@ -5368,8 +5549,12 @@ const S = {
   // under what the original (with the star column) required.
   rowGrid: {
     display: 'grid',
-    gridTemplateColumns: '44px minmax(200px, 1.6fr) 40px 120px minmax(160px, 1.1fr) 180px 320px',
-    gap: 20, alignItems: 'center',
+    // Must fit a ~1170px content area (1280px CSS viewport = 1920px at
+    // 150% scaling, minus the context rail + page padding) — the old
+    // fixed 320px Actions + 20px gaps needed ~1184px and clipped the
+    // kebab. Actions now flexes 210–320px; its buttons wrap if squeezed.
+    gridTemplateColumns: '44px minmax(180px, 1.6fr) 40px 110px minmax(140px, 1.1fr) 150px minmax(210px, 320px)',
+    gap: 16, alignItems: 'center',
   } as React.CSSProperties,
   // Terminal tabs (Hired / Rejected / All closed) never render row
   // action buttons — just a kebab. So the wide Actions column would
@@ -5378,18 +5563,28 @@ const S = {
   // column expand (via 2fr) to consume the freed width.
   rowGridTerminal: {
     display: 'grid',
-    // Extra "Submitted" column between Location and Status — only
-    // shown on Hired / Rejected / All-closed, where "when did we
-    // close this out" is the piece of context the admin actually
+    // Extra "Submitted" + "Last action" columns between Location and
+    // Status — only on Hired / Rejected / All-closed, where "when did
+    // this land / when did we close it out" is the context the admin
     // scans against once scheduling is behind us.
-    gridTemplateColumns: '44px minmax(200px, 1.6fr) 40px 120px minmax(160px, 1.1fr) 110px minmax(200px, 1.5fr) 50px',
-    gap: 20, alignItems: 'center',
+    // Same ~1170px budget as rowGrid (was ~1194px minimum and clipped).
+    gridTemplateColumns: '44px minmax(180px, 1.6fr) 40px 110px minmax(140px, 1.1fr) 100px 100px minmax(180px, 1.5fr) 50px',
+    gap: 16, alignItems: 'center',
   } as React.CSSProperties,
   colSubmitted: {
     fontSize: 13, color: C.textSub, fontWeight: 500,
     fontVariantNumeric: 'tabular-nums' as const,
     whiteSpace: 'nowrap' as const,
   } as React.CSSProperties,
+  // Date on top, time underneath — same type as Submitted so the two
+  // timestamps read as a pair.
+  colLastAction: {
+    display: 'flex', flexDirection: 'column', gap: 1,
+    fontSize: 13, color: C.textSub, fontWeight: 500,
+    fontVariantNumeric: 'tabular-nums' as const,
+    whiteSpace: 'nowrap' as const,
+  } as React.CSSProperties,
+  colLastActionTime: { fontSize: 11, color: C.mutedSoft, fontWeight: 500 } as React.CSSProperties,
   rowNumCell: {
     fontSize: 12, fontWeight: 700, color: '#94a3b8',
     fontVariantNumeric: 'tabular-nums' as const,
@@ -5842,8 +6037,12 @@ const S = {
   reviewSidebar: {
     background: C.surface, border: `1px solid ${C.border}`,
     borderRadius: 14, padding: '14px 10px',
-    position: 'sticky', top: 12,
-    maxHeight: 'calc(100vh - 140px)', overflowY: 'auto',
+    // Parks directly under the sticky tabs + toolbar (--kc-sticky-h, set
+    // on the shell) and fills the rest of the visible scroll area
+    // (viewport − 50px navbar − that header − 12px bottom gap) — a short
+    // queue no longer leaves a stubby card; a long one scrolls inside.
+    position: 'sticky', top: 'var(--kc-sticky-h, 12px)',
+    height: 'calc(100vh - 62px - var(--kc-sticky-h, 12px))', overflowY: 'auto',
     boxShadow: SHADOW.sm,
   } as React.CSSProperties,
   reviewSidebarHeader: {
@@ -5956,25 +6155,6 @@ const S = {
     lineHeight: 1.3,
   } as React.CSSProperties,
 
-  // ── Prev / Next nav bar ────────────────────────────────────────────
-  reviewNavBar: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '2px 4px',
-  } as React.CSSProperties,
-  navPillBtn: (enabled: boolean): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 8,
-    padding: '8px 14px', borderRadius: 10,
-    background: enabled ? C.surface : C.bgSoft,
-    color: enabled ? C.textSub : C.mutedSoft,
-    border: `1px solid ${C.border}`,
-    fontSize: 13, fontWeight: 600,
-    cursor: enabled ? 'pointer' : 'default',
-    boxShadow: enabled ? SHADOW.sm : 'none',
-  }),
-  navPositionLabel: {
-    fontSize: 13, color: C.textSub,
-  } as React.CSSProperties,
-
   // ── Review card ────────────────────────────────────────────────────
   reviewCard: {
     background: C.surface, border: `1px solid ${C.border}`,
@@ -5987,10 +6167,12 @@ const S = {
     flexWrap: 'wrap',
   } as React.CSSProperties,
   reviewQualIcon: (bg: string, fg: string): React.CSSProperties => ({
-    width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+    // Width/height are set at the call site from the measured identity
+    // block, so the tile and the three lines read as one unit.
+    borderRadius: 14, flexShrink: 0,
     background: bg, color: fg,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 20,
+    fontSize: 28,
     border: `1px solid ${C.borderSoft}`,
   }),
   reviewName: {
@@ -6007,12 +6189,10 @@ const S = {
   reviewChipRow: {
     display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap',
   } as React.CSSProperties,
-  applyingChip: {
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '6px 12px', borderRadius: 8,
-    background: C.primarySoft, color: C.primaryDeep,
-    fontSize: 13, fontWeight: 600,
-    border: `1px solid #d8def7`,
+  applyingLine: {
+    display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+    marginTop: 4, marginBottom: 6,
+    fontSize: 13, fontWeight: 500, color: C.muted,
   } as React.CSSProperties,
   flagPill: (level: 'red' | 'yellow'): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 6,

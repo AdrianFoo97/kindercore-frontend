@@ -1,0 +1,186 @@
+// Catalog of every automated test in both projects, shown on the
+// Admin → Test Catalog page (TestCatalogPage.tsx, Admin + Superadmin).
+//
+// KEEP IN SYNC: whenever a test is added, renamed or removed — in either
+// kindercore-frontend or kindercore-backend — update this file in the same
+// change. `name` must match the test's it('…') string exactly.
+// tests/unit/testCatalog.test.ts fails if a FRONTEND test is missing here
+// (or listed here but gone); backend entries can't be checked from this
+// repo in CI, so they rely on the rule in CLAUDE.md.
+
+export type Project = 'Frontend' | 'Backend';
+export type Kind = 'Unit' | 'Integration';
+
+export interface TestCase {
+  /** Exactly the it('…') name in the test file. */
+  name: string;
+  /** Plain-English: what this proves, and why it matters. */
+  explains: string;
+}
+
+export interface TestSuite {
+  id: string;
+  project: Project;
+  kind: Kind;
+  /** Path inside the project. */
+  file: string;
+  /** Feature area, as a person would name it. */
+  area: string;
+  /** What this file covers and why it's worth having. */
+  summary: string;
+  /** Set when the suite does NOT actually guard app code — shown as a warning. */
+  caveat?: string;
+  /** With a caveat: the concrete fix, for the copy-to-developer message. */
+  fix?: string;
+  cases: TestCase[];
+}
+
+export const RUN_COMMANDS: Record<Project, string> = {
+  Frontend: 'cd kindercore-frontend && npm run test:unit',
+  Backend: 'cd kindercore-backend && npm test   # needs the docker DB running',
+};
+
+export const TEST_SUITES: TestSuite[] = [
+  // ── Backend ────────────────────────────────────────────────────────────
+  {
+    id: 'be-operating-cost',
+    project: 'Backend',
+    kind: 'Integration',
+    file: 'src/tests/integration/operatingCost.service.test.ts',
+    area: 'Operating cost — monthly totals & forecast',
+    summary:
+      'Runs the real monthly operating-cost calculation against a real MySQL test database loaded with fixed test data. ' +
+      'These figures feed Finance, profit-share and the Analysis pages, so a wrong total here silently skews profit everywhere.',
+    cases: [
+      { name: 'counts an entry whose amount equals its category preset', explains: 'Rent recorded at exactly its preset (RM 4,200) is still counted. A past bug threw these rows away, hiding the largest cost and overstating profit.' },
+      { name: 'does not treat a month of preset-valued entries as an empty month', explains: 'A month holding only preset-valued entries counts as a real recorded month — it is not overwritten by the average.' },
+      { name: 'sums every category within a month', explains: 'All categories recorded in the same month add up into that month\'s total.' },
+      { name: 'only counts entries for the requested year', explains: 'Asking for 2026 never includes 2025 spend in the totals.' },
+      { name: 'projects a month with no entries from the average of the months that have them', explains: 'A month nobody has recorded yet is projected from the average of recorded months, while its raw figure stays RM 0.' },
+      { name: 'keeps an empty past month out of the average rather than dragging it toward zero', explains: 'Unrecorded months are skipped when averaging, so a forgotten month doesn\'t make the forecast look artificially cheap.' },
+      { name: 'marks months after the current one as forecast', explains: 'Months after this month are flagged as forecast; this month and earlier are actuals.' },
+      { name: 'moves an entry marked out of the sum into excludedCost', explains: 'A single entry marked "exclude" leaves the operating cost total but is still reported as excluded spend — never silently lost.' },
+      { name: 'excludes every entry of a category marked out, even if the entry says include', explains: 'Excluding a whole category (e.g. Capex) excludes all its entries, whatever each entry says.' },
+      { name: 'excludes every entry under a group marked out, even if its category says include', explains: 'Excluding a whole group (e.g. One-off) excludes everything under it — the exclusion cascades down.' },
+      { name: 'keeps excluded spend out of the projection average', explains: 'A big one-off excluded purchase doesn\'t inflate the forecast for future months.' },
+      { name: 'treats a month with only excluded spend as having no operating cost data', explains: 'A month whose only spend is excluded is projected like an empty month, but its excluded amount is still shown.' },
+      { name: 'reports zero — not a projection — for a year with no entries at all', explains: 'A year with nothing recorded shows RM 0 everywhere instead of inventing a projection.' },
+    ],
+  },
+  {
+    id: 'be-lead-validation',
+    project: 'Backend',
+    kind: 'Unit',
+    file: 'src/tests/unit/lead.test.ts',
+    area: 'Leads — public enquiry form validation',
+    summary:
+      'Checks the rules the server applies to every enquiry submitted from the public website form, before it becomes a lead.',
+    cases: [
+      { name: 'accepts a valid lead submission', explains: 'A complete enquiry (child name, phone, date of birth, enrolment year) is accepted.' },
+      { name: 'rejects submission when honeypot field is filled', explains: 'Spam bots that fill the hidden "company" field are rejected.' },
+      { name: 'accepts an empty honeypot field', explains: 'Real parents (who leave the hidden field empty) are not blocked by the spam check.' },
+      { name: 'rejects missing required fields', explains: 'An enquiry without the required details is refused.' },
+      { name: 'rejects a date of birth not in YYYY-MM-DD form', explains: 'Dates like 15/03/2022 are refused, so ages and class placement are calculated from a reliable date.' },
+      { name: 'rejects an enrolment year before 2020', explains: 'Obviously wrong enrolment years are refused.' },
+    ],
+  },
+  {
+    id: 'be-appointment-rounding',
+    project: 'Backend',
+    kind: 'Unit',
+    file: 'src/tests/unit/appointment.test.ts',
+    area: 'Appointments — round up to the next half hour',
+    summary: 'Intended to check that booking times are rounded up to the next :00 or :30.',
+    caveat:
+      'Tests a copy of the rounding function written inside the test file, not the app\'s booking code — if the real code broke, these would still pass.',
+    fix:
+      'Delete the local copy of roundUpTo30Min in the test and import the real one instead — it is already exported from src/controllers/leads.controller.ts.',
+    cases: [
+      { name: 'rounds 14:17 up to 14:30', explains: 'Times between slots round up to the next half hour.' },
+      { name: 'rounds 14:37 up to 15:00', explains: 'Times past the half hour round up to the next full hour.' },
+      { name: 'keeps 14:30 unchanged (already on boundary)', explains: 'A time already on :30 is left alone.' },
+      { name: 'keeps 14:00 unchanged (already on boundary)', explains: 'A time already on :00 is left alone.' },
+      { name: 'rounds 23:59 up to 00:00 next day', explains: 'Rounding just before midnight correctly rolls over to the next day.' },
+    ],
+  },
+  {
+    id: 'be-auth-hashing',
+    project: 'Backend',
+    kind: 'Unit',
+    file: 'src/tests/unit/auth.test.ts',
+    area: 'Login — password hashing',
+    summary: 'Intended to check that passwords are stored hashed and verified correctly at login.',
+    caveat:
+      'Tests the bcrypt library directly (hash then compare), not KinderTech\'s login code — a bug in how the app hashes or checks passwords would not be caught.',
+    fix:
+      'Test the app\'s own login path in src/controllers/auth.controller.ts (password check ~line 24, hashing ~line 133) — e.g. extract hashPassword / verifyPassword helpers the controller uses and test those, or test the login handler against a test-DB user.',
+    cases: [
+      { name: 'verifies correct password against hash', explains: 'The right password matches its stored hash.' },
+      { name: 'rejects wrong password against hash', explains: 'A wrong password does not match.' },
+    ],
+  },
+
+  // ── Frontend ───────────────────────────────────────────────────────────
+  {
+    id: 'fe-operating-cost-model',
+    project: 'Frontend',
+    kind: 'Unit',
+    file: 'src/tests/unit/operatingCostModel.test.ts',
+    area: 'Analysis — Operating Cost page calculations',
+    summary:
+      'Checks the maths behind the Operating Cost analysis page: monthly totals, budget vs. actual, year-on-year, group roll-ups, outlier flags and cost ratios.',
+    cases: [
+      { name: 'sums each month and leaves unrecorded months at zero', explains: 'Monthly totals add up correctly and unrecorded months show 0.' },
+      { name: 'buckets by category into dense 12-slot arrays', explains: 'Each category gets a full Jan–Dec series for the charts.' },
+      { name: 'ignores rows with an out-of-range month rather than corrupting the array', explains: 'A bad month number in the data is skipped instead of breaking the charts.' },
+      { name: 'counts only months that are both recorded and not in the future', explains: '"Months elapsed" counts only real, past, recorded months.' },
+      { name: 'excludes future months even when someone has pre-recorded them', explains: 'Costs entered ahead of time for future months don\'t count as elapsed.' },
+      { name: 'treats a past year as fully elapsed', explains: 'Looking at last year, all recorded months count.' },
+      { name: 'treats a future year as having nothing elapsed', explains: 'Looking at next year, nothing has happened yet.' },
+      { name: 'skips gaps — an unfilled month in the middle is not elapsed', explains: 'A forgotten month in the middle isn\'t counted as elapsed.' },
+      { name: 'sums spend over the scoped months only', explains: 'Category spend only covers the months currently selected.' },
+      { name: 'scales the budget by the number of scoped months', explains: 'A monthly budget is multiplied by the months selected (e.g. 3 months = 3× budget).' },
+      { name: 'reports a category exactly on budget as zero variance, not a rounding artefact', explains: 'Spending exactly the budget shows RM 0 over/under — not a tiny rounding error.' },
+      { name: 'reports under-budget as a negative variance', explains: 'Spending less than budget shows as a negative (under) variance.' },
+      { name: 'keeps "no budget set" as null — never as a budget of zero', explains: 'A category without a budget shows "no budget", not a budget of RM 0 (which would look massively over).' },
+      { name: 'scopes to a single month when the scope is a single month', explains: 'Selecting one month shows just that month\'s figures.' },
+      { name: 'compares year on year over the same months, and reports null when last year is empty', explains: 'Year-on-year compares like-for-like months, and shows "no data" when last year had none.' },
+      { name: 'sums spend across every category in the group', explains: 'A group\'s spend is the total of its categories.' },
+      { name: 'builds the budget only from categories that have one', explains: 'A group\'s budget only adds up categories that actually have a budget.' },
+      { name: 'measures variance against budgeted spend only, so an unbudgeted category cannot make a group look over', explains: 'Spend in an unbudgeted category can\'t make the whole group look over budget.' },
+      { name: 'carries the full 12-month series and last year through to the group', explains: 'Group charts get the full monthly series and last year\'s figures.' },
+      { name: 'flags a month that departs from the category\'s own typical spend', explains: 'An unusual month for a category is flagged as an outlier.' },
+      { name: 'stays quiet on a steady category', explains: 'A category with steady spend raises no outlier flags.' },
+      { name: 'ignores small-money wobble even when the percentage is large', explains: 'A RM 5 → RM 15 change isn\'t flagged just because it\'s +200%.' },
+      { name: 'needs at least three recorded months before forming an opinion', explains: 'No outlier flags until there are 3+ months of history to compare against.' },
+      { name: 'divides cost by revenue and by headcount', explains: 'Cost-to-revenue and cost-per-head ratios are calculated correctly.' },
+      { name: 'returns null rather than dividing by zero', explains: 'With no revenue or no staff, ratios show "—" instead of infinity or an error.' },
+      { name: 'survives a missing finance summary', explains: 'If finance data hasn\'t loaded, the page still works.' },
+    ],
+  },
+  {
+    id: 'fe-leads-page',
+    project: 'Frontend',
+    kind: 'Unit',
+    file: 'src/tests/unit/LeadsPage.test.tsx',
+    area: 'Leads page — loading, errors and table',
+    summary: 'Renders the real Leads page with a faked API to check what staff see while loading, on error, and once leads arrive.',
+    cases: [
+      { name: 'shows loading state while fetch is pending', explains: 'A "Loading…" message shows while leads are being fetched.' },
+      { name: 'shows error message when fetch fails', explains: 'If leads can\'t be fetched, an error is shown instead of a blank page.' },
+      { name: 'renders leads table after data loads', explains: 'Leads appear in the table, and the phone number links to a WhatsApp chat (with 0 → 60).' },
+    ],
+  },
+  {
+    id: 'fe-test-catalog',
+    project: 'Frontend',
+    kind: 'Unit',
+    file: 'src/tests/unit/testCatalog.test.ts',
+    area: 'This catalog — kept complete',
+    summary: 'Fails the build if this Test Catalog page falls out of date with the frontend\'s actual tests.',
+    cases: [
+      { name: 'lists every frontend test', explains: 'Any frontend test missing from this page fails the check.' },
+      { name: 'lists no frontend test that no longer exists', explains: 'A test that was deleted or renamed can\'t linger on this page.' },
+    ],
+  },
+];

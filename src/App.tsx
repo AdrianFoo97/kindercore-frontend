@@ -31,6 +31,7 @@ import WhatsAppTemplatesPage from './pages/WhatsAppTemplatesPage.js';
 import LeadStatusSettingsPage from './pages/LeadStatusSettingsPage.js';
 import CompanySettingsPage from './pages/CompanySettingsPage.js';
 import TestToolsPage from './pages/TestToolsPage.js';
+import TestCatalogPage from './pages/TestCatalogPage.js';
 import GoogleCalendarSettingsPage from './pages/GoogleCalendarSettingsPage.js';
 import ImportStudentsPage from './pages/ImportStudentsPage.js';
 import OperationsPlannerPage from './pages/OperationsPlannerPage.js';
@@ -342,6 +343,7 @@ export default function App() {
           <Route path="/settings/test/reset-candidates" element={<ErrorBoundary><TestToolsPage key="reset-candidates" tool="reset-candidates" /></ErrorBoundary>} />
           <Route path="/settings/test/seed-dummy" element={<ErrorBoundary><TestToolsPage key="seed-dummy" tool="seed-dummy" /></ErrorBoundary>} />
           <Route path="/settings/test/seed-candidates" element={<ErrorBoundary><TestToolsPage key="seed-candidates" tool="seed-candidates" /></ErrorBoundary>} />
+          <Route path="/settings/test/unit-tests" element={<Navigate to="/admin/test-catalog" replace />} />
           <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
           <Route path="/settings/auth-roles" element={<ErrorBoundary><AuthRolesPage /></ErrorBoundary>} />
           <Route path="/settings/auth-roles/new" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
@@ -351,6 +353,7 @@ export default function App() {
           <Route path="/settings/auth-views/new" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
           <Route path="/settings/auth-views/:id/edit" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
           <Route path="/admin/year-rollover" element={<ErrorBoundary><YearRolloverPage /></ErrorBoundary>} />
+          <Route path="/admin/test-catalog" element={<ErrorBoundary><TestCatalogPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><OperationsPlannerPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/bug-reports" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />

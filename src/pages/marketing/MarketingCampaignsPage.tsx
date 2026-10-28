@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrash, faPen, faTimes, faCheck, faTag } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faTrash, faPen, faTimes, faCheck, faBullhorn, faUsers } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchMarketingCampaigns, createMarketingCampaign, updateMarketingCampaign, deleteMarketingCampaign,
   MarketingCampaignRecord,
@@ -59,11 +59,55 @@ function statusOf(c: MarketingCampaignRecord): Status {
   return 'active';
 }
 
-const STATUS_STYLE: Record<Status, { label: string; bg: string; color: string }> = {
-  upcoming: { label: 'Upcoming', bg: '#fef9c3', color: '#854d0e' },
-  active: { label: 'Active', bg: '#dcfce7', color: '#166534' },
-  ended: { label: 'Ended', bg: '#f1f5f9', color: '#64748b' },
+const STATUS_STYLE: Record<Status, { label: string; section: string; bg: string; color: string; tileBg: string; tileFg: string }> = {
+  active:   { label: 'Active',   section: 'Active now', bg: '#dcfce7', color: '#166534', tileBg: '#dcfce7', tileFg: '#16a34a' },
+  upcoming: { label: 'Upcoming', section: 'Upcoming',   bg: '#fef9c3', color: '#854d0e', tileBg: '#fef9c3', tileFg: '#ca8a04' },
+  ended:    { label: 'Ended',    section: 'Ended',      bg: '#f1f5f9', color: '#64748b', tileBg: '#f1f5f9', tileFg: '#94a3b8' },
 };
+const STATUS_ORDER: Status[] = ['active', 'upcoming', 'ended'];
+
+// Whole calendar days from a to b ("YYYY-MM-DD" strings) — UTC maths on
+// date-only values, so no DST/timezone drift creeps into the count.
+function dayDiff(a: string, b: string) {
+  const ms = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+  return Math.round((ms(b) - ms(a)) / 86_400_000);
+}
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+// "Ends in 3 days" / "Starts tomorrow" / "Ended 4 days ago" — the one
+// piece of timing the list is scanned for.
+function timingOf(c: MarketingCampaignRecord, status: Status) {
+  const today = todayStr();
+  const start = c.startDate.slice(0, 10);
+  const end = c.endDate.slice(0, 10);
+  if (status === 'upcoming') {
+    const d = dayDiff(today, start);
+    return d === 1 ? 'Starts tomorrow' : `Starts in ${plural(d, 'day')}`;
+  }
+  if (status === 'ended') {
+    const d = dayDiff(end, today);
+    return d === 1 ? 'Ended yesterday' : `Ended ${plural(d, 'day')} ago`;
+  }
+  const left = dayDiff(today, end);
+  return left === 0 ? 'Ends today' : left === 1 ? 'Ends tomorrow' : `Ends in ${plural(left, 'day')}`;
+}
+
+// Share of the campaign's date range already elapsed (inclusive days), 0–1.
+function progressOf(c: MarketingCampaignRecord) {
+  const start = c.startDate.slice(0, 10);
+  const total = dayDiff(start, c.endDate.slice(0, 10)) + 1;
+  const done = dayDiff(start, todayStr()) + 1;
+  return Math.min(1, Math.max(0, done / total));
+}
+
+// Within each status, the order that answers "what needs my attention":
+// active ending soonest, upcoming starting soonest, ended most recent.
+function sortForStatus(list: MarketingCampaignRecord[], status: Status) {
+  const key = (c: MarketingCampaignRecord) => (status === 'upcoming' ? c.startDate : c.endDate).slice(0, 10);
+  return [...list].sort((a, b) => status === 'ended' ? key(b).localeCompare(key(a)) : key(a).localeCompare(key(b)));
+}
+
+type Filter = 'all' | Status;
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kuala_Lumpur' });
@@ -81,6 +125,14 @@ export default function MarketingCampaignsPage() {
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<MarketingCampaignRecord | null>(null);
+  // Opens on what's live right now — the question this page is usually
+  // visited to answer. The other tabs are one click away.
+  const [filter, setFilter] = useState<Filter>('active');
+
+  const byStatus: Record<Status, MarketingCampaignRecord[]> = { active: [], upcoming: [], ended: [] };
+  for (const c of campaigns) byStatus[statusOf(c)].push(c);
+  const shownStatuses = filter === 'all' ? STATUS_ORDER : [filter];
+  const shownCount = shownStatuses.reduce((n, st) => n + byStatus[st].length, 0);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['marketing-campaigns'] });
 
@@ -137,7 +189,9 @@ export default function MarketingCampaignsPage() {
             <div>
               <h3 style={s.cardTitle}>Campaigns</h3>
               <div style={s.cardSub}>
-                {campaigns.length === 0 ? 'No campaigns yet' : `${campaigns.length} campaign${campaigns.length === 1 ? '' : 's'}`}
+                {campaigns.length === 0
+                  ? 'No campaigns yet'
+                  : `${byStatus.active.length} active · ${byStatus.upcoming.length} upcoming · ${byStatus.ended.length} ended`}
               </div>
             </div>
             <button onClick={() => { setEditing(null); setEditorOpen(true); }} style={s.primaryBtn}>
@@ -146,54 +200,54 @@ export default function MarketingCampaignsPage() {
             </button>
           </div>
 
+          {campaigns.length > 0 && (
+            <div style={s.filterBar} role="tablist" aria-label="Filter campaigns by status">
+              {(['all', ...STATUS_ORDER] as Filter[]).map(f => {
+                const on = filter === f;
+                const n = f === 'all' ? campaigns.length : byStatus[f].length;
+                return (
+                  <button key={f} role="tab" aria-selected={on} onClick={() => setFilter(f)} style={filterBtnStyle(on)}>
+                    {f !== 'all' && <span style={{ ...s.dot, background: STATUS_STYLE[f].tileFg }} />}
+                    {f === 'all' ? 'All' : STATUS_STYLE[f].label}
+                    <span style={filterCountStyle(on)}>{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {isLoading ? (
             <p style={{ padding: 24, color: C.mutedSoft, fontSize: 13 }}>Loading…</p>
           ) : campaigns.length === 0 ? (
             <p style={{ padding: 24, textAlign: 'center', color: C.muted, fontSize: 13 }}>
               No campaigns configured yet.
             </p>
+          ) : shownCount === 0 ? (
+            <p style={{ padding: 24, textAlign: 'center', color: C.muted, fontSize: 13 }}>
+              No {filter === 'all' ? '' : STATUS_STYLE[filter].label.toLowerCase() + ' '}campaigns.
+            </p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {campaigns.map(c => {
-                const status = statusOf(c);
-                const st = STATUS_STYLE[status];
-                return (
-                  <div key={c.id} style={s.row}>
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: status === 'active' ? C.primarySoft : '#f1f5f9', color: status === 'active' ? C.primary : C.mutedSoft, fontSize: 16,
-                    }}>
-                      <FontAwesomeIcon icon={faTag} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {shownStatuses.filter(st => byStatus[st].length > 0).map(st => (
+                <section key={st}>
+                  {/* Section headers only in the All view — a filtered view
+                      is already one status, so a header would just repeat
+                      the selected tab. */}
+                  {filter === 'all' && (
+                    <div style={s.sectionLabel}>
+                      {STATUS_STYLE[st].section}
+                      <span style={{ color: C.mutedSoft, fontWeight: 600 }}>{byStatus[st].length}</span>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{c.name}</span>
-                        <span style={{
-                          fontSize: 12, fontWeight: 700, color: C.textSub, letterSpacing: '0.02em',
-                          fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-                          padding: '2px 8px', borderRadius: 6, background: '#f1f5f9',
-                        }}>{c.code}</span>
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-                          background: st.bg, color: st.color, textTransform: 'uppercase', letterSpacing: '0.04em',
-                        }}>{st.label}</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: C.mutedSoft, marginTop: 4 }}>
-                        {fmtDate(c.startDate)} – {fmtDate(c.endDate)}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => { setEditing(c); setEditorOpen(true); }} style={s.iconBtn} aria-label="Edit">
-                        <FontAwesomeIcon icon={faPen} />
-                      </button>
-                      <button onClick={() => onDelete(c)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete">
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {sortForStatus(byStatus[st], st).map(c => (
+                      <CampaignRow key={c.id} campaign={c} status={st}
+                        onEdit={() => { setEditing(c); setEditorOpen(true); }}
+                        onDelete={() => onDelete(c)} />
+                    ))}
                   </div>
-                );
-              })}
+                </section>
+              ))}
             </div>
           )}
         </div>
@@ -206,6 +260,62 @@ export default function MarketingCampaignsPage() {
           onSave={onSave}
         />
       )}
+    </div>
+  );
+}
+
+function CampaignRow({ campaign: c, status, onEdit, onDelete }: {
+  campaign: MarketingCampaignRecord;
+  status: Status;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const st = STATUS_STYLE[status];
+  const ended = status === 'ended';
+  return (
+    <div style={{ ...s.row, background: ended ? '#fcfcfd' : '#fff' }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: st.tileBg, color: st.tileFg, fontSize: 16,
+      }}>
+        <FontAwesomeIcon icon={faBullhorn} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: ended ? C.textSub : C.text }}>{c.name}</span>
+          <span style={s.codeChip}>{c.code}</span>
+          <span style={{ ...s.statusPill, background: st.bg, color: st.color }}>{st.label}</span>
+        </div>
+        <div style={{ fontSize: 12, color: C.mutedSoft, marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <span>{fmtDate(c.startDate)} – {fmtDate(c.endDate)}</span>
+          <span>·</span>
+          <span style={{ color: ended ? C.mutedSoft : st.color, fontWeight: ended ? 500 : 600 }}>
+            {timingOf(c, status)}
+          </span>
+        </div>
+        {/* How far through its date range a live campaign is. */}
+        {status === 'active' && (
+          <div style={s.progressTrack} aria-hidden>
+            <div style={{ ...s.progressFill, width: `${Math.round(progressOf(c) * 100)}%` }} />
+          </div>
+        )}
+      </div>
+      <div style={s.leadStat} title={`${c.leadCount} lead${c.leadCount === 1 ? '' : 's'} used this code`}>
+        <span style={{ fontSize: 16, fontWeight: 700, color: c.leadCount > 0 ? C.text : C.mutedSoft }}>{c.leadCount}</span>
+        <span style={{ fontSize: 11, color: C.mutedSoft, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <FontAwesomeIcon icon={faUsers} style={{ fontSize: 10 }} />
+          {c.leadCount === 1 ? 'lead' : 'leads'}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        <button onClick={onEdit} style={s.iconBtn} aria-label="Edit">
+          <FontAwesomeIcon icon={faPen} />
+        </button>
+        <button onClick={onDelete} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete">
+          <FontAwesomeIcon icon={faTrash} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -342,7 +452,47 @@ const s: Record<string, React.CSSProperties> = {
     background: '#fff', cursor: 'pointer', color: C.muted, display: 'inline-flex',
     alignItems: 'center', justifyContent: 'center', fontSize: 12,
   },
+  filterBar: {
+    display: 'inline-flex', gap: 4, padding: 4, marginBottom: 16, flexWrap: 'wrap',
+    background: '#f8fafc', border: `1px solid ${C.cardBorder}`, borderRadius: 10,
+  },
+  dot: { width: 7, height: 7, borderRadius: '50%', flexShrink: 0 },
+  sectionLabel: {
+    display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
+    fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em',
+  },
+  codeChip: {
+    fontSize: 12, fontWeight: 700, color: C.textSub, letterSpacing: '0.02em',
+    fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+    padding: '2px 8px', borderRadius: 6, background: '#f1f5f9',
+  },
+  statusPill: {
+    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+    textTransform: 'uppercase', letterSpacing: '0.04em',
+  },
+  progressTrack: { height: 4, borderRadius: 999, background: '#eef2f6', marginTop: 8, maxWidth: 320, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 999, background: '#22c55e' },
+  leadStat: {
+    display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1,
+    minWidth: 64, paddingRight: 8, fontVariantNumeric: 'tabular-nums',
+  },
 };
+
+// Segmented status filter — selected tab is a white "raised" chip on the
+// grey track (colour/background only; no lift effect).
+const filterBtnStyle = (on: boolean): React.CSSProperties => ({
+  display: 'inline-flex', alignItems: 'center', gap: 7,
+  padding: '6px 12px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
+  fontSize: 13, fontWeight: 600,
+  border: on ? `1px solid ${C.cardBorder}` : '1px solid transparent',
+  background: on ? '#fff' : 'transparent',
+  color: on ? C.text : C.muted,
+  boxShadow: on ? '0 1px 2px rgba(15,23,42,0.06)' : 'none',
+});
+const filterCountStyle = (on: boolean): React.CSSProperties => ({
+  fontSize: 11, fontWeight: 700, padding: '0 6px', borderRadius: 999, minWidth: 18, textAlign: 'center',
+  background: on ? C.primarySoft : '#eef0f4', color: on ? C.primary : C.mutedSoft,
+});
 
 const modal: Record<string, React.CSSProperties> = {
   overlay: {

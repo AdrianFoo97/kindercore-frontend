@@ -1,0 +1,23 @@
+# Type-check + unit tests on every push to the `test` branch
+# (i.e. `git push origin dev:test`). A failure shows as a red ✗ on the
+# commit in GitHub. Node 20 matches the Dockerfile.
+name: Tests
+
+on:
+  push:
+    branches: [test]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npm run test:unit

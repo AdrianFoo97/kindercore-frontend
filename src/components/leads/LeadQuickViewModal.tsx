@@ -1,3 +1,4 @@
+import { whatsappSendUrl } from '../../utils/whatsapp.js';
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -63,8 +64,8 @@ export default function LeadQuickViewModal({ lead, pill, onClose }: { lead: Lead
   // Hide Notes when the text duplicates the reason — common in legacy data
   // where users typed the same string into both fields.
   const notes = lead.notes && lead.notes.trim() !== (lead.lostReason ?? '').trim() ? lead.notes : null;
-  // Use WhatsApp Web directly (matches the LeadsPage whatsappUrl helper).
-  const waLink = `https://web.whatsapp.com/send?phone=${normalizeWaPhone(lead.parentPhone)}`;
+  // WhatsApp app on phones, WhatsApp Web on laptop+ (same helper as LeadsPage).
+  const waLink = whatsappSendUrl(normalizeWaPhone(lead.parentPhone));
 
   // Close-date label depends on terminal status. For non-terminal leads
   // (NEW, CONTACTED, …), `statusChangedAt` reflects the most recent stage

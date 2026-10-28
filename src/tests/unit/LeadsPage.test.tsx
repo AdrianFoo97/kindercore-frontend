@@ -4,10 +4,33 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 // Hoist mocks so they apply before module imports
+// Every leads-API function LeadsPage calls must exist on the mock — a
+// missing one throws during render. Side panels / stats get empty results;
+// the tests drive fetchLeads per case.
 vi.mock('../../api/leads.js', () => ({
   fetchLeads: vi.fn(),
   createAppointment: vi.fn(),
+  updateLead: vi.fn(),
+  deleteLead: vi.fn(),
+  restoreLead: vi.fn(),
+  permanentDeleteLead: vi.fn(),
+  confirmAppointment: vi.fn(),
+  confirmAppointmentNoCalendar: vi.fn(),
+  fetchTrashedLeads: vi.fn().mockResolvedValue([]),
+  fetchUpcomingAppointments: vi.fn().mockResolvedValue([]),
+  fetchLeadStats: vi.fn().mockResolvedValue({}),
+  fetchLeadPhones: vi.fn().mockResolvedValue([]),
 }));
+
+// LeadsPage subscribes to live lead updates over Server-Sent Events;
+// jsdom has no EventSource, so give it an inert one.
+vi.stubGlobal('EventSource', class {
+  onmessage: ((e: MessageEvent) => void) | null = null;
+  onerror: ((e: Event) => void) | null = null;
+  addEventListener() {}
+  removeEventListener() {}
+  close() {}
+});
 
 import LeadsPage from '../../pages/LeadsPage.js';
 import { fetchLeads } from '../../api/leads.js';
@@ -90,7 +113,10 @@ describe('LeadsPage', () => {
     });
     renderPage();
     expect(await screen.findByText('Ali')).toBeDefined();
-    expect(screen.getByText('0123456789')).toBeDefined();
-    expect(screen.getByText('WhatsApp')).toBeDefined();
+    // The phone number is the WhatsApp entry point (it replaced the old
+    // per-row "WhatsApp" button): a chat link with the local 0 swapped
+    // for Malaysia's 60. jsdom's default 1024px width → WhatsApp Web.
+    const phoneLink = screen.getByText('0123456789').closest('a');
+    expect(phoneLink?.getAttribute('href')).toBe('https://web.whatsapp.com/send?phone=60123456789');
   });
 });

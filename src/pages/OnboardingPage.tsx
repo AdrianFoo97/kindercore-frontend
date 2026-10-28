@@ -1,3 +1,4 @@
+import { whatsappSendUrl } from '../utils/whatsapp.js';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -616,10 +617,7 @@ function OnboardingWhatsAppModal({ phone, childName, templates, onClose }: {
   const hasZh = tplId !== 'none' && !!currentTpl?.zh;
 
   const openWa = () => {
-    const url = message.trim()
-      ? `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message.trim())}`
-      : `https://web.whatsapp.com/send?phone=${phone}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.open(whatsappSendUrl(phone, message), '_blank', 'noopener,noreferrer');
     onClose();
   };
 

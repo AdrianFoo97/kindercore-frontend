@@ -1,3 +1,4 @@
+import { whatsappSendUrl } from '../utils/whatsapp.js';
 import { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -20,7 +21,7 @@ import { useToast } from '../components/common/Toast.js';
 // Adding / renaming a channel happens in /constants/marketingChannels.ts.
 import { MARKETING_CHANNELS } from '../constants/marketingChannels.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faCopy, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate, faTag, faTags, faPlus, faCheck, faChevronDown } from '@fortawesome/free-solid-svg-icons';
+import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate, faTags, faBullhorn, faPlus, faCheck, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faFacebook, faGoogle, faTiktok, faInstagram } from '@fortawesome/free-brands-svg-icons';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
@@ -74,7 +75,7 @@ function PromoCodeBadge({ code }: { code: string }) {
         color: '#5a67d8', cursor: 'default', flexShrink: 0,
       }}
     >
-      <FontAwesomeIcon icon={faTag} style={{ fontSize: 11 }} />
+      <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 11 }} />
     </span>
   );
 }
@@ -658,7 +659,7 @@ function normalizePhone(phone: string): string {
 }
 
 function whatsappUrl(phone: string, message: string): string {
-  return `https://web.whatsapp.com/send?phone=${normalizePhone(phone)}&text=${encodeURIComponent(message)}`;
+  return whatsappSendUrl(normalizePhone(phone), message);
 }
 
 function defaultAppointmentTime(): string {
@@ -3025,7 +3026,7 @@ export default function LeadsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: isTablet ? 'column' : 'row', fontFamily: 'system-ui, sans-serif', background: '#f8fafc', height: '100%', overflow: 'hidden' }}>
-      <style>{`.kc-no-scrollbar::-webkit-scrollbar{display:none}.kc-no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}@keyframes kcFadeHL{0%{background:#fefce8}100%{background:transparent}}.kc-hl{animation:kcFadeHL 2s forwards}textarea:focus::placeholder{color:transparent}.kc-mi{display:flex;align-items:center;width:100%;padding:8px 12px;text-align:left;background:none;border:none;border-radius:8px;cursor:pointer;font-size:13px;color:#374151;font-weight:500;text-decoration:none;box-sizing:border-box;transition:all .12s ease;letter-spacing:-0.01em;line-height:1.3}.kc-mi:hover{background:#f1f5f9}.kc-mi:active{background:#e8ecf1}.kc-mi-danger{color:#dc2626!important;font-weight:500}.kc-mi-danger:hover{background:#fef2f2!important}.kc-row{transition:background .15s ease}.kc-row:hover{background:#f1f5f9!important}.kc-phone .kc-copy{opacity:0;transition:opacity .12s}.kc-phone:hover .kc-copy{opacity:1}@keyframes kc-slide-in{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
+      <style>{`.kc-no-scrollbar::-webkit-scrollbar{display:none}.kc-no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}@keyframes kcFadeHL{0%{background:#fefce8}100%{background:transparent}}.kc-hl{animation:kcFadeHL 2s forwards}textarea:focus::placeholder{color:transparent}.kc-mi{display:flex;align-items:center;width:100%;padding:8px 12px;text-align:left;background:none;border:none;border-radius:8px;cursor:pointer;font-size:13px;color:#374151;font-weight:500;text-decoration:none;box-sizing:border-box;transition:all .12s ease;letter-spacing:-0.01em;line-height:1.3}.kc-mi:hover{background:#f1f5f9}.kc-mi:active{background:#e8ecf1}.kc-mi-danger{color:#dc2626!important;font-weight:500}.kc-mi-danger:hover{background:#fef2f2!important}.kc-row{transition:background .15s ease}.kc-row:hover{background:#f1f5f9!important}.kc-phone-link{transition:color .12s}.kc-phone-link:hover{color:#16a34a!important}.kc-phone-link:hover svg{color:#16a34a!important}@keyframes kc-slide-in{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
 
 
       {/* Manage Labels modal */}
@@ -3698,7 +3699,7 @@ export default function LeadsPage() {
                           {/* Notes — always last, so it doesn't shift the
                               other icons around as notes are added/removed. */}
                           {lead.notes && (
-                            <span title={`${lead.howDidYouKnow ? `Channel: ${lead.howDidYouKnow}` : ''}${lead.howDidYouKnow && lead.notes ? '\n\n' : ''}${lead.notes || ''}`} style={{ color: '#cbd5e1', fontSize: 10, cursor: 'default' }}>
+                            <span title={`${lead.howDidYouKnow ? `Channel: ${lead.howDidYouKnow}` : ''}${lead.howDidYouKnow && lead.notes ? '\n\n' : ''}${lead.notes || ''}`} style={{ color: '#facc15', fontSize: 10, cursor: 'default' }}>
                               <FontAwesomeIcon icon={faNoteSticky} />
                             </span>
                           )}
@@ -3766,9 +3767,11 @@ export default function LeadsPage() {
                     {/* Details row */}
                     <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
                       <span title={`DOB: ${new Date(lead.childDob).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`} style={{ cursor: 'default' }}>{lead.enrolmentYear} · Age {calcClassAge(lead.childDob, lead.enrolmentYear)}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <a href={whatsappUrl(lead.parentPhone, '')} target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()} className="kc-phone-link"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'inherit', textDecoration: 'none' }}>
                         <FontAwesomeIcon icon={faPhone} style={{ fontSize: 9, color: '#94a3b8' }} />{lead.parentPhone}
-                      </span>
+                      </a>
                     </div>
                     {/* Primary action */}
                     {primaryAction && !isClosed && (
@@ -3961,7 +3964,7 @@ export default function LeadsPage() {
                             {/* Notes — always last, so it doesn't shift the
                                 other icons around as notes are added/removed. */}
                             {lead.notes && (
-                              <span title={lead.notes} style={{ color: '#cbd5e1', fontSize: 10, cursor: 'default' }}>
+                              <span title={lead.notes} style={{ color: '#facc15', fontSize: 10, cursor: 'default' }}>
                                 <FontAwesomeIcon icon={faNoteSticky} />
                               </span>
                             )}
@@ -4096,13 +4099,15 @@ export default function LeadsPage() {
 
                         {/* Phone */}
                         <td style={{ ...tD, fontSize: 13, color: '#475569' }}>
-                          <span className="kc-phone" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>
+                          {/* Number opens a WhatsApp chat (app on phones,
+                              WhatsApp Web on laptop+). */}
+                          <a href={whatsappUrl(lead.parentPhone, '')} target="_blank" rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()} className="kc-phone-link"
+                            title="Open WhatsApp chat"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none', fontVariantNumeric: 'tabular-nums' }}>
                             <FontAwesomeIcon icon={faPhone} style={{ color: '#94a3b8', fontSize: 10 }} />
                             {lead.parentPhone}
-                            <FontAwesomeIcon icon={faCopy} className="kc-copy"
-                              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(lead.parentPhone); showToast('Phone number copied', 'success'); }}
-                              style={{ color: '#cbd5e1', fontSize: 10, cursor: 'pointer' }} />
-                          </span>
+                          </a>
                         </td>
 
                         {/* Visit + Status combined */}
