@@ -70,7 +70,7 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   CareerMission: { domain: 'Career & appraisals', about: 'A career mission teachers complete towards promotion, per position.' },
   MissionCategory: { domain: 'Career & appraisals', about: 'Categories that group career missions and drive the achievement badges.' },
   TeacherMissionProgress: { domain: 'Career & appraisals', about: 'A teacher\'s progress on one mission (kept even if the mission is later removed).' },
-  TeacherMissionFocus: { domain: 'Career & appraisals', about: 'Missions a teacher has pinned to focus on.' },
+  TeacherMissionFocus: { domain: 'Career & appraisals', about: 'Not used by the app — no code reads or writes it (not even in schema.ts). Likely left over from a removed feature; candidate for clean-up.' },
   TeacherAppraisal: { domain: 'Career & appraisals', about: 'Monthly appraisal score per teacher; the recent average feeds the promotion gate.' },
 
   // Points & rewards

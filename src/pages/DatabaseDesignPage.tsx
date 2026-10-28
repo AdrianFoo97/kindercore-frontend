@@ -7,6 +7,7 @@ import {
 import { fetchDbSchema, DbSchema, DbTable, DbRelation } from '../api/admin.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { TABLE_NOTES, DOMAIN_ORDER, Domain } from './dbTableNotes.js';
+import DatabaseErd from './DatabaseErd.js';
 
 // Admin → Database Design (Admin + Superadmin). The structure shown is read
 // LIVE from whichever database this environment's server uses (GET
@@ -46,6 +47,8 @@ export default function DatabaseDesignPage() {
   const [query, setQuery] = useState('');
   const [domain, setDomain] = useState<Domain | 'All'>('All');
   const [selected, setSelected] = useState<string | null>(null);
+  // Diagram first — it answers "what does the design look like?" at a glance.
+  const [view, setView] = useState<'diagram' | 'tables'>('diagram');
 
   const q = query.trim().toLowerCase();
   const visible = useMemo(() => (data?.tables ?? []).filter(t =>
@@ -104,6 +107,13 @@ export default function DatabaseDesignPage() {
             )}
 
             <div style={st.toolbar}>
+              <div style={st.segment} role="tablist" aria-label="View">
+                {(['diagram', 'tables'] as const).map(v => (
+                  <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)} style={st.segBtn(view === v)}>
+                    {v === 'diagram' ? 'Diagram' : 'Tables'}
+                  </button>
+                ))}
+              </div>
               <div style={st.searchWrap}>
                 <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: C.mutedSoft }} />
                 <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search tables or columns — e.g. teacherId, fee, Lead…" style={st.search} />
@@ -115,19 +125,29 @@ export default function DatabaseDesignPage() {
               </select>
             </div>
 
-            <div style={st.panes(isMobile)}>
-              {(!isMobile || !current) && (
-                <TableList tables={visible} selected={current?.name ?? null} onSelect={setSelected} query={q} />
-              )}
-              {current && (
-                <TableDetail
-                  table={current}
-                  schema={data}
-                  onSelect={name => { setSelected(name); setQuery(''); setDomain('All'); }}
-                  onBack={isMobile ? () => setSelected(null) : undefined}
-                />
-              )}
-            </div>
+            {view === 'diagram' ? (
+              // Search / area filter dim non-matching boxes rather than
+              // removing them, so the overall shape stays recognisable.
+              <DatabaseErd
+                schema={data}
+                visibleNames={new Set(visible.map(t => t.name))}
+                onOpenTable={name => { setSelected(name); setQuery(''); setDomain('All'); setView('tables'); }}
+              />
+            ) : (
+              <div style={st.panes(isMobile)}>
+                {(!isMobile || !current) && (
+                  <TableList tables={visible} selected={current?.name ?? null} onSelect={setSelected} query={q} />
+                )}
+                {current && (
+                  <TableDetail
+                    table={current}
+                    schema={data}
+                    onSelect={name => { setSelected(name); setQuery(''); setDomain('All'); }}
+                    onBack={isMobile ? () => setSelected(null) : undefined}
+                  />
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -301,6 +321,12 @@ const st = {
     background: C.warnSoft, border: '1px solid #fde68a', color: C.warn, fontSize: 12.5, lineHeight: 1.5,
   } as React.CSSProperties,
   toolbar: { display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' } as React.CSSProperties,
+  segment: { display: 'inline-flex', gap: 2, padding: 3, background: '#eef0f4', borderRadius: 9, flexShrink: 0 } as React.CSSProperties,
+  segBtn: (on: boolean): React.CSSProperties => ({
+    padding: '6px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+    fontSize: 13, fontWeight: 600, background: on ? '#fff' : 'transparent', color: on ? C.text : C.muted,
+    boxShadow: on ? '0 1px 2px rgba(15,23,42,0.08)' : 'none',
+  }),
   searchWrap: { position: 'relative', flex: 1, minWidth: 220 } as React.CSSProperties,
   search: {
     width: '100%', boxSizing: 'border-box', height: 38, padding: '0 34px', fontSize: 13,

@@ -110,3 +110,38 @@ export interface DbSchema {
 export function fetchDbSchema() {
   return apiFetch<DbSchema>('/api/admin/db-schema');
 }
+
+// ── Backend Architecture (generated from the backend source) ───────────────
+// Mirrors Architecture in kindercore-backend's src/architecture/analyze.ts.
+
+export interface ArchEndpoint {
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  path: string;
+  middleware: string[];
+  handler: string;
+  controller: string | null;
+}
+
+export interface ArchRouteGroup {
+  id: string;
+  mount: string;
+  endpoints: ArchEndpoint[];
+}
+
+export interface ArchModule {
+  id: string;
+  services: string[];
+  controllers: string[];
+  tables: string[];
+}
+
+export interface BackendArchitecture {
+  routeGroups: ArchRouteGroup[];
+  controllers: ArchModule[];
+  services: ArchModule[];
+  tables: string[];
+}
+
+export function fetchBackendArchitecture() {
+  return apiFetch<BackendArchitecture>('/api/admin/architecture');
+}
