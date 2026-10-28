@@ -71,3 +71,42 @@ export function repairStuckRollovers(year: number, dryRun = false) {
     body: JSON.stringify({ year, dryRun }),
   });
 }
+
+// ── Database Design (live schema) ─────────────────────────────────────────
+// Mirrors DbSchemaResponse in kindercore-backend's db-schema.controller.ts.
+
+export interface DbColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  primaryKey: boolean;
+  unique: boolean;
+  defaultValue: string | null;
+  extra: string;
+}
+
+export interface DbRelation {
+  fromTable: string;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
+  /** 'foreignKey' = enforced by MySQL; 'inferred' = guessed from an `…Id` column name. */
+  kind: 'foreignKey' | 'inferred';
+}
+
+export interface DbTable {
+  name: string;
+  approxRows: number;
+  columns: DbColumn[];
+}
+
+export interface DbSchema {
+  database: string;
+  readAt: string;
+  tables: DbTable[];
+  relations: DbRelation[];
+}
+
+export function fetchDbSchema() {
+  return apiFetch<DbSchema>('/api/admin/db-schema');
+}

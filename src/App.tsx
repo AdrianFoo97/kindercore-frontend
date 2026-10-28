@@ -32,6 +32,7 @@ import LeadStatusSettingsPage from './pages/LeadStatusSettingsPage.js';
 import CompanySettingsPage from './pages/CompanySettingsPage.js';
 import TestToolsPage from './pages/TestToolsPage.js';
 import TestCatalogPage from './pages/TestCatalogPage.js';
+import DatabaseDesignPage from './pages/DatabaseDesignPage.js';
 import GoogleCalendarSettingsPage from './pages/GoogleCalendarSettingsPage.js';
 import ImportStudentsPage from './pages/ImportStudentsPage.js';
 import OperationsPlannerPage from './pages/OperationsPlannerPage.js';
@@ -354,6 +355,7 @@ export default function App() {
           <Route path="/settings/auth-views/:id/edit" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
           <Route path="/admin/year-rollover" element={<ErrorBoundary><YearRolloverPage /></ErrorBoundary>} />
           <Route path="/admin/test-catalog" element={<ErrorBoundary><TestCatalogPage /></ErrorBoundary>} />
+          <Route path="/admin/database-design" element={<ErrorBoundary><DatabaseDesignPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><OperationsPlannerPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/bug-reports" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
