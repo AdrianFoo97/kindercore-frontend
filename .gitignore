@@ -4,3 +4,4 @@ public_html/
 .env
 .env.local
 public/Title Badge/
+test-results.json
