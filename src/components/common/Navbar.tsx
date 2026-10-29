@@ -8,7 +8,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faIdBadge } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 
@@ -655,6 +655,7 @@ export default function Navbar() {
                   { to: '/settings/finance', icon: faMoneyBillTrendUp, label: 'Finance' },
                   { to: '/settings/whatsapp-templates', icon: faMessage, label: 'Message Templates' },
                   { to: '/settings/calendar', icon: faPlug, label: 'Integrations' },
+                  { to: '/settings/attendance-reader', icon: faIdBadge, label: 'Attendance Reader' },
                   { to: '/settings/data', icon: faFileImport, label: 'Data' },
                 ].map(it => (
                   <div key={it.to}>

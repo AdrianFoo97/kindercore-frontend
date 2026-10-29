@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildGraph, orderColumns, chainOf, nodeId, LAYERS } from '../../pages/BackendArchitectureGraph.js';
+import { buildGraph, orderColumns, chainOf, focusGraph, overviewRows, nodeId, LAYERS } from '../../pages/BackendArchitectureGraph.js';
 import type { BackendArchitecture } from '../../api/admin.js';
 
 // The Admin → Backend Architecture graph: boxes and lines built from the
@@ -77,5 +77,45 @@ describe('Backend Architecture — graph', () => {
       nodeId('service', 'payroll.service'),
       nodeId('table', 'Teacher'),
     ].sort());
+  });
+
+  it('focuses on one chain, leaving everything unrelated out', () => {
+    const f = focusGraph(g, nodeId('route', 'salary.routes'));
+    expect(f.nodes.map(n => n.id).sort()).toEqual([
+      nodeId('controller', 'salary.controller'),
+      nodeId('route', 'salary.routes'),
+      nodeId('service', 'payroll.service'),
+      nodeId('table', 'Teacher'),
+    ].sort());
+    expect(f.edges.every(e => f.nodes.some(n => n.id === e.from) && f.nodes.some(n => n.id === e.to))).toBe(true);
+  });
+});
+
+describe('Backend Architecture — overview list', () => {
+  const rows = overviewRows(ARCH);
+  const row = (id: string) => rows.find(r => r.group.id === id)!;
+
+  it('has one row per route file, sorted by address', () => {
+    expect(rows.map(r => r.group.mount)).toEqual(['/api/leads', '/api/salary', '/api/upload']);
+  });
+
+  it('lists the tables reached through a controller\'s services as well as its own', () => {
+    // leads.controller uses Lead itself; its revenue.service adds Student.
+    expect(row('leads.routes')).toMatchObject({ controllers: ['leads.controller'], services: ['revenue.service'], tables: ['Lead', 'Student'] });
+  });
+
+  it('shows a route file handled only inline as having no controller', () => {
+    expect(row('upload.routes')).toMatchObject({ controllers: [], services: [], tables: [] });
+  });
+
+  it('counts the endpoints that need no sign-in', () => {
+    const open = overviewRows({
+      ...ARCH,
+      routeGroups: [{ id: 'leads.routes', mount: '/api/leads', endpoints: [
+        { method: 'POST', path: '/api/leads', middleware: [], handler: 'createLead', controller: 'leads.controller' },
+        ep('/api/leads', 'leads.controller'),
+      ] }],
+    });
+    expect(open[0].publicEndpoints).toBe(1);
   });
 });

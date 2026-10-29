@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react';
 import type { BackendArchitecture } from '../api/admin.js';
 
-// Layered graph for Admin → Backend Architecture: four fixed columns —
-// Routes → Controllers → Services → Tables — one box per module. ~230
-// connections would be unreadable all at once, so lines stay faint until a
-// box is hovered or selected; then its whole chain (everything upstream
-// that calls it, everything downstream it reaches) lights up.
+// Layered graph for Admin → Backend Architecture: Routes → Controllers →
+// Services → Tables. The whole backend at once (125 boxes, ~170 lines)
+// was unreadable — a selected chain spanned the full canvas — so the
+// diagram only ever draws ONE chain: the selected box, everything that
+// calls it and everything it reaches, top-aligned. The page's overview
+// list is how you pick a starting point.
 
 export type Layer = 'route' | 'controller' | 'service' | 'table';
 export const LAYERS: Layer[] = ['route', 'controller', 'service', 'table'];
 export const LAYER_TITLE: Record<Layer, string> = {
   route: 'Routes', controller: 'Controllers', service: 'Services', table: 'Tables',
 };
-const LAYER_COLOR: Record<Layer, string> = {
+export const LAYER_COLOR: Record<Layer, string> = {
   route: '#2563eb', controller: '#7c3aed', service: '#059669', table: '#b45309',
 };
 
@@ -96,81 +97,143 @@ export function chainOf(g: Graph, id: string): Set<string> {
   return out;
 }
 
-const COL_W = 210;
-const BOX_W = 168;
-const ROW_H = 30;
-const BOX_H = 24;
-const TOP = 34;
+export interface OverviewRow {
+  group: BackendArchitecture['routeGroups'][number];
+  controllers: string[];
+  /** Services reached directly or through other services. */
+  services: string[];
+  /** Tables reached through the controllers or their services. */
+  tables: string[];
+  publicEndpoints: number;
+}
 
-export default function BackendArchitectureGraph({ arch, selected, onSelect, dimmed }: {
+/** One row per route file with its whole downstream chain flattened, sorted by path. */
+export function overviewRows(a: BackendArchitecture): OverviewRow[] {
+  const ctrl = new Map(a.controllers.map(c => [c.id, c]));
+  const svc = new Map(a.services.map(s => [s.id, s]));
+  return a.routeGroups.map(g => {
+    const controllers = [...new Set(g.endpoints.map(e => e.controller).filter((c): c is string => !!c))].sort();
+    const services = new Set<string>();
+    const tables = new Set<string>();
+    const visitService = (id: string) => {
+      if (services.has(id)) return;
+      services.add(id);
+      const s = svc.get(id);
+      s?.tables.forEach(t => tables.add(t));
+      s?.services.forEach(visitService);
+    };
+    for (const c of controllers) {
+      ctrl.get(c)?.tables.forEach(t => tables.add(t));
+      ctrl.get(c)?.services.forEach(visitService);
+    }
+    return {
+      group: g,
+      controllers,
+      services: [...services].sort(),
+      tables: [...tables].sort(),
+      publicEndpoints: g.endpoints.filter(e => !e.middleware.includes('authMiddleware')).length,
+    };
+  }).sort((x, y) => x.group.mount.localeCompare(y.group.mount) || x.group.id.localeCompare(y.group.id));
+}
+
+/** Just the boxes and lines in `id`'s chain — the focused view. */
+export function focusGraph(g: Graph, id: string): Graph {
+  const keep = chainOf(g, id);
+  return {
+    nodes: g.nodes.filter(n => keep.has(n.id)),
+    edges: g.edges.filter(e => keep.has(e.from) && keep.has(e.to)),
+  };
+}
+
+const COL_GAP = 64;
+const ROW_H = 34;
+const BOX_H = 26;
+const TOP = 8;
+const CHAR_W = 7.1; // ~width of one 11.5px monospace character
+
+/** Each column as wide as its longest label (within limits), so names aren't cut. */
+function columnWidths(g: Graph): Record<Layer, number> {
+  return Object.fromEntries(LAYERS.map(l => {
+    const longest = Math.max(0, ...g.nodes.filter(n => n.layer === l).map(n => n.label.length + (n.layer === 'route' ? 4 : 0)));
+    return [l, Math.min(280, Math.max(130, Math.round(longest * CHAR_W + 30)))];
+  })) as Record<Layer, number>;
+}
+
+/**
+ * Focused diagram of one box's chain: everything that calls it (to the
+ * left) and everything it reaches (to the right), top-aligned so a short
+ * chain stays short. Hovering a box highlights its direct connections.
+ */
+export default function BackendArchitectureGraph({ arch, selected, onSelect }: {
   arch: BackendArchitecture;
-  selected: string | null;
-  onSelect: (id: string | null) => void;
-  /** Node ids not matching the page's search — drawn faded. */
-  dimmed: Set<string>;
+  selected: string;
+  onSelect: (id: string) => void;
 }) {
-  const graph = useMemo(() => buildGraph(arch), [arch]);
+  const full = useMemo(() => buildGraph(arch), [arch]);
+  const graph = useMemo(() => focusGraph(full, selected), [full, selected]);
   const cols = useMemo(() => orderColumns(graph), [graph]);
+  const widths = useMemo(() => columnWidths(graph), [graph]);
   const [hover, setHover] = useState<string | null>(null);
-  const focus = hover ?? selected;
-  const chain = useMemo(() => (focus ? chainOf(graph, focus) : null), [graph, focus]);
 
-  const place = new Map<string, { x: number; y: number }>();
-  const tallest = Math.max(...LAYERS.map(l => cols[l].length));
-  LAYERS.forEach((l, ci) => {
-    const offset = ((tallest - cols[l].length) * ROW_H) / 2; // centre shorter columns
-    cols[l].forEach((id, i) => place.set(id, { x: 16 + ci * COL_W, y: TOP + offset + i * ROW_H }));
-  });
-  const width = 16 + (LAYERS.length - 1) * COL_W + BOX_W + 16;
-  const height = TOP + tallest * ROW_H + 10;
+  const present = LAYERS.filter(l => cols[l].length > 0);
+  const colX = new Map<Layer, number>();
+  let x = 12;
+  for (const l of present) { colX.set(l, x); x += widths[l] + COL_GAP; }
+  const width = x - COL_GAP + 12;
+
+  const place = new Map<string, { x: number; y: number; w: number }>();
+  for (const l of present) cols[l].forEach((id, i) => place.set(id, { x: colX.get(l)!, y: TOP + i * ROW_H, w: widths[l] }));
+  const height = TOP + Math.max(...present.map(l => cols[l].length)) * ROW_H + 4;
   const byId = new Map(graph.nodes.map(n => [n.id, n]));
+  const near = (id: string) => hover !== null && (id === hover || graph.edges.some(e => (e.from === hover && e.to === id) || (e.to === hover && e.from === id)));
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Backend layered architecture graph"
-      onClick={() => onSelect(null)} style={{ display: 'block' }}>
-      {LAYERS.map((l, ci) => (
-        <text key={l} x={16 + ci * COL_W} y={18} fontSize={11} fontWeight={700} letterSpacing="0.06em"
-          fill={LAYER_COLOR[l]} fontFamily="system-ui, sans-serif">
-          {LAYER_TITLE[l].toUpperCase()} · {cols[l].length}
-        </text>
-      ))}
-
-      {graph.edges.map(e => {
-        const a = place.get(e.from)!, b = place.get(e.to)!;
-        const on = !!chain && chain.has(e.from) && chain.has(e.to);
-        const x1 = a.x + BOX_W, y1 = a.y + BOX_H / 2, x2 = b.x, y2 = b.y + BOX_H / 2;
-        const mx = (x1 + x2) / 2;
-        return (
-          <path key={`${e.from}>${e.to}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} fill="none"
-            stroke={on ? LAYER_COLOR[byId.get(e.from)!.layer] : '#e2e8f0'}
-            strokeWidth={on ? 1.6 : 0.8} opacity={chain && !on ? 0.35 : on ? 0.9 : 0.7} />
-        );
-      })}
-
-      {graph.nodes.map(n => {
-        const p = place.get(n.id)!;
-        const inChain = !chain || chain.has(n.id);
-        const faded = !inChain || dimmed.has(n.id);
-        const isSel = n.id === selected;
-        return (
-          <g key={n.id} transform={`translate(${p.x},${p.y})`} style={{ cursor: 'pointer' }} opacity={faded ? 0.28 : 1}
-            onMouseEnter={() => setHover(n.id)} onMouseLeave={() => setHover(null)}
-            onClick={ev => { ev.stopPropagation(); onSelect(isSel ? null : n.id); }}>
-            <title>{n.sub ? `${n.label} — ${n.sub} endpoints` : n.label}</title>
-            <rect width={BOX_W} height={BOX_H} rx={6} fill={isSel ? '#eef0fa' : '#fff'}
-              stroke={isSel ? '#5a67d8' : '#dfe3ea'} strokeWidth={isSel ? 1.6 : 1} />
-            <rect width={4} height={BOX_H} rx={2} fill={LAYER_COLOR[n.layer]} />
-            <text x={11} y={BOX_H / 2} dominantBaseline="central" fontSize={11.5} fontWeight={600} fill="#1e293b"
-              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
-              {n.label.length > 19 ? `${n.label.slice(0, 18)}…` : n.label}
-            </text>
-            {n.layer === 'route' && n.sub && (
-              <text x={BOX_W - 8} y={BOX_H / 2} dominantBaseline="central" textAnchor="end" fontSize={10.5} fill="#94a3b8"
-                fontFamily="system-ui, sans-serif">{n.sub.split(' · ')[1]}</text>
-            )}
-          </g>
-        );
-      })}
-    </svg>
+    <div>
+      {/* Column titles as HTML so they never scroll out of view. */}
+      <div style={{ position: 'relative', height: 22, width }}>
+        {present.map(l => (
+          <span key={l} style={{
+            position: 'absolute', left: colX.get(l), fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+            color: LAYER_COLOR[l], fontFamily: 'system-ui, sans-serif',
+          }}>{LAYER_TITLE[l].toUpperCase()} · {cols[l].length}</span>
+        ))}
+      </div>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img"
+        aria-label="Focused architecture chain" style={{ display: 'block' }}>
+        {graph.edges.map(e => {
+          const a = place.get(e.from)!, b = place.get(e.to)!;
+          const on = hover !== null && (e.from === hover || e.to === hover);
+          const x1 = a.x + a.w, y1 = a.y + BOX_H / 2, x2 = b.x, y2 = b.y + BOX_H / 2;
+          const mx = (x1 + x2) / 2;
+          return (
+            <path key={`${e.from}>${e.to}`} d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} fill="none"
+              stroke={LAYER_COLOR[byId.get(e.from)!.layer]} strokeWidth={on ? 2 : 1.2}
+              opacity={hover === null ? 0.55 : on ? 0.95 : 0.12} />
+          );
+        })}
+        {graph.nodes.map(n => {
+          const p = place.get(n.id)!;
+          const isSel = n.id === selected;
+          const faded = hover !== null && !near(n.id);
+          const label = n.label.length > 36 ? `${n.label.slice(0, 35)}…` : n.label;
+          return (
+            <g key={n.id} transform={`translate(${p.x},${p.y})`} style={{ cursor: 'pointer' }} opacity={faded ? 0.35 : 1}
+              onMouseEnter={() => setHover(n.id)} onMouseLeave={() => setHover(null)}
+              onClick={() => onSelect(n.id)}>
+              <title>{n.sub ? `${n.label} — ${n.sub} endpoints` : n.label}</title>
+              <rect width={p.w} height={BOX_H} rx={6} fill={isSel ? '#eef0fa' : '#fff'}
+                stroke={isSel ? '#5a67d8' : '#dfe3ea'} strokeWidth={isSel ? 1.8 : 1} />
+              <rect width={4} height={BOX_H} rx={2} fill={LAYER_COLOR[n.layer]} />
+              <text x={11} y={BOX_H / 2} dominantBaseline="central" fontSize={11.5} fontWeight={isSel ? 700 : 600} fill="#1e293b"
+                fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{label}</text>
+              {n.layer === 'route' && n.sub && (
+                <text x={p.w - 8} y={BOX_H / 2} dominantBaseline="central" textAnchor="end" fontSize={10.5} fill="#94a3b8"
+                  fontFamily="system-ui, sans-serif">{n.sub.split(' · ')[1]}</text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
   );
 }

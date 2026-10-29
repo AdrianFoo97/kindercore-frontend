@@ -34,6 +34,7 @@ import TestToolsPage from './pages/TestToolsPage.js';
 import TestCatalogPage from './pages/TestCatalogPage.js';
 import DatabaseDesignPage from './pages/DatabaseDesignPage.js';
 import BackendArchitecturePage from './pages/BackendArchitecturePage.js';
+import AttendanceReaderSettingsPage from './pages/settings/AttendanceReaderSettingsPage.js';
 import GoogleCalendarSettingsPage from './pages/GoogleCalendarSettingsPage.js';
 import ImportStudentsPage from './pages/ImportStudentsPage.js';
 import OperationsPlannerPage from './pages/OperationsPlannerPage.js';
@@ -272,6 +273,7 @@ export default function App() {
           <Route path="/settings/packages" element={<Navigate to="/packages" replace />} />
           <Route path="/settings/onboarding" element={<ErrorBoundary><OnboardingSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
+          <Route path="/settings/attendance-reader" element={<ErrorBoundary><AttendanceReaderSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers" element={<RequireModule module={MODULES.HR}><ErrorBoundary><TeachersPage /></ErrorBoundary></RequireModule>} />
           <Route path="/teachers/:id" element={<RequireModule module={MODULES.HR}><ErrorBoundary><EditTeacherPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/candidates" element={<RequireModule module={MODULES.HR}><ErrorBoundary><CandidatesPage /></ErrorBoundary></RequireModule>} />

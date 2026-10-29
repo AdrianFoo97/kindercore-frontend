@@ -145,3 +145,32 @@ export interface BackendArchitecture {
 export function fetchBackendArchitecture() {
   return apiFetch<BackendArchitecture>('/api/admin/architecture');
 }
+
+// ── Attendance reader key (Settings → Attendance Reader) ───────────────────
+// Mirrors ReaderKeyStatus in kindercore-backend's readerKey.service.ts.
+
+export interface ReaderKeyStatus {
+  configured: boolean;
+  source: 'env' | 'settings' | null;
+  hint: string | null;
+  createdAt: string | null;
+}
+
+export function fetchReaderKeyStatus() {
+  return apiFetch<ReaderKeyStatus>('/api/admin/attendance-reader');
+}
+
+/** Returns the new key in plain text — the only time it is ever shown. */
+export function generateReaderKey() {
+  return apiFetch<{ key: string; status: ReaderKeyStatus }>('/api/admin/attendance-reader/key', { method: 'POST' });
+}
+
+export function clearReaderKey() {
+  return apiFetch<ReaderKeyStatus>('/api/admin/attendance-reader/key', { method: 'DELETE' });
+}
+
+/** Full URL the RFID readers should post scans to. */
+export function attendanceScanUrl(): string {
+  const base = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+  return `${base.replace(/\/$/, '')}/api/attendance/scan`;
+}

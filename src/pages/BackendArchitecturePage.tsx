@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSitemap, faSearch, faXmark, faLockOpen } from '@fortawesome/free-solid-svg-icons';
+import { faSitemap, faSearch, faXmark, faLockOpen, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { fetchBackendArchitecture, BackendArchitecture, ArchEndpoint } from '../api/admin.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
-import BackendArchitectureGraph, { buildGraph, nodeId, Layer, LAYER_TITLE } from './BackendArchitectureGraph.js';
+import BackendArchitectureGraph, { nodeId, overviewRows, OverviewRow, Layer, LAYER_TITLE, LAYER_COLOR } from './BackendArchitectureGraph.js';
 
 // Admin → Backend Architecture (Admin + Superadmin). The Express backend's
 // layered design — Routes → Controllers → Services → Tables — generated
@@ -57,19 +57,14 @@ export default function BackendArchitecturePage() {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
 
-  // Search dims boxes that don't match (by name, or by an endpoint path for routes/controllers).
-  const dimmed = useMemo(() => {
-    if (!data || !q) return new Set<string>();
+  // One overview row per route file, with its whole chain flattened out.
+  const rows = useMemo(() => (data ? overviewRows(data) : []), [data]);
+  const shownRows = useMemo(() => {
+    if (!q) return rows;
     const hit = (s: string) => s.toLowerCase().includes(q);
-    const g = buildGraph(data);
-    const eps = data.routeGroups.flatMap(r => r.endpoints.map(e => ({ ...e, group: r.id })));
-    return new Set(g.nodes.filter(n => {
-      if (hit(n.label)) return false;
-      if (n.layer === 'route') return !eps.some(e => e.group === n.id.slice(6) && hit(e.path));
-      if (n.layer === 'controller') return !eps.some(e => e.controller === n.id.slice(11) && hit(e.path));
-      return true;
-    }).map(n => n.id));
-  }, [data, q]);
+    return rows.filter(r => hit(r.group.id) || hit(r.group.mount) || r.group.endpoints.some(e => hit(e.path))
+      || [...r.controllers, ...r.services, ...r.tables].some(hit));
+  }, [rows, q]);
 
   if (!isAdmin) {
     return <div style={{ padding: 40, color: C.muted, fontFamily: 'system-ui, sans-serif' }}>This page is only available to Admins.</div>;
@@ -104,40 +99,109 @@ export default function BackendArchitecturePage() {
               <Stat label="Public endpoints" value={publicCount} hint="Reachable without signing in — e.g. the enquiry and job application forms" />
             </div>
 
-            <div style={st.toolbar}>
-              <div style={st.searchWrap}>
-                <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: C.mutedSoft }} />
-                <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search — e.g. points, payroll, /api/leads, Teacher…" style={st.search} />
-                {query && <button onClick={() => setQuery('')} aria-label="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>}
-              </div>
-            </div>
-
-            <div style={st.layout(isMobile)}>
-              <div style={st.graphCard}>
-                <div style={st.graphScroll}>
-                  <BackendArchitectureGraph arch={data} selected={selected} onSelect={setSelected} dimmed={dimmed} />
-                </div>
-                <div style={st.foot}>Hover a box to trace its chain · click to pin it and see details</div>
-              </div>
-              <div style={st.panel}>
-                {selected ? <Detail arch={data} id={selected} onSelect={setSelected} /> : (
-                  <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.6 }}>
-                    <div style={{ fontWeight: 700, color: C.text, marginBottom: 6 }}>Select a box</div>
-                    Click any route, controller, service or table to see its endpoints, who can call them,
-                    and what it connects to.
-                    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span><Chip tone="public">Public</Chip> no sign-in needed</span>
-                      <span><Chip tone="auth">Signed in</Chip> any logged-in user</span>
-                      <span><Chip tone="admin">Admin</Chip> Admin / Superadmin only</span>
-                      <span><Chip tone="scoped">Module: HR</Chip> needs that module or view</span>
+            {selected ? (
+              // ── Focus: one chain, diagram + details ──
+              <>
+                <button onClick={() => setSelected(null)} style={st.backLink}>
+                  <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: 11 }} /> All routes
+                </button>
+                <div style={st.layout(isMobile)}>
+                  <div style={st.graphCard}>
+                    <div style={st.graphScroll}>
+                      <BackendArchitectureGraph arch={data} selected={selected} onSelect={setSelected} />
+                    </div>
+                    <div style={st.foot}>
+                      Showing only what’s connected to the selected box · hover a box to see its direct links · click one to follow it
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
+                  <div style={st.panel}>
+                    <Detail arch={data} id={selected} onSelect={setSelected} />
+                  </div>
+                </div>
+              </>
+            ) : (
+              // ── Overview: one readable row per route file ──
+              <>
+                <div style={st.toolbar}>
+                  <div style={st.searchWrap}>
+                    <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: C.mutedSoft }} />
+                    <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search — e.g. points, payroll, /api/leads, Teacher…" style={st.search} />
+                    {query && <button onClick={() => setQuery('')} aria-label="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>}
+                  </div>
+                </div>
+                <div style={st.legendRow}>
+                  <span><Chip tone="public">Public</Chip> no sign-in needed</span>
+                  <span><Chip tone="auth">Signed in</Chip> any logged-in user</span>
+                  <span><Chip tone="admin">Admin</Chip> Admin / Superadmin only</span>
+                  <span><Chip tone="scoped">Module: HR</Chip> needs that module or view</span>
+                </div>
+                <Overview rows={shownRows} mobile={isMobile} onSelect={setSelected} query={query} />
+              </>
+            )}
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+const TABLES_SHOWN = 6;
+
+/** The overview: each route file's chain on one line, left to right. */
+function Overview({ rows, mobile, onSelect, query }: {
+  rows: OverviewRow[]; mobile: boolean; onSelect: (id: string) => void; query: string;
+}) {
+  if (rows.length === 0) return <div style={st.empty}>Nothing matches “{query}”.</div>;
+  return (
+    <div style={st.overview}>
+      {!mobile && (
+        <div style={st.ovHead}>
+          {(['route', 'controller', 'service', 'table'] as Layer[]).map(l => (
+            <span key={l} style={{ color: LAYER_COLOR[l] }}>{LAYER_TITLE[l]}</span>
+          ))}
+        </div>
+      )}
+      {rows.map(r => <OverviewRowView key={r.group.id} row={r} mobile={mobile} onSelect={onSelect} />)}
+    </div>
+  );
+}
+
+function OverviewRowView({ row: r, mobile, onSelect }: { row: OverviewRow; mobile: boolean; onSelect: (id: string) => void }) {
+  const [allTables, setAllTables] = useState(false);
+  const tables = allTables ? r.tables : r.tables.slice(0, TABLES_SHOWN);
+  const chip = (layer: Layer, id: string) => (
+    <button key={id} onClick={() => onSelect(nodeId(layer, id))} style={st.ovChip(LAYER_COLOR[layer])}>
+      {id.replace(/\.(controller|service)$/, '')}
+    </button>
+  );
+  const cell = (label: string, children: React.ReactNode) => (
+    <div style={{ minWidth: 0 }}>
+      {mobile && <div style={st.ovMobileLabel}>{label}</div>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{children}</div>
+    </div>
+  );
+  return (
+    <div style={st.ovRow(mobile)}>
+      <button onClick={() => onSelect(nodeId('route', r.group.id))} style={st.ovRoute}>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>{r.group.id.replace(/\.routes$/, '')}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: C.muted, wordBreak: 'break-all' }}>{r.group.mount}</span>
+        <span style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 11, color: C.mutedSoft }}>
+          {r.group.endpoints.length} endpoint{r.group.endpoints.length === 1 ? '' : 's'}
+          {r.publicEndpoints > 0 && <Chip tone="public">{r.publicEndpoints} public</Chip>}
+        </span>
+      </button>
+      {cell('Controllers', r.controllers.length ? r.controllers.map(c => chip('controller', c)) : <span style={st.none}>inline only</span>)}
+      {cell('Services', r.services.length ? r.services.map(s => chip('service', s)) : <span style={st.none}>—</span>)}
+      {cell('Tables', r.tables.length ? (
+        <>
+          {tables.map(t => chip('table', t))}
+          {r.tables.length > TABLES_SHOWN && (
+            <button onClick={() => setAllTables(v => !v)} style={st.moreBtn}>
+              {allTables ? 'show less' : `+${r.tables.length - TABLES_SHOWN} more`}
+            </button>
+          )}
+        </>
+      ) : <span style={st.none}>—</span>)}
     </div>
   );
 }
@@ -273,6 +337,36 @@ const st = {
     background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 18px',
     maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', position: 'sticky', top: 12,
   } as React.CSSProperties,
+  backLink: {
+    display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 12, padding: '6px 12px', borderRadius: 8,
+    border: `1px solid ${C.border}`, background: '#fff', color: C.textSub, fontSize: 13, fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit',
+  } as React.CSSProperties,
+  legendRow: { display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 12, color: C.muted, marginBottom: 12 } as React.CSSProperties,
+  overview: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' } as React.CSSProperties,
+  ovHead: {
+    display: 'grid', gridTemplateColumns: '220px 220px 170px 1fr', gap: 16, padding: '10px 16px',
+    background: '#fafbfc', borderBottom: `1px solid ${C.borderSoft}`,
+    fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+  } as React.CSSProperties,
+  ovRow: (mobile: boolean): React.CSSProperties => ({
+    display: 'grid', gridTemplateColumns: mobile ? '1fr' : '220px 220px 170px 1fr', gap: mobile ? 8 : 16,
+    padding: '12px 16px', borderBottom: `1px solid ${C.borderSoft}`, alignItems: 'start',
+  }),
+  ovRoute: {
+    display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start', textAlign: 'left',
+    border: 'none', background: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', minWidth: 0,
+  } as React.CSSProperties,
+  ovChip: (color: string): React.CSSProperties => ({
+    fontFamily: MONO, fontSize: 11.5, fontWeight: 600, padding: '3px 8px 3px 7px', borderRadius: 6, cursor: 'pointer',
+    border: '1px solid #e5e8ef', borderLeft: `3px solid ${color}`, background: '#fff', color: C.text,
+  }),
+  ovMobileLabel: { fontSize: 10, fontWeight: 700, color: C.mutedSoft, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 } as React.CSSProperties,
+  moreBtn: {
+    fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, cursor: 'pointer',
+    border: '1px dashed #cbd5e1', background: '#fff', color: C.muted, fontFamily: 'inherit',
+  } as React.CSSProperties,
+  none: { fontSize: 12, color: C.mutedSoft } as React.CSSProperties,
   panelLabel: { fontSize: 10.5, fontWeight: 700, color: C.mutedSoft, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 } as React.CSSProperties,
   linkChip: {
     fontFamily: MONO, fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, cursor: 'pointer',

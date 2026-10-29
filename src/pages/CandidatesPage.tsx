@@ -676,11 +676,9 @@ export default function CandidatesPage() {
   const items = useMemo(() => {
     const maxSal = maxSalary ? Number(maxSalary) : null;
     let out = rawItems.filter(c => {
-      // NEW tab is triage — the moment an interview has been scheduled
-      // the candidate is out of triage (they now belong on Contacted /
-      // Interview). Defensive filter for cases where the row's status
-      // hasn't caught up to its interviewStart yet.
-      if (tab === 'NEW' && c.interviewStart) return false;
+      // NEW candidates with an interviewStart (status never caught up) are
+      // deliberately NOT hidden: hiding them left the New badge counting
+      // people the list never showed, so nobody could ever triage them.
       if (shortlistedOnly && !c.isShortlisted) return false;
       // No-show sentinel written by the bulk importer when a row's
       // "Didn't Attend" column is truthy — keep in sync with
@@ -2501,11 +2499,12 @@ function ReviewSidebar(props: {
   sessionRejected: Set<string>;
   isRepeat: (c: Candidate) => boolean;
   groupByInterviewBucket: boolean;
-  /** Drop rows with an interviewStart set. Only true on the NEW-tab
-   *  triage queue — those candidates have been scheduled so they no
-   *  longer belong in triage. On tabs where scheduled candidates ARE
-   *  the whole point (Interview / Contacted), pass false or every row
-   *  gets filtered out. */
+  /** Drop rows scheduled during THIS session. Only true on the NEW-tab
+   *  triage queue — scheduling someone moves them out of triage. Rows that
+   *  already had an interviewStart when the page loaded stay visible, so a
+   *  status that never caught up can still be triaged. On tabs where
+   *  scheduled candidates ARE the whole point (Interview / Contacted),
+   *  pass false. */
   hideScheduled: boolean;
   onJump: (idx: number) => void;
 }) {
@@ -2521,12 +2520,12 @@ function ReviewSidebar(props: {
       .map((c, origIdx) => ({ c, origIdx }))
       .filter(({ c }) =>
         !sessionRejected.has(c.id)
-        // On NEW-tab triage, scheduled candidates drop out of the
-        // sidebar the moment the Schedule modal saves — same rhythm
-        // as rejected rows. On tabs where scheduled candidates ARE
-        // the queue (Contacted / Interview), keep them.
-        && (!hideScheduled || !c.interviewStart)),
-    [items, sessionRejected, hideScheduled],
+        // On NEW-tab triage, a candidate scheduled in this session drops
+        // out of the sidebar the moment the Schedule modal saves — same
+        // rhythm as rejected rows. Ones already scheduled before the page
+        // loaded stay, so they can be triaged.
+        && (!hideScheduled || !c.interviewStart || !sessionActioned.has(c.id))),
+    [items, sessionRejected, sessionActioned, hideScheduled],
   );
 
   // Client-side paging for long queues (bulk imports easily produce
