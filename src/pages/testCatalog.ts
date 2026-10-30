@@ -10,6 +10,13 @@
 
 export type Project = 'Frontend' | 'Backend';
 export type Kind = 'Unit' | 'Integration';
+/**
+ * Which app module a test file protects — the same names as the top menu,
+ * so a module with no tests shows up as a gap. 'Security' is the exception:
+ * sign-in / permission / endpoint-guard tests protect every module at once.
+ */
+export type Category = 'Marketing' | 'Students' | 'HR' | 'Finance' | 'Operation' | 'Analysis' | 'Tools' | 'Settings' | 'Admin' | 'Security';
+export const CATEGORIES: Category[] = ['Marketing', 'Students', 'HR', 'Finance', 'Operation', 'Analysis', 'Tools', 'Settings', 'Admin', 'Security'];
 
 export interface TestCase {
   /** Exactly the it('…') name in the test file. */
@@ -22,6 +29,7 @@ export interface TestSuite {
   id: string;
   project: Project;
   kind: Kind;
+  category: Category;
   /** Path inside the project. */
   file: string;
   /** Feature area, as a person would name it. */
@@ -41,11 +49,146 @@ export const RUN_COMMANDS: Record<Project, string> = {
 };
 
 export const TEST_SUITES: TestSuite[] = [
+  // ── Module tests ───────────────────────────────────────────────────────
+  {
+    id: 'be-students-revenue',
+    project: 'Backend',
+    kind: 'Integration',
+    category: 'Students',
+    file: 'src/tests/integration/students.revenue.test.ts',
+    area: 'Monthly tuition revenue',
+    summary:
+      'Runs the real revenue calculation against the test database with test students. Revenue feeds Finance, profit-share pools and bonuses — a mistake here mis-states the school\'s income everywhere.',
+    cases: [
+      { name: 'counts an enrolled student\'s package price every month they are enrolled', explains: 'An enrolled child brings in their package fee every month.' },
+      { name: 'uses the custom fee when a student\'s fee has been overridden', explains: 'A special (overridden) fee is used instead of the package price.' },
+      { name: 'adds up every enrolled student', explains: 'Monthly revenue is the total across all enrolled children.' },
+      { name: 'starts counting a mid-month joiner from the month they join', explains: 'A child joining on the 15th counts from that month, not before.' },
+      { name: 'still counts the month a student withdraws in, but not the month after', explains: 'Leaving mid-month doesn\'t erase that month\'s fee; the next month drops them.' },
+      { name: 'charges the new package for the month a student switches package mid-month', explains: 'Switching package mid-month charges the new package for that month — and counts the child once.' },
+      { name: 'stops counting a child for the whole year they turn 7', explains: 'Children graduate the year they turn 7 and stop counting as revenue.' },
+      { name: 'keeps a past month\'s revenue after a withdrawal, but drops the child from forecast months', explains: 'Past income stays; the forecast doesn\'t include children who have left.' },
+      { name: 'marks months after the current one as forecast', explains: 'Future months are labelled as a forecast.' },
+      { name: 'reports zero for a year with no enrolments', explains: 'No enrolments means RM 0 — nothing invented.' },
+      { name: 'counts a student enrolled before the month', explains: 'An already-enrolled child counts for the month.' },
+      { name: 'does not count a student who starts after the month ends', explains: 'A child starting next month isn\'t counted yet.' },
+      { name: 'does not count a student who withdrew before the month began', explains: 'A child who already left isn\'t counted.' },
+      { name: 'counts a student with no start date as not enrolled', explains: 'A record without a start date isn\'t treated as enrolled.' },
+      { name: 'uses the package price normally', explains: 'The monthly fee is the package price by default.' },
+      { name: 'uses the custom fee when overridden — even if it is zero (a scholarship)', explains: 'A fee overridden to RM 0 (e.g. a scholarship) stays RM 0, not the package price.' },
+    ],
+  },
+  {
+    id: 'be-hr-payroll',
+    project: 'Backend',
+    kind: 'Integration',
+    category: 'HR',
+    file: 'src/tests/integration/hr.payroll.test.ts',
+    area: 'Monthly payroll & employer contributions',
+    summary:
+      'Runs the real payroll calculation with test staff: fixed, position-based and hourly pay, promotions, joiners and leavers, and EPF / SOCSO / EIS. Staff cost drives profit and the profit-share pools.',
+    cases: [
+      { name: 'pays a position-based salary as basic + level incentive + allowances', explains: 'Position pay = basic salary + level incentive + allowances.' },
+      { name: 'pays a fixed salary plus allowances, ignoring the position scale', explains: 'A fixed salary is used as-is, not the position\'s pay scale.' },
+      { name: 'pays an hourly rate from working hours, taking an hour off for lunch on long days', explains: 'Hourly staff are paid for their working hours, minus a lunch hour on long days.' },
+      { name: 'applies a promotion from the month it takes effect, not before', explains: 'A promotion raises pay from its effective month, never earlier.' },
+      { name: 'counts a new joiner from the month they join', explains: 'New staff appear on payroll from the month they join.' },
+      { name: 'still pays the month someone resigns in, but not after', explains: 'Staff are paid for the month they leave in, then drop off.' },
+      { name: 'never counts a deleted record (inactive with no resignation date)', explains: 'A deleted staff record is never paid.' },
+      { name: 'adds employer EPF 13%, SOCSO 1.75% and EIS 0.4% on a salary up to RM 5,000', explains: 'Employer contributions use the correct rates for salaries up to RM 5,000.' },
+      { name: 'uses EPF 12% above RM 5,000 and caps SOCSO and EIS at RM 4,000', explains: 'Higher salaries use EPF 12%, and SOCSO/EIS stop at the RM 4,000 ceiling.' },
+      { name: 'skips contributions a teacher is exempt from', explains: 'Staff exempt from SOCSO or EIS aren\'t charged for them.' },
+      { name: 'keeps staff marked "exclude from staff cost" out of the total, but in the headcount', explains: 'Excluded staff don\'t count as cost but still count as people.' },
+      { name: 'splits staff cost by department, with no-position staff under "Unassigned"', explains: 'The per-department breakdown is right, with unplaced staff shown separately.' },
+      { name: 'counts someone who joined on the last day of the month', explains: 'Joining on the 31st still counts for that month.' },
+      { name: 'counts someone who resigned on the first day of the month', explains: 'Leaving on the 1st still counts for that month.' },
+    ],
+  },
+  {
+    id: 'be-hr-observations',
+    project: 'Backend',
+    kind: 'Integration',
+    category: 'HR',
+    file: 'src/tests/integration/hr.observations.test.ts',
+    area: 'Practice observation sign-off',
+    summary:
+      'HR → Practice Observations: a teacher is observed doing a how-to guide and certified in two stages (trainer, then assessor marking each step). Checks the stages happen in order and certified records can\'t be changed.',
+    cases: [
+      { name: 'moves to the assessor stage once the trainer signs off, recording who and when', explains: 'The trainer\'s sign-off moves it to the assessor, with their name and date saved.' },
+      { name: 'refuses the trainer sign-off without the trainer\'s name', explains: 'A sign-off without a name is refused.' },
+      { name: 'cannot skip straight to the assessor\'s marking', explains: 'The assessor stage can\'t be done before the trainer\'s.' },
+      { name: 'certifies after the assessor signs off and records each step\'s mark', explains: 'The assessor\'s marks (pass/fail per step, with notes) are saved and the teacher is certified.' },
+      { name: 'cannot be changed once certified', explains: 'A certified observation is final.' },
+      { name: 'reports a missing observation as not found', explains: 'Signing off something that doesn\'t exist is refused.' },
+    ],
+  },
+  {
+    id: 'be-operation-guide-revisions',
+    project: 'Backend',
+    kind: 'Integration',
+    category: 'Operation',
+    file: 'src/tests/integration/operation.guideRevisions.test.ts',
+    area: 'Improvement Inbox — approving guide changes',
+    summary:
+      'Staff propose changes to how-to guides; approving one rewrites the live guide everyone follows. Checks the change is applied exactly once, versioned, attributed — and that rejecting leaves the guide alone.',
+    cases: [
+      { name: 'replaces a guide\'s steps with the approved ones, in order', explains: 'Approving puts the proposed steps live, in the right order.' },
+      { name: 'bumps the guide\'s version and updates its title', explains: 'Each approved change becomes a new version of the guide.' },
+      { name: 'keeps the old steps (hidden) so past observation results still make sense', explains: 'Old steps are archived, not deleted, so past observations still refer to the right step.' },
+      { name: 'creates a brand-new guide at version 1 when the proposal is for a new one', explains: 'Approving a new-guide proposal creates the guide.' },
+      { name: 'records who approved it and when', explains: 'Every approval records the reviewer and time.' },
+      { name: 'applies the proposed categories to the guide', explains: 'The proposal\'s categories are applied (without duplicates).' },
+      { name: 'cannot approve the same proposal twice', explains: 'A proposal can\'t be applied twice by double-clicking.' },
+      { name: 'lets a reviewer publish their own draft directly', explains: 'A reviewer can publish their own draft without the queue.' },
+      { name: 'leaves the live guide untouched and keeps the reviewer\'s note', explains: 'Rejecting changes nothing live, and the reason is saved.' },
+      { name: 'cannot reject a proposal that was already approved', explains: 'An approved change can\'t be "rejected" afterwards.' },
+    ],
+  },
+  {
+    id: 'be-tools-planner-conflicts',
+    project: 'Backend',
+    kind: 'Integration',
+    category: 'Tools',
+    file: 'src/tests/integration/tools.plannerConflicts.test.ts',
+    area: 'Planner — no double-booking',
+    summary:
+      'The timetable must never put one teacher, or one classroom, in two places at once. Checks the clash rules, including the edge cases (back-to-back sessions, editing a session, other days/weeks).',
+    cases: [
+      { name: 'flags the same teacher booked at an overlapping time', explains: 'A teacher can\'t be in two sessions at once.' },
+      { name: 'flags the same classroom booked at an overlapping time, even with a different teacher', explains: 'A room can\'t host two sessions at once.' },
+      { name: 'allows back-to-back sessions (one ends exactly when the next starts)', explains: '9–10 followed by 10–11 is fine.' },
+      { name: 'allows a different teacher in a different room at the same time', explains: 'Parallel sessions in different rooms are fine.' },
+      { name: 'only compares the same day of the same week', explains: 'Other days and other weeks don\'t clash.' },
+      { name: 'flags a booking that sits completely inside an existing one', explains: 'A short session inside a longer one is still a clash.' },
+      { name: 'ignores the block being edited itself', explains: 'Editing a session doesn\'t clash with itself.' },
+      { name: 'refuses to create a block that double-books a teacher', explains: 'Saving a double-booking is refused.' },
+    ],
+  },
+  {
+    id: 'be-settings-system',
+    project: 'Backend',
+    kind: 'Integration',
+    category: 'Settings',
+    file: 'src/tests/integration/settings.systemSettings.test.ts',
+    area: 'App settings & lead lost reasons',
+    summary:
+      'Settings every page reads (rates, switches, templates) must save and load exactly — and the built-in lead "lost reasons" the reports rely on can never be removed.',
+    cases: [
+      { name: 'saves numbers, on/off switches, text and lists, and reads them back as the same type', explains: 'Settings come back exactly as saved — a number stays a number, a switch stays on/off.' },
+      { name: 'updates an existing setting instead of creating a duplicate', explains: 'Changing a setting updates it rather than creating a second copy.' },
+      { name: 'rejects a value of the wrong shape', explains: 'Malformed values are refused instead of being stored.' },
+      { name: 'always keeps the built-in reasons first, even if an admin removes them', explains: 'The built-in lost reasons that reports depend on can\'t be deleted.' },
+      { name: 'drops blanks and duplicates but keeps the admin\'s order', explains: 'Blank and repeated reasons are cleaned up; the admin\'s order is kept.' },
+      { name: 'does not let a built-in reason be added twice', explains: 'A built-in reason can\'t appear twice.' },
+      { name: 'shows the built-in reasons even before anything has been saved', explains: 'A fresh system still shows the built-in reasons.' },
+    ],
+  },
   // ── Backend ────────────────────────────────────────────────────────────
   {
     id: 'be-operating-cost',
     project: 'Backend',
     kind: 'Integration',
+    category: 'Finance',
     file: 'src/tests/integration/operatingCost.service.test.ts',
     area: 'Operating cost — monthly totals & forecast',
     summary:
@@ -71,6 +214,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-security-auth',
     project: 'Backend',
     kind: 'Integration',
+    category: 'Security',
     file: 'src/tests/integration/security.authMiddleware.test.ts',
     area: 'Security — sign-in and admin checks',
     summary:
@@ -99,6 +243,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-security-reader-key',
     project: 'Backend',
     kind: 'Integration',
+    category: 'Security',
     file: 'src/tests/integration/security.readerKey.test.ts',
     area: 'Security — attendance scanner key',
     summary:
@@ -117,6 +262,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-security-reader-key-settings',
     project: 'Backend',
     kind: 'Integration',
+    category: 'Security',
     file: 'src/tests/integration/security.readerKeySettings.test.ts',
     area: 'Security — reader key from Settings',
     summary:
@@ -137,6 +283,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-security-access-rules',
     project: 'Backend',
     kind: 'Unit',
+    category: 'Security',
     file: 'src/tests/unit/security.accessRules.test.ts',
     area: 'Security — every area limited to the right role',
     summary:
@@ -156,6 +303,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-security-ownership',
     project: 'Backend',
     kind: 'Integration',
+    category: 'Security',
     file: 'src/tests/integration/security.ownership.test.ts',
     area: 'Security — your own record, not someone else\'s',
     summary:
@@ -184,6 +332,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-security-permissions',
     project: 'Backend',
     kind: 'Integration',
+    category: 'Security',
     file: 'src/tests/integration/security.permissions.test.ts',
     area: 'Security — module & view permissions',
     summary:
@@ -208,6 +357,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-security-public-endpoints',
     project: 'Backend',
     kind: 'Unit',
+    category: 'Security',
     file: 'src/tests/unit/security.publicEndpoints.test.ts',
     area: 'Security — no endpoint accidentally public',
     summary:
@@ -228,6 +378,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-db-schema-endpoint',
     project: 'Backend',
     kind: 'Integration',
+    category: 'Admin',
     file: 'src/tests/integration/dbSchema.endpoint.test.ts',
     area: 'Database Design page — reading the live structure',
     summary:
@@ -246,6 +397,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-db-schema-infer',
     project: 'Backend',
     kind: 'Unit',
+    category: 'Admin',
     file: 'src/tests/unit/dbSchema.inferRelations.test.ts',
     area: 'Database Design page — guessing links from column names',
     summary:
@@ -266,6 +418,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-architecture',
     project: 'Backend',
     kind: 'Unit',
+    category: 'Admin',
     file: 'src/tests/unit/architecture.test.ts',
     area: 'Backend Architecture page — reading the code',
     summary:
@@ -289,6 +442,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-lead-validation',
     project: 'Backend',
     kind: 'Unit',
+    category: 'Marketing',
     file: 'src/tests/unit/lead.test.ts',
     area: 'Leads — public enquiry form validation',
     summary:
@@ -306,6 +460,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-appointment-rounding',
     project: 'Backend',
     kind: 'Unit',
+    category: 'Marketing',
     file: 'src/tests/unit/appointment.test.ts',
     area: 'Appointments — round up to the next half hour',
     summary: 'Intended to check that booking times are rounded up to the next :00 or :30.',
@@ -325,6 +480,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'be-auth-login',
     project: 'Backend',
     kind: 'Integration',
+    category: 'Security',
     file: 'src/tests/integration/auth.login.test.ts',
     area: 'Login & account activation',
     summary:
@@ -355,6 +511,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'fe-operating-cost-model',
     project: 'Frontend',
     kind: 'Unit',
+    category: 'Analysis',
     file: 'src/tests/unit/operatingCostModel.test.ts',
     area: 'Analysis — Operating Cost page calculations',
     summary:
@@ -392,6 +549,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'fe-leads-page',
     project: 'Frontend',
     kind: 'Unit',
+    category: 'Marketing',
     file: 'src/tests/unit/LeadsPage.test.tsx',
     area: 'Leads page — loading, errors and table',
     summary: 'Renders the real Leads page with a faked API to check what staff see while loading, on error, and once leads arrive.',
@@ -405,6 +563,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'fe-database-erd',
     project: 'Frontend',
     kind: 'Unit',
+    category: 'Admin',
     file: 'src/tests/unit/databaseErd.test.ts',
     area: 'Database Design — diagram layout',
     summary:
@@ -423,6 +582,7 @@ export const TEST_SUITES: TestSuite[] = [
     id: 'fe-backend-architecture-graph',
     project: 'Frontend',
     kind: 'Unit',
+    category: 'Admin',
     file: 'src/tests/unit/backendArchitectureGraph.test.ts',
     area: 'Backend Architecture — graph & overview',
     summary:
@@ -444,9 +604,31 @@ export const TEST_SUITES: TestSuite[] = [
     ],
   },
   {
+    id: 'be-test-runner',
+    project: 'Backend',
+    kind: 'Unit',
+    category: 'Admin',
+    file: 'src/tests/unit/testRunner.test.ts',
+    area: 'Test Catalog — running tests from the page',
+    summary:
+      'The "Run" buttons on this page start the backend tests on the server. These check it can only ever happen on a test environment, only runs real test files, never touches a live database, and reads the live results correctly.',
+    cases: [
+      { name: 'is off unless the server explicitly enables it', explains: 'Running tests is impossible unless the server is set up as a test environment.' },
+      { name: 'refuses to start a run when it is off', explains: 'On production, a run request is refused — the feature doesn\'t even appear to exist.' },
+      { name: 'refuses a file that is not one of the test files', explains: 'Only real test files can be run — nothing else on the server.' },
+      { name: 'refuses to run against a database that is not a *_test one', explains: 'Tests never run against the live database.' },
+      { name: 'derives the test database from the app\'s own by adding _test', explains: 'Tests automatically use a separate copy of the database.' },
+      { name: 'lists the real backend test files', explains: 'The runner knows exactly which test files exist.' },
+      { name: 'reads a test starting, so the page can show it running', explains: 'Each test shows "running" the moment it starts.' },
+      { name: 'reads a finished test with how long it took', explains: 'Each test shows passed or failed, and how long it took, as soon as it finishes.' },
+      { name: 'ignores anything that is not a valid test event', explains: 'Other output is never mistaken for a test result.' },
+    ],
+  },
+  {
     id: 'fe-test-catalog',
     project: 'Frontend',
     kind: 'Unit',
+    category: 'Admin',
     file: 'src/tests/unit/testCatalog.test.ts',
     area: 'This catalog — kept complete',
     summary: 'Fails the build if this Test Catalog page falls out of date with the frontend\'s actual tests.',

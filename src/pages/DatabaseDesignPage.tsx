@@ -70,16 +70,24 @@ export default function DatabaseDesignPage() {
   return (
     <div style={st.page}>
       <div style={st.inner}>
+        {/* One compact row — the diagram / table list is the point of the page. */}
         <div style={st.header}>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={st.h1}><FontAwesomeIcon icon={faDatabase} style={{ color: C.primary, fontSize: 20, marginRight: 10 }} />Database Design</h1>
-            <p style={st.sub}>
-              The live structure of {data ? <code style={st.code}>{data.database}</code> : 'the database'} — every table, its columns and how tables link.
-              Read straight from the database{data ? `, ${timeAgo(data.readAt)}` : ''}, so it updates on its own whenever the database changes.
-            </p>
-          </div>
+          <h1 style={st.h1}
+            title="Every table, its columns and how tables link — read straight from the database, so it updates on its own whenever the database changes.">
+            <FontAwesomeIcon icon={faDatabase} style={{ color: C.primary, fontSize: 16, marginRight: 8 }} />Database Design
+          </h1>
+          {data && (
+            <div style={st.stats}>
+              <code style={st.code}>{data.database}</code>
+              <Stat label="tables" value={data.tables.length} />
+              <Stat label="columns" value={data.tables.reduce((n, t) => n + t.columns.length, 0)} />
+              <Stat label="links" value={data.relations.length} hint={`${fkCount} enforced by the database · ${inferredCount} inferred from column names`} />
+              <Stat label="rows (approx.)" value={data.tables.reduce((n, t) => n + t.approxRows, 0)} />
+              <span>· read {timeAgo(data.readAt)}</span>
+            </div>
+          )}
           <button onClick={() => refetch()} disabled={isFetching} style={st.refreshBtn(isFetching)}>
-            <FontAwesomeIcon icon={faRotate} spin={isFetching} style={{ fontSize: 12 }} /> {isFetching ? 'Reading…' : 'Refresh'}
+            <FontAwesomeIcon icon={faRotate} spin={isFetching} style={{ fontSize: 11 }} /> {isFetching ? 'Reading…' : 'Refresh'}
           </button>
         </div>
 
@@ -89,13 +97,6 @@ export default function DatabaseDesignPage() {
           <div style={st.empty}>Couldn’t read the database structure. {(error as Error | null)?.message}</div>
         ) : (
           <>
-            <div style={st.stats}>
-              <Stat label="Tables" value={data.tables.length} />
-              <Stat label="Columns" value={data.tables.reduce((n, t) => n + t.columns.length, 0)} />
-              <Stat label="Links" value={data.relations.length} hint={`${fkCount} enforced by the database · ${inferredCount} inferred from column names`} />
-              <Stat label="Rows (approx.)" value={data.tables.reduce((n, t) => n + t.approxRows, 0)} />
-            </div>
-
             {undescribed.length > 0 && (
               <div style={st.notice}>
                 <FontAwesomeIcon icon={faCircleQuestion} style={{ flexShrink: 0, marginTop: 2 }} />
@@ -157,10 +158,9 @@ export default function DatabaseDesignPage() {
 
 function Stat({ label, value, hint }: { label: string; value: number; hint?: string }) {
   return (
-    <div style={st.stat} title={hint}>
-      <div style={{ fontSize: 22, fontWeight: 700, color: C.text, fontVariantNumeric: 'tabular-nums' }}>{value.toLocaleString()}</div>
-      <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-    </div>
+    <span title={hint} style={{ cursor: 'default' }}>
+      <b style={{ color: C.text, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{value.toLocaleString()}</b> {label}
+    </span>
   );
 }
 
@@ -302,20 +302,19 @@ function LinkList({ title, icon, relations, side, onSelect, empty }: {
 }
 
 const st = {
-  page: { padding: '28px 32px 48px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100%', color: C.text } as React.CSSProperties,
+  page: { padding: '16px 32px 32px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100%', color: C.text } as React.CSSProperties,
   inner: { maxWidth: 1180, margin: '0 auto' } as React.CSSProperties,
-  header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18, flexWrap: 'wrap' } as React.CSSProperties,
-  h1: { margin: '0 0 6px', fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center' } as React.CSSProperties,
+  header: { display: 'flex', alignItems: 'center', gap: '8px 16px', marginBottom: 12, flexWrap: 'wrap' } as React.CSSProperties,
+  h1: { margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', cursor: 'default' } as React.CSSProperties,
   sub: { margin: 0, fontSize: 13, color: C.muted, lineHeight: 1.55, maxWidth: 720 } as React.CSSProperties,
   code: { fontFamily: MONO, fontSize: 12, background: '#eef0f4', padding: '1px 6px', borderRadius: 4, color: C.textSub } as React.CSSProperties,
   refreshBtn: (busy: boolean): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9,
+    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, marginLeft: 'auto',
     border: `1px solid ${C.border}`, background: '#fff', color: busy ? C.mutedSoft : C.textSub,
     fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'default' : 'pointer',
   }),
   empty: { padding: 32, textAlign: 'center', color: C.muted, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 } as React.CSSProperties,
-  stats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 } as React.CSSProperties,
-  stat: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 16px', cursor: 'default' } as React.CSSProperties,
+  stats: { display: 'flex', alignItems: 'center', gap: '4px 12px', flexWrap: 'wrap', flex: 1, minWidth: 0, fontSize: 12.5, color: C.muted } as React.CSSProperties,
   notice: {
     display: 'flex', gap: 8, padding: '10px 14px', marginBottom: 14, borderRadius: 10,
     background: C.warnSoft, border: '1px solid #fde68a', color: C.warn, fontSize: 12.5, lineHeight: 1.5,

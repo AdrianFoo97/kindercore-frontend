@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dagre from '@dagrejs/dagre';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMagnifyingGlassPlus, faMagnifyingGlassMinus, faExpand } from '@fortawesome/free-solid-svg-icons';
+import {
+  faMagnifyingGlassPlus, faMagnifyingGlassMinus, faExpand, faCompress, faArrowsLeftRightToLine,
+} from '@fortawesome/free-solid-svg-icons';
 import type { DbSchema } from '../api/admin.js';
 import { DOMAIN_ORDER, Domain, TABLE_NOTES } from './dbTableNotes.js';
 
@@ -114,13 +116,36 @@ export default function DatabaseErd({ schema, visibleNames, onOpenTable }: {
   const laid = useMemo(() => layout(schema), [schema]);
   const [zoom, setZoom] = useState(0.85);
   const [hover, setHover] = useState<string | null>(null);
+  // Full screen = the diagram covers the whole window (above the navbar);
+  // Esc or the same button exits. Entering it fits the diagram to the window.
+  const [full, setFull] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  /** Zoom so the whole diagram fits the visible canvas. */
+  const fit = () => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const z = Math.min(el.clientWidth / laid.width, el.clientHeight / laid.height);
+    setZoom(Math.max(0.3, Math.min(2, +(z * 0.98).toFixed(2))));
+  };
+
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFull(false); };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden'; // no page scroll behind the overlay
+    requestAnimationFrame(fit); // after the canvas has its full-screen size
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [full]);
 
   const filtering = visibleNames.size !== schema.tables.length;
   const domainsPresent = DOMAIN_ORDER.filter(d => laid.nodes.some(n => domainOf(n.name) === d));
   const touches = (e: Laid['edges'][number], n: string) => e.from === n || e.to === n;
 
   return (
-    <div style={st.wrap}>
+    <div style={full ? { ...st.wrap, ...st.wrapFull } : st.wrap}>
       <div style={st.bar}>
         <div style={st.legend}>
           {domainsPresent.map(d => (
@@ -130,13 +155,17 @@ export default function DatabaseErd({ schema, visibleNames, onOpenTable }: {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-          <button style={st.zoomBtn} onClick={() => setZoom(z => Math.max(0.3, +(z - 0.15).toFixed(2)))} aria-label="Zoom out"><FontAwesomeIcon icon={faMagnifyingGlassMinus} /></button>
-          <button style={st.zoomBtn} onClick={() => setZoom(0.85)} aria-label="Reset zoom"><FontAwesomeIcon icon={faExpand} /></button>
-          <button style={st.zoomBtn} onClick={() => setZoom(z => Math.min(2, +(z + 0.15).toFixed(2)))} aria-label="Zoom in"><FontAwesomeIcon icon={faMagnifyingGlassPlus} /></button>
+          <button style={st.zoomBtn} onClick={() => setZoom(z => Math.max(0.3, +(z - 0.15).toFixed(2)))} title="Zoom out" aria-label="Zoom out"><FontAwesomeIcon icon={faMagnifyingGlassMinus} /></button>
+          <button style={st.zoomBtn} onClick={fit} title="Fit to screen" aria-label="Fit to screen"><FontAwesomeIcon icon={faArrowsLeftRightToLine} /></button>
+          <button style={st.zoomBtn} onClick={() => setZoom(z => Math.min(2, +(z + 0.15).toFixed(2)))} title="Zoom in" aria-label="Zoom in"><FontAwesomeIcon icon={faMagnifyingGlassPlus} /></button>
+          <button style={{ ...st.zoomBtn, ...(full ? st.zoomBtnOn : {}) }} onClick={() => setFull(f => !f)}
+            title={full ? 'Exit full screen (Esc)' : 'Full screen'} aria-label={full ? 'Exit full screen' : 'Full screen'}>
+            <FontAwesomeIcon icon={full ? faCompress : faExpand} />
+          </button>
         </div>
       </div>
 
-      <div style={st.canvas}>
+      <div ref={canvasRef} style={full ? { ...st.canvas, ...st.canvasFull } : st.canvas}>
         <svg width={laid.width * zoom} height={laid.height * zoom} viewBox={`0 0 ${laid.width} ${laid.height}`} role="img" aria-label="Database entity-relationship diagram">
           <defs>
             <marker id="erd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -195,6 +224,14 @@ export default function DatabaseErd({ schema, visibleNames, onOpenTable }: {
 
 const st = {
   wrap: { background: '#fff', border: '1px solid #e8ebf0', borderRadius: 12, overflow: 'hidden' } as React.CSSProperties,
+  // Full screen: cover the window (above the navbar) as a column so the
+  // canvas takes all the height between the toolbar and the footer.
+  wrapFull: {
+    position: 'fixed', inset: 0, zIndex: 2000, borderRadius: 0, border: 'none',
+    display: 'flex', flexDirection: 'column',
+  } as React.CSSProperties,
+  canvasFull: { flex: 1, minHeight: 0, maxHeight: 'none' } as React.CSSProperties,
+  zoomBtnOn: { background: '#eef0fa', color: '#3c339a', borderColor: '#c7cdf0' } as React.CSSProperties,
   bar: {
     display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
     padding: '10px 14px', borderBottom: '1px solid #f1f3f6',

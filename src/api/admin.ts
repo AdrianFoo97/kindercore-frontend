@@ -1,4 +1,4 @@
-import { apiFetch } from './client.js';
+import { apiFetch, ApiError } from './client.js';
 
 // Mirror of RolloverSummary in kindercore-backend.
 
@@ -173,4 +173,45 @@ export function clearReaderKey() {
 export function attendanceScanUrl(): string {
   const base = import.meta.env.VITE_API_BASE_URL || window.location.origin;
   return `${base.replace(/\/$/, '')}/api/attendance/scan`;
+}
+
+// ── Test runner (Admin → Test Catalog "Run" buttons) ──────────────────────
+// TEST ENVIRONMENT ONLY: the backend answers 404 unless TEST_RUNNER_ENABLED
+// is set on that server, which fetchTestRunner turns into `null` (= hide
+// all run controls). Mirrors TestRunState in testRunner.service.ts.
+
+export type TestRunStatus = 'pending' | 'running' | 'passed' | 'failed' | 'skipped';
+export type TestRunScope =
+  | { kind: 'all' }
+  | { kind: 'file'; file: string };
+
+export interface TestRun {
+  id: string;
+  scope: TestRunScope;
+  status: 'running' | 'passed' | 'failed' | 'error';
+  startedAt: string;
+  finishedAt: string | null;
+  /** Keyed `${file}::${testName}`. */
+  results: Record<string, TestRunStatus>;
+  /** How long each finished test took, in ms. */
+  durations: Record<string, number>;
+  failures: Record<string, string>;
+  runningFiles: string[];
+  totals: { passed: number; failed: number; skipped: number };
+  error: string | null;
+}
+
+export interface TestRunnerInfo { enabled: true; files: string[]; run: TestRun | null }
+
+export async function fetchTestRunner(): Promise<TestRunnerInfo | null> {
+  try {
+    return await apiFetch<TestRunnerInfo>('/api/admin/test-runner');
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null; // not a test environment
+    throw e;
+  }
+}
+
+export function startTestRun(scope: TestRunScope) {
+  return apiFetch<TestRun>('/api/admin/test-runner/runs', { method: 'POST', body: JSON.stringify({ scope }) });
 }

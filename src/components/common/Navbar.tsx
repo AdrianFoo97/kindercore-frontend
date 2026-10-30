@@ -8,20 +8,10 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faIdBadge } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faIdBadge } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
-
-/** Normalises a human-readable label into a URL-safe utm_source value.
- *  "Facebook Ads" → "facebook_ads", "小红书" → "小红书" (kept as-is),
- *  spaces / punctuation collapsed to underscores. */
-function toApplyUtmSlug(label: string): string {
-  return String(label ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^\w一-鿿]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
+import FormLinksModal from './FormLinksModal.js';
 
 export default function Navbar() {
   const { isMobile, isTablet, width } = useIsMobile();
@@ -102,12 +92,10 @@ export default function Navbar() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [developerOpen, setDeveloperOpen] = useState(false);
   const [whatsappModal, setWhatsappModal] = useState(false);
   const [templatesModal, setTemplatesModal] = useState(false);
-  const [shareLinksModal, setShareLinksModal] = useState(false);
-  const [copiedLink, setCopiedLink] = useState('');
-  const [applyLinksModal, setApplyLinksModal] = useState(false);
-  const [copiedApplyLink, setCopiedApplyLink] = useState('');
+  const [formLinksModal, setFormLinksModal] = useState(false);
   const [waPhone, setWaPhone] = useState('');
   const [waMessage, setWaMessage] = useState('');
   const [waTemplate, setWaTemplate] = useState('none');
@@ -122,6 +110,7 @@ export default function Navbar() {
   const toolsRef = useRef<HTMLDivElement>(null);
   const devRef = useRef<HTMLDivElement>(null);
   const adminRef = useRef<HTMLDivElement>(null);
+  const developerRef = useRef<HTMLDivElement>(null);
   const onFinanceRoute = !!useMatch('/operations/operating-costs');
   // The flat "Guides" link (`/operations/sops?app=teacher`) used NavLink's
   // default prefix match, so it lit up for every route under
@@ -153,7 +142,14 @@ export default function Navbar() {
   // crashing React's hook-order check on the next navigation.
   const usersSettingsMatch = useMatch('/settings/users');
   const adminWildcardMatch = useMatch('/admin/*');
-  const onAdminRoute = !!(usersSettingsMatch || adminWildcardMatch);
+  // The Developer pages keep their /admin/* URLs (bookmarks keep working)
+  // but sit under the Developer dropdown, so they light that up, not Admin.
+  // All three useMatch calls run unconditionally (same hook-order footgun).
+  const testCatalogMatch = useMatch('/admin/test-catalog');
+  const dbDesignMatch = useMatch('/admin/database-design');
+  const architectureMatch = useMatch('/admin/architecture');
+  const onDeveloperRoute = !!(testCatalogMatch || dbDesignMatch || architectureMatch);
+  const onAdminRoute = !!(usersSettingsMatch || adminWildcardMatch) && !onDeveloperRoute;
   const onDevRoute = !!useMatch('/settings/test/*');
   const onAnalysisRoute = !!useMatch('/analysis/*');
   const onSettingsRoute = !!useMatch('/settings/*') && !onAdminRoute && !onDevRoute;
@@ -209,6 +205,7 @@ export default function Navbar() {
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
       if (devRef.current && !devRef.current.contains(e.target as Node)) setDevOpen(false);
       if (adminRef.current && !adminRef.current.contains(e.target as Node)) setAdminOpen(false);
+      if (developerRef.current && !developerRef.current.contains(e.target as Node)) setDeveloperOpen(false);
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
@@ -224,7 +221,7 @@ export default function Navbar() {
   // Close mobile menu on navigate
   useEffect(() => { setMobileMenuOpen(false); }, [navCollapsed]);
 
-  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setMarketingOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); setProfileOpen(false); };
+  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setMarketingOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); setDeveloperOpen(false); setProfileOpen(false); };
 
   // Shared nav items renderer (used for both desktop and mobile drawer)
   const renderNavItems = (mobile = false) => {
@@ -607,13 +604,10 @@ export default function Navbar() {
                 {item(faWhatsapp, '#25D366', 'WhatsApp', () => { closeAll(); setWaPhone(''); setWaMessage(''); setWaTemplate('none'); setWaLang('zh'); setWhatsappModal(true); })}
                 {item(faCopy, '#94a3b8', 'Message Templates', () => { closeAll(); setTemplatesModal(true); })}
                 {sep}
-                {section('Enquiry')}
+                {section('Forms')}
                 {item(faArrowUpRightFromSquare, '#94a3b8', 'Enquiry Form', () => { closeAll(); window.open('/enquiry', '_blank'); })}
-                {item(faLink, '#94a3b8', 'Enquiry Links', () => { closeAll(); setShareLinksModal(true); })}
-                {sep}
-                {section('Candidates')}
-                {item(faArrowUpRightFromSquare, '#94a3b8', 'Apply Form', () => { closeAll(); window.open('/apply', '_blank'); })}
-                {item(faLink, '#94a3b8', 'Apply Links', () => { closeAll(); setApplyLinksModal(true); })}
+                {item(faArrowUpRightFromSquare, '#94a3b8', 'Job Application Form', () => { closeAll(); window.open('/apply', '_blank'); })}
+                {item(faLink, '#94a3b8', 'Form Links', () => { closeAll(); setFormLinksModal(true); })}
                 {sep}
                 {section('Support')}
                 <NavLink to="/tools/bug-reports" className={mobile ? '' : 'nav-drop-item'}
@@ -728,6 +722,37 @@ export default function Navbar() {
                   })}>
                   <FontAwesomeIcon icon={faCalendarDays} style={{ fontSize: 12, color: '#94a3b8' }} /> Year Rollover
                 </NavLink>
+                {/* Destructive — coloured red so it doesn't blend in
+                    with the safe admin actions above. Route is
+                    role-gated at the wrapper (only ADMIN / SUPERADMIN
+                    render this whole dropdown), and the backend
+                    /api/candidates/reset-all endpoint also enforces
+                    adminMiddleware — belt + braces. */}
+                <NavLink to="/settings/test/reset-candidates" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
+                    color: isActive ? '#9b1c1c' : '#c53030', fontWeight: isActive ? 700 : 600,
+                    background: isActive ? '#fef2f2' : 'none', borderRadius: 6,
+                  })}>
+                  <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12, color: '#c53030' }} /> Reset All Candidates
+                </NavLink>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Developer — ADMIN+ only. Read-only docs of how the app is built
+            (tests, database, backend). URLs stay under /admin/*. */}
+        {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
+          <div ref={mobile ? undefined : developerRef} style={mobile ? {} : { position: 'relative' }}>
+            <button onClick={() => setDeveloperOpen(o => !o)} className={mobile ? '' : 'nav-link'}
+              style={{ ...mDropBtn, ...(onDeveloperRoute && !mobile ? styles.activeLink : {}), ...(onDeveloperRoute && mobile ? mLinkActive : {}) }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faCode)}Developer</span>
+              {mobile ? (developerOpen ? '−' : '+') : '▾'}
+            </button>
+            {developerOpen && (
+              <div style={mobile ? { ...mPanel } : { position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#fff', borderRadius: 10, boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)', minWidth: 210, zIndex: 100, padding: '6px', border: '1px solid #e8eaed' }}>
                 {/* Read-only — a plain-English list of every automated test. */}
                 <NavLink to="/admin/test-catalog" onClick={closeAll}
                   className={mobile ? '' : 'nav-drop-item'}
@@ -757,21 +782,6 @@ export default function Navbar() {
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
                   <FontAwesomeIcon icon={faSitemap} style={{ fontSize: 12, color: '#94a3b8' }} /> Backend Architecture
-                </NavLink>
-                {/* Destructive — coloured red so it doesn't blend in
-                    with the safe admin actions above. Route is
-                    role-gated at the wrapper (only ADMIN / SUPERADMIN
-                    render this whole dropdown), and the backend
-                    /api/candidates/reset-all endpoint also enforces
-                    adminMiddleware — belt + braces. */}
-                <NavLink to="/settings/test/reset-candidates" onClick={closeAll}
-                  className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
-                    color: isActive ? '#9b1c1c' : '#c53030', fontWeight: isActive ? 700 : 600,
-                    background: isActive ? '#fef2f2' : 'none', borderRadius: 6,
-                  })}>
-                  <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12, color: '#c53030' }} /> Reset All Candidates
                 </NavLink>
               </div>
             )}
@@ -1033,116 +1043,8 @@ export default function Navbar() {
       );
     })()}
 
-    {/* Share Links Modal */}
-    {shareLinksModal && (
-      <div style={modal.overlay}>
-        <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 16px 48px rgba(0,0,0,0.16)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-          {/* Header */}
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Enquiry Form Links</h3>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Click to copy. Use for QR codes, ads, or social posts.</div>
-            </div>
-            <button onClick={() => setShareLinksModal(false)} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#cbd5e1', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
-          </div>
-          {/* Links */}
-          <div style={{ padding: '8px 10px', maxHeight: 400, overflowY: 'auto' }}>
-            {[
-              { label: 'QR School Door', desc: 'Parents walking past', utm: 'door-qr', emoji: '🏫' },
-              { label: 'QR Flyer / Banner', desc: 'Printed materials', utm: 'flyer-qr', emoji: '📄' },
-              { label: 'Facebook', desc: 'Facebook posts & ads', utm: 'facebook', emoji: '📘' },
-              { label: 'Instagram', desc: 'Instagram bio & stories', utm: 'instagram', emoji: '📷' },
-              { label: 'Google', desc: 'Google Ads', utm: 'google', emoji: '🔍' },
-              { label: '小红书 Xiaohongshu', desc: 'REDnote posts', utm: 'xiaohongshu', emoji: '📕' },
-              { label: 'WhatsApp', desc: 'Shared via WhatsApp', utm: 'whatsapp', emoji: '💬' },
-              { label: 'Direct Link', desc: 'No tracking', utm: '', emoji: '🔗' },
-            ].map(item => {
-              const baseUrl = window.location.origin;
-              const url = item.utm ? `${baseUrl}/enquiry?utm_source=${item.utm}` : `${baseUrl}/enquiry`;
-              const isCopied = copiedLink === (item.utm || '_direct');
-              return (
-                <div key={item.utm || '_direct'}
-                  onClick={() => { navigator.clipboard.writeText(url); setCopiedLink(item.utm || '_direct'); setTimeout(() => setCopiedLink(''), 2000); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 10, cursor: 'pointer',
-                    background: isCopied ? '#f0fdf4' : 'transparent', border: isCopied ? '1px solid #bbf7d0' : '1px solid transparent',
-                    transition: 'all 0.12s',
-                  }}
-                  onMouseEnter={e => { if (!isCopied) (e.currentTarget as HTMLElement).style.background = '#f8fafc'; }}
-                  onMouseLeave={e => { if (!isCopied) (e.currentTarget as HTMLElement).style.background = isCopied ? '#f0fdf4' : 'transparent'; }}
-                >
-                  <span style={{ fontSize: 18, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: 8, flexShrink: 0 }}>{item.emoji}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{item.label}</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{item.desc}</div>
-                  </div>
-                  <div style={{ flexShrink: 0, fontSize: 11, color: isCopied ? '#16a34a' : '#cbd5e1', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {isCopied ? <><FontAwesomeIcon icon={faCircleCheck} /> Copied</> : <FontAwesomeIcon icon={faCopy} />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Apply Form Links Modal — same shape as Share Links, but the
-        channel list is the admin-curated recruitment referral sources
-        instead of a fixed set, since that's what already drives the
-        equivalent picker on the Candidates page. */}
-    {applyLinksModal && (
-      <div style={modal.overlay}>
-        <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 16px 48px rgba(0,0,0,0.16)', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-          {/* Header */}
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Apply Form Links</h3>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Click to copy. Use for QR codes, ads, or social posts.</div>
-            </div>
-            <button onClick={() => setApplyLinksModal(false)} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#cbd5e1', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
-          </div>
-          {/* Links */}
-          <div style={{ padding: '8px 10px', maxHeight: 400, overflowY: 'auto' }}>
-            {[
-              { label: 'Direct Link', desc: 'No tracking', utm: '' },
-              ...applyReferralSources.map(label => ({ label, desc: 'Tracked to this source', utm: toApplyUtmSlug(label) })),
-            ].map(item => {
-              const baseUrl = window.location.origin;
-              const url = item.utm ? `${baseUrl}/apply?utm_source=${encodeURIComponent(item.utm)}` : `${baseUrl}/apply`;
-              const isCopied = copiedApplyLink === (item.utm || '_direct');
-              return (
-                <div key={item.utm || '_direct'}
-                  onClick={() => { navigator.clipboard.writeText(url); setCopiedApplyLink(item.utm || '_direct'); setTimeout(() => setCopiedApplyLink(''), 2000); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 10, cursor: 'pointer',
-                    background: isCopied ? '#f0fdf4' : 'transparent', border: isCopied ? '1px solid #bbf7d0' : '1px solid transparent',
-                    transition: 'all 0.12s',
-                  }}
-                  onMouseEnter={e => { if (!isCopied) (e.currentTarget as HTMLElement).style.background = '#f8fafc'; }}
-                  onMouseLeave={e => { if (!isCopied) (e.currentTarget as HTMLElement).style.background = isCopied ? '#f0fdf4' : 'transparent'; }}
-                >
-                  <span style={{ fontSize: 18, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: 8, flexShrink: 0 }}>
-                    <FontAwesomeIcon icon={faLink} style={{ fontSize: 13, color: '#94a3b8' }} />
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{item.label}</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{item.desc}</div>
-                  </div>
-                  <div style={{ flexShrink: 0, fontSize: 11, color: isCopied ? '#16a34a' : '#cbd5e1', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {isCopied ? <><FontAwesomeIcon icon={faCircleCheck} /> Copied</> : <FontAwesomeIcon icon={faCopy} />}
-                  </div>
-                </div>
-              );
-            })}
-            {applyReferralSources.length === 0 && (
-              <div style={{ padding: '10px 12px', fontSize: 11, color: '#94a3b8' }}>
-                Add sources in Settings → Recruitment to get tracked links per channel.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+    {formLinksModal && (
+      <FormLinksModal applySources={applyReferralSources} onClose={() => setFormLinksModal(false)} />
     )}
     </>
   );
