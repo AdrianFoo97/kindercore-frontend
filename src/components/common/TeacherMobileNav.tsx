@@ -37,7 +37,7 @@ export const TEACHER_NAV_SPACE = `calc(${TEACHER_NAV_HEIGHT}px + 24px + env(safe
 
 // Any teacher gamified surface: /teachers/:id/<section>[/...spoke].
 // `my-career` also covers its nested `journey`/`skill-badges` spokes.
-const TEACHER_PATH = /^\/teachers\/([^/]+)\/(home|my-career|my-compensation|rewards|leaderboard|career\/missions)(?:\/|$)/;
+const TEACHER_PATH = /^\/teachers\/([^/]+)\/(home|my-career|my-compensation|rewards|leaderboard|career\/missions|incidents)(?:\/|$)/;
 
 // Guides (How-To Guide library) — a shared admin/HR page outside
 // /teachers/:id, so it carries no teacherId in its URL. Only counts as
@@ -85,7 +85,8 @@ export function teacherNavMatch(
   const [, teacherId, section] = m;
   const activeSeg =
     section === 'leaderboard' ? 'leaderboard'
-    : section === 'home' ? 'home'
+    // Incidents is opened from Home's "Report an incident" card.
+    : (section === 'home' || section === 'incidents') ? 'home'
     : section === 'my-compensation' ? 'my-compensation'
     : section === 'rewards' ? 'rewards'
     // my-career (+ its nested journey/skill-badges spokes) and

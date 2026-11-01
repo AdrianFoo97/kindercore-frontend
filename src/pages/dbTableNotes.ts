@@ -47,6 +47,9 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   Student: { domain: 'Students', about: 'An enrolled child — profile, class details, current package and monthly fee.' },
   StudentEnrollment: { domain: 'Students', about: 'Enrolment history per student (package + fee over time). The source of truth for fees.' },
   StudentAttendance: { domain: 'Students', about: 'Attendance log — one row per RFID card tap at the reader.' },
+  IncidentReport: { domain: 'Students', about: 'An incident report filed by staff (what, when, where, actions taken), followed up Open → Parent informed → Resolved in Operation → Incidents.' },
+  IncidentReportLog: { domain: 'Students', about: 'The follow-up log of an incident — every supervisor comment (optionally tagged with how satisfied the parent was: Satisfied / Neutral / Concerned / Upset), status move and correction, with who and when. Never edited or deleted.' },
+  IncidentReportStudent: { domain: 'Students', about: 'Which students an incident involved, with each child\'s name as it was when reported.' },
   SpeechClip: { domain: 'Students', about: 'The spoken greeting clip played when a student taps in (one per student).' },
   Package: { domain: 'Students', about: 'A fee package (programme + price) a student can be enrolled on.' },
 

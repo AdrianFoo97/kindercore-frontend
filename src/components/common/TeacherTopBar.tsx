@@ -201,6 +201,10 @@ export function teacherTopBar(pathname: string, search: string = ''): TopBarStat
       backTo: GO_BACK,
     };
   }
+  if (tail === 'incidents' || tail === 'incidents/new') {
+    // Opened from Home (and the list opens the form) — real history back.
+    return { title: tail === 'incidents' ? 'Incidents' : 'Report an Incident', showBack: true, backTo: GO_BACK };
+  }
   // Which section this tail belongs to (drives the back target).
   const section: 'my-career' | 'my-compensation' | 'rewards' | 'home' | 'leaderboard' | null =
     tail === 'home' ? 'home'

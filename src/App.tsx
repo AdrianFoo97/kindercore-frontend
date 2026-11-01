@@ -70,6 +70,12 @@ import TeacherCareerPage from './pages/TeacherCareerPage.js';
 import TeacherHomePage from './pages/TeacherHomePage.js';
 import TeacherMySettingsPage from './pages/TeacherMySettingsPage.js';
 import TeacherReportBugPage from './pages/TeacherReportBugPage.js';
+import TeacherIncidentsPage from './pages/TeacherIncidentsPage.js';
+import TeacherReportIncidentPage from './pages/TeacherReportIncidentPage.js';
+import IncidentsPage from './pages/IncidentsPage.js';
+import IncidentFormPage from './pages/IncidentFormPage.js';
+import IncidentDetailPage from './pages/IncidentDetailPage.js';
+import ChildIncidentsPage from './pages/ChildIncidentsPage.js';
 import TeacherLeaderboardPage from './pages/TeacherLeaderboardPage.js';
 import TeacherMyCompensationPoolsPage from './pages/TeacherMyCompensationPoolsPage.js';
 import TeacherMyAnnualBonusPage from './pages/TeacherMyAnnualBonusPage.js';
@@ -139,7 +145,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 // they read as a focused phone-first app, not a back-office screen.
 // Single source of truth so navbar + footer suppression never drift
 // apart from what TeacherMobileNav itself treats as a teacher route.
-const TEACHER_SURFACE = /\/teachers\/[^/]+\/(home|my-career|my-compensation|rewards|leaderboard|career\/missions|settings)/;
+const TEACHER_SURFACE = /\/teachers\/[^/]+\/(home|my-career|my-compensation|rewards|leaderboard|career\/missions|settings|incidents)/;
 // Mission Board is shared: the gamified teacher app links here with the
 // phone chrome, but the HR Career Path page (TeacherCareerPage.tsx) also
 // links into this exact same route to let a supervisor browse a teacher's
@@ -315,6 +321,8 @@ export default function App() {
           <Route path="/teachers/:id/home" element={<ErrorBoundary><TeacherHomePage /></ErrorBoundary>} />
           <Route path="/teachers/:id/settings" element={<ErrorBoundary><TeacherMySettingsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/settings/report-bug" element={<ErrorBoundary><TeacherReportBugPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/incidents" element={<ErrorBoundary><TeacherIncidentsPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/incidents/new" element={<ErrorBoundary><TeacherReportIncidentPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/leaderboard" element={<ErrorBoundary><TeacherLeaderboardPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-career" element={<ErrorBoundary><TeacherMyCareerPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-career/journey" element={<ErrorBoundary><TeacherMyJourneyPage /></ErrorBoundary>} />
@@ -361,7 +369,12 @@ export default function App() {
           <Route path="/admin/database-design" element={<ErrorBoundary><DatabaseDesignPage /></ErrorBoundary>} />
           <Route path="/admin/architecture" element={<ErrorBoundary><BackendArchitecturePage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><OperationsPlannerPage /></ErrorBoundary></RequireModule>} />
-          <Route path="/tools/bug-reports" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/operations/incidents" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><IncidentsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/operations/incidents/new" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><IncidentFormPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/operations/incidents/child/:studentId" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_INCIDENT_MANAGE"><ErrorBoundary><ChildIncidentsPage /></ErrorBoundary></RequireView></RequireModule>} />
+          <Route path="/operations/incidents/:id" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><IncidentDetailPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/operations/incidents/:id/edit" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_INCIDENT_MANAGE"><ErrorBoundary><IncidentFormPage /></ErrorBoundary></RequireView></RequireModule>} />
+          <Route path="/tools/bug-reports"element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><OperatingCostsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopLibraryPage /></ErrorBoundary></RequireModule>} />

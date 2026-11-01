@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
   faChevronRight, faStar, faBullseye, faArrowTrendUp,
-  faHandHoldingDollar, faTrophy,
+  faHandHoldingDollar, faTrophy, faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { fetchTeachers } from '../api/planner.js';
@@ -419,6 +419,40 @@ export default function TeacherHomePage() {
                 : hasOpenMissions
                   ? 'Pin a mission from the board to start growing your skills.'
                   : 'Nice work — explore what\'s next below.'}
+            </div>
+          </div>
+          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: C.mutedSoft, flexShrink: 0 }} />
+        </button>
+
+        {/* ── Incidents (replaces the Google Form) ─────────────── */}
+        <div style={sectionLabel}>Incidents</div>
+        <button
+          type="button"
+          onClick={() => navigate(`/teachers/${id}/incidents`)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+            textAlign: 'left', font: 'inherit', cursor: 'pointer', color: 'inherit',
+            marginBottom: 26,
+            background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16,
+            padding: '16px 16px',
+            boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <div style={{
+            width: 42, height: 42, borderRadius: 13, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: '#fef2f2', color: '#dc2626', fontSize: 17,
+            border: '1px solid #fecaca',
+          }}>
+            <FontAwesomeIcon icon={faTriangleExclamation} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.textStrong, letterSpacing: '-0.01em' }}>
+              Report an incident
+            </div>
+            <div style={{ marginTop: 2, fontSize: 12.5, fontWeight: 600, color: C.muted }}>
+              A child got hurt or something went wrong? Log it here.
             </div>
           </div>
           <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: C.mutedSoft, flexShrink: 0 }} />

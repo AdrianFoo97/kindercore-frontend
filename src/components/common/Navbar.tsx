@@ -8,7 +8,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faIdBadge } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faIdBadge } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
@@ -134,7 +134,8 @@ export default function Navbar() {
   // are genuinely its own: Author Guides, the propose/edit wizard, and
   // Improvement Inbox.
   const sopRevisionsMatch = useMatch('/hr/sop-revisions');
-  const onOperationRoute = (!!useMatch('/operations/sops/*') && !onGuidesRoute) || !!sopRevisionsMatch;
+  const incidentsMatch = useMatch('/operations/incidents/*');
+  const onOperationRoute = (!!useMatch('/operations/sops/*') && !onGuidesRoute) || !!sopRevisionsMatch || !!incidentsMatch;
   const onToolsRoute = !!useMatch('/tools/*');
   // Both useMatch calls must run every render, unconditionally — `||`
   // short-circuits, which would skip the second call whenever the first
@@ -441,8 +442,9 @@ export default function Navbar() {
             it, so this stayed pointless-only duplicate for exactly that
             account. If that leaves nothing else granted inside (no
             OPERATION_SOP_APPROVE for Improvement Inbox either), the whole
-            trigger is hidden rather than opening onto an empty panel. */}
-        {allowModule(MODULES.OPERATION) && (!user?.teacherId || hasView('OPERATION_SOP_APPROVE')) && (
+            trigger is hidden rather than opening onto an empty panel —
+            though Incidents now always gives the Operation module an entry. */}
+        {allowModule(MODULES.OPERATION) && (
         <div ref={mobile ? undefined : operationRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setOperationOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onOperationRoute && !mobile ? styles.activeLink : {}) }}>
@@ -459,6 +461,14 @@ export default function Navbar() {
                   How-To Guides
                 </NavLink>
               )}
+              {/* Follow-up queue for incident reports staff file (teachers
+                  from their mobile app) — replaces the Google Form. */}
+              <NavLink to="/operations/incidents" onClick={closeAll}
+                className={mobile ? '' : 'nav-drop-item'}
+                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
+                <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                Incidents
+              </NavLink>
               {/* The reviewer workbench (Approve/Reject, everyone's
                   pending proposals) — not every role sharing the
                   Operation module should land here, same reasoning as
@@ -821,6 +831,7 @@ export default function Navbar() {
     <style>{`
       .nav-drop-item { border-radius: 6px !important; transition: background 0.1s ease; }
       .nav-drop-item:hover { background: #f1f5f9 !important; }
+      .incident-row:hover { background: #f8fafc !important; }
       .nav-link { transition: all 0.15s ease; }
       .nav-link:hover { color: #fff !important; background: rgba(255,255,255,0.12); }
     `}</style>
