@@ -7,6 +7,7 @@ import { fetchFinanceSummary } from '../api/finance.js';
 import { fetchSettings } from '../api/settings.js';
 import { DEFAULT_EXPENSE_RATIO_TARGET, DEFAULT_PROFIT_SHARE_PERCENT } from './FinanceSettingsPage.js';
 import { FilterPillStyles, PillSelect } from '../components/common/FilterPill.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 
 // ── Design tokens ───────────────────────────────────────────────────────
 const C = {
@@ -75,6 +76,7 @@ interface MonthlyPool {
 }
 
 export default function ProfitSharingPage() {
+  const { isMobile } = useIsMobile();
   const now = new Date();
   const [year, setYear] = useState<number>(now.getFullYear());
   const [quarterIdx, setQuarterIdx] = useState<number>(Math.floor(now.getMonth() / 3));
@@ -253,7 +255,7 @@ export default function ProfitSharingPage() {
   const quarter = QUARTERS[quarterIdx];
 
   return (
-    <div style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh' }}>
+    <div style={{ padding: isMobile ? '16px 16px 32px' : '28px 32px', background: C.bg, minHeight: '100vh' }}>
       <style>{`
         .ps-row { transition: background 100ms ease; }
         .ps-row td { cursor: default; transition: background 120ms ease; }
@@ -360,6 +362,7 @@ export default function ProfitSharingPage() {
           forecastTotal={forecastAmount}
           expenseTarget={expenseTarget}
           profitSharePct={profitSharePct}
+          compact={isMobile}
         />
 
         {/* ── Distribution Table ───────────────────────────────── */}
@@ -397,17 +400,19 @@ export default function ProfitSharingPage() {
           {distribution.rows.length > 0 && (
             <div style={{ overflowX: 'auto' as const }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' as const, tableLayout: 'fixed' as const }}>
+                {/* Phone: the three month columns are dropped (they're the
+                    breakdown of Weight, which stays) — 7 columns can't fit. */}
                 <colgroup>
-                  <col style={{ width: '28%' }} />
-                  {quarter.months.map(mi => <col key={mi} style={{ width: '8%' }} />)}
-                  <col style={{ width: '12%' }} />
-                  <col style={{ width: '16%' }} />
-                  <col style={{ width: '20%' }} />
+                  <col style={{ width: isMobile ? '40%' : '28%' }} />
+                  {!isMobile && quarter.months.map(mi => <col key={mi} style={{ width: '8%' }} />)}
+                  <col style={{ width: isMobile ? '17%' : '12%' }} />
+                  <col style={{ width: isMobile ? '18%' : '16%' }} />
+                  <col style={{ width: isMobile ? '25%' : '20%' }} />
                 </colgroup>
                 <thead>
                   <tr>
                     <th style={thLeft}>Teacher</th>
-                    {quarter.months.map(mi => (
+                    {!isMobile && quarter.months.map(mi => (
                       <th key={mi} style={thRight}>
                         {MONTH_LABELS_SHORT[mi]}
                       </th>
@@ -437,7 +442,7 @@ export default function ProfitSharingPage() {
                             )}
                           </div>
                         </td>
-                        {r.months.map(m => (
+                        {!isMobile && r.months.map(m => (
                           <td
                             key={m.monthIdx}
                             style={{
@@ -481,7 +486,7 @@ export default function ProfitSharingPage() {
                 <tfoot>
                   <tr style={{ borderTop: `1px solid ${C.border}`, background: C.surfaceMuted }}>
                     <td style={tdFootLabel}>Total</td>
-                    {quarter.months.map(mi => {
+                    {!isMobile && quarter.months.map(mi => {
                       const sum = distribution.rows.reduce((s, r) => {
                         const m = r.months.find(x => x.monthIdx === mi);
                         return s + (m?.isActive ? m.weight : 0);
@@ -519,6 +524,7 @@ function PoolCard({
   forecastTotal,
   expenseTarget,
   profitSharePct,
+  compact,
 }: {
   year: number;
   quarter: { shortLabel: string; rangeLabel: string; months: number[] };
@@ -527,6 +533,8 @@ function PoolCard({
   forecastTotal: number;
   expenseTarget: number;
   profitSharePct: number;
+  /** Phone width: tighter padding and a smaller hero number. */
+  compact?: boolean;
 }) {
   const targetPctNum = expenseTarget * 100;
   const targetPct = `${targetPctNum.toFixed(0)}%`;
@@ -569,11 +577,11 @@ function PoolCard({
   return (
     <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' as const }}>
       {/* ── Hero KPI ────────────────────────────────────────── */}
-      <div style={{ padding: `${SP[7]}px ${SP[7]}px ${SP[6]}px` }}>
+      <div style={{ padding: compact ? `${SP[5]}px ${SP[4]}px` : `${SP[7]}px ${SP[7]}px ${SP[6]}px` }}>
         {/* Eyebrow row */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: SP[3], marginBottom: SP[3],
+          gap: SP[3], marginBottom: SP[3], flexWrap: 'wrap' as const,
         }}>
           <div style={{
             fontSize: 11, fontWeight: 600, color: C.muted,
@@ -591,7 +599,7 @@ function PoolCard({
           marginBottom: SP[5],
         }}>
           <div style={{
-            fontSize: 40, fontWeight: 700,
+            fontSize: compact ? 32 : 40, fontWeight: 700,
             color: total > 0 ? C.text : C.faint,
             letterSpacing: '-0.03em', lineHeight: 1.05,
             fontVariantNumeric: 'tabular-nums' as any,

@@ -9,6 +9,9 @@ export interface HeaderStatsData {
 
 interface HeaderStatsProps {
   stats: HeaderStatsData;
+  /** Phone width — the three numbers share the card evenly instead of
+   *  fixed widths + wide gaps (which overflowed the screen). */
+  compact?: boolean;
 }
 
 type Tone = 'default' | 'muted';
@@ -20,7 +23,7 @@ interface StatItem {
   tone: Tone;
 }
 
-export function HeaderStats({ stats }: HeaderStatsProps) {
+export function HeaderStats({ stats, compact }: HeaderStatsProps) {
   const items: StatItem[] = [
     {
       value: String(stats.total),
@@ -43,11 +46,11 @@ export function HeaderStats({ stats }: HeaderStatsProps) {
   ];
 
   return (
-    <div style={styles.wrap}>
+    <div style={compact ? { ...styles.wrap, padding: '14px 8px', marginBottom: 14 } : styles.wrap}>
       {items.map((item, i) => (
         <Fragment key={item.label}>
-          {i > 0 && <div style={styles.divider} />}
-          <div style={styles.item}>
+          {i > 0 && <div style={compact ? { ...styles.divider, margin: '0 4px' } : styles.divider} />}
+          <div style={compact ? { ...styles.item, flex: 1, minWidth: 0 } : styles.item}>
             <div style={styles.labelRow}>
               <span style={{
                 ...styles.dot,

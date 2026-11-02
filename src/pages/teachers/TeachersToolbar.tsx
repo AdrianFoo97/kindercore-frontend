@@ -16,10 +16,12 @@ interface TeachersToolbarProps {
   groupBy: TeachersGroupKey;
   onGroupByChange: (g: TeachersGroupKey) => void;
   rightActions?: React.ReactNode;
+  /** Phone width — search takes the full row; filters + actions wrap below. */
+  compact?: boolean;
 }
 
 export function TeachersToolbar({
-  tab, onTabChange, counts, search, onSearchChange, groupBy, onGroupByChange, rightActions,
+  tab, onTabChange, counts, search, onSearchChange, groupBy, onGroupByChange, rightActions, compact,
 }: TeachersToolbarProps) {
   const searchRef = useRef<SearchBarHandle>(null);
 
@@ -43,8 +45,8 @@ export function TeachersToolbar({
   return (
     <>
     <style>{selectCss}</style>
-    <div style={styles.toolbar}>
-      <div style={{ width: 320 }}>
+    <div style={compact ? { ...styles.toolbar, flexDirection: 'column', alignItems: 'stretch', gap: 10 } : styles.toolbar}>
+      <div style={{ width: compact ? '100%' : 320 }}>
         <SearchBar
           ref={searchRef}
           value={search}
@@ -53,13 +55,14 @@ export function TeachersToolbar({
         />
       </div>
 
-      <div style={styles.rightGroup}>
-        <div style={styles.selectWrap}>
+      <div style={compact ? { ...styles.rightGroup, gap: 8, flexWrap: 'wrap' } : styles.rightGroup}>
+        <div style={compact ? { ...styles.selectWrap, flex: '1 1 130px' } : styles.selectWrap}>
           <select
             className="tp-filter-select"
             value={tab}
             onChange={e => onTabChange(e.target.value as TeachersTabKey)}
-            style={styles.select}
+            style={compact ? { ...styles.select, minWidth: 0, width: '100%' } : styles.select}
+            aria-label="Show"
           >
             {tabs.map(t => (
               <option key={t.key} value={t.key}>
@@ -69,12 +72,12 @@ export function TeachersToolbar({
           </select>
           <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 10, color: TP_C.muted, pointerEvents: 'none', position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }} />
         </div>
-        <div style={styles.selectWrap}>
+        <div style={compact ? { ...styles.selectWrap, flex: '1 1 130px' } : styles.selectWrap}>
           <select
             className="tp-filter-select"
             value={groupBy}
             onChange={e => onGroupByChange(e.target.value as TeachersGroupKey)}
-            style={styles.select}
+            style={compact ? { ...styles.select, minWidth: 0, width: '100%' } : styles.select}
             aria-label="Group by"
           >
             <option value="none">No grouping</option>

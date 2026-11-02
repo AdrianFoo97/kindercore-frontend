@@ -552,7 +552,7 @@ export default function FinanceAnalysisPage() {
         </div>
 
         <div style={{ overflowX: 'auto', marginTop: SP.md }}>
-          <table style={s.table}>
+          <table style={{ ...s.table, minWidth: 520 }}>
             <thead>
               <tr>
                 {[groupBy === 'quarter' ? 'Quarter' : 'Month', 'Revenue', 'Expenses', 'Profit', 'Margin'].map((h, i) => (

@@ -449,7 +449,7 @@ export default function SalesAnalysisPage() {
         {/* Reserve height for a full page so navigating doesn't shift the
             pagination bar. Per-row ~40px, header 40px, dividers ~40 each. */}
         <div style={{ overflowX: 'auto', minHeight: 40 + pageSize * 40 + 120 }}>
-          <table style={{ ...s.table, tableLayout: 'fixed' as const }}>
+          <table style={{ ...s.table, tableLayout: 'fixed' as const, ...(isMobile ? { minWidth: 760 } : {}) }}>
             <colgroup>
               <col style={{ width: '22%' }} />
               <col style={{ width: '12%' }} />

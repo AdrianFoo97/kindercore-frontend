@@ -144,7 +144,7 @@ export default function RevenueAnalysisPage() {
   const selectedEntry = entries.find(e => e.key === period);
 
   return (
-    <div style={s.page}>
+    <div style={isMobile ? { ...s.page, padding: '20px 12px' } : s.page}>
       <style>{`.recharts-wrapper, .recharts-surface, .recharts-wrapper:focus, .recharts-surface:focus, .recharts-wrapper *:focus, .recharts-surface *:focus { outline: none !important; }`}</style>
       <FilterPillStyles />
       <div style={s.inner}>
@@ -916,7 +916,7 @@ function EnrollmentEventsList({
 
         return (
           <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-            <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12, minWidth: 520 }}>
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
                   <th style={evTh}>Effective</th>

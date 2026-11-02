@@ -58,10 +58,11 @@ interface TeacherRowProps {
   onMyCareerDev?: () => void;
 }
 
-export const TeacherRow = memo(function TeacherRow({
-  teacher: t, position: pos, salary: sal,
-  onEdit, onCareer, onAppraisal, onCompensation, onResign, onMyCompensationDev, onMyCareerDev,
-}: TeacherRowProps) {
+/**
+ * Everything a row/card shows that's derived from the teacher — one place,
+ * so the desktop table row and the phone card can't disagree.
+ */
+function deriveRow(t: TeacherLike, pos: PositionLike | null | undefined, sal: SalaryLike | undefined) {
   const initial = (t.name ?? '?').trim().charAt(0).toUpperCase();
   const hasSalary = !!sal && sal.calculatedSalary > 0;
   // Currently active = no resignedAt, or resignedAt is still in the future.
@@ -91,6 +92,25 @@ export const TeacherRow = memo(function TeacherRow({
   // not just on the exact date).
   const dobDate = t.dob ? new Date(t.dob) : null;
   const isBirthdayMonth = !!dobDate && dobDate.getMonth() === new Date().getMonth();
+  const careerDisabledReason = !pos
+    ? 'Assign a position first to unlock career, appraisal, and compensation.'
+    : pos.inCareerProgression === false
+      ? `${pos.name} is not on the career progression track — these actions don't apply.`
+      : undefined;
+  return {
+    initial, hasSalary, resignedDate, isFutureResign, isCurrentlyActive, hasNotStartedYet, incomplete,
+    workDaysCount, dailyHours, isPartTime, isBirthdayMonth, careerDisabledReason,
+  };
+}
+
+export const TeacherRow = memo(function TeacherRow({
+  teacher: t, position: pos, salary: sal,
+  onEdit, onCareer, onAppraisal, onCompensation, onResign, onMyCompensationDev, onMyCareerDev,
+}: TeacherRowProps) {
+  const {
+    initial, hasSalary, resignedDate, isFutureResign, isCurrentlyActive, hasNotStartedYet, incomplete,
+    workDaysCount, dailyHours, isPartTime, isBirthdayMonth, careerDisabledReason,
+  } = deriveRow(t, pos, sal);
 
   return (
     <tr className="tp-row">
@@ -167,19 +187,87 @@ export const TeacherRow = memo(function TeacherRow({
             onAppraisal={onAppraisal}
             onCompensation={onCompensation}
             onResign={isCurrentlyActive ? onResign : undefined}
-            careerDisabledReason={
-              !pos
-                ? 'Assign a position first to unlock career, appraisal, and compensation.'
-                : pos.inCareerProgression === false
-                  ? `${pos.name} is not on the career progression track — these actions don't apply.`
-                  : undefined
-            }
+            careerDisabledReason={careerDisabledReason}
             onMyCompensationDev={onMyCompensationDev}
             onMyCareerDev={onMyCareerDev}
           />
         </div>
       </td>
     </tr>
+  );
+});
+
+/**
+ * The phone layout of a row: a card (the 5-column table can't fit a phone
+ * — columns overlapped). Same data and actions as TeacherRow; tapping the
+ * card opens the teacher, like clicking a row's Edit.
+ */
+export const TeacherCard = memo(function TeacherCard({
+  teacher: t, position: pos, salary: sal,
+  onEdit, onCareer, onAppraisal, onCompensation, onResign, onMyCompensationDev, onMyCareerDev,
+}: TeacherRowProps) {
+  const {
+    initial, hasSalary, resignedDate, isFutureResign, isCurrentlyActive, hasNotStartedYet, incomplete,
+    workDaysCount, dailyHours, isPartTime, isBirthdayMonth, careerDisabledReason,
+  } = deriveRow(t, pos, sal);
+  const hoursLabel = dailyHours != null ? dailyHours.toFixed(1).replace(/\.0$/, '') : null;
+
+  return (
+    <div className="tp-row" style={styles.card} onClick={onEdit} role="button" tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter') onEdit(); }}>
+      <Avatar color={t.color} initial={initial} muted={!isCurrentlyActive} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Name + salary on one line */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <div style={{ ...styles.name, flex: 1, color: isCurrentlyActive ? TP_C.text : TP_C.muted }}>{t.name}</div>
+          {hasSalary && sal && (
+            <div style={{ fontSize: 14, fontWeight: 800, color: TP_C.text, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+              {fmtRM(sal.calculatedSalary)}
+            </div>
+          )}
+        </div>
+        {/* Role */}
+        <div style={styles.cardLine}>
+          {pos ? (
+            <>
+              <span style={{ fontWeight: 600, color: TP_C.textSub }}>{pos.name}</span>
+              {!t.isFixedSalary && pos.maxLevel > 0 && <span> · L{t.level ?? 0}</span>}
+              {t.salaryType === 'hourly' && t.hourlyRate ? <span> · {fmtRM(t.hourlyRate)}/hr</span> : null}
+            </>
+          ) : <span style={styles.dash}>No position</span>}
+        </div>
+        {/* Schedule */}
+        {t.workStartMinute != null && t.workEndMinute != null && (
+          <div style={{ ...styles.cardLine, fontVariantNumeric: 'tabular-nums' }}>
+            {minutesToTime(t.workStartMinute)} – {minutesToTime(t.workEndMinute)}
+            {hoursLabel != null && <span> · {hoursLabel}h · {workDaysCount}d</span>}
+          </div>
+        )}
+        {/* Flags */}
+        {(isBirthdayMonth || incomplete || hasNotStartedYet || resignedDate || isPartTime) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+            {isPartTime && <span style={styles.partTimeChip}>Part-time</span>}
+            {isBirthdayMonth && <BirthdayIcon date={t.dob!} />}
+            {incomplete && <IncompleteChip />}
+            {hasNotStartedYet && <StartsChip date={t.createdAt!} />}
+            {resignedDate && <ResignedChip date={t.resignedAt!} isFuture={isFutureResign} />}
+          </div>
+        )}
+      </div>
+      {/* Actions menu — its clicks don't open the teacher. */}
+      <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0, marginRight: -6 }}>
+        <ActionMenu
+          onEdit={onEdit}
+          onCareer={onCareer}
+          onAppraisal={onAppraisal}
+          onCompensation={onCompensation}
+          onResign={isCurrentlyActive ? onResign : undefined}
+          careerDisabledReason={careerDisabledReason}
+          onMyCompensationDev={onMyCompensationDev}
+          onMyCareerDev={onMyCareerDev}
+        />
+      </div>
+    </div>
   );
 });
 
@@ -445,6 +533,11 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: '100%',
   },
   dash: { color: TP_C.dim, fontSize: 12, fontStyle: 'italic' as const },
+  card: {
+    display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 14px 14px 16px',
+    borderBottom: `1px solid ${TP_C.divider}`, cursor: 'pointer',
+  },
+  cardLine: { marginTop: 3, fontSize: 12.5, color: TP_C.mutedMore, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   partTimeChip: {
     padding: '1px 6px',
     borderRadius: 4,

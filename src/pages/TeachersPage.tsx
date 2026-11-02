@@ -6,7 +6,8 @@ import { faPlus, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers, updateTeacher } from '../api/planner.js';
 import { fetchTeachersWithSalary, fetchPositions, fetchDepartments } from '../api/salary.js';
 import { useToast } from '../components/common/Toast.js';
-import { TeacherRow } from './teachers/TeacherRow.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
+import { TeacherRow, TeacherCard } from './teachers/TeacherRow.js';
 import { TeachersToolbar, TeachersTabKey, TeachersGroupKey } from './teachers/TeachersToolbar.js';
 import { ResignDialog } from './teachers/ResignDialog.js';
 import { HeaderStats } from './teachers/HeaderStats.js';
@@ -21,6 +22,7 @@ export default function TeachersPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
+  const { isMobile } = useIsMobile();
 
   const { data: teachers = [], isLoading } = useQuery({
     queryKey: ['planner-teachers'],
@@ -180,6 +182,23 @@ export default function TeachersPage() {
     setResignTarget(null);
   };
 
+  // Same props for the desktop row and the phone card.
+  const rowProps = (t: any) => ({
+    position: t.positionId ? posMap.get(t.positionId) : null,
+    salary: salaryMap.get(t.id),
+    onEdit: () => navigate(`/teachers/${t.id}`),
+    onCareer: () => navigate(`/teachers/${t.id}/career`),
+    onAppraisal: () => navigate(`/teachers/${t.id}/appraisal`),
+    onCompensation: () => navigate(`/teachers/${t.id}/compensation`),
+    onResign: () => setResignTarget(t),
+    // Dev-only entries — the teacher-facing mobile hubs are
+    // works-in-progress. Vite's `import.meta.env.DEV` is true under `npm
+    // run dev` and false in production builds, so these entries are
+    // invisible to admins on the live app.
+    onMyCompensationDev: import.meta.env.DEV ? () => navigate(`/teachers/${t.id}/my-compensation`) : undefined,
+    onMyCareerDev: import.meta.env.DEV ? () => navigate(`/teachers/${t.id}/my-career`) : undefined,
+  });
+
   if (isLoading) {
     return (
       <div style={s.page}>
@@ -191,7 +210,7 @@ export default function TeachersPage() {
   }
 
   return (
-    <div style={s.page}>
+    <div style={isMobile ? { ...s.page, padding: '16px 16px 32px' } : s.page}>
       <style>{css}</style>
       <div style={s.inner}>
         {/* Header */}
@@ -209,10 +228,11 @@ export default function TeachersPage() {
         </div>
 
         {/* Summary */}
-        <HeaderStats stats={headerStats} />
+        <HeaderStats stats={headerStats} compact={isMobile} />
 
         {/* Toolbar */}
         <TeachersToolbar
+          compact={isMobile}
           tab={tab}
           onTabChange={setTab}
           counts={counts}
@@ -247,6 +267,23 @@ export default function TeachersPage() {
               {search ? 'Try a different search term.' : 'Add your first teacher to get started.'}
             </div>
           </div>
+        ) : isMobile ? (
+          // Phone: one card per teacher — the 5-column table can't fit.
+          <div style={s.tableWrap}>
+            {teacherGroups.map(group => (
+              <Fragment key={group.id}>
+                {group.name && (
+                  <div style={s.groupHeader}>
+                    {group.name}
+                    <span style={s.groupCount}>{group.teachers.length}</span>
+                  </div>
+                )}
+                {group.teachers.map((t: any) => (
+                  <TeacherCard key={t.id} teacher={t} {...rowProps(t)} />
+                ))}
+              </Fragment>
+            ))}
+          </div>
         ) : (
           <div style={s.tableWrap}>
             <table style={s.table}>
@@ -278,28 +315,7 @@ export default function TeachersPage() {
                       </tr>
                     )}
                     {group.teachers.map((t: any) => (
-                      <TeacherRow
-                        key={t.id}
-                        teacher={t}
-                        position={t.positionId ? posMap.get(t.positionId) : null}
-                        salary={salaryMap.get(t.id)}
-                        onEdit={() => navigate(`/teachers/${t.id}`)}
-                        onCareer={() => navigate(`/teachers/${t.id}/career`)}
-                        onAppraisal={() => navigate(`/teachers/${t.id}/appraisal`)}
-                        onCompensation={() => navigate(`/teachers/${t.id}/compensation`)}
-                        onResign={() => setResignTarget(t)}
-                        // Dev-only entries — the teacher-facing mobile
-                        // hubs are works-in-progress. Vite's
-                        // `import.meta.env.DEV` is true under `npm run
-                        // dev` and false in production builds, so these
-                        // entries are invisible to admins on the live app.
-                        onMyCompensationDev={import.meta.env.DEV
-                          ? () => navigate(`/teachers/${t.id}/my-compensation`)
-                          : undefined}
-                        onMyCareerDev={import.meta.env.DEV
-                          ? () => navigate(`/teachers/${t.id}/my-career`)
-                          : undefined}
-                      />
+                      <TeacherRow key={t.id} teacher={t} {...rowProps(t)} />
                     ))}
                   </Fragment>
                 ))}
@@ -331,7 +347,7 @@ const css = `
   .tp-search:focus-within { border-color: ${TP_C.primary} !important; box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.12) !important; }
   .tp-search:focus-within svg { color: ${TP_C.primary} !important; }
   .tp-tab:hover:not(.tp-tab-active) { color: ${TP_C.textSub} !important; }
-  .tp-add-btn:hover { background: ${TP_C.primaryHover} !important; box-shadow: 0 4px 10px rgba(90, 103, 216, 0.28) !important; transform: translateY(-0.5px); }
+  .tp-add-btn:hover { background: ${TP_C.primaryHover} !important; }
 `;
 
 const s: Record<string, React.CSSProperties> = {

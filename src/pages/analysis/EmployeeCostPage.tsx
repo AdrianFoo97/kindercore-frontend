@@ -972,7 +972,7 @@ function StaffChangesList({
     const rightText = e.career ? careerDescription(e.career) : fmtDate(e.date.toISOString());
     return (
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
+        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
         padding: '8px 12px',
         borderBottom: '1px solid #f1f5f9',
       }}>

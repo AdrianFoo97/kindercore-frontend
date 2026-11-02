@@ -252,6 +252,8 @@ function YoyCell({ delta, pct }: { delta: number; pct: number | null }) {
 /** Columns are fixed, not content-sized, so amounts and variances line up down
  *  the page instead of drifting with the length of each number. */
 const BREAKDOWN_COLS = 'minmax(140px, 1.4fr) minmax(120px, 2fr) 96px 92px';
+/** Phone: the bar moves under the name (four columns needed ~490px). */
+const BREAKDOWN_COLS_COMPACT = 'minmax(0, 1fr) auto auto';
 /** A recorded RM 20 next to a RM 4,200 would round to no bar at all. Give every
  *  non-zero amount a sliver so "small" still reads as present, not absent. */
 const MIN_BAR_PCT = 1.5;
@@ -266,7 +268,7 @@ interface BreakdownItem {
   share: number;
 }
 
-function BreakdownRow({ item, max }: { item: BreakdownItem; max: number }) {
+function BreakdownRow({ item, max, compact }: { item: BreakdownItem; max: number; compact?: boolean }) {
   const { name, groupName, amount, budget, share } = item;
   // Round before comparing so a category sitting exactly on budget doesn't
   // read as "−0" off the back of float noise.
@@ -275,29 +277,35 @@ function BreakdownRow({ item, max }: { item: BreakdownItem; max: number }) {
   const barPct = max > 0 ? Math.max((amount / max) * 100, amount > 0 ? MIN_BAR_PCT : 0) : 0;
   const budgetPct = budget != null && max > 0 ? Math.min((budget / max) * 100, 100) : null;
 
+  const bar = (
+    <div style={{ position: 'relative', height: compact ? 6 : 16, background: C.divider, borderRadius: 4, marginTop: compact ? 6 : 0 }}>
+      <div style={{ width: `${barPct}%`, height: '100%', background: over ? C.over : C.accent, borderRadius: 4 }} />
+      {budgetPct != null && (
+        <div
+          title={`Budget ${fmtRM(budget!)}`}
+          style={{ position: 'absolute', top: -3, bottom: -3, left: `${budgetPct}%`, width: 2, background: C.text, opacity: 0.4, borderRadius: 1 }}
+        />
+      )}
+    </div>
+  );
+
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: BREAKDOWN_COLS,
+      gridTemplateColumns: compact ? BREAKDOWN_COLS_COMPACT : BREAKDOWN_COLS,
       alignItems: 'center',
-      gap: SP.md,
+      gap: compact ? SP.sm : SP.md,
       padding: `${SP.sm}px 0`,
       borderBottom: `1px solid ${C.divider}`,
     }}>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
         <div style={{ fontSize: 11, color: C.mutedSoft }}>{groupName} · {(share * 100).toFixed(0)}%</div>
+        {/* Phone: the bar sits under the name instead of in its own column. */}
+        {compact && bar}
       </div>
 
-      <div style={{ position: 'relative', height: 16, background: C.divider, borderRadius: 4 }}>
-        <div style={{ width: `${barPct}%`, height: '100%', background: over ? C.over : C.accent, borderRadius: 4 }} />
-        {budgetPct != null && (
-          <div
-            title={`Budget ${fmtRM(budget!)}`}
-            style={{ position: 'absolute', top: -3, bottom: -3, left: `${budgetPct}%`, width: 2, background: C.text, opacity: 0.4, borderRadius: 1 }}
-          />
-        )}
-      </div>
+      {!compact && bar}
 
       <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: C.text, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
         {fmtRM(amount)}
@@ -317,21 +325,21 @@ function BreakdownRow({ item, max }: { item: BreakdownItem; max: number }) {
 }
 
 /** Header for the breakdown list — without it the last two number columns are unlabelled. */
-function BreakdownHeader() {
+function BreakdownHeader({ compact }: { compact?: boolean }) {
   const cell: React.CSSProperties = {
     fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4, textAlign: 'right',
   };
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: BREAKDOWN_COLS,
+      gridTemplateColumns: compact ? BREAKDOWN_COLS_COMPACT : BREAKDOWN_COLS,
       alignItems: 'center',
-      gap: SP.md,
+      gap: compact ? SP.sm : SP.md,
       paddingBottom: SP.sm,
       borderBottom: `1px solid ${C.cardBorder}`,
     }}>
       <div style={{ ...cell, textAlign: 'left' }}>Category</div>
-      <div />
+      {!compact && <div />}
       <div style={cell}>Spend</div>
       <div style={cell}>vs budget</div>
     </div>
@@ -1020,9 +1028,9 @@ export default function OperatingCostAnalysisPage() {
               right={<div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{fmtRM(breakdownTotal)}</div>}
             >
               {breakdownItems.length === 0 && <div style={{ fontSize: 13, color: C.muted }}>Nothing recorded in this period.</div>}
-              {breakdownItems.length > 0 && <BreakdownHeader />}
+              {breakdownItems.length > 0 && <BreakdownHeader compact={isMobile} />}
               {breakdownItems.map(item => (
-                <BreakdownRow key={item.id} item={item} max={breakdownMax} />
+                <BreakdownRow key={item.id} item={item} max={breakdownMax} compact={isMobile} />
               ))}
             </Card>
 

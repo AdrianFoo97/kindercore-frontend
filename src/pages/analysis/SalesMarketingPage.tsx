@@ -748,7 +748,7 @@ export default function SalesMarketingPage() {
             page is taller than this (unusual divider density), the wrapper
             grows — minor flex, not a full jump. */}
         <div style={{ overflowX: 'auto', minHeight: 40 + pageSize * 40 + 120 }}>
-          <table style={{ ...s.table, tableLayout: 'fixed' }}>
+          <table style={{ ...s.table, tableLayout: 'fixed', ...(isMobile ? { minWidth: 680 } : {}) }}>
             <colgroup>
               <col style={{ width: '26%' }} />
               <col style={{ width: '14%' }} />
