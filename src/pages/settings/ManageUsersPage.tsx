@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faCopy, faCheck, faTrash, faPaperPlane, faPen } from '@fortawesome/free-solid-svg-icons';
+import { faUserPlus, faCopy, faCheck, faTrash, faPaperPlane, faPen, faCircle } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../../api/client.js';
 import { fetchTeachers } from '../../api/planner.js';
 import { fetchAuthRoles } from '../../api/auth-roles.js';
 import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
 import { useToast } from '../../components/common/Toast.js';
+import { memberActivity } from './memberActivity.js';
 
 interface UserRecord {
   id: string;
@@ -18,7 +19,13 @@ interface UserRecord {
   createdAt: string;
   teacherId: string | null;
   authRoleId: string | null;
+  lastLoginAt: string | null;
+  lastSeenAt: string | null;
 }
+
+const fmtSignIn = (iso: string | null) => iso
+  ? `Last signed in ${new Date(iso).toLocaleString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+  : 'Has not signed in yet';
 
 export default function ManageUsersPage() {
   const qc = useQueryClient();
@@ -79,6 +86,7 @@ export default function ManageUsersPage() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: () => apiFetch<UserRecord[]>('/api/auth/users'),
+    refetchInterval: 60_000, // keep "Online now" current while the page is open
   });
 
   const [showInvite, setShowInvite] = useState(false);
@@ -153,6 +161,7 @@ export default function ManageUsersPage() {
 
   const activeUsers = users.filter(u => u.activated);
   const pendingUsers = users.filter(u => !u.activated);
+  const onlineCount = activeUsers.filter(u => memberActivity(u.lastSeenAt).online).length;
 
   return (
     <div className="m-pad" style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
@@ -333,26 +342,49 @@ export default function ManageUsersPage() {
       {/* Active users */}
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9' }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', margin: 0 }}>Active members ({activeUsers.length})</h3>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', margin: 0 }}>
+            Active members ({activeUsers.length})
+            {onlineCount > 0 && (
+              <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 600, color: '#16a34a' }}>
+                <FontAwesomeIcon icon={faCircle} style={{ fontSize: 7, marginRight: 5, verticalAlign: 'middle' }} />
+                {onlineCount} online now
+              </span>
+            )}
+          </h3>
         </div>
         {isLoading ? (
           <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>Loading...</div>
         ) : activeUsers.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>No active members.</div>
         ) : (
-          activeUsers.map(u => (
-            <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #f8fafc' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          activeUsers.map(u => {
+            const activity = memberActivity(u.lastSeenAt);
+            return (
+            <div key={u.id} className="m-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px 20px', borderBottom: '1px solid #f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                 <div style={{
+                  position: 'relative', flexShrink: 0,
                   width: 36, height: 36, borderRadius: '50%', background: '#eff6ff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 14, fontWeight: 700, color: '#1d4ed8',
                 }}>
                   {(u.name || u.email)[0].toUpperCase()}
+                  {activity.online && (
+                    <span aria-hidden style={{
+                      position: 'absolute', right: -1, bottom: -1, width: 11, height: 11, borderRadius: '50%',
+                      background: '#22c55e', border: '2px solid #fff',
+                    }} />
+                  )}
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{u.name || '—'}</div>
-                  <div style={{ fontSize: 13, color: '#64748b' }}>{u.email}</div>
+                  <div style={{ fontSize: 13, color: '#64748b', overflowWrap: 'anywhere' }}>{u.email}</div>
+                  <div title={fmtSignIn(u.lastLoginAt)} style={{
+                    fontSize: 12, marginTop: 2, fontWeight: activity.online ? 600 : 500,
+                    color: activity.online ? '#16a34a' : '#94a3b8',
+                  }}>
+                    {activity.label}
+                  </div>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -377,7 +409,8 @@ export default function ManageUsersPage() {
                 )}
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -406,7 +439,7 @@ export default function ManageUsersPage() {
                 <button onClick={() => handleResend(u.email, u.role, u.id)} disabled={resendingId === u.id} style={{
                   padding: '5px 12px', border: '1px solid #d1d5db', borderRadius: 6,
                   background: '#fff', color: resendingId === u.id ? '#94a3b8' : '#374151',
-                  cursor: resendingId === u.id ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600,
+                  cursor: resendingId === u.id ? 'default' : 'pointer', fontSize: 12, fontWeight: 600,
                   display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit',
                 }}>
                   <FontAwesomeIcon icon={faPaperPlane} /> {resendingId === u.id ? 'Sending...' : 'Resend'}
