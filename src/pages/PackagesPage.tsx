@@ -171,7 +171,7 @@ export default function PackagesPage({ embedded = false }: { embedded?: boolean 
   }, [selectedKey, editingKey]);
 
   return (
-    <div style={embedded ? undefined : s.page}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}>
       <div style={s.inner}>
         <Header
           ref={headerRef}
@@ -727,7 +727,7 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: 16, flexWrap: 'wrap',
     marginBottom: 20,
   },
   headerActions: { display: 'flex', alignItems: 'center', gap: 8 },

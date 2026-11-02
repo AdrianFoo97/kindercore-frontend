@@ -61,7 +61,7 @@ export default function AuthRolesPage() {
   };
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={s.heading}>Access Roles</h1>

@@ -238,7 +238,7 @@ export default function DepartmentsPage() {
         </button>
       </div>
 
-      <div style={s.contentCard}>
+      <div className="m-scroll-x" style={s.contentCard}>
         <table style={s.table} className="dept-table">
           <colgroup>
             <col style={{ width: 32 }} />

@@ -222,7 +222,7 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
   }
 
   return (
-    <div style={embedded ? { maxWidth: 980, margin: '0 auto' } : s.page}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? { maxWidth: 980, margin: '0 auto' } : s.page}>
       <style>{`
         .mcat-row { transition: background 0.12s ease; }
         .mcat-row > td { transition: box-shadow 0.12s ease; }
@@ -264,7 +264,7 @@ export default function OperatingCostMainCategoriesPage({ embedded = false }: { 
         </button>
       </div>
 
-      <div style={s.contentCard}>
+      <div className="m-scroll-x" style={s.contentCard}>
         <table style={s.table} className="occ-table">
           <colgroup>
             <col style={{ width: 32 }} />

@@ -6,6 +6,7 @@ import { fetchTeacherWeightsByMonth } from '../api/salary.js';
 import { fetchFinanceSummary } from '../api/finance.js';
 import { fetchSettings } from '../api/settings.js';
 import { DEFAULT_EXPENSE_RATIO_TARGET, DEFAULT_PROFIT_SHARE_PERCENT } from './FinanceSettingsPage.js';
+import { monthPool, settingNum, splitPool } from '../utils/poolMath.js';
 import { FilterPillStyles, PillSelect } from '../components/common/FilterPill.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 
@@ -101,34 +102,14 @@ export default function ProfitSharingPage() {
     queryFn: fetchSettings,
   });
 
-  const expenseTarget = (() => {
-    const v = settings?.expense_ratio_target;
-    const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
-    return Number.isFinite(n) && n > 0 && n <= 2 ? n : DEFAULT_EXPENSE_RATIO_TARGET;
-  })();
-  const profitSharePct = (() => {
-    const v = settings?.profit_share_percent;
-    const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
-    return Number.isFinite(n) && n > 0 && n <= 1 ? n : DEFAULT_PROFIT_SHARE_PERCENT;
-  })();
+  const expenseTarget = settingNum(settings?.expense_ratio_target, 0, 2, DEFAULT_EXPENSE_RATIO_TARGET);
+  const profitSharePct = settingNum(settings?.profit_share_percent, 0, 1, DEFAULT_PROFIT_SHARE_PERCENT);
 
-  // Per-month pool: revenue × percent if month's expense ratio meets target,
-  // else 0. Forecast months haven't elapsed yet — they hold at 0 until
-  // actual numbers arrive (we don't pay out on forecast).
-  const monthlyPools = useMemo<MonthlyPool[]>(() => {
-    const quarter = QUARTERS[quarterIdx];
-    return quarter.months.map(mi => {
-      const m = finance?.months[mi];
-      if (!m) return { monthIdx: mi, revenue: 0, expenses: 0, ratio: null, hit: false, pool: 0, projectedPool: 0, isForecast: true };
-      const expenses = m.staffCost + m.operatingCost;
-      const ratio = m.revenue > 0 ? expenses / m.revenue : null;
-      const wouldQualify = ratio !== null && ratio <= expenseTarget;
-      const hit = !m.isForecast && wouldQualify;
-      const projectedPool = wouldQualify ? m.revenue * profitSharePct : 0;
-      const pool = hit ? projectedPool : 0;
-      return { monthIdx: mi, revenue: m.revenue, expenses, ratio, hit, pool, projectedPool, isForecast: m.isForecast };
-    });
-  }, [finance, quarterIdx, expenseTarget, profitSharePct]);
+  // Per-month pool (utils/poolMath — shared with the teacher Pay pages).
+  const monthlyPools = useMemo<MonthlyPool[]>(
+    () => QUARTERS[quarterIdx].months.map(mi => monthPool(mi, finance?.months[mi], expenseTarget, profitSharePct)),
+    [finance, quarterIdx, expenseTarget, profitSharePct],
+  );
 
   const amount = useMemo(() => monthlyPools.reduce((s, m) => s + m.pool, 0), [monthlyPools]);
   const forecastAmount = useMemo(
@@ -221,16 +202,7 @@ export default function ProfitSharingPage() {
   const distribution = useMemo(() => {
     const rows = eligibleInQuarter.filter(r => !excluded.has(r.teacherId));
     const totalWeight = rows.reduce((s, r) => s + r.weight, 0);
-    let allocated = 0;
-    const ordered = [...rows].sort((a, b) => b.weight - a.weight);
-    const withAmount = ordered.map((r, i) => {
-      const raw = totalWeight > 0 ? (r.weight / totalWeight) * amount : 0;
-      const isLast = i === ordered.length - 1;
-      const a = isLast ? Math.max(0, amount - allocated) : Math.round(raw * 100) / 100;
-      allocated += a;
-      return { ...r, share: totalWeight > 0 ? r.weight / totalWeight : 0, amount: a };
-    });
-    return { rows: withAmount, totalWeight };
+    return { rows: splitPool(rows, amount), totalWeight };
   }, [eligibleInQuarter, excluded, amount]);
 
   const includedCount = eligibleInQuarter.length - excluded.size;

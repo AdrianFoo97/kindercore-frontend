@@ -95,12 +95,12 @@ export default function AuthRoleEditPage() {
 
   if (isLoading || !hydrated) {
     return (
-      <div style={s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>
+      <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>
     );
   }
   if (isEdit && !existing) {
     return (
-      <div style={s.page}>
+      <div className="m-pad" style={s.page}>
         <div style={s.inner}>
           <p style={{ color: C.muted }}>Access role not found.</p>
           <Link to="/settings/auth-roles" style={s.crumbLink}>Back to Access Roles</Link>
@@ -110,7 +110,7 @@ export default function AuthRoleEditPage() {
   }
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         <div style={s.breadcrumb}>
           <button onClick={() => navigate('/settings/auth-roles')} style={s.backBtn} title="Back">

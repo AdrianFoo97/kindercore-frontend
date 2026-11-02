@@ -566,8 +566,8 @@ function PositionsEditor(props: { initial: RecruitmentPosition[]; isAdmin: boole
         candidates know the typical range before naming their expected pay.
       </p>
 
-      <div>
-        <table style={{ ...S.table, tableLayout: 'fixed' }} className="recruit-table">
+      <div className="m-scroll-x">
+        <table style={{ ...S.table, tableLayout: 'fixed' }} className="recruit-table m-minw">
           <colgroup>
             <col style={{ width: 32 }} />
             <col />
@@ -855,7 +855,7 @@ function ListEditor(props: {
       </div>
       <p style={{ ...S.cardDesc, marginBottom: 16 }}>{props.description}</p>
 
-      <div>
+      <div className="m-scroll-x">
         <table style={S.table} className="recruit-table">
           <colgroup>
             <col style={{ width: 32 }} />

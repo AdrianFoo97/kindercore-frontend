@@ -752,7 +752,7 @@ export default function ImportCandidatesPage({ embedded = false }: { embedded?: 
   const stepNum = phase === 'input' ? 1 : phase === 'map' ? 2 : 3;
 
   return (
-    <div style={embedded ? undefined : { background: C.bg, minHeight: '100vh', padding: '32px 24px', fontFamily: 'system-ui, sans-serif', color: C.text }}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : { background: C.bg, minHeight: '100vh', padding: '32px 24px', fontFamily: 'system-ui, sans-serif', color: C.text }}>
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         {!embedded && (
           <>

@@ -1089,7 +1089,7 @@ export default function CandidatesPage() {
   return (
     <>
     <div style={{ paddingRight: ctxPanelWidth }}>
-    <div style={{ ...S.shell, ['--kc-sticky-h' as string]: `${stickyHeadH}px` }}>
+    <div className="m-pad" style={{ ...S.shell, ['--kc-sticky-h' as string]: `${stickyHeadH}px` }}>
       {/* Row-menu hover feedback — CSS-in-JS is inline everywhere else in
           this page, but for :hover state on the dropdown items a single
           scoped stylesheet is much lighter than wiring mouseEnter/Leave
@@ -1098,6 +1098,13 @@ export default function CandidatesPage() {
         .kc-row-menu-item { background: transparent; transition: background 0.1s ease; }
         .kc-row-menu-item:hover:not(:disabled) { background: #eef2ff; }
         .kc-row-menu-item:focus-visible { outline: 2px solid #c7d2fe; outline-offset: -2px; background: #eef2ff; }
+        /* Phone: the candidate grid is ~1100px wide — scroll it sideways
+           rather than crushing the columns; review queue stacks on top. */
+        @media (max-width: 767px) {
+          .cand-list { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .cand-list > * { min-width: 1080px; }
+          .cand-review-side { position: static !important; height: auto !important; max-height: 50vh; }
+        }
       `}</style>
       <div style={S.headerRow}>
         <div>
@@ -1316,7 +1323,7 @@ export default function CandidatesPage() {
               </div>
             )
           ) : (
-            <div style={S.reviewLayout}>
+            <div className="m-stack" style={S.reviewLayout}>
               {/* ── Sidebar ── */}
               <ReviewSidebar
                 items={queueSnapshot}
@@ -1509,7 +1516,7 @@ export default function CandidatesPage() {
             // same place. A real <table> with colSpan={2} on every row lets
             // the browser size the underlying columns freely, which drifts
             // the header labels off their content.
-            <div style={S.divList}>
+            <div className="cand-list" style={S.divList}>
               <div style={S.divHeader}>
                 <div style={isTerminalTab ? S.rowGridTerminal : S.rowGrid}>
                   <div style={{ ...S.thLabel, textAlign: 'center' as const, justifySelf: 'center' }}>#</div>
@@ -2556,7 +2563,7 @@ function ReviewSidebar(props: {
   }, [currentIdx, pageClamped]);
 
   return (
-    <aside style={S.reviewSidebar} aria-label="Candidate review queue">
+    <aside className="cand-review-side" style={S.reviewSidebar} aria-label="Candidate review queue">
       <div style={S.reviewSidebarHeader}>
         <span style={S.reviewSidebarLabel}>Candidates</span>
       </div>

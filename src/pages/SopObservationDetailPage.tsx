@@ -77,7 +77,7 @@ export default function SopObservationDetailPage() {
 
   if (isLoading || !obs) {
     return (
-      <div style={s.page}>
+      <div className="m-pad" style={s.page}>
         <div style={s.inner}>
           <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
         </div>
@@ -88,7 +88,7 @@ export default function SopObservationDetailPage() {
   const currentStageIdx = STAGE_ORDER.indexOf(obs.status);
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         <button onClick={() => navigate('/hr/sop-observations')} style={s.backBtn}>
           <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />

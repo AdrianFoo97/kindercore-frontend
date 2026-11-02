@@ -418,7 +418,7 @@ export default function EditStudentPage() {
 
   if (isLoading || !studentsData) {
     return (
-      <div style={s.page}>
+      <div className="m-pad" style={s.page}>
         <div style={s.inner}>
           <p style={{ color: C.muted, textAlign: 'center', marginTop: 80 }}>Loading…</p>
         </div>
@@ -432,7 +432,7 @@ export default function EditStudentPage() {
   if (missingForEdit || missingForSibling) {
     const label = missingForSibling ? 'Source sibling not found.' : 'Student not found.';
     return (
-      <div style={s.page}>
+      <div className="m-pad" style={s.page}>
         <div style={s.inner}>
           <div style={s.breadcrumb}>
             <button onClick={() => navigate('/students')} className="es-back-btn" style={s.backBtn} title="Back">
@@ -478,7 +478,7 @@ export default function EditStudentPage() {
   return (
     <>
     <form onSubmit={handleSave}>
-      <div style={s.page}>
+      <div className="m-pad" style={s.page}>
         <style>{`.es-tab:hover { background: #f1f5f9 !important; } .es-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; } .es-icon-btn:hover { background: #f1f5f9 !important; } .es-icon-btn-danger:hover { background: #fef2f2 !important; }`}</style>
         <div style={s.inner}>
           {/* Back + breadcrumb. Create-sibling: back goes to source sibling. */}
@@ -1095,7 +1095,7 @@ function ChangePackageModal({
           Past months keep their original package and fee for revenue reporting.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={s.label}>Effective From</label>
             <input style={s.input} type="date" value={effectiveDate} onChange={e => setEffectiveDate(e.target.value)} />
@@ -1275,7 +1275,7 @@ function EditEnrollmentModal({ enrollment, studentDob, onClose, onSaved }: EditE
           new values.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={s.label}>Start Date</label>
             <input style={s.input} type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />

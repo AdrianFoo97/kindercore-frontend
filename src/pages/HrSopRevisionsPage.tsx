@@ -51,7 +51,7 @@ export default function HrSopRevisionsPage() {
   const templateById = useMemo(() => new Map(templates.map(t => [t.id, t])), [templates]);
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <style>{`
         .hr-rev-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }
         .hr-rev-row:hover { border-color: ${C.primary}55 !important; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 16px rgba(90,103,216,0.08) !important; }

@@ -132,7 +132,7 @@ export default function WhatsAppApptTemplatePage() {
   if (isError) return <p style={{ ...styles.state, color: '#e53e3e' }}>Failed to load settings.</p>;
 
   return (
-    <div style={styles.page}>
+    <div className="m-pad" style={styles.page}>
       <div style={styles.inner}>
         <h1 style={styles.heading}>WhatsApp Template — Appointment</h1>
         {!isAdmin && (

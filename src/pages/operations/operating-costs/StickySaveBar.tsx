@@ -21,6 +21,7 @@ export function StickySaveBar({
 
   return (
     <div
+      className="m-pad m-wrap"
       role="region"
       aria-label="Unsaved changes"
       style={{

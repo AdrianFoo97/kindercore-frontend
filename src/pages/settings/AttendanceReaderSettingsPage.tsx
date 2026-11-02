@@ -56,7 +56,7 @@ export default function AttendanceReaderSettingsPage() {
   }
 
   return (
-    <div style={st.page}>
+    <div className="m-pad" style={st.page}>
       <div style={st.inner}>
         <h1 style={st.h1}><FontAwesomeIcon icon={faIdBadge} style={{ color: C.primary, fontSize: 20, marginRight: 10 }} />Attendance Reader</h1>
         <p style={st.sub}>

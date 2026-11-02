@@ -187,7 +187,7 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
               </div>
             )}
             {tab === 'child' && editing && (
-              <div style={mo.grid}>
+              <div className="m-stack" style={mo.grid}>
                 <label style={mo.label}>Child Name<input style={mo.input} value={form.childName} onChange={set('childName')} required /></label>
                 <label style={mo.label}>Date of Birth<input style={mo.input} type="date" value={form.childDob} onChange={set('childDob')} max={new Date().toISOString().split('T')[0]} required /></label>
                 <label style={mo.label}>Enrollment Year
@@ -211,7 +211,7 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
               </div>
             )}
             {tab === 'contact' && editing && (
-              <div style={mo.grid}>
+              <div className="m-stack" style={mo.grid}>
                 <label style={mo.label}>Parent Phone<input style={mo.input} value={form.parentPhone} onChange={set('parentPhone')} required /></label>
                 <label style={mo.label}>Relationship
                   <select style={mo.input} value={form.relationship} onChange={set('relationship')}>
@@ -255,7 +255,7 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
             })()}
             {tab === 'other' && editing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={mo.grid}>
+                <div className="m-stack" style={mo.grid}>
                   <label style={mo.label}>How Did You Know?
                     <select style={mo.input} value={form.howDidYouKnow} onChange={set('howDidYouKnow')}>
                       <option value="">—</option>

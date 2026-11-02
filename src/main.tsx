@@ -51,6 +51,20 @@ globalStyle.textContent = `
   input:focus::placeholder, textarea:focus::placeholder {
     color: transparent !important;
   }
+
+  /* Phone-width helpers (matches useIsMobile's 768px). Most layout lives in
+     inline style objects, so these use !important to override them — tag the
+     element with the class instead of threading useIsMobile through. */
+  @media (max-width: 767px) {
+    .m-stack  { grid-template-columns: minmax(0, 1fr) !important; }
+    .m-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .m-wrap   { flex-wrap: wrap !important; }
+    .m-pad    { padding-left: 16px !important; padding-right: 16px !important; padding-top: 16px !important; }
+    .m-full   { width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+    .m-scroll-x { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+    .m-minw   { min-width: 640px !important; }
+    .m-hide   { display: none !important; }
+  }
 `;
 document.head.appendChild(globalStyle);
 

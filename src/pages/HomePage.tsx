@@ -522,7 +522,7 @@ const s: Record<string, React.CSSProperties> = {
   // Features
   featuresGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
     gap: 18,
   },
   featureCard: {
@@ -560,7 +560,7 @@ const s: Record<string, React.CSSProperties> = {
   // Steps
   stepsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))',
     gap: 20,
   },
   stepCard: {
@@ -595,7 +595,7 @@ const s: Record<string, React.CSSProperties> = {
   // Benefits
   benefitsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))',
     gap: 18,
   },
   benefitCard: {

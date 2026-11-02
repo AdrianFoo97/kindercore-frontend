@@ -116,7 +116,7 @@ export default function SopObservationNewPage() {
   };
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <style>{`
         .sop-obs-pick-row:hover { background: ${C.primarySoft} !important; border-color: ${C.primaryBorder} !important; }
         .sop-obs-picklist::-webkit-scrollbar { width: 6px; }

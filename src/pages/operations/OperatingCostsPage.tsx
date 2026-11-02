@@ -416,6 +416,15 @@ export default function OperatingCostsPage() {
         .occ-row:hover .occ-money-shell { border-color: #cbd5e1 !important; }
         .occ-row .occ-money-shell:focus-within { border-color: ${C.primary} !important; }
 
+        /* Phone: sidebar stacks above the panel; rows drop the last-month
+           column so the category name keeps room next to the amount. */
+        @media (max-width: 767px) {
+          .occ-sidebar { width: 100% !important; position: static !important; }
+          .occ-panel-head { flex-wrap: wrap; gap: 12px !important; padding: 16px 14px !important; }
+          .occ-row { grid-template-columns: minmax(0, 1fr) auto !important; gap: 12px !important; padding-left: 14px !important; padding-right: 14px !important; }
+          .occ-row > :nth-child(2) { display: none !important; }
+        }
+
         .occ-copy-btn:hover { background: ${C.primaryLight}; border-color: ${C.primaryBorder}; color: ${C.primary}; }
 
         .occ-discard-btn:hover:not(:disabled) { background: ${C.hover}; border-color: ${C.mutedMore}; color: ${C.textStrong}; }
@@ -517,7 +526,7 @@ export default function OperatingCostsPage() {
           No categories yet. Add categories under Settings → Operating Cost → Categories.
         </div>
       ) : viewMode === 'month' ? (
-        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 14 : 24, alignItems: isMobile ? 'stretch' : 'flex-start' }}>
           <CategorySidebar
             groups={sidebarGroups}
             grandTotal={grandTotal}

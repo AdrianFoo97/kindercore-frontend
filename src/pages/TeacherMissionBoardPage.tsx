@@ -1345,7 +1345,7 @@ function SectionBlock<T>({
       ) : (
         <div style={{
           display: 'grid', gap: SP.md,
-          gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(auto-fill, minmax(340px, 1fr))',
+          gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))',
         }}>
           {visible.map(item => (
             <React.Fragment key={getKey(item)}>{renderItem(item)}</React.Fragment>

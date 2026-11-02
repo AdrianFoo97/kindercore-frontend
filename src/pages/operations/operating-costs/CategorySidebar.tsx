@@ -19,7 +19,7 @@ export function CategorySidebar({
   groups, grandTotal, periodLabel, activeGroupName, onSelect,
 }: CategorySidebarProps) {
   return (
-    <aside style={{
+    <aside className="occ-sidebar" style={{
       width: SIZE.sidebarWidth,
       flexShrink: 0,
       background: C.card,

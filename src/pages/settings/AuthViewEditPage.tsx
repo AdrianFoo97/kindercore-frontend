@@ -89,12 +89,12 @@ export default function AuthViewEditPage() {
 
   if (isLoading || !hydrated) {
     return (
-      <div style={s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>
+      <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>
     );
   }
   if (isEdit && !existing) {
     return (
-      <div style={s.page}>
+      <div className="m-pad" style={s.page}>
         <div style={s.inner}>
           <p style={{ color: C.muted }}>View not found.</p>
           <Link to="/settings/auth-views" style={s.crumbLink}>Back to Views</Link>
@@ -104,7 +104,7 @@ export default function AuthViewEditPage() {
   }
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         <div style={s.breadcrumb}>
           <button onClick={() => navigate('/settings/auth-views')} style={s.backBtn} title="Back">

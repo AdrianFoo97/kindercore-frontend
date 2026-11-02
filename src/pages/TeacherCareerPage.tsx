@@ -383,7 +383,7 @@ export default function TeacherCareerPage() {
               ) : (
                 <div style={{
                   display: 'grid', gap: 14,
-                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))',
+                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))',
                 }}>
                   {activeMissions.map(m => (
                     <MissionCard

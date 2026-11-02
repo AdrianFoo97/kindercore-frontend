@@ -155,7 +155,7 @@ export default function ManageUsersPage() {
   const pendingUsers = users.filter(u => !u.activated);
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
+    <div className="m-pad" style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
       <SettingsBreadcrumb label="Team Members" />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
         <div>

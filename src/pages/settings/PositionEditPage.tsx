@@ -186,12 +186,12 @@ export default function PositionEditPage() {
 
   if (isLoading || !hydrated) {
     return (
-      <div style={s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>
+      <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>
     );
   }
   if (isEdit && !existing) {
     return (
-      <div style={s.page}>
+      <div className="m-pad" style={s.page}>
         <div style={s.inner}>
           <p style={{ color: C.muted }}>Position not found.</p>
           <Link to="/settings/employee-salary" style={s.crumbLink}>Back to Employee Salary</Link>
@@ -201,7 +201,7 @@ export default function PositionEditPage() {
   }
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         {/* Breadcrumb */}
         <div style={s.breadcrumb}>
@@ -333,7 +333,7 @@ export default function PositionEditPage() {
 
           {/* Levels + career path — explicit grid columns so the three
               controls line up cleanly without overlap on any width. */}
-          <div style={{
+          <div className="m-stack" style={{
             display: 'grid',
             gridTemplateColumns: form.maxLevel > 0
               ? 'minmax(160px, 1fr) minmax(120px, 1fr) minmax(160px, 1fr)'

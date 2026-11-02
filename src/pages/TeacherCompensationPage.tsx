@@ -1735,7 +1735,7 @@ export function CompanyGoalRewards({ eligibility, compact = false }: { eligibili
         display: 'grid', gap: SP.md,
         gridTemplateColumns: isMobile
           ? 'minmax(0, 1fr)'
-          : 'repeat(auto-fit, minmax(360px, 1fr))',
+          : 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))',
       }}>
         <CompanyGoalCard
           icon={faPiggyBank}
@@ -2480,7 +2480,7 @@ export function HighPerformerBenefits({ unlocked }: { unlocked: boolean }) {
           display: 'grid', gap: SP.md,
           gridTemplateColumns: isMobile
             ? 'minmax(0, 1fr)'
-            : 'repeat(auto-fit, minmax(320px, 1fr))',
+            : 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
         }}>
           <HighPerformerCard
             icon={faBusinessTime}
@@ -2896,6 +2896,6 @@ const s: Record<string, React.CSSProperties> = {
 
   benefitGrid: {
     display: 'grid', gap: SP.md,
-    gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))',
   },
 };

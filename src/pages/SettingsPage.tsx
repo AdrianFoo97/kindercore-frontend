@@ -164,7 +164,7 @@ export default function SettingsPage() {
   const lostReasons: string[] = Array.isArray(data?.lost_reasons) ? data.lost_reasons as string[] : [];
 
   return (
-    <div style={styles.page}>
+    <div className="m-pad" style={styles.page}>
       <div style={styles.inner}>
         <h1 style={styles.heading}>Leads Settings</h1>
         {!isAdmin && (

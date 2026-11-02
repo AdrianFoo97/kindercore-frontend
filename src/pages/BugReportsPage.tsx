@@ -61,7 +61,7 @@ export default function BugReportsPage() {
   };
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         <div style={{ marginBottom: 22 }}>
           <h1 style={s.heading}>Bug Reports</h1>

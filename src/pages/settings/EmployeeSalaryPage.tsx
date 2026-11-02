@@ -171,10 +171,10 @@ export default function EmployeeSalaryPage({ embedded = false }: { embedded?: bo
     return m;
   }, [teachersSalary]);
 
-  if (posLoading) return <div style={embedded ? undefined : s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>;
+  if (posLoading) return <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>;
 
   return (
-    <div style={embedded ? undefined : s.page}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}>
       <div style={s.inner}>
         {!embedded && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
@@ -202,8 +202,8 @@ export default function EmployeeSalaryPage({ embedded = false }: { embedded?: bo
             </button>
           </div>
 
-          <div>
-            <table style={{ ...s.table, tableLayout: 'fixed' }}>
+          <div className="m-scroll-x">
+            <table className="m-minw" style={{ ...s.table, tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: 32 }} />
                 <col style={{ width: 56 }} />

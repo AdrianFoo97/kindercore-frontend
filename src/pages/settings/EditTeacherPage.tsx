@@ -364,7 +364,7 @@ export default function EditTeacherPage() {
   };
 
   if (!isNew && !teacher && teachers.length > 0) {
-    return <div style={s.page}><div style={s.inner}><p style={{ color: C.muted, textAlign: 'center', marginTop: 60 }}>Teacher not found.</p></div></div>;
+    return <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted, textAlign: 'center', marginTop: 60 }}>Teacher not found.</p></div></div>;
   }
 
   // Salary breakdown
@@ -430,7 +430,7 @@ export default function EditTeacherPage() {
   ];
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <style>{`.et-tab:hover { background: #f1f5f9 !important; } .et-del-career:hover { color: #ef4444 !important; background: #fef2f2 !important; } .et-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }`}</style>
       <div style={s.inner}>
         {/* Back + breadcrumb */}

@@ -128,7 +128,7 @@ export default function YearRolloverPage() {
   const result = summary ?? preview;
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         <div style={s.breadcrumb}>
           <button onClick={() => navigate(-1)} style={s.backBtn} title="Back">

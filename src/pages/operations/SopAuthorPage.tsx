@@ -62,7 +62,7 @@ export default function SopAuthorPage() {
   }, [filteredTemplates, pickerOpen]);
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <style>{`
         .sop-draft-row:hover { border-color: ${C.primary}55 !important; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 16px rgba(90,103,216,0.08) !important; }
         .sop-author-action:hover { border-color: ${C.primary}55 !important; }

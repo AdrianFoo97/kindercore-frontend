@@ -268,7 +268,7 @@ export default function AllowancesPage() {
           <button onClick={saveContribs} disabled={contribSaving} style={s.saveBtn}>{contribSaving ? 'Saving…' : 'Save Rates'}</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
 
           {/* EPF card */}
           {(() => {

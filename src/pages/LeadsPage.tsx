@@ -368,7 +368,7 @@ function ManageLabelsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: 420, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: 420, maxWidth: 'calc(100vw - 32px)', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1a202c', margin: 0 }}>Manage Labels</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: '#718096' }}>
@@ -1914,7 +1914,7 @@ function DeclineModal({ lead, lostReasons, onClose, onDeclined }: {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 380, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
         <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Not Enrolling</h3>
         <p style={{ margin: '0 0 10px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
         <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 12 }}>
@@ -1995,7 +1995,7 @@ function RejectModal({ lead, lostReasons, onClose, onRejected }: {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 380, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
         <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Reject Lead</h3>
         <p style={{ margin: '0 0 10px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
         <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 12 }}>
@@ -2296,7 +2296,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
               </div>
             )}
             {tab === 'child' && editing && (
-              <div style={mo.grid}>
+              <div className="m-stack" style={mo.grid}>
                 <label style={mo.label}>Child Name<input style={mo.input} value={form.childName} onChange={set('childName')} required /></label>
                 <label style={mo.label}>Date of Birth<input style={mo.input} type="date" value={form.childDob} onChange={set('childDob')} max={new Date().toISOString().split('T')[0]} required /></label>
                 <label style={mo.label}>Enrollment Year
@@ -2318,7 +2318,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
               </div>
             )}
             {tab === 'contact' && editing && (
-              <div style={mo.grid}>
+              <div className="m-stack" style={mo.grid}>
                 <label style={mo.label}>Phone<input style={mo.input} value={form.parentPhone} onChange={set('parentPhone')} required /></label>
                 <label style={mo.label}>Relationship
                   <select style={mo.input} value={form.relationship} onChange={set('relationship')}>
@@ -2368,7 +2368,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
             })()}
             {tab === 'other' && editing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={mo.grid}>
+                <div className="m-stack" style={mo.grid}>
                   <label style={mo.label}>Source
                     <select style={mo.input} value={form.howDidYouKnow} onChange={set('howDidYouKnow')}>
                       <option value="">—</option>
@@ -2505,7 +2505,7 @@ function EnrollmentModal({ lead, onClose, onEnrolled }: { lead: Lead; onClose: (
             : packages.length === 0
               ? <span style={{ fontSize: 13, color: '#a0aec0' }}>No packages for {enrolmentYear}</span>
             : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <label style={mo.label}>
                   Programme
                   <select style={mo.input} value={selectedProgramme} onChange={e => setSelectedProgramme(e.target.value)}>
@@ -3035,7 +3035,7 @@ export default function LeadsPage() {
       {/* Attended modal */}
       {attendedLead && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
             <h3 style={{ fontSize: 17, fontWeight: 700, color: '#1a202c', marginBottom: 4 }}>Mark as Attended</h3>
             <p style={{ fontSize: 13, color: '#718096', marginBottom: 18 }}>{attendedLead.childName} · {attendedLead.parentPhone}</p>
             <label style={{ fontSize: 13, fontWeight: 600, color: '#4a5568', display: 'block', marginBottom: 14 }}>

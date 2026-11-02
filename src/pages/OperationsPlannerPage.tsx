@@ -211,7 +211,7 @@ function EditTaskModal({ task, onClose, onSave, onDelete }: {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ width: 380, background: C.card, borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+      <div style={{ width: 380, maxWidth: 'calc(100vw - 32px)', background: C.card, borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Edit Task</span>
           <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: C.muted, width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -351,7 +351,7 @@ function ResourcePanel({ teachers, subjects, tasks, classrooms, blocks, search, 
   };
 
   return (
-    <div style={{
+    <div className="m-hide" style={{
       width: 260, minWidth: 260, background: C.card, borderRight: `1px solid ${C.border}`,
       display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
@@ -522,7 +522,7 @@ function ResourcePanel({ teachers, subjects, tasks, classrooms, blocks, search, 
       {addTaskOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}
           onClick={e => { if (e.target === e.currentTarget) setAddTaskOpen(false); }}>
-          <div style={{ width: 360, background: C.card, borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+          <div style={{ width: 360, maxWidth: 'calc(100vw - 32px)', background: C.card, borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>New Task</span>
               <button onClick={() => setAddTaskOpen(false)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: C.muted, width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -641,8 +641,8 @@ function WeekHeader({ onSave, onLoad, onNew, onDelete, onClearAll, onUndo, onRed
   }, []);
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    <div className="m-wrap" style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
       padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: C.card,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -2538,7 +2538,7 @@ export default function OperationsPlannerPage() {
       />
 
       {/* Main area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <WeekHeader
           onSave={handleSaveTimetable}
           onLoad={handleLoadTimetable}
@@ -2772,7 +2772,7 @@ export default function OperationsPlannerPage() {
           style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}
           onClick={e => { if (e.target === e.currentTarget) setConfirmModal(null); }}
         >
-          <div style={{ width: 380, background: C.card, borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+          <div style={{ width: 380, maxWidth: 'calc(100vw - 32px)', background: C.card, borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}` }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{confirmModal.title}</span>
             </div>
@@ -2798,7 +2798,7 @@ export default function OperationsPlannerPage() {
           style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}
           onClick={e => { if (e.target === e.currentTarget) setSaveModalOpen(false); }}
         >
-          <div style={{ width: 360, background: C.card, borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+          <div style={{ width: 360, maxWidth: 'calc(100vw - 32px)', background: C.card, borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Save Timetable</span>
               <button onClick={() => setSaveModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16 }}>

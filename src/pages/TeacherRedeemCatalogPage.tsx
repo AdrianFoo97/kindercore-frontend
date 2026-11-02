@@ -631,7 +631,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   grid: {
     display: 'grid', gap: 12,
-    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))',
   },
   groupHeader: {
     display: 'flex', alignItems: 'flex-start', gap: 12,

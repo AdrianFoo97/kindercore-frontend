@@ -1971,7 +1971,7 @@ const s: Record<string, React.CSSProperties> = {
 
 const drawerS: Record<string, React.CSSProperties> = {
   panel: {
-    position: 'fixed', top: NAVBAR_HEIGHT, right: 0, bottom: 0, width: 440,
+    position: 'fixed', top: NAVBAR_HEIGHT, right: 0, bottom: 0, width: 440, maxWidth: '100vw',
     background: '#fff', borderLeft: `1px solid ${C.cardBorder}`,
     boxShadow: '-8px 0 28px rgba(15,23,42,0.08)',
     // Above TeacherMobileNav's floating capsule (zIndex 50) — this panel

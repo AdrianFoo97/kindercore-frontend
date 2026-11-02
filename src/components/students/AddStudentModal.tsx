@@ -255,7 +255,7 @@ export default function AddStudentModal({
 
             {activeTab === 'package' && (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <label style={modal.label}>
                     Enrolment Year
                     <select style={modal.input} value={year} onChange={e => setYear(Number(e.target.value))}>
@@ -275,7 +275,7 @@ export default function AddStudentModal({
                 {packages.length === 0 ? (
                   <span style={{ fontSize: 13, color: '#a0aec0' }}>Loading packages…</span>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <label style={modal.label}>
                       Programme
                       <select style={modal.input} value={selectedProgramme} onChange={e => setSelectedProgramme(e.target.value)}>

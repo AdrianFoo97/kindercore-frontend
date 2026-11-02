@@ -4,6 +4,7 @@ import { fetchTeacherWeightsByMonth } from '../api/salary.js';
 import { fetchFinanceSummary } from '../api/finance.js';
 import { fetchSettings } from '../api/settings.js';
 import { DEFAULT_EXPENSE_RATIO_TARGET, DEFAULT_PROFIT_SHARE_PERCENT } from '../pages/FinanceSettingsPage.js';
+import { monthPool, poolWeight, settingNum, splitPool } from '../utils/poolMath.js';
 
 export const TEAM_POOL_QUARTERS: { label: string; months: number[] }[] = [
   { label: 'Q1 · Jan – Mar', months: [0, 1, 2] },
@@ -12,10 +13,6 @@ export const TEAM_POOL_QUARTERS: { label: string; months: number[] }[] = [
   { label: 'Q4 · Oct – Dec', months: [9, 10, 11] },
 ];
 
-function settingNum(v: unknown, lo: number, hi: number, fallback: number): number {
-  const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
-  return Number.isFinite(n) && n > lo && n <= hi ? n : fallback;
-}
 
 export interface TeamPoolMonth {
   monthIdx: number;
@@ -73,43 +70,31 @@ export function useTeamPoolSummary(teacherId: string | undefined): TeamPoolSumma
   const expenseTarget = settingNum(settings?.expense_ratio_target, 0, 2, DEFAULT_EXPENSE_RATIO_TARGET);
   const profitSharePct = settingNum(settings?.profit_share_percent, 0, 1, DEFAULT_PROFIT_SHARE_PERCENT);
 
-  const monthlyPools = useMemo<TeamPoolMonth[]>(() => {
-    return quarter.months.map(mi => {
-      const m = finance?.months[mi];
-      if (!m) return { monthIdx: mi, revenue: 0, hit: false, pool: 0, projectedPool: 0, isForecast: true, ratio: null };
-      const expenses = m.staffCost + m.operatingCost;
-      const ratio = m.revenue > 0 ? expenses / m.revenue : null;
-      const wouldQualify = ratio !== null && ratio <= expenseTarget;
-      const hit = !m.isForecast && wouldQualify;
-      const projectedPool = wouldQualify ? m.revenue * profitSharePct : 0;
-      const pool = hit ? projectedPool : 0;
-      return { monthIdx: mi, revenue: m.revenue, hit, pool, projectedPool, isForecast: m.isForecast, ratio };
-    });
-  }, [finance, quarter, expenseTarget, profitSharePct]);
+  const monthlyPools = useMemo<TeamPoolMonth[]>(
+    () => quarter.months.map(mi => monthPool(mi, finance?.months[mi], expenseTarget, profitSharePct)),
+    [finance, quarter, expenseTarget, profitSharePct],
+  );
 
   const poolAmount = monthlyPools.reduce((s, m) => s + m.pool, 0);
   const hitsCount = monthlyPools.filter(m => m.hit).length;
   const elapsedCount = monthlyPools.filter(m => !m.isForecast).length;
 
-  const { myWeight, totalWeight, isEligible } = useMemo(() => {
-    if (!weights) return { myWeight: 0, totalWeight: 0, isEligible: false };
-    let mine = 0;
-    let total = 0;
-    let mineFound = false;
-    for (const t of weights.teachers) {
-      let w = 0;
-      for (const mi of quarter.months) {
-        const m = t.months[mi];
-        if (m && m.isActive && m.weight > 0) w += m.weight;
-      }
-      if (w <= 0) continue;
-      total += w;
-      if (t.teacherId === teacherId) { mine = w; mineFound = true; }
-    }
-    return { myWeight: mine, totalWeight: total, isEligible: mineFound };
-  }, [weights, quarter, teacherId]);
+  // Everyone with weight this quarter — split exactly as the admin
+  // Profit Sharing page does, so "my share" matches what is paid out.
+  const team = useMemo(
+    () => (weights?.teachers ?? [])
+      .map(t => ({ teacherId: t.teacherId, weight: poolWeight(t.months, quarter.months) }))
+      .filter(t => t.weight > 0),
+    [weights, quarter],
+  );
+  const totalWeight = team.reduce((s, t) => s + t.weight, 0);
+  const myWeight = team.find(t => t.teacherId === teacherId)?.weight ?? 0;
+  const isEligible = myWeight > 0;
 
-  const myShare = totalWeight > 0 ? Math.round((myWeight / totalWeight) * poolAmount * 100) / 100 : 0;
+  const myShare = useMemo(
+    () => splitPool(team, poolAmount).find(t => t.teacherId === teacherId)?.amount ?? 0,
+    [team, poolAmount, teacherId],
+  );
   const mySharePct = totalWeight > 0 ? Math.round((myWeight / totalWeight) * 100) : 0;
 
   return {

@@ -287,7 +287,7 @@ export default function ImportStudentsPage({ embedded = false }: { embedded?: bo
   // ── Render ──
 
   return (
-    <div style={embedded ? { display: 'flex', justifyContent: 'center' } : s.page}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? { display: 'flex', justifyContent: 'center' } : s.page}>
       <div style={s.inner}>
         {!embedded && (
           <>
@@ -397,7 +397,7 @@ export default function ImportStudentsPage({ embedded = false }: { embedded?: bo
             {matchableRows.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <h3 style={s.sectionTitle}><FontAwesomeIcon icon={faLink} style={{ marginRight: 6, color: '#5b9a6f' }} /> Matched ({matchableRows.length})</h3>
-                <div style={s.tableWrap}>
+                <div className="m-scroll-x" style={s.tableWrap}>
                   <table style={s.table}>
                     <thead>
                       <tr>
@@ -429,7 +429,7 @@ export default function ImportStudentsPage({ embedded = false }: { embedded?: bo
             {unmatchedRows.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <h3 style={s.sectionTitle}><FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 6, color: '#c47272' }} /> Unmatched ({unmatchedRows.length})</h3>
-                <div style={s.tableWrap}>
+                <div className="m-scroll-x" style={s.tableWrap}>
                   <table style={s.table}>
                     <thead>
                       <tr>
@@ -516,7 +516,7 @@ export default function ImportStudentsPage({ embedded = false }: { embedded?: bo
               {importFailed.length > 0 && (
                 <div style={{ marginTop: 16 }}>
                   <h3 style={s.sectionTitle}>Failed rows ({importFailed.length})</h3>
-                  <div style={s.tableWrap}>
+                  <div className="m-scroll-x" style={s.tableWrap}>
                     <table style={s.table}>
                       <thead>
                         <tr>

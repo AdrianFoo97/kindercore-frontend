@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../api/client.js';
+import { fetchTestRunner } from '../api/admin.js';
 import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 type Tool = 'reset-leads' | 'reset-students' | 'reset-candidates' | 'seed-dummy' | 'seed-candidates';
@@ -10,6 +12,9 @@ export default function TestToolsPage({ tool }: { tool: Tool }) {
   const [status, setStatus] = useState<'idle' | 'confirming' | 'loading' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [note, setNote] = useState('');
+  // These tools only exist on the test server — the backend answers 404
+  // elsewhere, so production shows a notice instead of a button.
+  const { data: testRunner, isLoading: checkingServer } = useQuery({ queryKey: ['test-runner'], queryFn: fetchTestRunner, retry: false });
 
   const config = {
     'reset-leads': {
@@ -72,7 +77,13 @@ export default function TestToolsPage({ tool }: { tool: Tool }) {
       <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1a202c', marginBottom: 8 }}>{config.title}</h2>
       <p style={{ fontSize: 14, color: '#718096', marginBottom: 32 }}>{config.description}</p>
 
-      {status === 'idle' && (
+      {!checkingServer && !testRunner && (
+        <p style={{ fontSize: 14, color: '#4a5568', background: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
+          This tool is only available on the test server, so live data can't be wiped by mistake.
+        </p>
+      )}
+
+      {testRunner && status === 'idle' && (
         <button
           onClick={() => setStatus('confirming')}
           style={{ padding: '10px 20px', background: tool === 'seed-dummy' || tool === 'seed-candidates' ? '#38a169' : '#e53e3e', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}

@@ -174,7 +174,7 @@ export default function MarketingCampaignsPage() {
   };
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={s.heading}>Campaigns</h1>
@@ -395,7 +395,7 @@ function CampaignEditorModal({
             />
           </div>
 
-          <div style={modal.row2}>
+          <div className="m-stack" style={modal.row2}>
             <div style={modal.field}>
               <label style={modal.label}>Start date</label>
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={modal.input} />

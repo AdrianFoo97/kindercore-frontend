@@ -22,7 +22,7 @@ export default function OnboardingSettingsPage() {
   if (isError) return <p style={{ ...styles.state, color: '#e53e3e' }}>Failed to load settings.</p>;
 
   return (
-    <div style={styles.page}>
+    <div className="m-pad" style={styles.page}>
       <div style={styles.inner}>
         <h1 style={styles.heading}>Student Onboarding</h1>
         <p style={styles.subheading}>Tasks to complete when a new student is enrolled.</p>

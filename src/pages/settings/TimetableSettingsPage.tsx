@@ -188,7 +188,7 @@ export default function TimetableSettingsPage({ embedded = false }: { embedded?:
   };
 
   return (
-    <div style={embedded ? undefined : { padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : { padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
       <style>{`.tt-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
       <div style={embedded ? undefined : { maxWidth: 960, margin: '0 auto' }}>
         {!embedded && <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: '4px 0 20px' }}>Timetable</h1>}
@@ -500,7 +500,7 @@ export default function TimetableSettingsPage({ embedded = false }: { embedded?:
       {deleteConfirm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1001, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}
           onClick={e => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}>
-          <div style={{ width: 380, background: C.card, borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+          <div style={{ width: 380, maxWidth: 'calc(100vw - 32px)', background: C.card, borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
             <div style={{ padding: '20px 24px 16px' }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Delete {singular}</div>
               <div style={{ fontSize: 13, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>

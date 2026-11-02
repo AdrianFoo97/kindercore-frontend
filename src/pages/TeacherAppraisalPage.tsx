@@ -18,7 +18,7 @@ export default function TeacherAppraisalPage() {
   const teacher = (teachers as any[]).find(t => t.id === id);
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <style>{`.tap-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }`}</style>
       <div style={s.inner}>
         <div style={s.breadcrumb}>

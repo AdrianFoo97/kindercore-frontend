@@ -200,7 +200,7 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
   // ── Empty: no positions exist yet ──
   if (!positionsLoading && positions.length === 0) {
     return (
-      <div style={embedded ? undefined : s.page}>
+      <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}>
         <div style={embedded ? undefined : s.inner}>
           {!embedded && <h1 style={s.heading}>Career Mission Settings</h1>}
           <div style={{ ...s.card, textAlign: 'center', padding: '64px 32px' }}>
@@ -223,7 +223,7 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
   }
 
   return (
-    <div style={embedded ? undefined : s.page}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}>
       <div style={embedded ? undefined : s.inner}>
         {!embedded && (
           <div style={{ marginBottom: 24 }}>
@@ -518,7 +518,7 @@ function MissionEditorModal({
             />
           </div>
 
-          <div style={modalS.row2}>
+          <div className="m-stack" style={modalS.row2}>
             <div style={modalS.field}>
               <label style={modalS.label}>Category</label>
               <div style={modalS.chipRow}>
@@ -610,7 +610,7 @@ function MissionEditorModal({
             />
           </div>
 
-          <div style={modalS.row2}>
+          <div className="m-stack" style={modalS.row2}>
             <CheckRow
               label="Required for promotion"
               hint="Mission must be completed for this position's promotion."

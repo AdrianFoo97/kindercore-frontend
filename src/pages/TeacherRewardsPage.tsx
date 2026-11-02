@@ -552,7 +552,7 @@ function RecentActivity({
               isn't just a floating figure the teacher has to decode. */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '32px minmax(0, 1fr) 100px 90px',
+            gridTemplateColumns: '32px minmax(0, 1fr) 76px 56px',
             gap: 10, alignItems: 'center',
             padding: '4px 0 8px',
             fontSize: 9, fontWeight: 800, color: C.muted,
@@ -571,7 +571,7 @@ function RecentActivity({
             return (
               <div key={tx.id} style={{
                 display: 'grid',
-                gridTemplateColumns: '32px minmax(0, 1fr) 100px 90px',
+                gridTemplateColumns: '32px minmax(0, 1fr) 76px 56px',
                 gap: 10, alignItems: 'center',
                 padding: '10px 0',
                 borderTop: i === 0 ? 'none' : `1px solid ${C.divider}`,
@@ -709,7 +709,7 @@ function MyRewards({ teacherId, filter, onFilterChange }: {
       ) : (
         <div style={{
           display: 'grid', gap: 10,
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))',
         }}>
           {filtered.map(r => {
             const badge = statusBadge(r.status);

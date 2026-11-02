@@ -246,11 +246,11 @@ export default function ProgrammesSettingsPage({ embedded = false }: { embedded?
 
   const wrap = embedded ? undefined : s.page;
 
-  if (isLoading) return <div style={wrap}><p style={s.muted}>Loading…</p></div>;
-  if (isError) return <div style={wrap}><p style={{ ...s.muted, color: '#dc2626' }}>Failed to load.</p></div>;
+  if (isLoading) return <div className={embedded ? undefined : 'm-pad'} style={wrap}><p style={s.muted}>Loading…</p></div>;
+  if (isError) return <div className={embedded ? undefined : 'm-pad'} style={wrap}><p style={{ ...s.muted, color: '#dc2626' }}>Failed to load.</p></div>;
   if (!isAdmin) {
     return (
-      <div style={wrap}>
+      <div className={embedded ? undefined : 'm-pad'} style={wrap}>
         {!embedded && <h1 style={s.heading}>Programmes</h1>}
         <p style={s.muted}>Admin role required.</p>
       </div>
@@ -258,7 +258,7 @@ export default function ProgrammesSettingsPage({ embedded = false }: { embedded?
   }
 
   return (
-    <div style={wrap}>
+    <div className={embedded ? undefined : 'm-pad'} style={wrap}>
       <style>{rowHoverCss}</style>
 
       {!embedded && (
@@ -294,7 +294,7 @@ export default function ProgrammesSettingsPage({ embedded = false }: { embedded?
       ) : (
         <>
           {/* Table */}
-          <div style={s.tableWrap}>
+          <div className="m-scroll-x" style={s.tableWrap}>
             <table style={s.table}>
               <thead>
                 <tr style={s.theadRow}>
@@ -574,7 +574,7 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: 16, flexWrap: 'wrap',
     marginBottom: 20,
   },
   headerActions: { display: 'flex', alignItems: 'center', gap: 8 },

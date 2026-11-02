@@ -22,7 +22,7 @@ export default function SettingsDataPage() {
   const active = TABS.find(t => t.key === tab)!;
 
   return (
-    <div style={s.page}>
+    <div className="m-pad" style={s.page}>
       <style>{`.data-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
       <div style={s.inner}>
         <h1 style={s.heading}>{active.label}</h1>

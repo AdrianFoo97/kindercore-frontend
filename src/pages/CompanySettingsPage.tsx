@@ -409,7 +409,7 @@ export default function CompanySettingsPage() {
   const onSaved = () => queryClient.invalidateQueries({ queryKey: ['settings'] });
 
   return (
-    <div style={st.page}>
+    <div className="m-pad" style={st.page}>
       <style>{`.company-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
       <div style={st.inner}>
         <h1 style={st.heading}>{active.label}</h1>

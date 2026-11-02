@@ -150,7 +150,7 @@ function PanelHeader({
   const deltaBg = deltaIsIncrease ? '#fef2f2' : '#f0fdf4';
 
   return (
-    <header style={{
+    <header className="occ-panel-head" style={{
       padding: `24px ${SIZE.cardPadX}px 22px`,
       display: 'flex',
       alignItems: 'center',

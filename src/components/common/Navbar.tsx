@@ -4,6 +4,7 @@ import { NavLink, useNavigate, useMatch } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { fetchCandidateFormOptions } from '../../api/candidates.js';
+import { fetchTestRunner } from '../../api/admin.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
@@ -172,6 +173,16 @@ export default function Navbar() {
 
   // Templates for WhatsApp modal
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+
+  // Delete-everything / dummy-data tools only exist on the test server
+  // (backend answers 404 elsewhere) — same probe + cache key as Test Catalog.
+  const { data: testRunner } = useQuery({
+    queryKey: ['test-runner'],
+    queryFn: fetchTestRunner,
+    enabled: user?.role === 'ADMIN' || user?.role === 'SUPERADMIN',
+    retry: false,
+  });
+  const isTestServer = !!testRunner;
 
   // Referral sources for the Apply Form Links modal — same public
   // endpoint + cache key the Candidates page and apply form both use,
@@ -737,8 +748,8 @@ export default function Navbar() {
                     role-gated at the wrapper (only ADMIN / SUPERADMIN
                     render this whole dropdown), and the backend
                     /api/candidates/reset-all endpoint also enforces
-                    adminMiddleware — belt + braces. */}
-                <NavLink to="/settings/test/reset-candidates" onClick={closeAll}
+                    adminMiddleware + testEnvOnly — test server only. */}
+                {isTestServer && <NavLink to="/settings/test/reset-candidates" onClick={closeAll}
                   className={mobile ? '' : 'nav-drop-item'}
                   style={({ isActive }) => ({
                     display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
@@ -746,7 +757,7 @@ export default function Navbar() {
                     background: isActive ? '#fef2f2' : 'none', borderRadius: 6,
                   })}>
                   <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12, color: '#c53030' }} /> Reset All Candidates
-                </NavLink>
+                </NavLink>}
               </div>
             )}
           </div>
@@ -798,8 +809,8 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* Dev tools — SUPERADMIN only */}
-        {user?.role === 'SUPERADMIN' && (
+        {/* Dev tools — SUPERADMIN only, test server only */}
+        {user?.role === 'SUPERADMIN' && isTestServer && (
           <div ref={mobile ? undefined : devRef} style={mobile ? {} : { position: 'relative' }}>
             <button onClick={() => setDevOpen(o => !o)} className={mobile ? '' : 'nav-link'}
               style={{ ...mDropBtn, ...(onDevRoute && !mobile ? { ...styles.activeLink } : {}), ...(mobile ? {} : { color: '#fde68a' }) }}>

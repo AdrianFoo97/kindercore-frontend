@@ -302,7 +302,7 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
   }
 
   return (
-    <div style={embedded ? { maxWidth: 980, margin: '0 auto' } : s.page}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? { maxWidth: 980, margin: '0 auto' } : s.page}>
       <style>{`
         .cat-row { transition: background 0.1s; }
         .cat-row:hover { background: #f8fafc; }
@@ -314,6 +314,10 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
         .occ-tab:hover { background: #f1f5f9 !important; }
         .occ-table tbody tr:last-child td { border-bottom: none !important; }
         .occ-table input { outline: none; }
+        @media (max-width: 767px) {
+          .occs-layout { flex-direction: column; align-items: stretch !important; }
+          .occs-side { width: 100% !important; position: static !important; }
+        }
         .occ-cell-input, .occ-money-wrap { transition: border-color 0.15s, box-shadow 0.15s; }
         .occ-cell-input:focus { border-color: ${C.primary} !important; box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.15); }
         .occ-money-wrap:focus-within { border-color: ${C.primary} !important; box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.15); }
@@ -350,9 +354,9 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
         </div>
       ) : (
         <>
-        <div style={s.layout}>
+        <div className="occs-layout" style={s.layout}>
           {/* Left sidebar — main categories as vertical tabs */}
-          <div style={s.sidebarCard}>
+          <div className="occs-side" style={s.sidebarCard}>
             <div style={s.sidebarHeader}>
               <span>Main Categories</span>
             </div>
@@ -395,7 +399,7 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
 
           {/* Right content — card with header + table */}
           <div style={s.content}>
-            <div style={s.contentCard}>
+            <div className="m-scroll-x" style={s.contentCard}>
               <div style={s.contentHeader}>
                 <div>
                   <h2 style={s.contentTitle}>{activeGroup?.name}</h2>

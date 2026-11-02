@@ -151,7 +151,7 @@ export default function PointsRewardsAddPage() {
 
   if (stillLoadingExisting) {
     return (
-      <div style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh', color: C.text }}>
+      <div className="m-pad" style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh', color: C.text }}>
         <div style={{ maxWidth: 680, margin: '0 auto', padding: '48px 0', textAlign: 'center', color: C.muted, fontSize: 13 }}>
           Loading…
         </div>
@@ -160,7 +160,7 @@ export default function PointsRewardsAddPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh', color: C.text }}>
+    <div className="m-pad" style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh', color: C.text }}>
       <style>{`
         .pra-icon-btn:not([aria-pressed="true"]):hover { background: #f1f5f9; border-color: #cbd5e1; color: ${C.text}; }
         .pra-input:focus { outline: none; border-color: ${POINTS_C.accent}; box-shadow: 0 0 0 3px ${POINTS_C.accent}1a; }

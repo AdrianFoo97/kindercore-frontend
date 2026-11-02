@@ -116,7 +116,7 @@ export default function MissionCategoriesPage({ embedded = false }: { embedded?:
   };
 
   return (
-    <div style={embedded ? undefined : s.page}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}>
       <div style={embedded ? undefined : s.inner}>
         {!embedded && (
           <div style={{ marginBottom: 24 }}>

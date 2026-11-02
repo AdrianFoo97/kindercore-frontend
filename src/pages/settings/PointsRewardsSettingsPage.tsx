@@ -116,7 +116,7 @@ export default function PointsRewardsSettingsPage({ embedded = false }: { embedd
   };
 
   return (
-    <div style={embedded ? undefined : s.page}>
+    <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}>
       <style>{`
         .prs-card { transition: border-color 160ms ease, box-shadow 160ms ease; }
         .prs-card:hover { border-color: ${C.cardBorderHover}; box-shadow: ${SHADOW_HOVER}; }
@@ -125,6 +125,10 @@ export default function PointsRewardsSettingsPage({ embedded = false }: { embedd
         .prs-row { transition: background 120ms ease; }
         .prs-row:hover { background: ${C.slateSoft}; }
         .prs-row:last-child { border-bottom: none; }
+        @media (max-width: 767px) {
+          .prs-card { overflow-x: auto !important; }
+          .prs-head, .prs-row { min-width: 600px; }
+        }
         .prs-btn-primary:hover { background: ${POINTS_C.deep}; box-shadow: 0 4px 12px ${POINTS_C.accent}40; }
         .prs-btn-primary { transition: background 160ms ease, box-shadow 160ms ease, transform 140ms ease; }
         .prs-btn-ghost:hover { background: ${C.slateSoft}; color: ${C.text}; border-color: ${C.cardBorderHover}; }
@@ -301,7 +305,7 @@ function EarningRulesSection({ rules: earningRules, onDelete }: {
         />
       ) : (
         <>
-          <div style={{ ...s.tableHeader, gridTemplateColumns: RULES_GRID }}>
+          <div className="prs-head" style={{ ...s.tableHeader, gridTemplateColumns: RULES_GRID }}>
             <span>Rule</span>
             <span style={{ textAlign: 'right' }}>Points</span>
             <span>Status</span>
@@ -424,7 +428,7 @@ function CatalogSection({ items: rewardCatalog, onDelete }: {
         />
       ) : (
         <>
-          <div style={{ ...s.tableHeader, gridTemplateColumns: REWARDS_GRID }}>
+          <div className="prs-head" style={{ ...s.tableHeader, gridTemplateColumns: REWARDS_GRID }}>
             <span>Reward</span>
             <span>Stock</span>
             <span style={{ textAlign: 'right' }}>Cost</span>
