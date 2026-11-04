@@ -9,10 +9,24 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faIdBadge } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faIdBadge, faListCheck } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
+
+/** Small uppercase heading that groups items inside a nav dropdown (Tools, Operation). */
+function NavSectionLabel({ label, first, mobile }: { label: string; first?: boolean; mobile: boolean }) {
+  const top = first ? 8 : 10;
+  return (
+    <div style={{ padding: mobile ? `${top}px 20px 6px` : `${top}px 14px 6px`, fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+      {label}
+    </div>
+  );
+}
+
+function NavSectionDivider() {
+  return <div style={{ height: 1, background: '#f0f0f0', margin: '6px 8px' }} />;
+}
 
 export default function Navbar() {
   const { isMobile, isTablet, width } = useIsMobile();
@@ -395,28 +409,42 @@ export default function Navbar() {
             <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faUsers)}HR</span>
             {mobile ? (hrOpen ? '−' : '+') : '▾'}
           </button>
-          {hrOpen && (
-            <div style={mPanel}>
-              <NavLink to="/teachers" end onClick={closeAll}
-                className={mobile ? '' : 'nav-drop-item'}
-                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                Staff
-              </NavLink>
-              <NavLink to="/hr/candidates" onClick={closeAll}
-                className={mobile ? '' : 'nav-drop-item'}
-                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                Recruitment
-              </NavLink>
-              <NavLink to="/hr/sop-observations" onClick={closeAll}
-                className={mobile ? '' : 'nav-drop-item'}
-                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                Practice Observations
-              </NavLink>
-            </div>
-          )}
+          {hrOpen && (() => {
+            // Grouped by job: looking after the current team, and
+            // bringing new people in.
+            const linkStyle = ({ isActive }: { isActive: boolean }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) });
+            const itemClass = mobile ? '' : 'nav-drop-item';
+            return (
+              <div style={mPanel}>
+                <NavSectionLabel label="Team" first mobile={mobile} />
+                <NavLink to="/teachers" end onClick={closeAll} className={itemClass} style={linkStyle}>
+                  <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  Staff
+                </NavLink>
+                <NavLink to="/hr/sop-observations" onClick={closeAll} className={itemClass} style={linkStyle}>
+                  <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  Practice Observations
+                </NavLink>
+
+                <NavSectionDivider />
+                <NavSectionLabel label="Hiring" mobile={mobile} />
+                <NavLink to="/hr/candidates" onClick={closeAll} className={itemClass} style={linkStyle}>
+                  <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  Recruitment
+                </NavLink>
+                {/* Joiners who didn't come through Recruitment — HR approves them onto Staff. */}
+                <NavLink to="/hr/new-staff" onClick={closeAll} className={itemClass} style={linkStyle}>
+                  <FontAwesomeIcon icon={faIdCard} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  New Staff
+                </NavLink>
+                {/* Last step of bringing someone in: their joiner checklist. */}
+                <NavLink to="/hr/onboarding" onClick={closeAll} className={itemClass} style={linkStyle}>
+                  <FontAwesomeIcon icon={faListCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  Onboarding
+                </NavLink>
+              </div>
+            );
+          })()}
         </div>
         )}
 
@@ -462,49 +490,52 @@ export default function Navbar() {
             <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faGears)}Operation</span>
             {mobile ? (operationOpen ? '−' : '+') : '▾'}
           </button>
-          {operationOpen && (
-            <div style={mPanel}>
-              {!user?.teacherId && (
-                <NavLink to="/operations/sops" className={mobile ? '' : 'nav-drop-item'}
-                  style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
-                  onClick={closeAll}>
-                  <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                  How-To Guides
+          {operationOpen && (() => {
+            // Grouped by job: the guides library (read / write / review)
+            // and incident follow-up. Headings only appear when both
+            // groups are on show — a teacher who only sees Incidents
+            // gets a plain one-item menu.
+            const showLibrary = !user?.teacherId;
+            const canReviewGuides = hasView('OPERATION_SOP_APPROVE');
+            const showGuides = showLibrary || canReviewGuides;
+            const linkStyle = ({ isActive }: { isActive: boolean }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) });
+            return (
+              <div style={mPanel}>
+                {showGuides && <NavSectionLabel label="Guides" first mobile={mobile} />}
+                {showLibrary && (
+                  <NavLink to="/operations/sops" end className={mobile ? '' : 'nav-drop-item'} style={linkStyle} onClick={closeAll}>
+                    <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                    How-To Guides
+                  </NavLink>
+                )}
+                {/* Own unpublished work — kept apart from the Improvement
+                    Inbox, which reviews OTHER people's submissions. */}
+                {canReviewGuides && (
+                  <NavLink to="/operations/sops/author" onClick={closeAll} className={mobile ? '' : 'nav-drop-item'} style={linkStyle}>
+                    <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                    Author Guides
+                  </NavLink>
+                )}
+                {/* The reviewer workbench — same guard as the
+                    /hr/sop-revisions route itself. */}
+                {canReviewGuides && (
+                  <NavLink to="/hr/sop-revisions" onClick={closeAll} className={mobile ? '' : 'nav-drop-item'} style={linkStyle}>
+                    <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                    Improvement Inbox
+                  </NavLink>
+                )}
+
+                {showGuides && <NavSectionDivider />}
+                {showGuides && <NavSectionLabel label="Incidents" mobile={mobile} />}
+                {/* Follow-up queue for incident reports staff file (teachers
+                    from their mobile app) — replaces the Google Form. */}
+                <NavLink to="/operations/incidents" onClick={closeAll} className={mobile ? '' : 'nav-drop-item'} style={linkStyle}>
+                  <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  Incident Reports
                 </NavLink>
-              )}
-              {/* Follow-up queue for incident reports staff file (teachers
-                  from their mobile app) — replaces the Google Form. */}
-              <NavLink to="/operations/incidents" onClick={closeAll}
-                className={mobile ? '' : 'nav-drop-item'}
-                style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                Incidents
-              </NavLink>
-              {/* The reviewer workbench (Approve/Reject, everyone's
-                  pending proposals) — not every role sharing the
-                  Operation module should land here, same reasoning as
-                  the route guard on /hr/sop-revisions itself. */}
-              {hasView('OPERATION_SOP_APPROVE') && (
-                <NavLink to="/hr/sop-revisions" onClick={closeAll}
-                  className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                  <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                  Improvement Inbox
-                </NavLink>
-              )}
-              {/* Own unpublished work — deliberately not a tab on the
-                  Improvement Inbox above, since that's a review queue of
-                  OTHER people's submissions and this is private to you. */}
-              {hasView('OPERATION_SOP_APPROVE') && (
-                <NavLink to="/operations/sops/author" onClick={closeAll}
-                  className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                  <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                  Author Guides
-                </NavLink>
-              )}
-            </div>
-          )}
+              </div>
+            );
+          })()}
         </div>
         )}
 
@@ -595,12 +626,8 @@ export default function Navbar() {
             // it forced a 4px text-alignment mismatch between header and item
             // labels (14px icon+8px gap vs 16px icon+10px gap). Plain
             // uppercase labels align cleanly with the item rail below them.
-            const sep = <div style={{ height: 1, background: '#f0f0f0', margin: '6px 8px' }} />;
-            const section = (label: string, first?: boolean) => (
-              <div style={{ padding: mobile ? `${first ? 8 : 10}px 20px 6px` : `${first ? 8 : 10}px 14px 6px`, fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase' as const }}>
-                {label}
-              </div>
-            );
+            const sep = <NavSectionDivider />;
+            const section = (label: string, first?: boolean) => <NavSectionLabel label={label} first={first} mobile={mobile} />;
             const item = (icon: any, iconColor: string, label: string, onClick: () => void) => (
               <button
                 key={label}
@@ -662,6 +689,7 @@ export default function Navbar() {
                     to: '/settings/hr', icon: faCoins, label: 'HR & Payroll',
                     subItems: [
                       { to: '/settings/recruitment', label: 'Recruitment' },
+                      { to: '/settings/staff-onboarding', label: 'Staff Onboarding' },
                       { to: '/settings/hr', label: 'Payroll' },
                     ],
                   },

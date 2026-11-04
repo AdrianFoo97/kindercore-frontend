@@ -16,6 +16,7 @@ interface TeacherLike {
   isActive: boolean;
   resignedAt?: string | null;
   createdAt?: string | null;
+  onboardingCompleted?: boolean;
   positionId?: string | null;
   level?: number | null;
   dob?: string | null;
@@ -50,6 +51,8 @@ interface TeacherRowProps {
   onAppraisal: () => void;
   onCompensation: () => void;
   onResign: () => void;
+  /** Staff page → ⋯ → Create Onboarding Tasks. */
+  onStartOnboarding: () => void;
   /** Optional dev-only handler — forwarded to ActionMenu so the
    *  "My Compensation (Dev)" entry only renders when the page
    *  supplies it (gated by env in TeachersPage). */
@@ -105,7 +108,7 @@ function deriveRow(t: TeacherLike, pos: PositionLike | null | undefined, sal: Sa
 
 export const TeacherRow = memo(function TeacherRow({
   teacher: t, position: pos, salary: sal,
-  onEdit, onCareer, onAppraisal, onCompensation, onResign, onMyCompensationDev, onMyCareerDev,
+  onEdit, onCareer, onAppraisal, onCompensation, onResign, onStartOnboarding, onMyCompensationDev, onMyCareerDev,
 }: TeacherRowProps) {
   const {
     initial, hasSalary, resignedDate, isFutureResign, isCurrentlyActive, hasNotStartedYet, incomplete,
@@ -187,6 +190,8 @@ export const TeacherRow = memo(function TeacherRow({
             onAppraisal={onAppraisal}
             onCompensation={onCompensation}
             onResign={isCurrentlyActive ? onResign : undefined}
+            onStartOnboarding={isCurrentlyActive ? onStartOnboarding : undefined}
+            onboardingInProgress={t.onboardingCompleted === false}
             careerDisabledReason={careerDisabledReason}
             onMyCompensationDev={onMyCompensationDev}
             onMyCareerDev={onMyCareerDev}
@@ -204,7 +209,7 @@ export const TeacherRow = memo(function TeacherRow({
  */
 export const TeacherCard = memo(function TeacherCard({
   teacher: t, position: pos, salary: sal,
-  onEdit, onCareer, onAppraisal, onCompensation, onResign, onMyCompensationDev, onMyCareerDev,
+  onEdit, onCareer, onAppraisal, onCompensation, onResign, onStartOnboarding, onMyCompensationDev, onMyCareerDev,
 }: TeacherRowProps) {
   const {
     initial, hasSalary, resignedDate, isFutureResign, isCurrentlyActive, hasNotStartedYet, incomplete,
@@ -262,6 +267,8 @@ export const TeacherCard = memo(function TeacherCard({
           onAppraisal={onAppraisal}
           onCompensation={onCompensation}
           onResign={isCurrentlyActive ? onResign : undefined}
+          onStartOnboarding={isCurrentlyActive ? onStartOnboarding : undefined}
+          onboardingInProgress={t.onboardingCompleted === false}
           careerDisabledReason={careerDisabledReason}
           onMyCompensationDev={onMyCompensationDev}
           onMyCareerDev={onMyCareerDev}

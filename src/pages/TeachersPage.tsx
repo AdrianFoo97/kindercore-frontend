@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { faLink, faPlus, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers, updateTeacher } from '../api/planner.js';
 import { fetchTeachersWithSalary, fetchPositions, fetchDepartments } from '../api/salary.js';
 import { useToast } from '../components/common/Toast.js';
@@ -11,6 +11,10 @@ import { TeacherRow, TeacherCard } from './teachers/TeacherRow.js';
 import { TeachersToolbar, TeachersTabKey, TeachersGroupKey } from './teachers/TeachersToolbar.js';
 import { ResignDialog } from './teachers/ResignDialog.js';
 import { HeaderStats } from './teachers/HeaderStats.js';
+import { PendingJoinersNotice } from './teachers/PendingJoinersNotice.js';
+import { copyLink } from '../utils/shareLink.js';
+import { joinFormUrl } from '../api/staffJoins.js';
+import { startStaffOnboarding } from '../api/staffOnboarding.js';
 import { TP_C, TP_MOTION, TP_RADIUS } from './teachers/tokens.js';
 
 interface SalaryEntry {
@@ -22,6 +26,10 @@ export default function TeachersPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
+  const copyJoinFormLink = async () => {
+    const copied = await copyLink(joinFormUrl());
+    showToast(copied ? 'New staff form link copied — send it to the new joiner' : 'Could not copy the link', copied ? 'success' : 'error');
+  };
   const { isMobile } = useIsMobile();
 
   const { data: teachers = [], isLoading } = useQuery({
@@ -183,6 +191,20 @@ export default function TeachersPage() {
   };
 
   // Same props for the desktop row and the phone card.
+  // ⋯ → Create Onboarding Tasks: same as the Students page — copy the
+  // checklists onto them and go to HR → Onboarding.
+  const startOnboardingFor = async (t: { id: string; name: string }) => {
+    try {
+      const { hrTasks, ownTasks } = await startStaffOnboarding(t.id);
+      qc.invalidateQueries({ queryKey: ['planner-teachers'] });
+      qc.invalidateQueries({ queryKey: ['staff-onboarding'] });
+      showToast(`Created ${hrTasks + ownTasks} onboarding tasks for ${t.name}`);
+      navigate('/hr/onboarding');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not create onboarding tasks', 'error');
+    }
+  };
+
   const rowProps = (t: any) => ({
     position: t.positionId ? posMap.get(t.positionId) : null,
     salary: salaryMap.get(t.id),
@@ -191,6 +213,7 @@ export default function TeachersPage() {
     onAppraisal: () => navigate(`/teachers/${t.id}/appraisal`),
     onCompensation: () => navigate(`/teachers/${t.id}/compensation`),
     onResign: () => setResignTarget(t),
+    onStartOnboarding: () => startOnboardingFor(t),
     // Dev-only entries — the teacher-facing mobile hubs are
     // works-in-progress. Vite's `import.meta.env.DEV` is true under `npm
     // run dev` and false in production builds, so these entries are
@@ -227,6 +250,8 @@ export default function TeachersPage() {
           </div>
         </div>
 
+        <PendingJoinersNotice />
+
         {/* Summary */}
         <HeaderStats stats={headerStats} compact={isMobile} />
 
@@ -241,13 +266,24 @@ export default function TeachersPage() {
           groupBy={groupBy}
           onGroupByChange={setGroupBy}
           rightActions={
-            <button
-              onClick={() => navigate('/teachers/new')}
-              className="tp-add-btn"
-              style={s.addBtn}
-            >
-              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 11 }} /> Add Teacher
-            </button>
+            <>
+              {/* Or let the new joiner fill in their own details — HR approves them under New Staff. */}
+              <button
+                onClick={copyJoinFormLink}
+                className="tp-form-link-btn"
+                style={s.formLinkBtn}
+                title="Copy the New staff form link to send to a new joiner"
+              >
+                <FontAwesomeIcon icon={faLink} style={{ fontSize: 11 }} /> {isMobile ? 'Form link' : 'Copy new-staff form link'}
+              </button>
+              <button
+                onClick={() => navigate('/teachers/new')}
+                className="tp-add-btn"
+                style={s.addBtn}
+              >
+                <FontAwesomeIcon icon={faPlus} style={{ fontSize: 11 }} /> Add Teacher
+              </button>
+            </>
           }
         />
 
@@ -340,6 +376,8 @@ const css = `
   .tp-row { transition: background ${TP_MOTION.fast}; }
   .tp-row > td { transition: box-shadow ${TP_MOTION.fast}; }
   .tp-row:hover { background: #f7f9fc; }
+  .tp-form-link-btn:hover { background: ${TP_C.hover} !important; border-color: ${TP_C.dim} !important; }
+  .tp-joiners-notice:hover { border-color: #fcd34d !important; }
   .tp-row:hover > td:first-child { box-shadow: inset 3px 0 0 ${TP_C.primary}; }
   .tp-more:hover { background: #e2e8f0 !important; color: ${TP_C.text} !important; }
   .tp-menu-item:not(:disabled):hover { background: #f8fafc !important; }
@@ -384,6 +422,21 @@ const s: Record<string, React.CSSProperties> = {
     gap: 0,
   },
   subtitleSep: { margin: '0 8px', color: TP_C.dim },
+  formLinkBtn: {
+    padding: '10px 14px',
+    fontSize: 13,
+    fontWeight: 600,
+    borderRadius: TP_RADIUS.control,
+    border: `1px solid ${TP_C.border}`,
+    background: TP_C.card,
+    color: TP_C.textSub,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    whiteSpace: 'nowrap' as const,
+    fontFamily: 'inherit',
+  },
   addBtn: {
     padding: '10px 18px',
     fontSize: 13,

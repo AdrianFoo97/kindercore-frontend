@@ -13,6 +13,7 @@ import { fetchSteps, createStep, updateStep, deleteStep, reorderSteps, SopStep, 
 import { fetchCategories } from '../../api/sop-categories.js';
 import { fetchSections } from '../../api/sop-sections.js';
 import { useToast } from '../../components/common/Toast.js';
+import { copyGuideLink } from './copyGuideLink.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
 import { downloadSopPdf } from '../../utils/sopPdf.js';
 import { ALLOWED_SOP_ICONS, resolveSopIcon } from '../../utils/sopTemplateIcons.js';
@@ -371,6 +372,9 @@ export default function SopTemplateStepsPage() {
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [moreMenuOpen]);
+  const onCopyGuideLink = () => {
+    if (templateId) copyGuideLink(templateId, showToast);
+  };
   const onDeleteTemplate = async () => {
     if (!template) return;
     const ok = await confirmDelete({
@@ -800,6 +804,15 @@ export default function SopTemplateStepsPage() {
                   <button
                     type="button"
                     className="sop-more-menu-item"
+                    onClick={() => { setMoreMenuOpen(false); onCopyGuideLink(); }}
+                    style={s.moreMenuItem}
+                  >
+                    <FontAwesomeIcon icon={faLink} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
+                    Copy link
+                  </button>
+                  <button
+                    type="button"
+                    className="sop-more-menu-item"
                     onClick={() => { setMoreMenuOpen(false); downloadSopPdf(template, steps); }}
                     style={s.moreMenuItem}
                   >
@@ -869,9 +882,21 @@ export default function SopTemplateStepsPage() {
               )}
               <button
                 className="sop-download-btn"
-                onClick={() => downloadSopPdf(template, steps)}
+                onClick={onCopyGuideLink}
+                title="Copy link — only signed-in staff with access can open it"
                 style={{
                   ...s.secondaryBtn, ...(!showSuggestButton && isAdmin ? { marginLeft: 'auto' } : {}),
+                  ...(isMobile ? { width: '100%', justifyContent: 'center' } : null),
+                }}
+              >
+                <FontAwesomeIcon icon={faLink} style={{ marginRight: 6 }} />
+                Copy link
+              </button>
+              <button
+                className="sop-download-btn"
+                onClick={() => downloadSopPdf(template, steps)}
+                style={{
+                  ...s.secondaryBtn,
                   ...(isMobile ? { width: '100%', justifyContent: 'center' } : null),
                 }}
               >

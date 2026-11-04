@@ -9,27 +9,15 @@ import { useIsMobile } from '../hooks/useIsMobile.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faXmark, faTriangleExclamation, faPen, faListCheck, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { ChecklistModal } from '../components/onboarding/ChecklistModal.js';
+import { ActionMenu } from '../components/onboarding/ActionMenu.js';
+import { ProgressBar } from '../components/onboarding/ProgressBar.js';
+import { UpNextTask } from '../components/onboarding/UpNextTask.js';
+import { getAvatarColor, getInitials } from '../components/onboarding/avatar.js';
+import { chipCount, chipStyle, clearFiltersBtn, filterLabel, filterRow, toolbarCard } from '../components/onboarding/filterStyles.js';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-const AVATAR_COLORS = [
-  { bg: '#dbeafe', color: '#1e40af' },
-  { bg: '#fce7f3', color: '#9d174d' },
-  { bg: '#d1fae5', color: '#065f46' },
-  { bg: '#ede9fe', color: '#5b21b6' },
-  { bg: '#fef3c7', color: '#92400e' },
-  { bg: '#ffedd5', color: '#9a3412' },
-];
-
-function getAvatarColor(name: string) {
-  const idx = name.charCodeAt(0) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[idx];
-}
-
-function getInitials(name: string) {
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-}
 
 function normalizePhone(phone: string): string {
   const cleaned = phone.replace(/[\s\-()]/g, '');
@@ -99,123 +87,24 @@ function getProgress(tasks: OnboardingTask[] | string | null) {
   return { done, total: parsed.length, nextTask };
 }
 
-// ── ProgressBar ───────────────────────────────────────────────────────────────
-
-function ProgressBar({ done, total }: { done: number; total: number }) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const isComplete = total > 0 && done === total;
-  const remaining = total - done;
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ flex: 1, height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%',
-            width: `${pct}%`,
-            background: isComplete ? '#10b981' : '#3b82f6',
-            borderRadius: 3,
-            transition: 'width 0.3s ease',
-          }} />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: isComplete ? '#059669' : '#3b82f6', minWidth: 28, textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const }}>
-          {pct}%
-        </span>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 11, fontWeight: 500, color: isComplete ? '#059669' : '#64748b' }}>
-          {done} of {total} tasks complete
-        </span>
-        {!isComplete && (
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>{remaining} remaining</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── ActionMenu ────────────────────────────────────────────────────────────────
 
-function ActionMenu({
-  onViewTasks,
-  onEdit,
-  onWhatsApp,
-  onCompleteAll,
-  hasTasks,
-}: {
+function StudentActionMenu({ onViewTasks, onEdit, onWhatsApp, onCompleteAll, hasTasks }: {
   onViewTasks: () => void;
   onEdit: () => void;
   onWhatsApp: () => void;
   onCompleteAll: () => void;
   hasTasks: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const menuItem = (icon: typeof faPen, label: string, onClick: () => void, iconColor = '#64748b') => (
-    <button
-      onClick={() => { onClick(); setOpen(false); }}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px',
-        textAlign: 'left' as const, background: 'none', border: 'none',
-        fontSize: 13, fontWeight: 400, cursor: 'pointer', color: '#374151', borderRadius: 6,
-        transition: 'background 0.1s',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.background = '#eef1f5')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-    >
-      <FontAwesomeIcon icon={icon} fixedWidth style={{ color: iconColor, fontSize: 12 }} />
-      {label}
-    </button>
-  );
-
-  const sep = <div style={{ height: 1, background: '#f1f5f9', margin: '4px 8px' }} />;
-
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        style={{
-          width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: open ? '#f1f5f9' : 'none', border: '1px solid',
-          borderColor: open ? '#cbd5e1' : '#e2e8f0',
-          borderRadius: 8, cursor: 'pointer', fontSize: 16, color: '#64748b',
-          lineHeight: 1,
-        }}
-        aria-label="More actions"
-      >
-        ⋯
-      </button>
-      {open && (
-        <div style={{
-          position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 100,
-          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-          boxShadow: '0 4px 24px rgba(0,0,0,0.12)', minWidth: 190, padding: '4px 0',
-        }}>
-          <div style={{ padding: '2px 4px' }}>
-            {menuItem(faListCheck, 'View Tasks', onViewTasks, '#3b82f6')}
-            {menuItem(faPen, 'Edit Student', onEdit, '#5a67d8')}
-          </div>
-          {sep}
-          <div style={{ padding: '2px 4px' }}>
-            {menuItem(faWhatsapp, 'WhatsApp Parent', onWhatsApp, '#25d366')}
-          </div>
-          {hasTasks && (<>
-            {sep}
-            <div style={{ padding: '2px 4px' }}>
-              {menuItem(faCheck, 'Complete All Tasks', onCompleteAll, '#10b981')}
-            </div>
-          </>)}
-        </div>
-      )}
-    </div>
+    <ActionMenu groups={[
+      [
+        { icon: faListCheck, label: 'View Tasks', onClick: onViewTasks, iconColor: '#3b82f6' },
+        { icon: faPen, label: 'Edit Student', onClick: onEdit, iconColor: '#5a67d8' },
+      ],
+      [{ icon: faWhatsapp, label: 'WhatsApp Parent', onClick: onWhatsApp, iconColor: '#25d366' }],
+      hasTasks ? [{ icon: faCheck, label: 'Complete All Tasks', onClick: onCompleteAll, iconColor: '#10b981' }] : [],
+    ]} />
   );
 }
 
@@ -315,7 +204,7 @@ function StudentOnboardingCard({
 
         {/* Menu button on mobile (top-right) */}
         {isMobile && (
-          <ActionMenu
+          <StudentActionMenu
             onViewTasks={onViewTasks}
             onEdit={onEdit}
             onWhatsApp={onWhatsApp}
@@ -340,7 +229,7 @@ function StudentOnboardingCard({
             >
               {total === 0 ? 'Set Up Tasks' : 'Continue Tasks'}
             </button>
-            <ActionMenu
+            <StudentActionMenu
               onViewTasks={onViewTasks}
               onEdit={onEdit}
               onWhatsApp={onWhatsApp}
@@ -359,33 +248,9 @@ function StudentOnboardingCard({
           <ProgressBar done={done} total={total} />
         )}
 
-        {/* Next task — red theme when overdue, amber otherwise. Drop the
-            inner left accent when the parent card already carries one,
-            so the urgency signal isn't doubled. */}
-        {nextTask && (() => {
-          const overdue = !!countdown?.isPast;
-          const theme = overdue
-            ? { bg: '#fef2f2', border: '#fecaca', accent: '#dc2626', label: '#b91c1c', divider: '#fca5a5', text: '#991b1b' }
-            : { bg: '#fffbeb', border: '#fde68a', accent: '#f59e0b', label: '#d97706', divider: '#fcd34d', text: '#92400e' };
-          const cardHasAccent = accent !== 'transparent';
-          return (
-            <div style={{
-              marginTop: 10, padding: '9px 12px',
-              background: theme.bg,
-              border: `1px solid ${theme.border}`,
-              ...(cardHasAccent ? {} : { borderLeft: `3px solid ${theme.accent}` }),
-              borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: theme.label, letterSpacing: '0.06em', whiteSpace: 'nowrap' as const, textTransform: 'uppercase' as const }}>
-                Up next
-              </span>
-              <span style={{ width: 1, height: 12, background: theme.divider, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: theme.text, lineHeight: 1.4, fontWeight: 500 }}>
-                {nextTask.task}
-              </span>
-            </div>
-          );
-        })()}
+        {nextTask && (
+          <UpNextTask task={nextTask.task} overdue={!!countdown?.isPast} cardHasAccent={accent !== 'transparent'} />
+        )}
       </div>
 
       {/* Primary action — mobile: at bottom of card */}
@@ -410,7 +275,8 @@ function StudentOnboardingCard({
 
 // ── Checklist Modal ───────────────────────────────────────────────────────────
 
-function ChecklistModal({
+/** Students → Onboarding: the shared checklist window, saving to the student. */
+function StudentChecklistModal({
   student,
   onClose,
   onSaved,
@@ -421,151 +287,21 @@ function ChecklistModal({
 }) {
   const raw = student.onboardingProgress;
   const existingTasks: OnboardingTask[] = Array.isArray(raw) ? raw : (typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return []; } })() : []);
-  const [items, setItems] = useState<OnboardingTask[]>(existingTasks);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
-
-  useEffect(() => {
-    if (items.length === 0 && settings?.onboarding_tasks?.length) {
-      setItems(settings.onboarding_tasks.map((task: string) => ({ task, done: false })));
-    }
-  }, [settings]);
-
-  const toggle = (idx: number) => {
-    setItems(prev => prev.map((t, i) => i === idx ? { ...t, done: !t.done } : t));
-  };
-
-  const markAll = () => setItems(prev => prev.map(t => ({ ...t, done: true })));
-
-  const doneCount = items.filter(t => t.done).length;
-  const allDone = doneCount === items.length && items.length > 0;
-
-  const handleSave = async () => {
-    setSaving(true); setError('');
-    try {
-      const updated = await patchOnboardingProgress(student.id, items);
-      // When every item is checked, the natural next action is to finalize
-      // — saves the user a second click and matches the button's intent.
-      if (allDone) await completeOnboarding(student.id);
-      onSaved(updated, allDone);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
-  };
-  const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
-
-  const listRef = useRef<HTMLDivElement>(null);
-  const nextTaskRef = useRef<HTMLLabelElement>(null);
-  const nextIdx = items.findIndex(t => !t.done);
-
-  useEffect(() => {
-    if (nextTaskRef.current && listRef.current) {
-      const list = listRef.current;
-      const el = nextTaskRef.current;
-      const top = el.offsetTop - list.offsetTop - list.clientHeight / 2 + el.clientHeight / 2;
-      list.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-    }
-  }, [nextIdx]);
-
   return (
-    <div style={modal.backdrop}>
-      {/* Backdrop is intentionally NOT clickable — onboarding edits are
-          easy to lose with an accidental click. Close via the ✕, Cancel,
-          or Save buttons only. */}
-      <div style={modal.card}>
-        <div style={modal.header}>
-          <div>
-            <h2 style={modal.title}>Onboarding Checklist</h2>
-            <p style={modal.subtitle}>{student.lead.childName} · {student.lead.parentPhone}</p>
-          </div>
-          <button onClick={onClose} style={modal.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <div style={{ flex: 1, height: 10, background: '#e2e8f0', borderRadius: 5, overflow: 'hidden', position: 'relative' as const }}>
-              <div style={{
-                height: '100%', width: `${pct}%`,
-                background: allDone ? '#10b981' : '#3b82f6',
-                borderRadius: 5, transition: 'width 0.3s',
-              }} />
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: allDone ? '#059669' : '#3b82f6', minWidth: 36 }}>
-              {pct}%
-            </span>
-          </div>
-          <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 8 }}>
-            {doneCount} / {items.length} completed
-            {allDone && (
-              <span style={{ padding: '1px 8px', background: '#d1fae5', color: '#059669', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
-                All done!
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div ref={listRef} style={modal.list}>
-          {items.length === 0 && (
-            <p style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', margin: 0 }}>
-              No onboarding tasks configured.
-            </p>
-          )}
-          {items.map((t, idx) => (
-            <label
-              key={idx}
-              ref={idx === nextIdx ? nextTaskRef : undefined}
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: 10,
-                padding: '9px 12px',
-                background: idx === nextIdx ? '#eff6ff' : t.done ? '#f0fdf4' : '#f8fafc',
-                borderRadius: 8,
-                border: `1px solid ${idx === nextIdx ? '#93c5fd' : t.done ? '#bbf7d0' : '#e2e8f0'}`,
-                cursor: 'pointer',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={t.done}
-                onChange={() => toggle(idx)}
-                style={{ width: 15, height: 15, accentColor: '#10b981', flexShrink: 0, marginTop: 1 }}
-              />
-              <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, width: 18, flexShrink: 0 }}>{idx + 1}.</span>
-              <span style={{ fontSize: 13, color: t.done ? '#6ee7b7' : '#374151', flex: 1, lineHeight: 1.5, textDecoration: t.done ? 'line-through' : 'none' }}>
-                {t.task}
-              </span>
-            </label>
-          ))}
-        </div>
-
-        {error && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 8 }}>{error}</p>}
-
-        <div style={modal.footer}>
-          <button onClick={markAll} disabled={allDone || saving} style={{
-            padding: '8px 16px', borderRadius: 8, border: '1px solid #bfdbfe',
-            background: '#eff6ff', color: '#5a79c8', cursor: allDone ? 'default' : 'pointer',
-            fontWeight: 600, fontSize: 13, opacity: allDone ? 0.5 : 1,
-          }}>
-            Mark All Done
-          </button>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} style={modal.cancelBtn}>Cancel</button>
-            <button onClick={handleSave} disabled={saving} style={{
-              ...modal.saveBtn,
-              background: allDone ? '#10b981' : '#3b82f6',
-              minWidth: allDone ? 150 : undefined,
-            }}>
-              {saving
-                ? (allDone ? 'Finalizing…' : 'Saving…')
-                : (allDone ? <><FontAwesomeIcon icon={faCheck} /> Mark as Completed</> : 'Save')}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ChecklistModal
+      subtitle={`${student.lead.childName} · ${student.lead.parentPhone}`}
+      initialItems={existingTasks}
+      templateTasks={settings?.onboarding_tasks}
+      onClose={onClose}
+      onSave={async (items, allDone) => {
+        const updated = await patchOnboardingProgress(student.id, items);
+        // When every item is checked, the natural next action is to finalize
+        // — saves the user a second click and matches the button's intent.
+        if (allDone) await completeOnboarding(student.id);
+        onSaved(updated, allDone);
+      }}
+    />
   );
 }
 
@@ -988,7 +724,7 @@ export default function OnboardingPage() {
 
       {/* ── Modals ── */}
       {checklistStudent && (
-        <ChecklistModal
+        <StudentChecklistModal
           student={checklistStudent}
           onClose={() => setChecklistStudent(null)}
           onSaved={handleSaved}
@@ -1025,87 +761,5 @@ function pgBtn(disabled: boolean): React.CSSProperties {
     border: '1px solid #e2e8f0', background: disabled ? '#f8fafc' : '#fff',
     color: disabled ? '#cbd5e1' : '#374151', cursor: disabled ? 'default' : 'pointer',
     fontSize: 13, fontWeight: 600,
-  };
-}
-
-const modal: Record<string, React.CSSProperties> = {
-  backdrop: {
-    position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-  },
-  card: {
-    background: '#fff', borderRadius: 16, padding: '28px 32px',
-    width: '100%', maxWidth: 520, maxHeight: '88vh',
-    display: 'flex', flexDirection: 'column',
-    boxShadow: '0 24px 64px rgba(0,0,0,0.15)',
-  },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
-  title: { margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' },
-  subtitle: { margin: '4px 0 0', fontSize: 13, color: '#64748b' },
-  closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#94a3b8', lineHeight: 1, padding: 4 },
-  list: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2, maxHeight: 240 },
-  footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, paddingTop: 14, borderTop: '1px solid #f1f5f9' },
-  cancelBtn: {
-    padding: '8px 16px', borderRadius: 8, border: '1px solid #e2e8f0',
-    background: '#f8fafc', color: '#374151', cursor: 'pointer', fontWeight: 600, fontSize: 13,
-  },
-  saveBtn: {
-    padding: '8px 18px', borderRadius: 8, border: 'none',
-    background: '#3b82f6', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13,
-  },
-};
-
-// ── Filter chip styling ──────────────────────────────────────────────────────
-// Shared between the Priority and Progress rows so both filter dimensions
-// read as siblings instead of two different chip systems.
-
-const toolbarCard: React.CSSProperties = {
-  display: 'flex', flexDirection: 'column', gap: 14,
-  padding: '12px 14px', marginBottom: 16,
-  background: '#fff',
-  border: '1px solid #e2e8f0',
-  borderRadius: 14,
-  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-};
-
-const filterRow: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8,
-  overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-  scrollbarWidth: 'none', msOverflowStyle: 'none',
-};
-
-const filterLabel: React.CSSProperties = {
-  fontSize: 11, color: '#94a3b8', fontWeight: 600,
-  whiteSpace: 'nowrap', textTransform: 'uppercase',
-  letterSpacing: '0.06em', minWidth: 64,
-};
-
-const clearFiltersBtn: React.CSSProperties = {
-  marginLeft: 'auto',
-  padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-  cursor: 'pointer', border: 'none', background: 'none', color: '#94a3b8',
-  whiteSpace: 'nowrap', flexShrink: 0,
-  display: 'flex', alignItems: 'center', gap: 5,
-};
-
-function chipStyle(active: boolean, color: string, bg: string, muted: boolean): React.CSSProperties {
-  return {
-    padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-    cursor: 'pointer', border: '1px solid', transition: 'all 0.12s',
-    whiteSpace: 'nowrap', flexShrink: 0,
-    background: active ? color : muted ? '#f8fafc' : bg,
-    color: active ? '#fff' : muted ? '#cbd5e1' : color,
-    borderColor: active ? color : 'transparent',
-    display: 'flex', alignItems: 'center', gap: 6,
-  };
-}
-
-function chipCount(active: boolean, color: string, muted = false): React.CSSProperties {
-  return {
-    fontSize: 11, fontWeight: 700,
-    padding: '0 6px', borderRadius: 8,
-    background: active ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.06)',
-    color: active ? '#fff' : muted ? '#cbd5e1' : color,
-    fontVariantNumeric: 'tabular-nums',
   };
 }

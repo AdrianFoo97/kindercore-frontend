@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faEllipsisVertical, faRightFromBracket, faPenToSquare, faChartLine, faClipboardCheck,
-  faSackDollar, faMobileScreen,
+  faSackDollar, faMobileScreen, faListCheck,
 } from '@fortawesome/free-solid-svg-icons';
 import { TP_C } from './tokens.js';
 
@@ -27,19 +27,44 @@ interface ActionMenuProps {
   /** Dev-only experimental link to the teacher-facing mobile career
    *  hub. Same gating contract as `onMyCompensationDev`. */
   onMyCareerDev?: () => void;
+  /** "Create Onboarding Tasks" — omit to hide (e.g. resigned staff). */
+  onStartOnboarding?: () => void;
+  /** Shown greyed out while they're already on HR → Onboarding. */
+  onboardingInProgress?: boolean;
 }
 
-export function ActionMenu({ onEdit, onCareer, onAppraisal, onCompensation, onResign, careerDisabledReason, onMyCompensationDev, onMyCareerDev }: ActionMenuProps) {
+const MENU_WIDTH = 180;
+const MENU_GAP = 4;
+const VIEWPORT_MARGIN = 8;
+
+export function ActionMenu({
+  onEdit, onCareer, onAppraisal, onCompensation, onResign, careerDisabledReason, onMyCompensationDev, onMyCareerDev,
+  onStartOnboarding, onboardingInProgress,
+}: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
 
+  // Opens below the ⋯ button, or above it when the row is near the bottom of
+  // the screen — measured after render so the flip uses the real menu height.
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const rect = btnRef.current.getBoundingClientRect();
+    const menuHeight = menuRef.current?.offsetHeight ?? 0;
+    const fitsBelow = rect.bottom + MENU_GAP + menuHeight <= window.innerHeight - VIEWPORT_MARGIN;
+    const top = fitsBelow ? rect.bottom + MENU_GAP : Math.max(VIEWPORT_MARGIN, rect.top - MENU_GAP - menuHeight);
+    const left = Math.max(VIEWPORT_MARGIN, Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN));
+    setPos({ top, left });
+  }, [open]);
+
+  // The menu is fixed-position; close it rather than leave it floating when the page scrolls.
   useEffect(() => {
-    if (open && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.right - 180 });
-    }
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => { window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close); };
   }, [open]);
 
   useEffect(() => {
@@ -65,7 +90,7 @@ export function ActionMenu({ onEdit, onCareer, onAppraisal, onCompensation, onRe
         <FontAwesomeIcon icon={faEllipsisVertical} style={{ fontSize: 14 }} />
       </button>
       {open && ReactDOM.createPortal(
-        <div ref={menuRef} style={{ ...styles.menu, top: pos.top, left: pos.left }}>
+        <div ref={menuRef} style={{ ...styles.menu, top: pos.top, left: pos.left, visibility: pos.top ? 'visible' : 'hidden' }}>
           <button
             className="tp-menu-item"
             style={styles.menuItem}
@@ -91,6 +116,17 @@ export function ActionMenu({ onEdit, onCareer, onAppraisal, onCompensation, onRe
             disabledReason={careerDisabledReason}
             onClick={() => { setOpen(false); onCompensation(); }}
           />
+          {onStartOnboarding && (
+            <>
+              <div style={styles.divider} />
+              <MenuItem
+                icon={faListCheck}
+                label="Create Onboarding Tasks"
+                disabledReason={onboardingInProgress ? 'Onboarding already in progress — see HR → Onboarding' : undefined}
+                onClick={() => { setOpen(false); onStartOnboarding(); }}
+              />
+            </>
+          )}
           {(onMyCompensationDev || onMyCareerDev) && (
             <div style={styles.divider} />
           )}

@@ -25,6 +25,11 @@ import { fetchUpcomingAppointments } from '../api/leads.js';
 import { fetchSettings } from '../api/settings.js';
 import { fetchPositions, fetchLevelIncentives, fetchDepartments } from '../api/salary.js';
 import { fetchAllowanceTypes } from '../api/allowance.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
+import { recruitmentAttention } from './candidates/attention.js';
+import { C, SHADOW } from './candidates/theme.js';
+import { ISM } from './candidates/modalStyles.js';
+import { HireDetailsModal } from './candidates/HireDetailsModal.js';
 
 // Interview WhatsApp template placeholder resolver. Template strings come
 // from settings.interview_wa_template / interview_wa_template_zh (seeded
@@ -106,44 +111,6 @@ import DeleteDialog from '../components/common/DeleteDialog.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.js';
 import { CandidateQuickViewModal } from './candidates/CandidateQuickViewModal.js';
 
-// Design tokens — refined palette + subtle shadow scale for a
-// Linear/Ashby-style admin surface. Keeping the token names existing
-// styles reference; only swapping the values where the change is subtle.
-const C = {
-  bg: '#f7f8fa',
-  bgSoft: '#fafbfc',
-  surface: '#ffffff',
-  text: '#0f172a',
-  textSub: '#3f4b5c',
-  muted: '#64748b',
-  mutedSoft: '#94a3b8',
-  border: '#e5e7ec',
-  borderSoft: '#eff0f4',
-  // Slightly deeper indigo — reads as "product primary", not "brand
-  // pastel". PrimaryHover for interactive states.
-  primary: '#4f46e5',
-  primaryHover: '#4338ca',
-  primaryDeep: '#3730a3',
-  primarySoft: '#eef2ff',
-  primarySofter: '#f5f7ff',
-  success: '#059669',
-  successSoft: '#ecfdf5',
-  warning: '#d97706',
-  warningSoft: '#fffbeb',
-  gold: '#b45309',
-  goldSoft: '#fef3c7',
-  danger: '#dc2626',
-  dangerSoft: '#fef2f2',
-  info: '#0284c7',
-  infoSoft: '#f0f9ff',
-};
-
-const SHADOW = {
-  sm: '0 1px 2px rgba(15,23,42,0.04)',
-  md: '0 4px 12px rgba(15,23,42,0.06)',
-  lg: '0 12px 32px rgba(15,23,42,0.08)',
-  focus: '0 0 0 3px rgba(79,70,229,0.15)',
-};
 
 /** Builds a WhatsApp send URL from any phone shape. Strips non-digits and,
  *  if the caller wrote a local Malaysian number (starting with '0'),
@@ -615,6 +582,19 @@ export default function CandidatesPage() {
   });
   const decidingCandidates = decidingList?.items ?? [];
   const offerSentCandidates = offerSentList?.items ?? [];
+  // New applicants, for the attention strip's "waiting 3+ days" count.
+  // Keyed under 'candidates' so invalidateCandidateFeeds refreshes it too.
+  const { data: newList } = useQuery({
+    queryKey: ['candidates', 'attention-new'],
+    queryFn: () => fetchCandidates({ status: 'NEW', pageSize: 100 }),
+    refetchInterval: 60_000,
+  });
+  const attention = useMemo(() => recruitmentAttention({
+    interviews: upcomingInterviewsFeed,
+    newApplicants: newList?.items ?? [],
+    deciding: decidingCandidates,
+    offersSent: offerSentCandidates,
+  }), [upcomingInterviewsFeed, newList, decidingCandidates, offerSentCandidates]);
 
   // Any status change / delete / schedule etc. affects multiple
   // candidate feeds — the main list, the top-tab counts, the phone
@@ -1062,12 +1042,13 @@ export default function CandidatesPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [reviewOpen, currentCandidate?.id, canBack]);
 
-  // Right context panel docks on every view — matches how the Leads
-  // page always shows its panel. Shell keeps its native `margin: 0
-  // auto` centering; the panel sits in the natural right-side
-  // whitespace on wide viewports so the main content stays visually
-  // centered (no jarring shift-left when the panel appears).
-  const showCtxPanel = true;
+  // Right context panel docks on tablet and desktop. Shell keeps its
+  // native `margin: 0 auto` centering; the panel sits in the natural
+  // right-side whitespace on wide viewports. On a phone it would cover
+  // the list, so it's dropped — the attention strip at the top covers
+  // the same ground there.
+  const { isMobile } = useIsMobile();
+  const showCtxPanel = !isMobile;
 
   // Height of the sticky tabs + toolbar block — re-measured when it wraps
   // (narrow window) so the sticky review sidebar always parks just below it.
@@ -1097,12 +1078,19 @@ export default function CandidatesPage() {
       <style>{`
         .kc-row-menu-item { background: transparent; transition: background 0.1s ease; }
         .kc-row-menu-item:hover:not(:disabled) { background: #eef2ff; }
+        .cand-attention-chip:hover { border-color: #94a3b8 !important; }
         .kc-row-menu-item:focus-visible { outline: 2px solid #c7d2fe; outline-offset: -2px; background: #eef2ff; }
-        /* Phone: the candidate grid is ~1100px wide — scroll it sideways
-           rather than crushing the columns; review queue stacks on top. */
+        /* Phone: each row's grid becomes a card — name and role on top,
+           the details wrapping beneath, the stage actions full-width at the
+           bottom. Same cells and buttons as desktop, just re-flowed. The
+           review queue stacks above the review card; stage tabs wrap. */
         @media (max-width: 767px) {
-          .cand-list { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-          .cand-list > * { min-width: 1080px; }
+          .cand-head, .cand-num { display: none !important; }
+          .cand-row { padding: 14px 14px !important; }
+          .cand-grid { display: flex !important; flex-wrap: wrap; align-items: flex-start; gap: 10px 18px !important; }
+          .cand-grid > * { min-width: 0; }
+          .cand-id { flex: 1 1 100%; }
+          .cand-actions { flex: 1 1 100%; justify-content: flex-start !important; }
           .cand-review-side { position: static !important; height: auto !important; max-height: 50vh; }
         }
       `}</style>
@@ -1116,6 +1104,18 @@ export default function CandidatesPage() {
       {/* Tabs + toolbar stay pinned while the list / review card scrolls.
           Its measured height is exposed as --kc-sticky-h so the review
           sidebar (also sticky) parks below it instead of sliding under. */}
+      <AttentionStrip
+        {...attention}
+        onOpen={key => {
+          if (key === 'new') { selectTab('NEW'); return; }
+          if (isMobile) {
+            selectTab(key === 'interviews' ? 'INTERVIEWING' : key === 'deciding' ? 'PENDING_DECISION' : 'OFFER_SENT');
+            return;
+          }
+          setCtxPanelTab(key);
+          setCtxPanelExpanded(true);
+        }}
+      />
       <div ref={stickyHeadRef} style={S.stickyHead}>
       {/* Pipeline stage tabs — the five live stages stay flat (daily
           work); the archive (Hired / Rejected / Talent Bank / All closed)
@@ -1517,8 +1517,8 @@ export default function CandidatesPage() {
             // the browser size the underlying columns freely, which drifts
             // the header labels off their content.
             <div className="cand-list" style={S.divList}>
-              <div style={S.divHeader}>
-                <div style={isTerminalTab ? S.rowGridTerminal : S.rowGrid}>
+              <div className="cand-head" style={S.divHeader}>
+                <div className="cand-grid" style={isTerminalTab ? S.rowGridTerminal : S.rowGrid}>
                   <div style={{ ...S.thLabel, textAlign: 'center' as const, justifySelf: 'center' }}>#</div>
                   <div style={S.thLabel}>Candidate</div>
                   <div style={{ ...S.thLabel, textAlign: 'center' as const, justifySelf: 'center' }}>Qual</div>
@@ -1677,6 +1677,7 @@ export default function CandidatesPage() {
                   {groupHeader}
                   <div
                       data-candidate-id={c.id}
+                      className="cand-row"
                       style={{
                         ...S.divRow,
                         background: isHighlighted ? '#fef3c7' : c.isShortlisted ? '#fcfaf3' : 'transparent',
@@ -1694,11 +1695,11 @@ export default function CandidatesPage() {
                         if (isHighlighted) return;
                         e.currentTarget.style.background = c.isShortlisted ? '#fcfaf3' : 'transparent';
                       }}>
-                      <div style={isTerminalTab ? S.rowGridTerminal : S.rowGrid}>
+                      <div className="cand-grid" style={isTerminalTab ? S.rowGridTerminal : S.rowGrid}>
                         {/* Col 0 — row index (1-based, as displayed after sort/filter) */}
-                        <div style={S.rowNumCell}>{idx + 1}</div>
+                        <div className="cand-num" style={S.rowNumCell}>{idx + 1}</div>
                         {/* Col 1 — identity + role */}
-                        <div style={S.colIdentity}>
+                        <div className="cand-id" style={S.colIdentity}>
                           <div style={S.rowHeader}>
                             <span style={S.nameText}>{displayName(c.fullName)}</span>
                             {age != null && (
@@ -1924,7 +1925,7 @@ export default function CandidatesPage() {
                             with WhatsApp tucked in the overflow menu; other
                             stages show a single advance button + WhatsApp
                             inline. Terminal stages show only a pill. */}
-                        <div style={S.colActions}>
+                        <div className="cand-actions" style={S.colActions}>
                           {c.status === 'NEW' ? (
                             <>
                               <button
@@ -2168,10 +2169,12 @@ export default function CandidatesPage() {
       )}
 
       {hiringCandidate && (
-        <HireCandidateModal
-          candidate={hiringCandidate}
+        <HireDetailsModal
+          person={{ name: hiringCandidate.fullName, phone: hiringCandidate.phone, startDate: hiringCandidate.preferredStartDate, expectedSalary: hiringCandidate.expectedSalary, desiredPosition: hiringCandidate.desiredPosition }}
+          actionLabel="Confirm & hire"
+          onConfirm={details => hireCandidate(hiringCandidate.id, details).then(() => undefined)}
           onClose={() => setHiringCandidate(null)}
-          onHired={() => {
+          onDone={() => {
             const id = hiringCandidate.id;
             invalidateCandidateFeeds();
             // A new Teacher (+ career record) was just created.
@@ -3845,449 +3848,6 @@ function SendOfferModal(props: {
   );
 }
 
-const EMP_TOGGLE_ON = { padding: '6px 16px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#4f46e5', color: '#fff' } as React.CSSProperties;
-const EMP_TOGGLE_OFF = { ...EMP_TOGGLE_ON, background: '#f1f5f9', color: '#94a3b8' } as React.CSSProperties;
-
-// Schedule picker constants — same shape as EditTeacherPage's Operations
-// tab (workStartMinute/workEndMinute/workDays), duplicated here rather
-// than shared since the two pages don't otherwise import from each other.
-const HIRE_WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const HIRE_TIME_SLOTS = (() => { const s: number[] = []; for (let m = 420; m <= 1080; m += 30) s.push(m); return s; })();
-function hireMinutesToTime(m: number): string {
-  const h = Math.floor(m / 60), mm = m % 60, p = h >= 12 ? 'PM' : 'AM';
-  return `${h === 0 ? 12 : h > 12 ? h - 12 : h}:${String(mm).padStart(2, '0')} ${p}`;
-}
-
-// "Accepted" on an OFFER_SENT candidate — instead of a one-click status
-// flip, this confirms the details needed to actually create the Teacher
-// record (position, salary, statutory contributions) and does both in one
-// atomic backend call. Nothing is created/changed if the admin closes
-// without confirming — the candidate stays exactly at OFFER_SENT.
-function HireCandidateModal(props: {
-  candidate: Candidate;
-  onClose: () => void;
-  onHired: () => void;
-}) {
-  const { candidate, onClose, onHired } = props;
-  const { showToast } = useToast();
-  const { data: allPositions = [] } = useQuery({ queryKey: ['salary-positions'], queryFn: fetchPositions });
-  const { data: departmentList = [] } = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments });
-  const { data: allIncentives = [] } = useQuery({ queryKey: ['salary-incentives'], queryFn: fetchLevelIncentives });
-  const { data: allowTypes = [] } = useQuery({ queryKey: ['allowance-types'], queryFn: fetchAllowanceTypes });
-  // Every allowance type except Level Allowance, which isn't directly
-  // editable here — it's auto-derived from Position + Level, same as
-  // EditTeacherPage's Salary tab.
-  const visibleAllowTypes = allowTypes
-    .filter(t => t.name.trim().toLowerCase() !== 'level allowance')
-    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-
-  const [phone, setPhone] = useState(candidate.phone ?? '');
-  const [positionId, setPositionId] = useState('');
-  const [level, setLevel] = useState(0);
-  const [employmentType, setEmploymentType] = useState<'full-time' | 'part-time'>('full-time');
-  const [joinDate, setJoinDate] = useState(candidate.preferredStartDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10));
-  const [workStartMinute, setWorkStartMinute] = useState<number | ''>('');
-  const [workEndMinute, setWorkEndMinute] = useState<number | ''>('');
-  const [workDays, setWorkDays] = useState<number[]>([0, 1, 2, 3, 4]);
-  const [salaryType, setSalaryType] = useState<'formula' | 'fixed' | 'hourly'>('formula');
-  const [fixedSalaryAmount, setFixedSalaryAmount] = useState(candidate.expectedSalary ?? 0);
-  const [hourlyRate, setHourlyRate] = useState(0);
-  const [allowanceDrafts, setAllowanceDrafts] = useState<Record<string, number>>({});
-  const getAllowanceAmt = (typeId: string) => allowanceDrafts[typeId] ?? 0;
-  const setAllowanceAmt = (typeId: string, v: number) => setAllowanceDrafts(prev => ({ ...prev, [typeId]: v }));
-  const [hasEpf, setHasEpf] = useState(true);
-  const [hasSocso, setHasSocso] = useState(true);
-  const [hasEis, setHasEis] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  // Two steps instead of one long scroll — Hire details, then Salary &
-  // Statutory. Step 1 must be filled in before Next unlocks.
-  const [step, setStep] = useState<1 | 2>(1);
-
-  // A bare "0" sitting in every untouched amount field reads as data
-  // that's already been entered, not as "nothing yet" — six of them in
-  // a row is noisy. Render 0 as an empty, placeholder'd field instead;
-  // an actual 0 the admin types is indistinguishable from untouched,
-  // which is fine since both mean "no amount".
-  const zeroableNumber = (value: number, onChange: (v: number) => void) => ({
-    type: 'number' as const,
-    min: 0,
-    value: value === 0 ? '' : value,
-    placeholder: '0',
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value === '' ? 0 : Number(e.target.value)),
-  });
-
-  // Best-effort pre-fill: match the candidate's free-text desired position
-  // to a real Position by name once the list loads. Admin can still change it.
-  const prefilled = useRef(false);
-  useEffect(() => {
-    if (prefilled.current || allPositions.length === 0) return;
-    prefilled.current = true;
-    const match = candidate.desiredPosition
-      ? allPositions.find(p => p.name.toLowerCase() === candidate.desiredPosition!.toLowerCase())
-      : undefined;
-    if (match) setPositionId(match.positionId);
-  }, [allPositions, candidate.desiredPosition]);
-
-  const selectedPosition = allPositions.find(p => p.positionId === positionId);
-  const maxLevel = selectedPosition?.maxLevel ?? 5;
-
-  // Positions grouped by department — a flat list would get unwieldy
-  // once a second department exists alongside Academic.
-  const positionOptionGroups = useMemo(() => {
-    const byDept = new Map<string, typeof allPositions>();
-    for (const p of allPositions) {
-      const key = p.departmentId ?? '__none';
-      if (!byDept.has(key)) byDept.set(key, []);
-      byDept.get(key)!.push(p);
-    }
-    const groups = departmentList
-      .filter(d => byDept.has(d.departmentId))
-      .map(d => ({ label: d.name, items: byDept.get(d.departmentId)! }));
-    if (byDept.has('__none')) groups.push({ label: 'Other', items: byDept.get('__none')! });
-    return groups;
-  }, [allPositions, departmentList]);
-  const levelIncentive = allIncentives.find(i => i.positionId === positionId && i.level === level)?.amount ?? 0;
-  const totalAllowances = visibleAllowTypes.reduce((sum, t) => sum + getAllowanceAmt(t.id), 0);
-  // Same monthly-hours formula the backend (salary.controller.ts) and
-  // EditTeacherPage use: minus a 1h lunch break once the day is 6h+.
-  const rawHoursPerDay = (workStartMinute !== '' && workEndMinute !== '') ? (Number(workEndMinute) - Number(workStartMinute)) / 60 : 0;
-  const hoursPerDay = rawHoursPerDay >= 6 ? rawHoursPerDay - 1 : rawHoursPerDay;
-  const monthlyHours = hoursPerDay * workDays.length * 4.33;
-  const totalSalary = salaryType === 'fixed'
-    ? fixedSalaryAmount + totalAllowances
-    : salaryType === 'formula'
-    ? (selectedPosition ? selectedPosition.basicSalary + levelIncentive + totalAllowances : totalAllowances)
-    // Hourly needs an actual schedule to turn a rate into a monthly figure —
-    // show the honest "not set yet" state until Start/End/Days are filled in.
-    : (workStartMinute !== '' && workEndMinute !== '' && workDays.length > 0)
-    ? hourlyRate * monthlyHours + totalAllowances
-    : null;
-
-  const step1Valid = phone.trim().length > 0 && positionId.length > 0 && joinDate.length > 0;
-  const canConfirm = !saving
-    && step1Valid
-    && (salaryType !== 'fixed' || fixedSalaryAmount > 0)
-    && (salaryType !== 'hourly' || hourlyRate > 0);
-
-  const handleConfirm = async () => {
-    if (!canConfirm) { setError('Please fill in every field before confirming.'); return; }
-    setSaving(true); setError('');
-    try {
-      await hireCandidate(candidate.id, {
-        phone: phone.trim(),
-        positionId,
-        level,
-        employmentType,
-        joinDate,
-        salaryType,
-        fixedSalaryAmount: salaryType === 'fixed' ? fixedSalaryAmount : undefined,
-        hourlyRate: salaryType === 'hourly' ? hourlyRate : undefined,
-        hasEpf, hasSocso, hasEis,
-        workStartMinute: workStartMinute !== '' ? workStartMinute : undefined,
-        workEndMinute: workEndMinute !== '' ? workEndMinute : undefined,
-        workDays: workDays.length > 0 ? workDays : undefined,
-        allowances: visibleAllowTypes
-          .map(t => ({ allowanceTypeId: t.id, amount: getAllowanceAmt(t.id) }))
-          .filter(a => a.amount > 0),
-      });
-      showToast(`${candidate.fullName} hired — teacher record created`);
-      onHired();
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to hire candidate.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    // No backdrop-click-to-close here — this form has too much entered
-    // data (position, salary, allowances) to risk losing on a stray
-    // click outside the card. Close explicitly via the X or Cancel.
-    <div style={ISM.backdrop}>
-      <div style={{ ...ISM.card, width: 'min(560px, 100%)' }}>
-        <div style={ISM.header}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ ...ISM.headerIcon, background: C.successSoft, color: C.success }}>
-              <FontAwesomeIcon icon={faUserCheck} />
-            </div>
-            <div>
-              <h2 style={ISM.title}>Confirm & hire</h2>
-              <div style={ISM.subtitle}>{candidate.fullName} · {candidate.desiredPosition ?? 'No position'}</div>
-            </div>
-          </div>
-          <button onClick={onClose} style={ISM.closeBtn} title="Close">
-            <FontAwesomeIcon icon={faXmark} />
-          </button>
-        </div>
-
-        {/* Step indicator — click a completed step to jump back to it.
-            Step 1 turns into a checkmark once you've moved past it, and
-            the connector fills in, so progress reads at a glance instead
-            of two same-weight numbered chips. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 24px 0' }}>
-          <button
-            type="button"
-            onClick={() => setStep(1)}
-            style={{ ...ISM.sectionLabel, marginBottom: 0, border: 'none', background: 'none', padding: 0, cursor: 'pointer', opacity: step === 1 ? 1 : 0.85 }}
-          >
-            <span style={ISM.stepChip}>
-              {step === 2 ? <FontAwesomeIcon icon={faCheck} style={{ fontSize: 9 }} /> : '1'}
-            </span>
-            Hire details
-          </button>
-          <div style={{ flex: 1, height: 2, borderRadius: 1, background: step === 2 ? ISM.stepChip.background : '#e2e8f0', transition: 'background 0.2s ease' }} />
-          <button
-            type="button"
-            onClick={() => { if (step1Valid) setStep(2); }}
-            disabled={!step1Valid}
-            style={{ ...ISM.sectionLabel, marginBottom: 0, border: 'none', background: 'none', padding: 0, cursor: step1Valid ? 'pointer' : 'default', opacity: step === 2 ? 1 : 0.55 }}
-          >
-            <span style={{ ...ISM.stepChip, background: step1Valid ? ISM.stepChip.background : '#cbd5e1' }}>2</span>
-            Salary & statutory
-          </button>
-        </div>
-
-        <div style={{ padding: '18px 24px 20px', display: 'flex', flexDirection: 'column' as const, gap: 14, maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' as const }}>
-          {step === 1 && (
-            <>
-              <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>
-                  Phone <span style={{ color: C.danger }}>*</span>
-                </span>
-                <input value={phone} onChange={e => setPhone(e.target.value)} style={ISM.dateInput} />
-              </label>
-
-              <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>
-                  Position <span style={{ color: C.danger }}>*</span>
-                </span>
-                <select
-                  value={positionId}
-                  onChange={e => { setPositionId(e.target.value); setLevel(0); }}
-                  style={{ ...ISM.dateInput, cursor: 'pointer' }}
-                >
-                  <option value="">— select position —</option>
-                  {positionOptionGroups.map(g => (
-                    <optgroup key={g.label} label={g.label}>
-                      {g.items.map(p => <option key={p.positionId} value={p.positionId}>{p.name}</option>)}
-                    </optgroup>
-                  ))}
-                </select>
-                {candidate.desiredPosition && !selectedPosition && (
-                  <span style={{ fontSize: 11, color: C.mutedSoft }}>Candidate applied for "{candidate.desiredPosition}"</span>
-                )}
-              </label>
-
-              <div style={{ display: 'flex', gap: 12 }}>
-                <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 80 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Level</span>
-                  <select value={level} onChange={e => setLevel(Number(e.target.value))} style={{ ...ISM.dateInput, cursor: 'pointer' }}>
-                    {Array.from({ length: maxLevel + 1 }, (_, i) => <option key={i} value={i}>{i}</option>)}
-                  </select>
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, flex: 1 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Employment type</span>
-                  <select value={employmentType} onChange={e => setEmploymentType(e.target.value as any)} style={{ ...ISM.dateInput, cursor: 'pointer' }}>
-                    <option value="full-time">Full Time</option>
-                    <option value="part-time">Part Time</option>
-                  </select>
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 150 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>
-                    Join date <span style={{ color: C.danger }}>*</span>
-                  </span>
-                  <input type="date" value={joinDate} onChange={e => setJoinDate(e.target.value)} style={ISM.dateInput} />
-                </label>
-              </div>
-              {candidate.preferredStartDate && (
-                <span style={{ fontSize: 11, color: C.mutedSoft, marginTop: -8 }}>
-                  Candidate preferred {new Date(candidate.preferredStartDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
-              )}
-
-              <div style={{ borderTop: `1px solid #f1f5f9`, paddingTop: 14, marginTop: 2 }}>
-                <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.mutedSoft, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 8 }}>
-                  Schedule <span style={{ fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 }}>(optional)</span>
-                </span>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, alignItems: 'flex-end' }}>
-                  <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 130 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Start</span>
-                    <select
-                      value={workStartMinute}
-                      onChange={e => {
-                        const v = e.target.value ? Number(e.target.value) : '';
-                        setWorkStartMinute(v);
-                        if (v === '') return;
-                        if (workEndMinute === '') {
-                          // No End picked yet — default to a 9-hour span
-                          // (8 effective hours after the lunch deduction),
-                          // a typical full teaching day, clamped to the
-                          // last available slot. Admin can still change it.
-                          // If Start is so late there's no room left for a
-                          // valid End (e.g. Start = the last slot), leave
-                          // End empty rather than clamp it down to Start.
-                          const lastSlot = HIRE_TIME_SLOTS[HIRE_TIME_SLOTS.length - 1];
-                          const proposedEnd = v + 9 * 60;
-                          if (proposedEnd <= lastSlot) setWorkEndMinute(proposedEnd);
-                          else if (lastSlot > v) setWorkEndMinute(lastSlot);
-                        } else if (workEndMinute <= v) {
-                          // An End that's no longer after the new Start is
-                          // meaningless (would compute negative hours) —
-                          // clear it rather than leave a stale invalid pair.
-                          setWorkEndMinute('');
-                        }
-                      }}
-                      style={{ ...ISM.dateInput, cursor: 'pointer' }}
-                    >
-                      <option value="">--</option>
-                      {HIRE_TIME_SLOTS.map(m => <option key={m} value={m}>{hireMinutesToTime(m)}</option>)}
-                    </select>
-                  </label>
-                  <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 130 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>End</span>
-                    <select value={workEndMinute} onChange={e => setWorkEndMinute(e.target.value ? Number(e.target.value) : '')} style={{ ...ISM.dateInput, cursor: 'pointer' }}>
-                      <option value="">--</option>
-                      {/* Only times after Start — an End before/equal to Start
-                          isn't a valid same-day shift, so it's just not offered. */}
-                      {HIRE_TIME_SLOTS.filter(m => workStartMinute === '' || m > workStartMinute).map(m => <option key={m} value={m}>{hireMinutesToTime(m)}</option>)}
-                    </select>
-                  </label>
-                  <div>
-                    <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textSub, marginBottom: 6 }}>Days</span>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {HIRE_WEEK_DAYS.map((d, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setWorkDays(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i].sort())}
-                          style={{ width: 36, height: 32, fontSize: 11, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: workDays.includes(i) ? '#4f46e5' : '#f1f5f9', color: workDays.includes(i) ? '#fff' : '#94a3b8' }}
-                        >
-                          {d}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {step === 2 && (
-            <>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-                <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 140 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Salary type</span>
-                  <select value={salaryType} onChange={e => setSalaryType(e.target.value as any)} style={{ ...ISM.dateInput, cursor: 'pointer' }}>
-                    <option value="fixed">Fixed</option>
-                    <option value="hourly">Hourly Rate</option>
-                    <option value="formula">Formula</option>
-                  </select>
-                </label>
-                {salaryType === 'fixed' && (
-                  <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 160 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Fixed amount (RM)</span>
-                    <input {...zeroableNumber(fixedSalaryAmount, setFixedSalaryAmount)} style={ISM.dateInput} />
-                  </label>
-                )}
-                {salaryType === 'hourly' && (
-                  <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 160 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub }}>Hourly rate (RM)</span>
-                    <input {...zeroableNumber(hourlyRate, setHourlyRate)} style={ISM.dateInput} />
-                  </label>
-                )}
-                {salaryType === 'formula' && selectedPosition && (
-                  <div style={{ fontSize: 11, color: C.mutedSoft, paddingBottom: 8, lineHeight: 1.6 }}>
-                    Basic RM {selectedPosition.basicSalary.toLocaleString()}
-                    {levelIncentive > 0 && <> + Level incentive RM {levelIncentive.toLocaleString()}</>}
-                  </div>
-                )}
-              </div>
-
-              {visibleAllowTypes.length > 0 && (
-                <div style={{ marginTop: 2, paddingTop: 14, borderTop: `1px solid #f1f5f9` }}>
-                  <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.mutedSoft, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 8 }}>
-                    Allowances <span style={{ fontWeight: 400, textTransform: 'none' as const, letterSpacing: 0 }}>(optional)</span>
-                  </span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 12 }}>
-                    {visibleAllowTypes.map(t => (
-                      <label key={t.id} style={{ display: 'flex', flexDirection: 'column' as const, gap: 6, width: 150 }}>
-                        {/* Fixed height regardless of wrap, so a 2-line label
-                            (e.g. "Training Completion Allowance") doesn't push
-                            its input out of alignment with its row-mates. */}
-                        <span style={{ fontSize: 12, fontWeight: 600, color: C.textSub, minHeight: 30, lineHeight: 1.3 }}>{t.name}</span>
-                        <input {...zeroableNumber(getAllowanceAmt(t.id), v => setAllowanceAmt(t.id, v))} style={ISM.dateInput} />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Always-visible running total — the whole point is that
-                  typing an allowance should immediately answer "is the
-                  salary I'm about to set actually right?" without the
-                  admin having to add it up themselves. */}
-              <div style={{
-                marginTop: 14, padding: '10px 14px', borderRadius: 8,
-                background: totalSalary != null ? C.successSoft : '#fffbeb',
-                border: `1px solid ${totalSalary != null ? '#bbf7d0' : '#fde68a'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-              }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: totalSalary != null ? C.success : '#92400e' }}>
-                  Total monthly salary
-                </span>
-                {totalSalary != null ? (
-                  <span style={{ fontSize: 16, fontWeight: 800, color: C.success, fontVariantNumeric: 'tabular-nums' as const }}>
-                    RM {totalSalary.toLocaleString()}
-                  </span>
-                ) : (
-                  <span style={{ fontSize: 11, color: '#92400e', textAlign: 'right' as const, maxWidth: 220 }}>
-                    Set the work schedule on Step 1 to see the total
-                  </span>
-                )}
-              </div>
-
-              <div style={{ marginTop: 2, paddingTop: 14, borderTop: `1px solid #f1f5f9` }}>
-                <span style={{ display: 'block', fontSize: 11, fontWeight: 600, color: C.mutedSoft, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 8 }}>
-                  Statutory contributions
-                </span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {([['EPF', hasEpf, setHasEpf], ['SOCSO', hasSocso, setHasSocso], ['EIS', hasEis, setHasEis]] as const).map(([label, val, setter]) => (
-                    <button key={label} type="button" onClick={() => setter(!val)} style={val ? EMP_TOGGLE_ON : EMP_TOGGLE_OFF}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {error && <div style={ISM.errorRow}>{error}</div>}
-
-        <div style={ISM.footer}>
-          <button onClick={step === 1 ? onClose : () => setStep(1)} style={ISM.cancelBtn}>
-            {step === 1 ? 'Cancel' : 'Back'}
-          </button>
-          <div style={{ flex: 1 }} />
-          {step === 1 ? (
-            <button
-              onClick={() => step1Valid && setStep(2)}
-              disabled={!step1Valid}
-              style={{ ...ISM.saveBtn, opacity: step1Valid ? 1 : 0.6, cursor: step1Valid ? 'pointer' : 'default' }}
-            >
-              Next
-            </button>
-          ) : (
-            <button onClick={handleConfirm} disabled={!canConfirm} style={{ ...ISM.saveBtn, background: C.success, opacity: canConfirm ? 1 : 0.6, cursor: canConfirm ? 'pointer' : 'default' }}>
-              {saving ? 'Hiring…' : 'Confirm & hire'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Confirm interview modal ────────────────────────────────────────────
 // Fired from the CONTACTED row's primary CTA. Shows the interview slot
@@ -5056,167 +4616,6 @@ function InterviewSchedulerModal(props: {
   );
 }
 
-const ISM = {
-  backdrop: {
-    position: 'fixed' as const, inset: 0, background: 'rgba(15,23,42,0.45)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 1000, padding: 24,
-  } as React.CSSProperties,
-  card: {
-    background: '#fff', borderRadius: 14, width: 'min(880px, 100%)',
-    maxHeight: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' as const,
-    boxShadow: '0 24px 60px rgba(15,23,42,0.25)', overflow: 'hidden',
-  } as React.CSSProperties,
-  header: {
-    padding: '16px 24px', borderBottom: '1px solid #f1f5f9',
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  } as React.CSSProperties,
-  headerIcon: {
-    width: 36, height: 36, borderRadius: 8, background: '#eef2ff',
-    color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 15,
-  } as React.CSSProperties,
-  title: { margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a', lineHeight: 1.3 } as React.CSSProperties,
-  subtitle: { fontSize: 12, color: '#64748b', marginTop: 2 } as React.CSSProperties,
-  closeBtn: {
-    background: 'none', border: 'none', fontSize: 15, cursor: 'pointer',
-    color: '#94a3b8', padding: '4px 6px',
-  } as React.CSSProperties,
-
-  summaryWrap: { padding: '16px 24px 0' } as React.CSSProperties,
-  summary: {
-    padding: '12px 16px', borderRadius: 10, border: '1px solid transparent',
-    display: 'flex', alignItems: 'center', gap: 14,
-  } as React.CSSProperties,
-  summaryDate: {
-    display: 'flex', flexDirection: 'column' as const, alignItems: 'center',
-    background: '#fff', borderRadius: 8, padding: '6px 12px', border: '1px solid #e0f2fe',
-    minWidth: 48, lineHeight: 1,
-  } as React.CSSProperties,
-  summaryDow: { fontSize: 10, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' } as React.CSSProperties,
-  summaryDay: { fontSize: 20, fontWeight: 800, color: '#0c4a6e', lineHeight: 1.2 } as React.CSSProperties,
-  summaryMonth: { fontSize: 9, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' } as React.CSSProperties,
-  summaryTime: { fontSize: 14, fontWeight: 700, color: '#0c4a6e' } as React.CSSProperties,
-  summaryFullDate: { fontSize: 11, color: '#0369a1', marginTop: 2 } as React.CSSProperties,
-  clashCol: { marginLeft: 'auto', textAlign: 'right' as const, minWidth: 200, flexShrink: 0 } as React.CSSProperties,
-  clashTitle: {
-    fontSize: 11, fontWeight: 700, color: '#b45309', marginBottom: 3,
-    display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5,
-  } as React.CSSProperties,
-  clashRow: { fontSize: 11, color: '#92400e' } as React.CSSProperties,
-
-  body: { display: 'flex', padding: '16px 24px 20px', gap: 22, overflowY: 'auto' as const } as React.CSSProperties,
-  leftCol: { flex: '0 0 330px', paddingRight: 22, borderRight: '1px solid #f1f5f9' } as React.CSSProperties,
-  rightCol: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' as const } as React.CSSProperties,
-  sectionLabel: {
-    fontSize: 11, fontWeight: 700, color: '#334155', letterSpacing: '0.03em',
-    textTransform: 'uppercase' as const, marginBottom: 10,
-    display: 'flex', alignItems: 'center', gap: 7,
-  } as React.CSSProperties,
-  stepChip: {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    width: 18, height: 18, borderRadius: '50%',
-    background: '#4f46e5', color: '#fff', fontSize: 10, fontWeight: 700,
-  } as React.CSSProperties,
-  dateInput: {
-    display: 'block', width: '100%', padding: '8px 10px',
-    border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13,
-    fontFamily: 'inherit', boxSizing: 'border-box' as const,
-    background: '#fff', color: '#1e293b',
-  } as React.CSSProperties,
-  slotGroupLabel: {
-    fontSize: 10, fontWeight: 600, color: '#94a3b8',
-    textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 6,
-  } as React.CSSProperties,
-  slotGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 } as React.CSSProperties,
-  slotBtn: {
-    padding: '7px 0', fontSize: 11, fontWeight: 600, borderRadius: 7,
-    cursor: 'pointer', border: 'none', outline: 'none',
-    transition: 'all 0.12s ease',
-  } as React.CSSProperties,
-
-  editToggle: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    fontSize: 11, color: C.primary, fontWeight: 600, padding: 0,
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-  } as React.CSSProperties,
-  langSwitch: {
-    display: 'inline-flex', borderRadius: 6,
-    background: '#f1f5f9', padding: 2,
-  } as React.CSSProperties,
-  langBtn: {
-    padding: '2px 11px', borderRadius: 5, fontSize: 11, fontWeight: 600,
-    cursor: 'pointer', lineHeight: '18px', border: 'none',
-    background: 'transparent', color: '#94a3b8',
-  } as React.CSSProperties,
-  msgMissing: {
-    padding: '12px 14px', borderRadius: 10,
-    background: '#fffbeb', border: '1px solid #fde68a',
-    color: '#92400e', fontSize: 12, lineHeight: 1.6,
-    height: 260, boxSizing: 'border-box' as const,
-    overflowY: 'auto' as const,
-  } as React.CSSProperties,
-  // Legacy standalone preview + editor — still used by the Offer modal.
-  msgPreview: {
-    background: '#f8faf9', borderRadius: 10, padding: '12px 14px',
-    fontSize: 13, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' as const,
-    overflowY: 'auto' as const, height: 260,
-    border: '1px solid #e5e7eb', boxSizing: 'border-box' as const,
-  } as React.CSSProperties,
-  msgEdit: {
-    display: 'block', width: '100%', height: 260,
-    resize: 'none' as const,
-    padding: '11px 13px', border: '1px solid #e2e8f0', borderRadius: 8,
-    fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' as const,
-    lineHeight: 1.55, background: '#fff', color: '#1e293b',
-    overflowY: 'auto' as const,
-  } as React.CSSProperties,
-  // Toolbar row for the message preview — lang tabs on the left, Edit
-  // action on the right, sitting above the preview box.
-  msgToolbar: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 8, gap: 10,
-  } as React.CSSProperties,
-  resetLink: {
-    background: 'none', border: 'none', padding: 0,
-    color: C.muted, fontSize: 11, cursor: 'pointer',
-    marginTop: 8, alignSelf: 'flex-start' as const,
-    textDecoration: 'underline',
-  } as React.CSSProperties,
-
-  errorRow: {
-    margin: '0 24px 12px', padding: '8px 12px', borderRadius: 8,
-    background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
-    fontSize: 12,
-  } as React.CSSProperties,
-  // Amber-toned pre-flight banner. Distinct from the red errorRow so
-  // the admin reads it as "you need to do something first" rather
-  // than "a save just failed".
-  warnRow: {
-    margin: '0 24px 12px', padding: '8px 12px', borderRadius: 8,
-    background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e',
-    fontSize: 12,
-  } as React.CSSProperties,
-
-  footer: {
-    padding: '14px 24px', borderTop: '1px solid #e2e8f0',
-    display: 'flex', alignItems: 'center', gap: 10, background: '#fafbfc',
-  } as React.CSSProperties,
-  cancelBtn: {
-    background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8,
-    cursor: 'pointer', fontSize: 13, color: '#64748b', fontWeight: 500,
-    padding: '9px 16px',
-  } as React.CSSProperties,
-  saveBtn: {
-    padding: '9px 20px', background: '#4f46e5', color: '#fff', border: 'none',
-    borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700,
-  } as React.CSSProperties,
-  waBtn: {
-    padding: '9px 16px', background: '#25D366', color: '#fff', border: 'none',
-    borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700,
-    display: 'inline-flex', alignItems: 'center', gap: 7, textDecoration: 'none',
-  } as React.CSSProperties,
-};
 
 function FilterChipRow(props: {
   label: string;
@@ -5238,6 +4637,46 @@ function FilterChipRow(props: {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// "What needs doing today" — one row of chips above the stage tabs, at
+// every screen width. Amber when something is overdue. Each chip opens the
+// matching side-panel list (desktop) or stage tab (phone, no side panel).
+type AttentionKey = 'interviews' | 'new' | 'deciding' | 'offered';
+function AttentionStrip(props: {
+  interviewsToday: number; newWaiting: number; deciding: number; offerSent: number; offerStale: number;
+  onOpen: (key: AttentionKey) => void;
+}) {
+  const items: { key: AttentionKey; icon: typeof faInbox; label: string; count: number; alert: boolean; color: string; bg: string }[] = [
+    { key: 'interviews', icon: faCalendarDays, label: 'Interviews today', count: props.interviewsToday, alert: false, color: '#1d4ed8', bg: '#eff6ff' },
+    { key: 'new', icon: faInbox, label: 'New, waiting 3+ days', count: props.newWaiting, alert: props.newWaiting > 0, color: '#d97706', bg: '#fffbeb' },
+    { key: 'deciding', icon: faScaleBalanced, label: 'Awaiting decision', count: props.deciding, alert: props.deciding > 0, color: '#d97706', bg: '#fffbeb' },
+    {
+      key: 'offered', icon: faPaperPlane, count: props.offerSent, alert: props.offerStale > 0,
+      label: props.offerStale > 0 ? `Offers sent · ${props.offerStale} no reply 7+ days` : 'Offers sent',
+      color: props.offerStale > 0 ? '#d97706' : '#16a34a', bg: props.offerStale > 0 ? '#fffbeb' : '#f0fdf4',
+    },
+  ];
+  return (
+    <div className="cand-attention" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+      {items.map(it => (
+        <button key={it.key} type="button" onClick={() => props.onOpen(it.key)} className="cand-attention-chip"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 12px',
+            background: it.alert ? it.bg : C.surface, border: `1px solid ${it.alert ? it.color + '55' : C.border}`,
+            borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600,
+            color: it.count > 0 ? it.color : C.mutedSoft,
+          }}>
+          <FontAwesomeIcon icon={it.icon} style={{ fontSize: 11 }} />
+          {it.label}
+          <span style={{
+            padding: '1px 7px', borderRadius: 10, fontSize: 11, fontWeight: 700,
+            background: it.count > 0 ? it.color : '#e5e7eb', color: it.count > 0 ? '#fff' : C.mutedSoft,
+          }}>{it.count}</span>
+        </button>
+      ))}
     </div>
   );
 }

@@ -25,7 +25,7 @@ import AgeGroupsSettingsPage from './pages/AgeGroupsSettingsPage.js';
 import SettingsPackagesPage from './pages/settings/SettingsPackagesPage.js';
 import StudentsPage from './pages/StudentsPage.js';
 import EditStudentPage from './pages/EditStudentPage.js';
-import OnboardingSettingsPage from './pages/OnboardingSettingsPage.js';
+import OnboardingSettingsPage, { type ChecklistSection } from './pages/OnboardingSettingsPage.js';
 import OnboardingPage from './pages/OnboardingPage.js';
 import WhatsAppTemplatesPage from './pages/WhatsAppTemplatesPage.js';
 import LeadStatusSettingsPage from './pages/LeadStatusSettingsPage.js';
@@ -115,6 +115,11 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage.js';
 import TermsOfServicePage from './pages/TermsOfServicePage.js';
 import HomePage from './pages/HomePage.js';
 import ApplyPage from './pages/ApplyPage.js';
+import StaffJoinPage from './pages/StaffJoinPage.js';
+import NewStaffPage from './pages/NewStaffPage.js';
+import GuideShareRedirect from './pages/operations/GuideShareRedirect.js';
+import StaffOnboardingPage from './pages/staffOnboarding/StaffOnboardingPage.js';
+import { loginUrlReturningTo } from './utils/loginReturn.js';
 import CandidatesPage from './pages/CandidatesPage.js';
 import ImportCandidatesPage from './pages/candidates/ImportCandidatesPage.js';
 import RecruitmentSettingsPage from './pages/settings/RecruitmentSettingsPage.js';
@@ -161,6 +166,12 @@ const HR_MISSIONS = /\/teachers\/[^/]+\/career\/missions/;
 // app's own link — tagged ?app=teacher — switches this page over to the
 // floating TeacherTopBar/TeacherMobileNav.
 const TEACHER_SOP = /^\/operations\/sops(?:\/|$)/;
+
+// Settings → HR & Payroll → Staff Onboarding: HR's list, then the joiner's own.
+const STAFF_ONBOARDING_SECTIONS: ChecklistSection[] = [
+  { settingKey: 'staff_onboarding_tasks', label: 'HR checklist', help: 'What HR does for a new joiner — ticked on HR → Onboarding. Finishing this list completes their onboarding.' },
+  { settingKey: 'staff_self_onboarding_tasks', label: 'New staff\'s own checklist', help: 'What the new joiner does themselves — they tick it in their app under "My onboarding".' },
+];
 function isTeacherSurface(pathname: string, search: string): boolean {
   if (TEACHER_SOP.test(pathname)) return new URLSearchParams(search).get('app') === 'teacher';
   if (!TEACHER_SURFACE.test(pathname)) return false;
@@ -181,7 +192,7 @@ function ProtectedLayout() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, left: 0 });
   }, [pathname]);
-  if (!token) return <Navigate to="/login" replace />;
+  if (!token) return <Navigate to={loginUrlReturningTo(pathname + search)} replace />;
   const teacherSurface = isTeacherSurface(pathname, search);
   // The floating teacher chrome (top bar + bottom tab capsule) is a
   // phone-first pattern — on desktop these routes fall back to the
@@ -254,6 +265,7 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/apply" element={<ApplyPage />} />
+        <Route path="/join" element={<StaffJoinPage />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/no-access" element={<ErrorBoundary><NoAccessPage /></ErrorBoundary>} />
           <Route path="/leads" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><LeadsPage /></ErrorBoundary></RequireModule>} />
@@ -278,11 +290,14 @@ export default function App() {
           <Route path="/settings/packages" element={<ErrorBoundary><SettingsPackagesPage /></ErrorBoundary>} />
           <Route path="/settings/packages" element={<Navigate to="/packages" replace />} />
           <Route path="/settings/onboarding" element={<ErrorBoundary><OnboardingSettingsPage /></ErrorBoundary>} />
+          <Route path="/settings/staff-onboarding" element={<ErrorBoundary><OnboardingSettingsPage title="Staff Onboarding" subtitle="Two checklists for every new staff member. Each new joiner gets a copy of both." sections={STAFF_ONBOARDING_SECTIONS} /></ErrorBoundary>} />
           <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/attendance-reader" element={<ErrorBoundary><AttendanceReaderSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers" element={<RequireModule module={MODULES.HR}><ErrorBoundary><TeachersPage /></ErrorBoundary></RequireModule>} />
           <Route path="/teachers/:id" element={<RequireModule module={MODULES.HR}><ErrorBoundary><EditTeacherPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/candidates" element={<RequireModule module={MODULES.HR}><ErrorBoundary><CandidatesPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/hr/new-staff" element={<RequireModule module={MODULES.HR}><ErrorBoundary><NewStaffPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/hr/onboarding" element={<RequireModule module={MODULES.HR}><ErrorBoundary><StaffOnboardingPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/candidates/import" element={<RequireModule module={MODULES.HR}><ErrorBoundary><ImportCandidatesPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/sop-observations" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/sop-observations/new" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationNewPage /></ErrorBoundary></RequireModule>} />
@@ -380,6 +395,7 @@ export default function App() {
           <Route path="/operations/sops" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopLibraryPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops/propose" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopProposePage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops/:templateId" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopTemplateStepsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/guide/:templateId" element={<GuideShareRedirect />} />
           <Route path="/operations/sops/:templateId/propose" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopProposePage /></ErrorBoundary></RequireModule>} />
           <Route path="/settings/sop-categories" element={<ErrorBoundary><SopCategoriesPage /></ErrorBoundary>} />
           <Route path="/settings/sop-sections" element={<ErrorBoundary><SopSectionsPage /></ErrorBoundary>} />

@@ -1,3 +1,5 @@
+import { loginUrlReturningTo } from '../utils/loginReturn.js';
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export class ApiError extends Error {
@@ -42,7 +44,7 @@ export async function apiFetch<T>(
     if (res.status === 401 && !path.includes('/auth/login')) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.location.href = loginUrlReturningTo(window.location.pathname + window.location.search);
       throw new ApiError('Session expired. Please sign in again.', 401, 'SESSION_EXPIRED');
     }
 

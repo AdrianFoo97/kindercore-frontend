@@ -18,6 +18,7 @@ import {
 import { TEACHER_TOPBAR_SPACE } from '../components/common/TeacherTopBar.js';
 import { MilestoneTrack, remainingLabel, type MonthDotState } from '../components/common/MilestoneTrack.js';
 import { useAnnualBonusSummary } from '../hooks/useAnnualBonusSummary.js';
+import { MyOnboardingCard } from './teacherHome/MyOnboardingCard.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher Home — a warm, motivating landing. Answers three things at a
@@ -380,6 +381,9 @@ export default function TeacherHomePage() {
           </div>
           <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: C.mutedSoft, flexShrink: 0 }} />
         </button>
+
+        {/* ── My onboarding (new joiners only) ─────────────────── */}
+        {id && <MyOnboardingCard teacherId={id} sectionLabelStyle={sectionLabel} />}
 
         {/* ── Current Focus ────────────────────────────────────── */}
         <div style={sectionLabel}>Current Focus</div>

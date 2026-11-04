@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faPenToSquare, faEllipsisVertical, faMagnifyingGlass, faGear,
-  faClipboardCheck, faChevronRight, faChevronDown, faCheck, faListCheck, faLayerGroup, faClockRotateLeft,
+  faClipboardCheck, faChevronRight, faChevronDown, faCheck, faListCheck, faLayerGroup, faClockRotateLeft, faLink,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchTemplates } from '../../api/sop-templates.js';
 import { fetchSteps } from '../../api/sop-steps.js';
@@ -15,6 +15,8 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useScrolledPast } from '../../hooks/useScrolledPast.js';
 import { TEACHER_TOPBAR_SPACE } from '../../components/common/TeacherTopBar.js';
+import { useToast } from '../../components/common/Toast.js';
+import { copyGuideLink } from './copyGuideLink.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -62,6 +64,7 @@ const PRINCIPLES = [
 export default function SopLibraryPage() {
   const navigate = useNavigate();
   const { isMobile } = useIsMobile();
+  const { showToast } = useToast();
   // Admins, and anyone whose AuthRole grants OPERATION_SOP_APPROVE (the
   // "Supervisor" tier — same view that unlocks Approve/Reject on the
   // Improvement Inbox), add a How-To Guide directly. Everyone else drafts a
@@ -317,6 +320,7 @@ export default function SopLibraryPage() {
            until something else is tapped. Real hover-capable devices
            (mouse/trackpad) still get the effect on actual mouseover. */
         @media (hover: hover) {
+          .sop-share-btn:hover { background: var(--sop-accent-soft) !important; color: var(--sop-accent) !important; }
           .sop-tpl-row:hover { border-color: ${'var(--sop-accent-border)'} !important; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 16px rgba(90,103,216,0.08) !important; }
           .sop-catfilter-trigger:hover { border-color: ${'var(--sop-accent-border)'} !important; background: ${'var(--sop-accent-soft)'} !important; }
           .sop-catfilter-item:hover { background: ${C.divider} !important; }
@@ -634,6 +638,16 @@ export default function SopLibraryPage() {
                           </div>
                         )}
                       </div>
+                      <button
+                        type="button"
+                        className="sop-share-btn"
+                        onClick={e => { e.stopPropagation(); copyGuideLink(t.id, showToast); }}
+                        title="Copy link — only signed-in staff with access can open it"
+                        aria-label={`Copy link to ${t.title}`}
+                        style={s.shareBtn}
+                      >
+                        <FontAwesomeIcon icon={faLink} />
+                      </button>
                       <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 12, color: C.mutedSoft, marginLeft: 4, flexShrink: 0 }} />
                     </div>
                   );
@@ -723,6 +737,12 @@ const s: Record<string, React.CSSProperties> = {
   // new guide" here vs. Settings/admin links there), but the button
   // chrome itself should read as identical, not a visibly different
   // control in the same spot depending on which page you're on.
+  // Per-guide share icon — 36px so it's an easy tap target on a phone.
+  shareBtn: {
+    width: 36, height: 36, borderRadius: 8, border: 'none', background: 'transparent',
+    color: C.mutedSoft, fontSize: 14, cursor: 'pointer', flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
   moreBtn: {
     width: 32, height: 32, borderRadius: '50%',
     border: '1px solid rgba(255,255,255,0.32)', boxSizing: 'border-box' as const,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useId } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { nextPathFrom } from '../utils/loginReturn.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import { login } from '../api/auth.js';
@@ -231,7 +232,9 @@ export default function LoginPage() {
     if (isLoggedIn) {
       const rawUser = localStorage.getItem('user');
       const storedTeacherId = rawUser ? (JSON.parse(rawUser) as { teacherId?: string | null }).teacherId : null;
-      resolveLandingPath(storedTeacherId).then(path => navigate(path, { replace: true }));
+      const back = nextPathFrom(window.location.search);
+      if (back) navigate(back, { replace: true });
+      else resolveLandingPath(storedTeacherId).then(path => navigate(path, { replace: true }));
     }
   }, [isLoggedIn, navigate]);
 
@@ -254,7 +257,8 @@ export default function LoginPage() {
       const data = await login(email.trim(), password);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate(await resolveLandingPath(data.user.teacherId));
+      // Back to whatever they were opening (e.g. a shared guide), else home.
+      navigate(nextPathFrom(window.location.search) ?? await resolveLandingPath(data.user.teacherId));
     } catch (err: unknown) {
       const { ApiError } = await import('../api/client.js');
       if (err instanceof ApiError) {

@@ -4,7 +4,22 @@ import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
 
-export default function OnboardingSettingsPage() {
+/** One checklist template on the page — e.g. HR's list and the new joiner's own list. */
+export interface ChecklistSection {
+  settingKey: string;
+  /** Shown above the editor when the page has more than one list. */
+  label?: string;
+  help?: string;
+}
+
+const STUDENT_SECTIONS: ChecklistSection[] = [{ settingKey: 'onboarding_tasks' }];
+
+/** The same checklist editor serves students (default) and staff (Settings → HR & Payroll → Staff Onboarding). */
+export default function OnboardingSettingsPage({
+  sections = STUDENT_SECTIONS,
+  title = 'Student Onboarding',
+  subtitle = 'Tasks to complete when a new student is enrolled.',
+}: { sections?: ChecklistSection[]; title?: string; subtitle?: string }) {
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
@@ -16,34 +31,46 @@ export default function OnboardingSettingsPage() {
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
-  const tasks: string[] = Array.isArray(data?.onboarding_tasks) ? (data.onboarding_tasks as string[]) : [];
-
   if (isLoading) return <p style={styles.state}>Loading…</p>;
   if (isError) return <p style={{ ...styles.state, color: '#e53e3e' }}>Failed to load settings.</p>;
 
   return (
     <div className="m-pad" style={styles.page}>
       <div style={styles.inner}>
-        <h1 style={styles.heading}>Student Onboarding</h1>
-        <p style={styles.subheading}>Tasks to complete when a new student is enrolled.</p>
+        <h1 style={styles.heading}>{title}</h1>
+        <p style={styles.subheading}>{subtitle}</p>
         {!isAdmin && (
           <p style={styles.readonlyNote}>You have read-only access. Admin role required to save changes.</p>
         )}
-        <OnboardingEditor
-          tasks={tasks}
-          isAdmin={isAdmin}
-          onSaved={() => queryClient.invalidateQueries({ queryKey: ['settings'] })}
-        />
+        {sections.map(section => {
+          const stored = data?.[section.settingKey];
+          const tasks: string[] = Array.isArray(stored) ? (stored as string[]) : [];
+          return (
+            <section key={section.settingKey} style={{ marginBottom: sections.length > 1 ? 28 : 0 }}>
+              {section.label && <h2 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>{section.label}</h2>}
+              {section.help && <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 12px' }}>{section.help}</p>}
+              <OnboardingEditor
+                key={section.settingKey}
+                settingKey={section.settingKey}
+                tasks={tasks}
+                isAdmin={isAdmin}
+                onSaved={() => queryClient.invalidateQueries({ queryKey: ['settings'] })}
+              />
+            </section>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 function OnboardingEditor({
+  settingKey,
   tasks: initialTasks,
   isAdmin,
   onSaved,
 }: {
+  settingKey: string;
   tasks: string[];
   isAdmin: boolean;
   onSaved: () => void;
@@ -101,7 +128,7 @@ function OnboardingEditor({
   const handleSave = async () => {
     setSaving(true); setError('');
     try {
-      await patchSetting('onboarding_tasks', items);
+      await patchSetting(settingKey, items);
       setSaved(true);
       onSaved();
       setTimeout(() => setSaved(false), 2000);

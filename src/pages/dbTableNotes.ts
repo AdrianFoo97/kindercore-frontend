@@ -55,6 +55,7 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
 
   // Staff & HR
   Teacher: { domain: 'Staff & HR', about: 'A staff member — personal details, position, salary and employment dates.' },
+  StaffJoinRequest: { domain: 'Staff & HR', about: 'A new staff member\'s details from the public New staff form (for people who did not apply through Recruitment), waiting for HR to approve onto the staff list or reject. Links to the staff record it became.' },
   Department: { domain: 'Staff & HR', about: 'A department staff positions belong to.' },
   Position: { domain: 'Staff & HR', about: 'A job position (e.g. Assistant Teacher) — its department, salary band and default access role.' },
   SopObservation: { domain: 'Staff & HR', about: 'One observation of a teacher performing a how-to guide, through trainer and assessor sign-off.' },

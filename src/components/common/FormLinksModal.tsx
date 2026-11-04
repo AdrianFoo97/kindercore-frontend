@@ -2,20 +2,22 @@ import { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faXmark, faCopy, faCircleCheck, faQrcode, faNewspaper, faLink, faArrowUpRightFromSquare, faUserPlus, faChildReaching,
+  faXmark, faCopy, faCircleCheck, faQrcode, faNewspaper, faLink, faArrowUpRightFromSquare, faUserPlus, faChildReaching, faIdCard,
 } from '@fortawesome/free-solid-svg-icons';
 import { faFacebook, faInstagram, faGoogle, faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { joinFormUrl } from '../../api/staffJoins.js';
 
-// Tools → Forms → Form Links. Shareable, source-tracked links for the two
-// public forms, one tab each:
+// Tools → Forms → Form Links. Shareable links for the public forms, one tab each:
 //   • Enquiry form (/enquiry)          — a fixed set of marketing channels
 //   • Job application (/apply)         — the admin-curated recruitment
 //     referral sources (Settings → Recruitment), same list the apply form
 //     and Candidates page use.
+//   • New staff (/join)                — for staff joining without applying;
+//     HR approves them under HR → New Staff. One link, no tracking.
 // Each link carries ?utm_source=… so a submission records where it came from.
 // Brand icons only for the platforms themselves (as faWhatsapp elsewhere).
 
-export type FormTab = 'enquiry' | 'apply';
+export type FormTab = 'enquiry' | 'apply' | 'join';
 
 interface LinkItem { key: string; label: string; desc: string; icon: IconDefinition; url: string }
 
@@ -51,6 +53,7 @@ function applyLinks(base: string, sources: string[]): LinkItem[] {
 const TABS: { key: FormTab; label: string; icon: IconDefinition; path: string }[] = [
   { key: 'enquiry', label: 'Enquiry form', icon: faChildReaching, path: '/enquiry' },
   { key: 'apply', label: 'Job application', icon: faUserPlus, path: '/apply' },
+  { key: 'join', label: 'New staff', icon: faIdCard, path: '/join' },
 ];
 
 export default function FormLinksModal({ initialTab = 'enquiry', applySources, onClose }: {
@@ -75,7 +78,9 @@ export default function FormLinksModal({ initialTab = 'enquiry', applySources, o
   useEffect(() => { setCopied(''); }, [tab]);
 
   const base = window.location.origin;
-  const items = tab === 'enquiry' ? enquiryLinks(base) : applyLinks(base, applySources);
+  const items = tab === 'enquiry' ? enquiryLinks(base)
+    : tab === 'apply' ? applyLinks(base, applySources)
+    : [{ key: 'join', label: 'New staff form', desc: 'For staff joining without applying — HR approves them', icon: faIdCard, url: joinFormUrl(base) }];
   const current = TABS.find(t => t.key === tab)!;
 
   return (
