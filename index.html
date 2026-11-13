@@ -8,6 +8,11 @@
          verification succeeds. -->
     <meta name="google-site-verification" content="K6y88XVUKjHto1CD7naCm6y2sFRvJxfqa4YvuyQcIB4" />
     <title>KinderTech</title>
+    <!-- Installable app (Android: Add to Home screen / Install app). No service worker on purpose:
+         nothing is cached, so pay and finance data is never shown stale or kept offline. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#7c3aed" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <style>
       *, *::before, *::after { box-sizing: border-box; }
       html, body, #root {

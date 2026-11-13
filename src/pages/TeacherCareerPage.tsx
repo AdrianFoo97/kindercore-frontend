@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useGoBack } from '../hooks/useGoBack.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -128,6 +129,7 @@ function effortFor(m: MissionWithProgress): { label: string; hint: string } {
 export default function TeacherCareerPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useGoBack('/teachers');
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { isMobile } = useIsMobile();
@@ -211,7 +213,7 @@ export default function TeacherCareerPage() {
       <div style={s.inner}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
           <button
-            onClick={() => navigate('/teachers')}
+            onClick={goBack}
             style={s.backBtn}
             className="tcp-back-btn back-btn"
             aria-label="Back" title="Back"

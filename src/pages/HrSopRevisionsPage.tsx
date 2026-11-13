@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronRight, faClipboardList, faUserPen, faClock } from '@fortawesome/free-solid-svg-icons';
 import { fetchRevisions, SopRevisionStatus } from '../api/sop-revisions.js';
+import { decisionWord } from './operations/mySuggestions.js';
+import { commentCountLabel } from './operations/reviewComments.js';
 import { fetchTemplates } from '../api/sop-templates.js';
 
 const C = {
@@ -20,7 +22,12 @@ const RADIUS = 14;
 const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 
 const TABS: { key: SopRevisionStatus; label: string }[] = [
-  { key: 'PENDING', label: 'Pending' },
+  // In the order things happen: review → (sent back) → trial → decision.
+  { key: 'PENDING', label: 'In review' },
+  // Sent back to the teacher with feedback — waiting on their changes.
+  { key: 'CHANGES_REQUESTED', label: 'Sent back' },
+  // Looks right — being tried in practice before the decision.
+  { key: 'TRIAL', label: 'On trial' },
   { key: 'APPROVED', label: 'Approved' },
   { key: 'REJECTED', label: 'Rejected' },
 ];
@@ -42,7 +49,14 @@ function fmtDate(iso: string) {
 export default function HrSopRevisionsPage() {
   const navigate = useNavigate();
 
-  const [tab, setTab] = useState<SopRevisionStatus>('PENDING');
+  // The tab lives in the URL (?tab=TRIAL) so other pages can open a tab and Back keeps it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: SopRevisionStatus = TABS.find(t => t.key === searchParams.get('tab'))?.key ?? 'PENDING';
+  const setTab = (next: SopRevisionStatus) => setSearchParams(prev => {
+    const p = new URLSearchParams(prev);
+    if (next === 'PENDING') p.delete('tab'); else p.set('tab', next);
+    return p;
+  }, { replace: true });
   const { data: revisions = [], isLoading } = useQuery({
     queryKey: ['sop-revisions', tab],
     queryFn: () => fetchRevisions({ status: tab }),
@@ -118,9 +132,9 @@ export default function HrSopRevisionsPage() {
                     </div>
                     {rev.status !== 'PENDING' && rev.reviewedByName && (
                       <div style={{ fontSize: 11.5, color: C.mutedSoft, marginTop: 6 }}>
-                        {rev.status === 'APPROVED' ? 'Approved' : 'Rejected'} by {rev.reviewedByName}
+                        {decisionWord(rev.status)} by {rev.reviewedByName}
                         {rev.reviewedAt ? ` on ${fmtDate(rev.reviewedAt)}` : ''}
-                        {rev.reviewNote ? ` — "${rev.reviewNote}"` : ''}
+                        {rev.reviewNote ? ` — "${rev.reviewNote}"` : rev.reviewCommentsJson?.length ? ` — ${commentCountLabel(rev.reviewCommentsJson.length)}` : ''}
                       </div>
                     )}
                   </div>

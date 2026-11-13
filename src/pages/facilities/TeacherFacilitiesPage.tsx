@@ -49,14 +49,14 @@ export default function TeacherFacilitiesPage() {
         </h1>
         {/* Phone: the floating "+" above the nav. Wider screens: a full-width button here. */}
         {isMobile ? (
-          <TeacherFab label="Report a Problem" onClick={() => navigate(`/teachers/${id}/facilities/new`)} />
+          <TeacherFab label="Report a Facility Issue" onClick={() => navigate(`/teachers/${id}/facilities/new`)} />
         ) : (
           <button type="button" onClick={() => navigate(`/teachers/${id}/facilities/new`)} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: 14,
             border: 'none', borderRadius: 12, background: C.pAccent, color: '#fff', fontSize: 15, fontWeight: 700,
             fontFamily: 'inherit', cursor: 'pointer', marginBottom: 22,
           }}>
-            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 13 }} /> Report a Problem
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 13 }} /> Report a Facility Issue
           </button>
         )}
 

@@ -44,6 +44,8 @@ const TEACHER_PATH = /^\/teachers\/([^/]+)\/(home|my-career|my-compensation|rewa
 // a teacher-app surface when tagged ?app=teacher (see App.tsx's
 // isTeacherSurface); the plain admin entry point is untouched.
 const TEACHER_SOP_PATH = /^\/operations\/sops(?:\/|$)/;
+// Guide pages that belong to Home, not Guides: My guide ideas (+ a suggestion) and the new-guide form it opens.
+const HOME_SOP_PATH = /^\/operations\/sops\/(?:my-suggestions(?:\/|$)|propose\/?$)/;
 
 // Focused redeem flows that own a sticky bottom action bar — the nav
 // is suppressed here so there's never a tab bar stacked under a
@@ -78,7 +80,11 @@ export function teacherNavMatch(
   if (TEACHER_SOP_PATH.test(pathname)) {
     if (new URLSearchParams(search).get('app') !== 'teacher') return null;
     const teacherId = currentTeacherId();
-    return teacherId ? { teacherId, activeSeg: 'sop' } : null;
+    if (!teacherId) return null;
+    // My guide ideas (and suggesting a new guide from it) is opened from Home's quick actions.
+    // So is resending a sent-back idea ("Make changes" there opens the edit form with ?resubmit).
+    const fromHome = HOME_SOP_PATH.test(pathname) || new URLSearchParams(search).has('resubmit');
+    return { teacherId, activeSeg: fromHome ? 'home' : 'sop' };
   }
   const m = pathname.match(TEACHER_PATH);
   if (!m) return null;

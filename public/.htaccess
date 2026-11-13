@@ -1,3 +1,5 @@
+# The installable-app manifest must be served as JSON.
+AddType application/manifest+json .webmanifest
 Options -MultiViews
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f

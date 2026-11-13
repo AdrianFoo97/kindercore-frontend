@@ -4,21 +4,21 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faEnvelope, faBriefcase, faCakeCandles, faPhone, faArrowRightFromBracket,
-  faCircleQuestion, faChevronRight,
+  faEnvelope, faBriefcase, faCakeCandles, faPhone, faArrowRightFromBracket, faMobileScreenButton,
 } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { fetchTeacherCareer } from '../api/career-missions.js';
 import { fetchTeachers } from '../api/planner.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 import { User } from '../types/index.js';
+import { useInstallApp } from '../hooks/useInstallApp.js';
 
 function fmtBirthday(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Teacher Settings — reached from the "⋯" on every main tab. Just the
+// Teacher My Profile — reached from the "⋯" on every main tab. Just the
 // account basics (who you're signed in as) plus the one action that
 // actually belongs here: Logout. This floating chrome otherwise had no
 // account surface at all; this page (not the "⋯" menu itself) is where
@@ -42,6 +42,7 @@ const C = {
 };
 
 export default function TeacherMySettingsPage() {
+  const installApp = useInstallApp();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isMobile } = useIsMobile();
@@ -99,7 +100,7 @@ export default function TeacherMySettingsPage() {
             margin: '0 0 16px', paddingLeft: 4, fontSize: 30, fontWeight: 800,
             color: C.textStrong, letterSpacing: '-0.02em',
           }}>
-            Settings
+            My Profile
           </h1>
         )}
 
@@ -164,29 +165,22 @@ export default function TeacherMySettingsPage() {
           </div>
         )}
 
-        {/* ── Help ─────────────────────────────────────────────── */}
-        <div style={{
-          background: C.card, border: `1px solid ${C.cardBorder}`,
-          borderRadius: 14, marginBottom: 24, overflow: 'hidden',
-          boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
-        }}>
-          <button aria-label="Report a bug" title="Report a bug"
-            type="button"
-            onClick={() => navigate(`/teachers/${id}/settings/report-bug`)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-              padding: '14px 16px', border: 'none', background: 'transparent',
-              cursor: 'pointer', textAlign: 'left' as const, fontFamily: 'inherit',
-            }}
-          >
-            <FontAwesomeIcon icon={faCircleQuestion} style={{ width: 16, color: C.muted }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.textStrong }}>Report a Bug</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>Something not working right? Let us know.</div>
-            </div>
-            <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 12, color: C.muted }} />
+        {/* Report a Bug lives in the ⋯ menu now (TeacherTopBar), next to My Profile. */}
+
+        {/* Android only, while Chrome says the app can be installed — opens Chrome's install dialog. */}
+        {installApp.canInstall && (
+          <button type="button" onClick={() => { void installApp.install(); }} style={{
+            display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 16, padding: '14px 16px',
+            background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14, cursor: 'pointer',
+            textAlign: 'left', fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
+          }}>
+            <FontAwesomeIcon icon={faMobileScreenButton} style={{ width: 16, color: C.pAccent }} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: C.textStrong }}>Install the app</span>
+              <span style={{ display: 'block', fontSize: 12, color: C.muted, marginTop: 1 }}>Open KinderTech from your home screen, full screen.</span>
+            </span>
           </button>
-        </div>
+        )}
 
         {/* ── Logout ───────────────────────────────────────────── */}
         <button

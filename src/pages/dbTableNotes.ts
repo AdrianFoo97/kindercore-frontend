@@ -101,6 +101,7 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   SopSection: { domain: 'How-to guides (SOPs)', about: 'Section names steps can be grouped under (e.g. Pre-shift Preparation).' },
   SopCategory: { domain: 'How-to guides (SOPs)', about: 'Shared labels for organising how-to guides.' },
   SopTemplateCategory: { domain: 'How-to guides (SOPs)', about: 'Which labels are on which guide.' },
+  SopFavorite: { domain: 'How-to guides (SOPs)', about: 'Each person\'s starred guides — the Guides page opens on them.' },
   SopTemplateRevision: { domain: 'How-to guides (SOPs)', about: 'A proposed change or new guide, awaiting review in the Improvement Inbox.' },
 
   // Finance

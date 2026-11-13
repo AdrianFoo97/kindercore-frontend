@@ -6,13 +6,12 @@ import {
   faChevronLeft, faChevronRight, faChevronDown, faChevronUp,
   faSackDollar, faShieldHalved, faGaugeHigh, faCalendarCheck,
   faCheck, faClock, faLock, faLockOpen, faAward,
-  faPiggyBank, faBriefcaseMedical, faBusinessTime, faGift,
+  faPiggyBank, faGift,
   faCircleCheck, faTrophy, faFire,
   faCircle, faGraduationCap, faUserPlus,
   faBookOpen, faLeaf,
-  faMugSaucer, faUtensils, faUsers, faChalkboardUser, faMedal,
-  faChartLine, faHandshake,
-} from '@fortawesome/free-solid-svg-icons';
+  faMedal,
+  faChartLine, } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers } from '../api/planner.js';
 import { fetchTeachersWithSalary, fetchLevelIncentives } from '../api/salary.js';
 import { fetchTeacherAppraisals } from '../api/teacher-appraisals.js';
@@ -29,6 +28,8 @@ import {
   readScore,
 } from './settings/CompensationSettingsPage.js';
 import { DEFAULT_EXPENSE_RATIO_TARGET } from './FinanceSettingsPage.js';
+import { benefitTiers, type BenefitStatus } from './teacherPay/benefits/benefitsCatalog.js';
+import { formatService } from '../utils/serviceYears.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens — page-scoped so the compensation surface owns its dialect
@@ -169,6 +170,9 @@ const enrollmentCommissionTiers: { enrollments: number; rate: number; label: str
 // Thresholds are inclusive: a score of N qualifies as "N and above". So
 // setting High-Performer to 80 means 80 itself is high-performer (the
 // previous strict `>` semantics forced users to enter 79 to get 80).
+/** The shared list's benefit status → this page's card status. */
+const CARD_STATUS: Record<BenefitStatus, RewardStatus> = { available: 'eligible', 'in-progress': 'in-progress', locked: 'locked' };
+
 export function eligibilityFromAppraisal(score: number): 'not_eligible' | 'eligible' | 'high_performer' {
   if (score < benefitRules.minimumAppraisalForEligibility) return 'not_eligible';
   if (score >= benefitRules.highPerformerAppraisalThreshold) return 'high_performer';
@@ -254,13 +258,7 @@ export function rm(v: number): string {
 //   2.5  → "2 yr 6 mo"
 //   1.0  → "1 yr"
 //   0.5  → "6 mo"
-export function formatService(years: number): string {
-  const fullYears = Math.floor(years);
-  const months = Math.round((years - fullYears) * 12);
-  if (fullYears === 0) return `${months} mo`;
-  if (months === 0) return `${fullYears} yr`;
-  return `${fullYears} yr ${months} mo`;
-}
+export { formatService };
 
 // Resolve the FontAwesome icon for an allowance card. Prefers the
 // admin-configured icon stored on the AllowanceType row; falls back
@@ -1955,112 +1953,21 @@ export function MoneyBenefits({ eligibility }: { eligibility: ReturnType<typeof 
           ...s.benefitGrid,
           ...(isMobile ? { gridTemplateColumns: 'minmax(0, 1fr)' } : null),
         }}>
-          {(() => {
-            // Inner cards use a lighter silver tint than the wrapper so
-            // they feel contained inside it rather than competing with
-            // the outer border. Locked wrapper falls back to default.
-            const innerBorder = isEligibleForBenefits ? `${C.silver}26` : undefined;
-            // Icon tint matches the tier color (silver for Performer)
-            // when eligible, so the icons read as "tier perks" rather
-            // than re-stating the green eligible-status color.
-            const innerIcon = isEligibleForBenefits ? C.silver : undefined;
-            // Per-card status badges show ELIGIBLE / NOT ELIGIBLE so
-            // teachers can see the state of each benefit at a glance —
-            // useful when individual cards have additional gates beyond
-            // the section-level appraisal threshold (e.g. tenure for
-            // Loyalty / Team Building / Annual Dinner).
-            return (
-              <>
-                <BenefitCard
-                  icon={faBriefcaseMedical}
-                  title="Medical Benefit Program"
-                  amount={`${rm(benefitRules.medicalQuarterlyAllowance)} / quarter`}
-                  status={isEligibleForBenefits ? 'eligible' : 'locked'}
-                  description="Quarterly allowance for medical expenses. Submit a valid medical certificate to claim reimbursement."
-                  requirements={[
-                    { label: 'Active employment', met: true },
-                    { label: 'Valid medical certificate', met: false, optional: true },
-                  ]}
-                  policyNote="Reimbursement subject to policy."
-                  borderColor={innerBorder}
-                  iconAccent={innerIcon}
-                />
-                <BenefitCard
-                  icon={faAward}
-                  title="Loyalty Incentive"
-                  amount={`+${(benefitRules.loyaltyIncentiveRate * 100).toFixed(0)}% of basic salary / year · capped ${rm(benefitRules.loyaltyIncentiveCap)}`}
-                  status={
-                    !isEligibleForBenefits ? 'locked'
-                    : compensationData.yearsOfService >= 1 ? 'eligible'
-                    : 'in-progress'
-                  }
-                  description="Reward for staying with the school. Increases each year up to the cap."
-                  requirements={[
-                    { label: 'Completed at least 1 full year of service', met: compensationData.yearsOfService >= 1 },
-                  ]}
-                  policyNote={`Years of service: ${compensationData.yearsOfService} yr`}
-                  borderColor={innerBorder}
-                  iconAccent={innerIcon}
-                />
-                <BenefitCard
-                  icon={faMugSaucer}
-                  title="Snack & Tea"
-                  amount="Monthly · all teachers"
-                  status={isEligibleForBenefits ? 'eligible' : 'locked'}
-                  description="A monthly allocation of snacks and tea, available in the staff lounge to support well-being and recharge during breaks."
-                  requirements={[]}
-                  policyNote="No claim needed — provided in the staff lounge."
-                  borderColor={innerBorder}
-                  iconAccent={innerIcon}
-                />
-                <BenefitCard
-                  icon={faUsers}
-                  title="Annual Team Building"
-                  amount="Yearly company event"
-                  status={
-                    !isEligibleForBenefits ? 'locked'
-                    : compensationData.yearsOfService >= 1 ? 'eligible'
-                    : 'in-progress'
-                  }
-                  description="An annual event to strengthen collaboration and recharge with colleagues outside the daily work environment."
-                  requirements={[
-                    { label: 'Completed at least 1 full year of service', met: compensationData.yearsOfService >= 1 },
-                  ]}
-                  policyNote="Fully sponsored by the company."
-                  borderColor={innerBorder}
-                  iconAccent={innerIcon}
-                />
-                <BenefitCard
-                  icon={faUtensils}
-                  title="Annual Dinner"
-                  amount="Year-end celebration"
-                  status={
-                    !isEligibleForBenefits ? 'locked'
-                    : compensationData.yearsOfService >= 1 ? 'eligible'
-                    : 'in-progress'
-                  }
-                  description="A year-end gathering to celebrate achievements and foster camaraderie among staff."
-                  requirements={[
-                    { label: 'Completed at least 1 full year of service', met: compensationData.yearsOfService >= 1 },
-                  ]}
-                  policyNote="Hosted yearly. Theme and dress code announced ahead of the event."
-                  borderColor={innerBorder}
-                  iconAccent={innerIcon}
-                />
-                <BenefitCard
-                  icon={faChalkboardUser}
-                  title="Internal Training Program"
-                  amount="Ongoing professional development"
-                  status={isEligibleForBenefits ? 'eligible' : 'locked'}
-                  description="Skill-building and career-advancement training run internally — refine your capabilities and position yourself for future promotions."
-                  requirements={[]}
-                  policyNote="Sign up via HR throughout the year."
-                  borderColor={innerBorder}
-                  iconAccent={innerIcon}
-                />
-              </>
-            );
-          })()}
+          {/* From the shared list (pages/teacherPay/benefits/benefitsCatalog.ts) — same as the teacher app. */}
+          {benefitTiers({ score: compensationData.appraisalScore, yearsOfService: compensationData.yearsOfService, rules: benefitRules })[0].items.map(item => (
+            <BenefitCard
+              key={item.key}
+              icon={item.icon}
+              title={item.title}
+              amount={item.value}
+              status={CARD_STATUS[item.status]}
+              description={item.description}
+              requirements={item.requirements.map(q => ({ label: q.label, met: q.met ?? false, optional: q.optional }))}
+              policyNote={item.note}
+              borderColor={isEligibleForBenefits ? `${C.silver}26` : undefined}
+              iconAccent={isEligibleForBenefits ? C.silver : undefined}
+            />
+          ))}
         </div>
       </div>
     </section>
@@ -2482,85 +2389,17 @@ export function HighPerformerBenefits({ unlocked }: { unlocked: boolean }) {
             ? 'minmax(0, 1fr)'
             : 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
         }}>
-          <HighPerformerCard
-            icon={faBusinessTime}
-            title="Semi-Flexible Working Hours"
-            unlocked={unlocked}
-            sectionUnlocked={unlocked}
-            description="Adjust schedule to better accommodate personal or professional needs."
-            conditions={[
-              { label: 'Daily duties must still be fulfilled' },
-              { label: 'Schedule adjustment requires supervisor approval' },
-              { label: 'Classroom and school operations must be maintained' },
-            ]}
-          />
-          <HighPerformerCard
-            icon={faLeaf}
-            title="Additional Conditional Annual Leave"
-            unlocked={unlocked}
-            sectionUnlocked={unlocked}
-            description="Extra leave days for attending approved weekend training. Example: 2 weekend trainings = 2 leave days."
-            conditions={[
-              { label: 'Requires prior supervisor approval' },
-              { label: 'Can only be taken during school holidays' },
-            ]}
-          />
-          <HighPerformerCard
-            icon={faChartLine}
-            title="Teacher Shareholding Program"
-            unlocked={
-              unlocked
-              && compensationData.yearsOfService >= 3
-              && compensationData.appraisalScore >= 85
-            }
-            sectionUnlocked={unlocked}
-            description="Become a co-owner of the school. Receive a percentage of shares, ongoing dividends, and a voice in strategic decisions."
-            conditions={[
-              {
-                label: 'Minimum 3 years of service',
-                met: compensationData.yearsOfService >= 3,
-                progress: (compensationData.yearsOfService / 3) * 100,
-                current: `${formatService(compensationData.yearsOfService)} / 3 yr`,
-              },
-              {
-                label: 'Average appraisal ≥ 85% over service period',
-                met: compensationData.appraisalScore >= 85,
-                progress: (compensationData.appraisalScore / 85) * 100,
-                current: compensationData.appraisalScore >= 85
-                  ? `${compensationData.appraisalScore}% (target 85%)`
-                  : `${compensationData.appraisalScore}% / 85%`,
-              },
-              { label: 'Successful alignment interview' },
-            ]}
-          />
-          <HighPerformerCard
-            icon={faHandshake}
-            title="Kindergarten Partnership Program"
-            unlocked={
-              unlocked
-              && compensationData.yearsOfService >= 5
-              && compensationData.appraisalScore >= 85
-            }
-            sectionUnlocked={unlocked}
-            description="Co-own and lead a new kindergarten branch. Receive partial capital investment, ownership equity, and ongoing operational support."
-            conditions={[
-              {
-                label: 'Minimum 5 years of service',
-                met: compensationData.yearsOfService >= 5,
-                progress: (compensationData.yearsOfService / 5) * 100,
-                current: `${formatService(compensationData.yearsOfService)} / 5 yr`,
-              },
-              {
-                label: 'Average appraisal ≥ 85% over service period',
-                met: compensationData.appraisalScore >= 85,
-                progress: (compensationData.appraisalScore / 85) * 100,
-                current: compensationData.appraisalScore >= 85
-                  ? `${compensationData.appraisalScore}% (target 85%)`
-                  : `${compensationData.appraisalScore}% / 85%`,
-              },
-              { label: 'Leadership & partnership readiness interview' },
-            ]}
-          />
+          {benefitTiers({ score: compensationData.appraisalScore, yearsOfService: compensationData.yearsOfService, rules: benefitRules })[1].items.map(item => (
+            <HighPerformerCard
+              key={item.key}
+              icon={item.icon}
+              title={item.title}
+              unlocked={item.status === 'available'}
+              sectionUnlocked={unlocked}
+              description={item.description}
+              conditions={item.requirements}
+            />
+          ))}
         </div>
       </div>
     </section>

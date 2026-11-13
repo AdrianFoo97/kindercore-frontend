@@ -9,6 +9,6 @@ type ShowToast = (message: string, type?: 'success' | 'error') => void;
  */
 export async function copyGuideLink(guideId: string, showToast: ShowToast): Promise<void> {
   const copied = await copyLink(guideShareUrl(guideId));
-  if (copied) showToast('Link copied — only signed-in staff with access can open it');
+  if (copied) showToast('Link copied. Only signed-in staff can open it.');
   else showToast('Could not copy the link', 'error');
 }

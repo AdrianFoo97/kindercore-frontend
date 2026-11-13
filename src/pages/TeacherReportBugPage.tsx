@@ -10,6 +10,8 @@ import { useToast } from '../components/common/Toast.js';
 import { APP_VERSION } from '../version.js';
 
 const MAX_PHOTOS = 4;
+/** Matches the server's limit on a bug report title. */
+const MAX_TITLE_LENGTH = 120;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Report a Bug — a real page, not a bottom sheet. The sheet version
@@ -40,6 +42,8 @@ export default function TeacherReportBugPage() {
   const { isMobile } = useIsMobile();
   const { showToast } = useToast();
 
+  // A short title (what to scan for in the list) and a description (the details).
+  const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
@@ -63,27 +67,20 @@ export default function TeacherReportBugPage() {
 
   const handleSubmit = async () => {
     const trimmed = message.trim();
-    if (!trimmed || submitting) return;
+    const trimmedTitle = title.trim();
+    if (!trimmed || !trimmedTitle || submitting) return;
     setSubmitting(true);
     try {
       await createBugReport({
+        title: trimmedTitle,
         message: trimmed,
         pageUrl: `${location.pathname}${location.search}`,
         appVersion: APP_VERSION,
         photoUrls: photoUrls.length ? photoUrls : undefined,
       });
       showToast("Thanks — we've got it.", 'success');
-      // Settings is already the entry right behind this one in history
-      // (this page is only ever reached by pushing forward from it) —
-      // real back, not a fresh push/replace to the same URL, which
-      // would leave a *second* Settings entry sitting behind this one.
-      // Settings' own back button reads real history too (it's
-      // reachable from several tabs, so it can't have one fixed
-      // destination — see teacherTopBar's GO_BACK), and that extra
-      // entry was exactly what made it pop back to this page again
-      // instead of wherever you'd actually been before Settings.
-      // `key` is 'default' only on a cold deep link (no history to
-      // pop), where this falls back to a plain navigate.
+      // Back to wherever they opened it from (the ⋯ menu on any tab) — real history.
+      // `key` is 'default' only on a cold deep link, where this falls back to My Profile.
       if (location.key !== 'default') navigate(-1);
       else navigate(`/teachers/${id}/settings`, { replace: true });
     } catch {
@@ -91,6 +88,10 @@ export default function TeacherReportBugPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: 12.5, fontWeight: 700, color: C.textStrong, marginBottom: 8,
   };
 
   const pageStyle: React.CSSProperties = {
@@ -123,21 +124,33 @@ export default function TeacherReportBugPage() {
           </h1>
         </div>
         <p style={{ margin: '0 0 20px', fontSize: 13.5, color: C.muted, lineHeight: 1.55 }}>
-          What went wrong, and what were you doing when it happened? We'll take it from here.
+          Give it a short title, then describe what went wrong and what you were doing. We'll take it from here.
         </p>
 
         {/* ── Form ─────────────────────────────────────────────── */}
-        <label style={{
-          display: 'block', fontSize: 12.5, fontWeight: 700, color: C.textStrong, marginBottom: 8,
-        }}>
-          What happened?
-        </label>
-        <textarea
+        <label htmlFor="bug-title" style={labelStyle}>Title</label>
+        <input
+          id="bug-title"
           autoFocus
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          disabled={submitting}
+          maxLength={MAX_TITLE_LENGTH}
+          placeholder="e.g. Save button on Steps does nothing"
+          style={{
+            width: '100%', minHeight: 48, padding: '12px 14px', fontSize: 16,
+            border: `1.5px solid ${C.cardBorder}`, borderRadius: 14, outline: 'none',
+            color: C.textStrong, fontFamily: 'inherit', boxSizing: 'border-box' as const, background: C.card,
+          }}
+        />
+
+        <label htmlFor="bug-description" style={{ ...labelStyle, marginTop: 20 }}>Description</label>
+        <textarea
+          id="bug-description"
           value={message}
           onChange={e => setMessage(e.target.value)}
           disabled={submitting}
-          placeholder="e.g. The Save button on Steps did nothing when I tapped it."
+          placeholder="What happened, what you expected, and what you were doing — e.g. I edited step 2, tapped Save, and nothing changed."
           style={{
             width: '100%', minHeight: 160, padding: '13px 14px', fontSize: 16,
             border: `1.5px solid ${C.cardBorder}`, borderRadius: 14, outline: 'none',
@@ -215,13 +228,13 @@ export default function TeacherReportBugPage() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!message.trim() || submitting}
+          disabled={!title.trim() || !message.trim() || submitting}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             width: '100%', marginTop: 20, padding: '14px', border: 'none',
             borderRadius: 12, background: C.pAccent, cursor: 'pointer',
             color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
-            opacity: !message.trim() || submitting ? 0.55 : 1,
+            opacity: !title.trim() || !message.trim() || submitting ? 0.55 : 1,
           }}
         >
           {submitting ? 'Sending…' : 'Send Report'}

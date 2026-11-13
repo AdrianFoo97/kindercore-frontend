@@ -4,6 +4,8 @@ export type BugReportStatus = 'OPEN' | 'RESOLVED';
 
 export interface BugReport {
   id: string;
+  /** Short summary; null on reports sent before titles existed. */
+  title: string | null;
   message: string;
   pageUrl: string | null;
   appVersion: string | null;
@@ -16,6 +18,7 @@ export interface BugReport {
 }
 
 export function createBugReport(payload: {
+  title: string;
   message: string;
   pageUrl?: string | null;
   appVersion?: string | null;

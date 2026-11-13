@@ -15,6 +15,7 @@ import { useCategoryMeta } from '../utils/missionCategoryIcons.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useMissionTargets } from '../hooks/useMissionTargets.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
+import { FOCUS_FULL_MESSAGE } from '../utils/focusMissions.js';
 
 const C = {
   bg: '#f8fafc',
@@ -88,7 +89,7 @@ export default function TeacherMissionBoardPage() {
   };
   const { categories: missionCategories, getMeta } = useCategoryMeta();
   const { isMobile } = useIsMobile();
-  const { isTargeted, toggle: toggleTarget } = useMissionTargets(id);
+  const { isTargeted, toggle: toggleTarget, canPinMore } = useMissionTargets(id);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['teacher-career', id],
@@ -785,6 +786,7 @@ export default function TeacherMissionBoardPage() {
           // different-looking one here.
           isTargeted={isHrView ? undefined : isTargeted(editingMission.id)}
           onToggleTarget={isHrView ? undefined : () => toggleTarget(editingMission.id)}
+          canPinMore={canPinMore}
         />
       )}
     </div>
@@ -805,8 +807,10 @@ export default function TeacherMissionBoardPage() {
 // the right weight for it.
 
 function TeacherMissionDetailView({
-  mission, onClose, isTargeted, onToggleTarget,
+  mission, onClose, isTargeted, onToggleTarget, canPinMore = true,
 }: {
+  /** False once three quests are in focus — pinning another is blocked (with the reason shown). */
+  canPinMore?: boolean;
   mission: MissionWithProgress;
   onClose: () => void;
   /** Undefined (not just false) in HR's read-only browse — omits the
@@ -998,12 +1002,17 @@ function TeacherMissionDetailView({
             Quests" empty state pointed at ("Browse missions" led here,
             but nothing here could set one as your focus). Hidden
             entirely once completed — nothing left to focus on. */}
-        {onToggleTarget && !isCompleted && (
+        {onToggleTarget && !isCompleted && (() => {
+          const full = !isTargeted && !canPinMore;
+          return (<>
           <button
             type="button"
             onClick={onToggleTarget}
             aria-pressed={isTargeted}
+            disabled={full}
+            aria-describedby={full ? 'focus-full-note' : undefined}
             style={{
+              ...(full ? { opacity: 0.5, cursor: 'default' } : null),
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               width: '100%', marginTop: 16, padding: '12px', border: 'none',
               borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
@@ -1018,7 +1027,9 @@ function TeacherMissionDetailView({
             />
             {isTargeted ? 'Remove as Focus' : 'Pin as Focus'}
           </button>
-        )}
+          {full && <p id="focus-full-note" style={{ margin: '8px 0 0', fontSize: 12.5, color: C.muted, textAlign: 'center' }}>{FOCUS_FULL_MESSAGE}</p>}
+          </>);
+        })()}
       </div>
     </div>
   );

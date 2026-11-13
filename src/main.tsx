@@ -2,6 +2,7 @@ import { Component, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.tsx';
+import { listenForInstallPrompt } from './utils/installPrompt.js';
 
 class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -145,6 +146,9 @@ globalStyle.textContent = `
   }
 `;
 document.head.appendChild(globalStyle);
+
+// Before React starts — Android Chrome announces "installable" once, early.
+listenForInstallPrompt();
 
 createRoot(document.getElementById('root')!).render(
   <RootErrorBoundary>

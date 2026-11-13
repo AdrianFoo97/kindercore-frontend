@@ -16,6 +16,9 @@ import { useAnnualBonusSummary } from '../hooks/useAnnualBonusSummary.js';
 import { useTeamPoolSummary } from '../hooks/useTeamPoolSummary.js';
 import { MyOnboardingCard } from './teacherHome/MyOnboardingCard.js';
 import { QuickActions } from './teacherHome/QuickActions.js';
+import { SHOW_TEACHER_POOLS } from '../config/releaseFlags.js';
+import CurrentFocus from './teacherHome/CurrentFocus.js';
+import { focusMissions } from '../utils/focusMissions.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher Home — a warm, motivating landing. Answers three things at a
@@ -45,23 +48,6 @@ const C = {
 };
 
 const HERO_BG = '#ede9fe';
-
-// The Current Focus mission: strictly the teacher's own pinned choice
-// (isTargeted on their progress row), same as Career tab's "Active
-// Quests" — this used to also auto-pick a suggestion when nothing was
-// pinned and present it exactly like a real choice, which was actually
-// misleading (confirmed the hard way: Home showed a "Current Focus"
-// while Career's Active Quests showed "nothing pinned yet" for the
-// exact same teacher, at the exact same time — two different answers
-// to the same question). Null now means "nothing pinned" full stop;
-// the caller distinguishes that from "no open missions left" itself.
-function pickFocus(
-  missions: MissionWithProgress[],
-  focusMissionId: string | null,
-): MissionWithProgress | null {
-  if (!focusMissionId) return null;
-  return missions.find(m => m.id === focusMissionId && m.progress?.status !== 'COMPLETED') ?? null;
-}
 
 // Avatar palette — kept in sync with the Leaderboard page so the teacher
 // sees the same colour wherever their initial appears in the app.
@@ -155,11 +141,9 @@ export default function TeacherHomePage() {
   const isFinalStage = career?.readiness?.isFinalStage ?? false;
   const mDone = career?.readiness?.missions?.completed ?? 0;
   const mTotal = career?.readiness?.missions?.total ?? 0;
-  // No dedicated "focus mission" field on this branch's career API — the
-  // teacher's pinned choice lives as `isTargeted` on their own mission
-  // progress row.
-  const pinnedFocusId = career?.missions.find(m => m.progress?.isTargeted)?.id ?? null;
-  const focus = pickFocus(career?.missions ?? [], pinnedFocusId);
+  // The teacher's pinned quests (isTargeted on their progress rows), unfinished, up to three —
+  // the same list as Career's Active Quests, never an auto-picked suggestion.
+  const focus = focusMissions(career?.missions ?? []);
   // Distinguishes the two reasons `focus` can be null — genuinely
   // nothing left to do vs. just nothing pinned yet — so the empty state
   // doesn't claim "all caught up" when there's plenty open, just unpicked.
@@ -234,8 +218,8 @@ export default function TeacherHomePage() {
   // again. With nothing pinned, goes straight to the board to pick
   // one (same destination Career's own "Browse missions" CTA uses) —
   // there's nothing to jump into a detail popup for yet.
-  const goFocusMission = () => {
-    if (focus) navigate(`/teachers/${id}/career/missions?focus=${focus.id}`);
+  const goFocusMission = (missionId: string | null) => {
+    if (missionId) navigate(`/teachers/${id}/career/missions?focus=${missionId}`);
     else goMissionBoard();
   };
 
@@ -358,53 +342,18 @@ export default function TeacherHomePage() {
 
         {/* ── Current Focus ────────────────────────────────────── */}
         <div style={sectionLabel}>Current Focus</div>
-        <button aria-label="Open mission" title="Open mission"
-          type="button"
-          onClick={goFocusMission}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 14, width: '100%',
-            textAlign: 'left', font: 'inherit', cursor: 'pointer', color: 'inherit',
-            marginBottom: 26,
-            background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16,
-            padding: '16px 16px',
-            boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <div style={{
-            width: 42, height: 42, borderRadius: 13, flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: C.pSoft, color: C.pAccent, fontSize: 17,
-            border: `1px solid ${C.pBorder}`,
-          }}>
-            <FontAwesomeIcon icon={faBullseye} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 15, fontWeight: 800, color: C.textStrong, letterSpacing: '-0.01em',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {focus ? focus.title : hasOpenMissions ? 'Pick your next focus' : "You're all caught up"}
-            </div>
-            <div style={{ marginTop: 2, fontSize: 12.5, fontWeight: 600, color: C.muted }}>
-              {focus
-                ? (focus.required
-                    ? (nextRole ? `Required for promotion to ${nextRole}` : 'A required step')
-                    : (nextRole ? `A step toward ${nextRole}` : 'A growth step'))
-                : hasOpenMissions
-                  ? 'Pin a mission from the board to start growing your skills.'
-                  : 'Nice work — explore what\'s next below.'}
-            </div>
-          </div>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: C.mutedSoft, flexShrink: 0 }} />
-        </button>
+        {/* Every pinned quest (up to three) — see utils/focusMissions.ts. */}
+        <div style={{ marginBottom: 26 }}>
+          <CurrentFocus missions={focus} nextRole={nextRole ?? null} hasOpenMissions={hasOpenMissions} palette={C} onOpen={goFocusMission} />
+        </div>
 
         {/* ── Team this month (team pool preview) ──────────────── */}
         {/* Collective lane — sits next to the personal "This month"
             card so Home shows both motivational engines daily. Adaptive
             headline tells the team's story without exposing raw
             finances. Tap → the full Team Pool page. */}
-        {teamStats && (() => {
+        {/* Pool previews are held back for a future release (config/releaseFlags.ts). */}
+        {SHOW_TEACHER_POOLS && teamStats && (() => {
           const h = pickTeamHeadline(teamStats.hits, teamStats.elapsed, teamStats.pooled);
           const remaining = 3 - teamStats.elapsed;
           return (
@@ -467,7 +416,7 @@ export default function TeacherHomePage() {
             money lever, not just the quarterly one. Sourced from the
             shared hook (not an inline recompute) so it can never
             disagree with the Pay Breakdown preview or the full page. */}
-        {!annualBonus.isLoading && (() => {
+        {SHOW_TEACHER_POOLS && !annualBonus.isLoading && (() => {
           const onStreak = annualBonus.hitsCount === annualBonus.elapsedCount && annualBonus.hitsCount > 0;
           const abColor = onStreak ? '#16a34a' : '#7c3aed';
           const abStates: MonthDotState[] = annualBonus.monthlyPools.map(m =>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { NO_LABEL, findLabels, guideHasLabel, labelSummaries, parseLabelSort } from '../../pages/operations/sopLabels';
+import { NO_LABEL, findLabels, guideHasLabel, labelSummaries, labelsInUse } from '../../pages/operations/sopLabels';
 
 // How-To Guides → Labels view: counts per label and which guides a label shows.
 
@@ -31,23 +31,25 @@ describe('How-To Guides — label view', () => {
 
   it('finds labels by any part of the name, whatever the capitals', () => {
     const { labels } = labelSummaries([MORNING, SAFETY], guides);
-    expect(findLabels(labels, 'ROUT', 'order').map(l => l.name)).toEqual(['Morning routine']);
-    expect(findLabels(labels, '  ', 'order')).toHaveLength(2);
-    expect(findLabels(labels, 'lunch', 'order')).toEqual([]);
+    expect(findLabels(labels, 'ROUT').map(l => l.name)).toEqual(['Morning routine']);
+    expect(findLabels(labels, '  ')).toHaveLength(2);
+    expect(findLabels(labels, 'lunch')).toEqual([]);
   });
 
-  it('sorts labels by your order, name, or most / fewest guides', () => {
+  it('offers only the labels the shown guides use, e.g. on Favourites', () => {
+    const labels = [{ id: 'a', name: 'Arrival' }, { id: 'm', name: 'Meals' }, { id: 'z', name: 'Zoo trip' }];
+    const favourites = [{ categories: [{ id: 'z' }] }, { categories: [{ id: 'a' }, { id: 'z' }] }, { categories: [] }];
+    expect(labelsInUse(labels, favourites).map(l => l.name)).toEqual(['Arrival', 'Zoo trip']);
+    expect(labelsInUse(labels, [])).toEqual([]);
+  });
+
+  it('lists labels A–Z by name', () => {
     const labels = [
       { id: 'z', name: 'Zoo trip', color: '#000', count: 1 },
       { id: 'a', name: 'Arrival', color: '#000', count: 5 },
       { id: 'm', name: 'Meals', color: '#000', count: 1 },
     ];
-    const names = (sort: Parameters<typeof findLabels>[2]) => findLabels(labels, '', sort).map(l => l.name);
-    expect(names('order')).toEqual(['Zoo trip', 'Arrival', 'Meals']);
-    expect(names('name')).toEqual(['Arrival', 'Meals', 'Zoo trip']);
-    expect(names('most')).toEqual(['Arrival', 'Meals', 'Zoo trip']);
-    expect(names('fewest')).toEqual(['Meals', 'Zoo trip', 'Arrival']);
-    expect(parseLabelSort('bogus')).toBe('order');
+    expect(findLabels(labels, '').map(l => l.name)).toEqual(['Arrival', 'Meals', 'Zoo trip']);
   });
 
   it('opens a label to just its guides — a guide with two labels shows under both', () => {

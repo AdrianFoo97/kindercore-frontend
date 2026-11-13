@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGoBack } from '../hooks/useGoBack.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -99,7 +100,7 @@ export default function SopObservationNewPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const backTo = () => navigate('/hr/sop-observations');
+  const backTo = useGoBack('/hr/sop-observations');
 
   const submit = async () => {
     if (!teacherId || !sopTemplateId || !trainerId) return;

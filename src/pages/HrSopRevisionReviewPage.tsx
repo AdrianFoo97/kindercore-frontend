@@ -5,16 +5,22 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft, faCheck, faXmark, faPlus, faPen, faTrash, faGripVertical,
-  faArrowUp, faArrowDown, faUserPen, faClock, faLayerGroup, faMinus, faCopy,
-} from '@fortawesome/free-solid-svg-icons';
+  faArrowUp, faArrowDown, faUserPen, faClock, faLayerGroup, faCopy, faReply, faComment, faCommentDots, faFlask } from '@fortawesome/free-solid-svg-icons';
 import {
-  fetchRevision, updateRevision, approveRevision, rejectRevision, ProposedStep,
+  fetchRevision, updateRevision, approveRevision, rejectRevision, returnRevision, startTrial, ProposedStep,
 } from '../api/sop-revisions.js';
+import { decisionWord } from './operations/mySuggestions.js';
+import SendBackDialog from './operations/SendBackDialog.js';
+import StepCommentBox from './operations/StepCommentBox.js';
+import SentBackNote from './operations/SentBackNote.js';
+import { commentCountLabel, commentsOffTable, commentsToSend, type DraftComments } from './operations/reviewComments.js';
 import { fetchSteps, SopStep } from '../api/sop-steps.js';
 import { fetchSections } from '../api/sop-sections.js';
 import { useToast } from '../components/common/Toast.js';
 import { useDeleteDialog } from '../components/common/DeleteDialog.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import { compareSteps } from './operations/sopStepCompare.js';
+import StepCompareTable from './operations/StepCompareTable.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // A supervisor must land HERE before Approve/Reject exist at all — the
@@ -75,39 +81,6 @@ function renderDetailLines(lines: string[]): React.ReactNode[] {
   return blocks;
 }
 
-// Same shape as the diff HrSopRevisionsPage.tsx used to compute inline —
-// moved here since the inbox no longer needs it (see that file's own note).
-interface StepDiff {
-  added: ProposedStep[];
-  removed: SopStep[];
-  modified: { live: SopStep; proposed: ProposedStep; sectionChanged: boolean; detailChanged: boolean }[];
-  unchangedCount: number;
-  reordered: boolean;
-}
-function diffSteps(liveSteps: SopStep[], proposedSteps: ProposedStep[]): StepDiff {
-  const norm = (v: string) => v.trim().toLowerCase();
-  const liveByTitle = new Map(liveSteps.map(st => [norm(st.title), st]));
-  const proposedByTitle = new Map(proposedSteps.map(st => [norm(st.title), st]));
-  const added: ProposedStep[] = [];
-  const modified: StepDiff['modified'] = [];
-  let unchangedCount = 0;
-  const matchedProposedOrder: string[] = [];
-  for (const p of proposedSteps) {
-    const key = norm(p.title);
-    const live = liveByTitle.get(key);
-    if (!live) { added.push(p); continue; }
-    matchedProposedOrder.push(key);
-    const sectionChanged = live.section !== p.section;
-    const detailChanged = (live.detail ?? '').trim() !== (p.detail ?? '').trim();
-    if (sectionChanged || detailChanged) modified.push({ live, proposed: p, sectionChanged, detailChanged });
-    else unchangedCount += 1;
-  }
-  const removed = liveSteps.filter(st => !proposedByTitle.has(norm(st.title)));
-  const liveMatchedOrder = liveSteps.map(st => norm(st.title)).filter(k => matchedProposedOrder.includes(k));
-  const reordered = liveMatchedOrder.join('|') !== matchedProposedOrder.join('|');
-  return { added, removed, modified, unchangedCount, reordered };
-}
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -116,6 +89,8 @@ type StepDrawerState =
   | { mode: 'closed' }
   | { mode: 'new'; insertAfterKey?: string }
   | { mode: 'edit'; key: string };
+
+const INBOX_TRIAL_PATH = '/hr/sop-revisions?tab=TRIAL';
 
 export default function HrSopRevisionReviewPage() {
   const { id } = useParams<{ id: string }>();
@@ -139,7 +114,10 @@ export default function HrSopRevisionReviewPage() {
   const { data: globalSections = [] } = useQuery({ queryKey: ['sop-sections'], queryFn: () => fetchSections() });
   const existingSections = globalSections.map(sec => sec.name);
 
-  const isPending = revision?.status === 'PENDING';
+  // Still to be decided: in review, or on trial (being tried in practice). Both can be
+  // edited, commented on, sent back or rejected; only a trial can be approved.
+  const onTrial = revision?.status === 'TRIAL';
+  const isPending = revision?.status === 'PENDING' || onTrial;
 
   // Back goes to wherever the supervisor actually came from (the inbox's
   // Pending tab, a search result, wherever) — not a hardcoded destination.
@@ -278,6 +256,69 @@ export default function HrSopRevisionReviewPage() {
     }
   };
 
+  // Send back to the teacher with feedback — they change it and send it again.
+  const [sendingBack, setSendingBack] = useState(false);
+  // Comments written on steps while going through them one by one (by step key).
+  const [comments, setComments] = useState<DraftComments>({});
+  const [editingCommentKey, setEditingCommentKey] = useState<string | null>(null);
+  const stepComments = commentsToSend(comments, steps);
+  const setComment = (key: string, text: string) => setComments(prev => ({ ...prev, [key]: text }));
+  const removeComment = (key: string) => {
+    setComments(prev => { const next = { ...prev }; delete next[key]; return next; });
+    setEditingCommentKey(null);
+  };
+  const finishComment = (key: string) => { if (!(comments[key] ?? '').trim()) removeComment(key); else setEditingCommentKey(null); };
+  const commentButton = (key: string) => {
+    const has = !!(comments[key] ?? '').trim();
+    return (
+      <button onClick={() => setEditingCommentKey(key)} style={{ ...s.stepIconBtn, ...(has ? { color: '#b45309' } : null) }}
+        aria-label={has ? 'Edit comment for the teacher' : 'Comment for the teacher'} title={has ? 'Edit comment for the teacher' : 'Comment for the teacher'}>
+        <FontAwesomeIcon icon={has ? faCommentDots : faComment} />
+      </button>
+    );
+  };
+  const commentBox = (st: { key: string; title: string }) => (editingCommentKey === st.key || comments[st.key]) ? (
+    <StepCommentBox stepTitle={st.title} value={comments[st.key] ?? ''} editing={editingCommentKey === st.key}
+      onChange={v => setComment(st.key, v)} onEdit={() => setEditingCommentKey(st.key)}
+      onDone={() => finishComment(st.key)} onRemove={() => removeComment(st.key)} />
+  ) : null;
+  const onSendBack = async (note: string) => {
+    if (!revision) return;
+    setProcessing(true);
+    try {
+      await returnRevision(revision.id, { reviewNote: note || null, comments: stepComments });
+      invalidate();
+      showToast(`Sent back to ${revision.proposedByName}`);
+      setSendingBack(false);
+      goBack();
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to send back', 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Looks right on paper: save any edits, then try it in practice before deciding.
+  const onStartTrial = async () => {
+    if (!revision || cleanSteps.length === 0) return;
+    setProcessing(true);
+    try {
+      await updateRevision(revision.id, {
+        title: revision.title, goal: revision.goal, videoUrl: revision.videoUrl, icon: revision.icon,
+        steps: cleanSteps, categoryIds: revision.categoryIdsJson ?? undefined,
+      });
+      await startTrial(revision.id);
+      invalidate();
+      showToast('On trial — try it out, then decide');
+      // Back to the Improvement Inbox, on the On trial tab where it now sits.
+      navigate(INBOX_TRIAL_PATH, { replace: true });
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to start the trial', 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const onReject = async () => {
     if (!revision) return;
     const ok = await confirm({
@@ -312,8 +353,24 @@ export default function HrSopRevisionReviewPage() {
     );
   }
 
-  const diff = revision.sopTemplateId ? diffSteps(liveSteps, revision.stepsJson) : null;
-  const hasDiffChanges = !!diff && (diff.added.length > 0 || diff.removed.length > 0 || diff.modified.length > 0 || diff.reordered);
+  // An improvement: the current guide beside the teacher's version (as edited here so far).
+  // Not on trial — by then the changes were reviewed; the page shows the version being tried.
+  const compareRows = revision.sopTemplateId && !onTrial
+    ? compareSteps([...liveSteps].sort((a, b) => a.displayOrder - b.displayOrder), steps)
+    : null;
+  const compareActions = (st: DraftStep) => {
+    const at = steps.findIndex(x => x.key === st.key);
+    const first = at === 0, last = at === steps.length - 1;
+    return (
+      <>
+        {commentButton(st.key)}
+        <button onClick={() => moveStep(st.key, -1)} disabled={first} style={{ ...s.stepIconBtn, opacity: first ? 0.35 : 1, cursor: first ? 'default' : 'pointer' }} aria-label="Move step up" title="Move step up"><FontAwesomeIcon icon={faArrowUp} /></button>
+        <button onClick={() => moveStep(st.key, 1)} disabled={last} style={{ ...s.stepIconBtn, opacity: last ? 0.35 : 1, cursor: last ? 'default' : 'pointer' }} aria-label="Move step down" title="Move step down"><FontAwesomeIcon icon={faArrowDown} /></button>
+        <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step" title="Edit step"><FontAwesomeIcon icon={faPen} /></button>
+        <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step" title="Remove step"><FontAwesomeIcon icon={faTrash} /></button>
+      </>
+    );
+  };
 
   return (
     <div style={s.page}>
@@ -344,82 +401,45 @@ export default function HrSopRevisionReviewPage() {
           </div>
           {!isPending && revision.reviewedByName && (
             <div style={{ fontSize: 12, color: C.mutedSoft, marginTop: 8 }}>
-              {revision.status === 'APPROVED' ? 'Approved' : 'Rejected'} by {revision.reviewedByName}
+              {decisionWord(revision.status)} by {revision.reviewedByName}
               {revision.reviewedAt ? ` on ${fmtDate(revision.reviewedAt)}` : ''}
-              {revision.reviewNote ? ` — "${revision.reviewNote}"` : ''}
+              {revision.status === 'REJECTED' && revision.reviewNote ? ` — "${revision.reviewNote}"` : ''}
             </div>
           )}
           {revision.goal && (
             <p style={{ margin: '10px 0 0', fontSize: 13, color: C.textBody, lineHeight: 1.5, maxWidth: 640 }}>{revision.goal}</p>
           )}
+          {onTrial && (
+            <div role="status" style={{ marginTop: 12, maxWidth: 640, padding: '12px 16px', borderRadius: 12, background: '#eff6ff', borderLeft: '3px solid #1d4ed8', fontSize: 13, color: C.textBody, lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 700, color: '#1d4ed8', marginBottom: 2 }}>
+                <FontAwesomeIcon icon={faFlask} style={{ marginRight: 6 }} />
+                On trial{revision.trialStartedAt ? ` since ${fmtDate(revision.trialStartedAt)}` : ''}{revision.trialStartedByName ? ` · started by ${revision.trialStartedByName}` : ''}
+              </div>
+              Use the teacher's version in practice. Then approve it, reject it, or send it back with what you found.
+            </div>
+          )}
+          {/* Sent back / resent: the overall note here; step comments sit under their steps in the table below. */}
+          {((isPending && !onTrial) || revision.status === 'CHANGES_REQUESTED') && (
+            <div style={{ marginTop: 12, maxWidth: 640 }}>
+              <SentBackNote note={revision.reviewNote} comments={compareRows ? commentsOffTable(revision.reviewCommentsJson, compareRows) : revision.reviewCommentsJson} reviewer={revision.reviewedByName} status={isPending ? 'PENDING' : 'CHANGES_REQUESTED'} />
+            </div>
+          )}
         </div>
 
-        {diff && (
+        {/* Step 1 of the teacher's suggestion — read the why before the what. */}
+        {(revision.improvementReasonsJson?.length ?? 0) > 0 && (
           <div style={{ ...s.card, marginBottom: 18 }}>
-            <div style={s.previewLabel}>What the teacher changed</div>
-            {!hasDiffChanges ? (
-              <p style={{ fontSize: 12.5, color: C.mutedSoft, margin: '8px 0 0' }}>No step changes — identical to the current version.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                {diff.added.map((st, i) => (
-                  <div key={`add-${i}`} style={s.diffAdded}>
-                    <FontAwesomeIcon icon={faPlus} style={{ ...s.diffIcon, color: C.success }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={s.diffSectionLabel}>{st.section}</div>
-                      <div style={{ fontWeight: 600, color: C.text, fontSize: 12.5 }}>{st.title}</div>
-                      {st.detail && <div style={{ color: C.textBody, fontSize: 12, marginTop: 2, whiteSpace: 'pre-line' as const }}>{st.detail}</div>}
-                    </div>
-                  </div>
-                ))}
-                {diff.removed.map(st => (
-                  <div key={`rm-${st.id}`} style={s.diffRemoved}>
-                    <FontAwesomeIcon icon={faMinus} style={{ ...s.diffIcon, color: C.danger }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={s.diffSectionLabel}>{st.section}</div>
-                      <div style={{ fontWeight: 600, color: C.text, fontSize: 12.5, textDecoration: 'line-through' as const }}>{st.title}</div>
-                    </div>
-                  </div>
-                ))}
-                {diff.modified.map(({ live, proposed, sectionChanged, detailChanged }, i) => (
-                  <div key={`mod-${i}`} style={s.diffModified}>
-                    <FontAwesomeIcon icon={faPen} style={{ ...s.diffIcon, color: '#b45309' }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={s.diffSectionLabel}>{proposed.section}</div>
-                      <div style={{ fontWeight: 600, color: C.text, fontSize: 12.5 }}>{proposed.title}</div>
-                      {sectionChanged && (
-                        <div style={{ fontSize: 11.5, marginTop: 3 }}>
-                          <span style={{ color: C.mutedSoft }}>Section: </span>
-                          <span style={{ textDecoration: 'line-through' as const, color: C.mutedSoft }}>{live.section}</span>
-                          {' → '}
-                          <span style={{ color: C.text, fontWeight: 600 }}>{proposed.section}</span>
-                        </div>
-                      )}
-                      {detailChanged && (
-                        <div style={{ marginTop: 4, fontSize: 12 }}>
-                          {live.detail && <div style={{ color: C.mutedSoft, textDecoration: 'line-through' as const, whiteSpace: 'pre-line' as const, marginBottom: 3 }}>{live.detail}</div>}
-                          <div style={{ color: C.textBody, whiteSpace: 'pre-line' as const }}>{proposed.detail || <em style={{ color: C.mutedSoft }}>(removed)</em>}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {(diff.reordered || diff.unchangedCount > 0) && hasDiffChanges && (
-              <div style={{ marginTop: 10, fontSize: 11.5, color: C.mutedSoft }}>
-                {[
-                  diff.unchangedCount > 0 ? `${diff.unchangedCount} step${diff.unchangedCount === 1 ? '' : 's'} unchanged` : null,
-                  diff.reordered ? 'step order changed too' : null,
-                ].filter(Boolean).join(' · ')}
-              </div>
-            )}
+            <div style={s.previewLabel}>Why it needs improving</div>
+            <ol style={{ margin: '8px 0 0', paddingLeft: 20, fontSize: 13, color: C.textBody, lineHeight: 1.6 }}>
+              {revision.improvementReasonsJson!.map((r, i) => <li key={i}>{r}</li>)}
+            </ol>
           </div>
         )}
 
         <div style={s.stepsCardHeader}>
           <div>
             <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: C.text }}>
-              {isPending ? 'Steps — edit before approving' : 'Steps'}
+              {isPending ? 'Steps — edit, or comment for the teacher' : 'Steps'}
             </h3>
             <div style={s.cardSub}>{`${steps.length} step${steps.length === 1 ? '' : 's'} across ${usedSections.length} section${usedSections.length === 1 ? '' : 's'}`}</div>
           </div>
@@ -434,7 +454,17 @@ export default function HrSopRevisionReviewPage() {
           )}
         </div>
 
-        {displaySteps.length === 0 ? (
+        {compareRows ? (
+          <StepCompareTable<DraftStep>
+            rows={compareRows}
+            afterLabel="Teacher's version"
+            isMobile={isMobile}
+            renderActions={isPending ? compareActions : undefined}
+            renderBelow={isPending ? commentBox : undefined}
+            notes={revision.reviewCommentsJson}
+            notesLabel={isPending ? 'Earlier comment' : 'Your comment'}
+          />
+        ) : displaySteps.length === 0 ? (
           <div style={{ padding: '48px 20px', textAlign: 'center', background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS }}>
             <p style={{ margin: 0, fontSize: 13, color: C.muted }}>No steps in this proposal.</p>
           </div>
@@ -483,8 +513,10 @@ export default function HrSopRevisionReviewPage() {
                       <span style={{ flex: 1, fontWeight: 600, color: C.text }}>{st.title}</span>
                     </div>
                     {detailLines.length > 0 && <div style={sMobile.stepCardDetail}>{renderDetailLines(detailLines)}</div>}
+                    {isPending && commentBox(st) && <div style={{ marginTop: 10 }}>{commentBox(st)}</div>}
                     {isPending && (
                       <div style={sMobile.stepCardActions}>
+                        {commentButton(st.key)}
                         <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one" title="Insert step after this one"><FontAwesomeIcon icon={faPlus} /></button>
                         <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step" title="Edit step"><FontAwesomeIcon icon={faPen} /></button>
                         <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step" title="Remove step"><FontAwesomeIcon icon={faTrash} /></button>
@@ -501,7 +533,7 @@ export default function HrSopRevisionReviewPage() {
                   <tr>
                     <th style={{ ...s.th, width: '30%' }}>Step</th>
                     <th style={s.th}>Operation Details &amp; Standard</th>
-                    {isPending && <th style={{ ...s.th, width: 118 }} />}
+                    {isPending && <th style={{ ...s.th, width: 152 }} />}
                   </tr>
                 </thead>
                 <tbody>
@@ -534,6 +566,7 @@ export default function HrSopRevisionReviewPage() {
                         {isPending && (
                           <td style={s.tdActions}>
                             <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                              {commentButton(st.key)}
                               <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one" title="Insert step after this one"><FontAwesomeIcon icon={faPlus} /></button>
                               <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step" title="Edit step"><FontAwesomeIcon icon={faPen} /></button>
                               <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step" title="Remove step"><FontAwesomeIcon icon={faTrash} /></button>
@@ -541,6 +574,9 @@ export default function HrSopRevisionReviewPage() {
                           </td>
                         )}
                       </tr>
+                      {isPending && commentBox(st) && (
+                        <tr><td colSpan={3} style={{ padding: '0 8px 12px 40px', borderBottom: 'none' }}>{commentBox(st)}</td></tr>
+                      )}
                     </React.Fragment>
                   ))}
                 </tbody>
@@ -564,17 +600,33 @@ export default function HrSopRevisionReviewPage() {
               <FontAwesomeIcon icon={faCopy} style={{ marginRight: 6 }} />
               Copy into my own draft
             </button>
+            <button onClick={() => setSendingBack(true)} disabled={processing} style={{ ...s.sendBackBtn, ...(isMobile ? { width: '100%' } : null) }}>
+              <FontAwesomeIcon icon={faReply} style={{ marginRight: 6 }} />
+              Send back for changes{stepComments.length > 0 ? ` (${commentCountLabel(stepComments.length)})` : ''}
+            </button>
             <button onClick={onReject} disabled={processing} style={{ ...s.rejectBtn, ...(isMobile ? { width: '100%' } : null) }}>
               <FontAwesomeIcon icon={faXmark} style={{ marginRight: 6 }} />
               Reject
             </button>
-            <button onClick={onApprove} disabled={processing || cleanSteps.length === 0} style={{ ...s.approveBtn, ...(isMobile ? { width: '100%' } : null), opacity: cleanSteps.length === 0 ? 0.5 : 1 }}>
-              <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
-              {processing ? 'Approving…' : 'Approve'}
-            </button>
+            {/* Approve only after trying it in practice; until then the next step is the trial. */}
+            {onTrial ? (
+              <button onClick={onApprove} disabled={processing || cleanSteps.length === 0} style={{ ...s.approveBtn, ...(isMobile ? { width: '100%' } : null), opacity: cleanSteps.length === 0 ? 0.5 : 1 }}>
+                <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
+                {processing ? 'Approving…' : 'Approve'}
+              </button>
+            ) : (
+              <button onClick={onStartTrial} disabled={processing || cleanSteps.length === 0} style={{ ...s.approveBtn, background: C.primary, ...(isMobile ? { width: '100%' } : null), opacity: cleanSteps.length === 0 ? 0.5 : 1 }}>
+                <FontAwesomeIcon icon={faFlask} style={{ marginRight: 6 }} />
+                {processing ? 'Starting…' : 'Start trial'}
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {sendingBack && (
+        <SendBackDialog proposerName={revision.proposedByName} stepComments={stepComments} sending={processing} onCancel={() => setSendingBack(false)} onSend={onSendBack} />
+      )}
 
       {drawer.mode !== 'closed' && (
         <StepDrawer
@@ -678,11 +730,6 @@ const s: Record<string, React.CSSProperties> = {
     padding: '18px 22px', boxShadow: SHADOW,
   },
   previewLabel: { fontSize: 10.5, fontWeight: 700, color: C.mutedSoft, textTransform: 'uppercase' as const, letterSpacing: '0.05em' },
-  diffAdded: { display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'rgba(5,150,105,0.06)', borderLeft: `3px solid ${C.success}` },
-  diffRemoved: { display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 10, background: C.dangerSoft, borderLeft: `3px solid ${C.danger}` },
-  diffModified: { display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 10, background: '#fff7ed', borderLeft: '3px solid #b45309' },
-  diffIcon: { fontSize: 11, marginTop: 3, flexShrink: 0 },
-  diffSectionLabel: { fontSize: 10.5, fontWeight: 700, color: C.mutedSoft, textTransform: 'uppercase' as const, letterSpacing: '0.03em' },
   stepsCardHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '22px 0 12px', gap: 10, flexWrap: 'wrap' as const },
   cardSub: { fontSize: 11, color: C.mutedSoft, marginTop: 2 },
   addStepBtn: { padding: '7px 14px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' },
@@ -700,6 +747,7 @@ const s: Record<string, React.CSSProperties> = {
   stepIconBtn: { width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.cardBorder}`, background: '#fff', cursor: 'pointer', color: C.muted, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 },
   footer: { display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 },
   approveBtn: { padding: '10px 18px', borderRadius: 10, border: 'none', background: C.success, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  sendBackBtn: { padding: '10px 18px', borderRadius: 10, border: '1px solid #fcd34d', background: '#fffbeb', color: '#b45309', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
   rejectBtn: { padding: '10px 18px', borderRadius: 10, border: `1px solid ${C.cardBorder}`, background: '#fff', color: C.danger, fontSize: 13, fontWeight: 600, cursor: 'pointer' },
   // Sits before Reject/Approve, same footer row — a third, quieter option
   // (marginRight: auto pushes it away from the decision buttons on

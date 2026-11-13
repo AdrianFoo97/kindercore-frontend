@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
+  faBug, faCircleUser, faMobileScreenButton,
   faChevronLeft, faCircleExclamation, faCircleInfo, faEllipsisVertical,
   faBullhorn, faGraduationCap, faUsers, faMoneyBillTrendUp, faChartLine,
-  faGear,
 } from '@fortawesome/free-solid-svg-icons';
 import { useScrolledPast } from '../../hooks/useScrolledPast.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { useInstallApp } from '../../hooks/useInstallApp.js';
 import { MODULES } from '../../constants/authModules.js';
 
 // Entry points into the wider admin app — a teacher account that's also
@@ -86,7 +87,7 @@ const TITLES: Record<string, string> = {
   'rewards/catalog': 'Redeem Rewards',
   'rewards/earn': 'How to Earn Points',
   'leaderboard': 'Leaderboard',
-  'settings': 'Settings',
+  'settings': 'My Profile',
   'settings/report-bug': 'Report a Bug',
 };
 
@@ -116,6 +117,13 @@ function teacherSopTopBar(pathname: string, search: string): TopBarState | null 
   if (pathname === '/operations/sops' || pathname === '/operations/sops/') {
     return { title: 'Guides', showBack: false, backTo: '/operations/sops?app=teacher' };
   }
+  // Reached from Home (quick action) or Guides (⋯ menu) — back returns to whichever it was.
+  if (pathname === '/operations/sops/my-suggestions') {
+    return { title: 'My guide ideas', showBack: true, backTo: GO_BACK };
+  }
+  if (pathname.startsWith('/operations/sops/my-suggestions/')) {
+    return { title: 'Guide idea', showBack: true, backTo: GO_BACK };
+  }
   if (pathname === '/operations/sops/propose') {
     // SopProposePage.tsx mirrors its own wizardStep into this same
     // `step` param (replacing history, not pushing) purely so this
@@ -127,7 +135,8 @@ function teacherSopTopBar(pathname: string, search: string): TopBarState | null 
     // info), not "leave the wizard" — SopProposePage.tsx reads this same
     // `step` param back into its own wizardStep state (see the comment
     // above), so landing here without it is enough to flip it back to 1.
-    // Only Basic info's own back chevron actually exits to Guides.
+    // Basic info's back leaves the wizard to wherever it was opened from
+    // (My guide ideas today, possibly elsewhere) — real history.
     return {
       // Same "Name - Detail" dash format as the guide detail title
       // ("Picking - Main Process") — "Suggest a Guide" up front so the
@@ -135,12 +144,22 @@ function teacherSopTopBar(pathname: string, search: string): TopBarState | null 
       // number so tapping Next and scrolling makes the advance obvious.
       title: `Suggest a Guide - Step ${onSteps ? 2 : 1}`,
       showBack: true,
-      backTo: onSteps ? '/operations/sops/propose?app=teacher' : '/operations/sops?app=teacher',
+      backTo: onSteps ? '/operations/sops/propose?app=teacher' : GO_BACK,
     };
   }
   const proposeMatch = pathname.match(/^\/operations\/sops\/([^/]+)\/propose$/);
   if (proposeMatch) {
-    return { title: 'Suggest an Edit', showBack: true, backTo: `/operations/sops/${proposeMatch[1]}?app=teacher` };
+    // A teacher's suggested edit is two steps (1. what needs improving,
+    // 2. the steps) — SopProposePage mirrors which one into `step`, same as
+    // the new-guide wizard above. On step 2, back returns to step 1;
+    // otherwise back to wherever the edit was opened from (real history).
+    const step = new URLSearchParams(search).get('step');
+    const here = `/operations/sops/${proposeMatch[1]}`;
+    return {
+      title: step ? `Suggest an Edit - Step ${step}` : 'Suggest an Edit',
+      showBack: true,
+      backTo: step === '2' ? `${here}/propose?app=teacher&step=1` : GO_BACK,
+    };
   }
   const detailMatch = pathname.match(/^\/operations\/sops\/([^/]+)$/);
   if (detailMatch) {
@@ -171,6 +190,15 @@ function teacherSopTopBar(pathname: string, search: string): TopBarState | null 
  * Resolve the top bar for a teacher path. Returns null when the path
  * is not a teacher gamified surface (the admin Navbar handles those).
  */
+/** The signed-in teacher's id (stashed at sign-in), for pages outside /teachers/:id. */
+function signedInTeacherId(): string | null {
+  try {
+    return (JSON.parse(localStorage.getItem('user') ?? 'null') as { teacherId?: string | null } | null)?.teacherId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function teacherTopBar(pathname: string, search: string = ''): TopBarState | null {
   if (pathname.startsWith('/operations/sops')) return teacherSopTopBar(pathname, search);
   const m = pathname.match(TEACHER_PATH);
@@ -183,7 +211,7 @@ export function teacherTopBar(pathname: string, search: string = ''): TopBarStat
     // Pay/Guides), not just Home — a fixed backTo would be wrong for at
     // least 3 of those 4. Real browser-history back instead, same as
     // every other "opened from wherever you were" surface.
-    return { title: 'Settings', showBack: true, backTo: GO_BACK };
+    return { title: 'My Profile', showBack: true, backTo: GO_BACK };
   }
   if (tail.startsWith('settings/')) {
     // A spoke off Settings (e.g. Report a Bug) is only ever reached by
@@ -196,7 +224,7 @@ export function teacherTopBar(pathname: string, search: string = ''): TopBarStat
     // back) pop to this spoke again instead of wherever you'd actually
     // been before Settings.
     return {
-      title: TITLES[tail] ?? 'Settings',
+      title: TITLES[tail] ?? 'My Profile',
       showBack: true,
       backTo: GO_BACK,
     };
@@ -207,7 +235,7 @@ export function teacherTopBar(pathname: string, search: string = ''): TopBarStat
   }
   if (tail === 'facilities' || tail === 'facilities/new') {
     // Opened from Home's quick actions (and the list opens the form) — real history back.
-    return { title: tail === 'facilities' ? 'Facilities' : 'Report a Problem', showBack: true, backTo: GO_BACK };
+    return { title: tail === 'facilities' ? 'Facilities' : 'Report a Facility Issue', showBack: true, backTo: GO_BACK };
   }
   if (tail === 'purchases' || tail === 'purchases/new' || /^purchases\/[^/]+\/edit$/.test(tail)) {
     // Opened from Home's quick actions (and the list opens the form) — real history back.
@@ -344,6 +372,7 @@ export default function TeacherTopBar() {
 
   const { hasModule } = usePermissions();
   const [menuOpen, setMenuOpen] = useState(false);
+  const installApp = useInstallApp();
   // Two separate refs (not one wrapping element) because the trigger
   // button lives in-flow in the header while the dropdown itself is
   // portaled to <body> — a click-outside check needs both DOM nodes.
@@ -354,7 +383,9 @@ export default function TeacherTopBar() {
   // already showing chrome for, so pull it straight off the pathname
   // rather than threading it through TopBarState.
   const teacherIdMatch = pathname.match(/^\/teachers\/([^/]+)\//);
-  const settingsPath = teacherIdMatch ? `/teachers/${teacherIdMatch[1]}/settings` : null;
+  // Off /teachers/:id (e.g. the Guides list), the signed-in teacher's own id.
+  const menuTeacherId = teacherIdMatch?.[1] ?? signedInTeacherId();
+  const settingsPath = menuTeacherId ? `/teachers/${menuTeacherId}/settings` : null;
   // Top-right "⋯", account menu (Settings, plus admin-module entry links
   // if any) — only on the 5 tab-root pages that don't already have
   // something of their own living in that exact spot: the Guides list
@@ -368,7 +399,9 @@ export default function TeacherTopBar() {
   // renders here), so this is the account entry point for everyone now,
   // not just an admin escape hatch for the few who also have module
   // grants.
-  const showMoreMenu = !!bar && !bar.showBack && !pathname.startsWith('/operations/sops');
+  // The same ⋯ on every tab root, the Guides list included (its pages below it have their own).
+  const onGuidesList = pathname === '/operations/sops' || pathname === '/operations/sops/';
+  const showMoreMenu = !!bar && !bar.showBack && (!pathname.startsWith('/operations/sops') || onGuidesList);
   useEffect(() => { setMenuOpen(false); }, [pathname]);
   useEffect(() => {
     if (!menuOpen) return;
@@ -829,14 +862,33 @@ export default function TeacherTopBar() {
           {/* Profile + Logout live on TeacherMySettingsPage now, not
               inline here — this is just the entry point to it. */}
           {settingsPath && (
-            <NavLink to={settingsPath} onClick={() => setMenuOpen(false)} style={{
-              display: 'flex', alignItems: 'center', width: '100%', padding: '8px 10px',
-              borderRadius: 7, color: '#334155', textDecoration: 'none',
-              fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-            }}>
-              <FontAwesomeIcon icon={faGear} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
-              Settings
-            </NavLink>
+            <>
+              {/* Your profile (account details + Logout) and Report a Bug, one tap each. */}
+              {[
+                { to: settingsPath, icon: faCircleUser, label: 'My Profile' },
+                { to: `${settingsPath}/report-bug`, icon: faBug, label: 'Report a Bug' },
+              ].map(item => (
+                <NavLink key={item.label} to={item.to} onClick={() => setMenuOpen(false)} style={{
+                  display: 'flex', alignItems: 'center', width: '100%', padding: '8px 10px', minHeight: 36,
+                  borderRadius: 7, color: '#334155', textDecoration: 'none',
+                  fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                }}>
+                  <FontAwesomeIcon icon={item.icon} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
+                  {item.label}
+                </NavLink>
+              ))}
+              {/* Android only, while Chrome says the app can be installed. */}
+              {installApp.canInstall && (
+                <button type="button" onClick={() => { setMenuOpen(false); void installApp.install(); }} style={{
+                  display: 'flex', alignItems: 'center', width: '100%', padding: '8px 10px', minHeight: 36,
+                  borderRadius: 7, color: '#334155', background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, fontFamily: 'inherit', textAlign: 'left',
+                }}>
+                  <FontAwesomeIcon icon={faMobileScreenButton} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
+                  Install app
+                </button>
+              )}
+            </>
           )}
         </div>,
         document.body,

@@ -9,6 +9,7 @@ import { useTeamPoolSummary } from '../hooks/useTeamPoolSummary.js';
 import { useAnnualBonusSummary } from '../hooks/useAnnualBonusSummary.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 import { MilestoneTrack, remainingLabel, type MonthDotState } from '../components/common/MilestoneTrack.js';
+import { SHOW_TEACHER_POOLS } from '../config/releaseFlags.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pay Breakdown — the "anatomy" spoke of the new gamified pay hub
@@ -311,8 +312,9 @@ export default function TeacherPayBreakdownPage() {
             still just a link card into the full page, not the content
             itself, per the earlier "not a daily focus" direction. */}
         {id && <GrowMyPayLink teacherId={id} />}
-        {id && <SharedRewardsPreview teacherId={id} />}
-        {id && <AnnualBonusPreview teacherId={id} />}
+        {/* Pool previews are held back for a future release (config/releaseFlags.ts). */}
+        {SHOW_TEACHER_POOLS && id && <SharedRewardsPreview teacherId={id} />}
+        {SHOW_TEACHER_POOLS && id && <AnnualBonusPreview teacherId={id} />}
       </div>
     </div>
   );

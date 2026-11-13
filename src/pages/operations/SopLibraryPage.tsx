@@ -1,20 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faPlus, faPenToSquare, faEllipsisVertical, faMagnifyingGlass, faGear,
-  faClipboardCheck, faChevronRight, faListCheck, faLayerGroup, faClockRotateLeft, faLink,
-} from '@fortawesome/free-solid-svg-icons';
+  faPlus, faMagnifyingGlass,
+  faClipboardCheck, faChevronRight, faListCheck, faLayerGroup, faClockRotateLeft, } from '@fortawesome/free-solid-svg-icons';
 import { fetchTemplates } from '../../api/sop-templates.js';
 import { fetchSteps } from '../../api/sop-steps.js';
 import { fetchCategories } from '../../api/sop-categories.js';
 import SegmentedControl from '../../components/common/SegmentedControl.js';
-import { DEFAULT_LABEL_SORT, LABEL_SORTS, NO_LABEL, findLabels, guideHasLabel, labelSummaries, parseLabelSort, type LabelSort } from './sopLabels.js';
+import { NO_LABEL, findLabels, guideHasLabel, labelSummaries, labelsInUse } from './sopLabels.js';
 import SopSortSelect from './SopSortSelect.js';
 import { SopLabelHeader, SopLabelsList } from './SopLabelsView.js';
 import SopPagination from './SopPagination.js';
+import LoadMoreSentinel from './LoadMoreSentinel.js';
+import { hasMoreToScroll, visibleGuides } from './sopPaging.js';
 import SopLabelFilter from './SopLabelFilter.js';
 import { DEFAULT_SOP_SORT, SOP_SORTS, parseSopSort, sortGuides, type SopSort } from './sopSort.js';
 import { resolveSopIcon } from '../../utils/sopTemplateIcons.js';
@@ -22,8 +22,10 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useScrolledPast } from '../../hooks/useScrolledPast.js';
 import { TEACHER_TOPBAR_SPACE } from '../../components/common/TeacherTopBar.js';
-import { useToast } from '../../components/common/Toast.js';
-import { copyGuideLink } from './copyGuideLink.js';
+import { resolveLibraryView, viewParam, type LibraryView } from './sopFavorites.js';
+import { useSopFavorites } from './useSopFavorites.js';
+import FavoriteStarButton from './FavoriteStarButton.js';
+import TeacherFab, { TEACHER_FAB_CLEARANCE } from '../../components/common/TeacherFab.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -58,7 +60,6 @@ const RADIUS = 14;
 const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 const PAGE_SIZE = 10;
 
-type LibraryView = 'guides' | 'labels';
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -68,7 +69,6 @@ function fmtDate(iso: string) {
 export default function SopLibraryPage() {
   const navigate = useNavigate();
   const { isMobile } = useIsMobile();
-  const { showToast } = useToast();
   // Admins, and anyone whose AuthRole grants OPERATION_SOP_APPROVE (the
   // "Supervisor" tier — same view that unlocks Approve/Reject on the
   // Improvement Inbox), add a How-To Guide directly. Everyone else drafts a
@@ -76,16 +76,6 @@ export default function SopLibraryPage() {
   // different landing page and honest button label.
   const rawUser = localStorage.getItem('user');
   const currentUser = rawUser ? (JSON.parse(rawUser) as { role?: string; teacherId?: string | null }) : null;
-  // Only actually rendered/reachable for themeIsTeacher — see the "⋯"
-  // menu below. Guides is one of the floating teacher chrome's 4 tab-
-  // root pages, all of which need a way into Settings (TeacherTopBar.tsx
-  // renders its own top-right "⋯" with that same item on the other 3 —
-  // Home/Career/Pay — but skips doing that here specifically, since this
-  // page already portals its own "⋯" into that identical spot for
-  // "Suggest a new guide"; adding a second button next to it would've
-  // been a worse redundant-looking pair of dots than just adding this as
-  // one more item in the one that's already there).
-  const settingsPath = currentUser?.teacherId ? `/teachers/${currentUser.teacherId}/settings` : null;
   const { hasView } = usePermissions();
   const realIsAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPERADMIN' || hasView('OPERATION_SOP_APPROVE');
   // Dev-only preview: ?previewTeacher=1 forces the teacher view for an
@@ -135,14 +125,16 @@ export default function SopLibraryPage() {
   const [search, setSearch] = useState('');
   const [labelQuery, setLabelQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
-  // All guides ↔ Labels, and the label opened from the Labels view — kept in
-  // the URL (?view=labels&label=…) so the browser's back and shared links work.
-  const view: LibraryView = searchParams.get('view') === 'labels' ? 'labels' : 'guides';
+  // Favourites ↔ All guides ↔ Labels, and the label opened from the Labels view — kept in
+  // the URL (?view=…&label=…) so the browser's back and shared links work. With no
+  // ?view the library opens on Favourites.
+  const favorites = useSopFavorites();
+  const view: LibraryView = resolveLibraryView(searchParams.get('view'));
   const openLabel = view === 'labels' ? searchParams.get('label') : null;
   const showLabelsList = view === 'labels' && !openLabel;
   const setLibraryParams = (next: { view: LibraryView; label?: string | null }) => setSearchParams(prev => {
     const p = new URLSearchParams(prev);
-    if (next.view === 'labels') p.set('view', 'labels'); else p.delete('view');
+    p.set('view', viewParam(next.view));
     if (next.label) p.set('label', next.label); else p.delete('label');
     return p;
   });
@@ -151,15 +143,23 @@ export default function SopLibraryPage() {
     ? { name: 'No label', color: '#cbd5e1', count: labelSummary.unlabelled }
     : labelSummary.labels.find(l => l.id === openLabel);
 
+  // On Favourites the label filter only offers labels your favourite guides use;
+  // a label picked elsewhere that none of them has falls back to All labels.
+  const filterLabels = view === 'favorites'
+    ? labelsInUse(categories, templates.filter(t => favorites.isFavorite(t.id)))
+    : categories;
+  const pickedLabel = categoryFilter === 'ALL' || filterLabels.some(l => l.id === categoryFilter) ? categoryFilter : 'ALL';
   // An opened label replaces the dropdown filter.
-  const effectiveLabel = openLabel ?? categoryFilter;
+  const effectiveLabel = openLabel ?? pickedLabel;
   const filteredTemplates = useMemo(() => {
     const q = search.trim().toLowerCase();
     return templates.filter(t => {
       const matchesSearch = !q || t.title.toLowerCase().includes(q) || (t.goal ?? '').toLowerCase().includes(q);
-      return matchesSearch && guideHasLabel(t, effectiveLabel);
+      const inView = view !== 'favorites' || favorites.isFavorite(t.id);
+      return inView && matchesSearch && guideHasLabel(t, effectiveLabel);
     });
-  }, [templates, search, effectiveLabel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates, search, effectiveLabel, view, favorites.ids]);
 
   // Each template's step + section counts, fetched once so the card can
   // show real document scope ("3 sections · 13 steps") without a click-through.
@@ -183,23 +183,18 @@ export default function SopLibraryPage() {
     if (next === DEFAULT_SOP_SORT) p.delete('sort'); else p.set('sort', next);
     return p;
   }, { replace: true });
-  // The Labels list has its own sort (?lsort=most), same idea.
-  const labelSort = parseLabelSort(searchParams.get('lsort'));
-  const setLabelSort = (next: LabelSort) => setSearchParams(prev => {
-    const p = new URLSearchParams(prev);
-    if (next === DEFAULT_LABEL_SORT) p.delete('lsort'); else p.set('lsort', next);
-    return p;
-  }, { replace: true });
   const sortedTemplates = useMemo(() => {
     const stepCounts = Object.fromEntries(Object.entries(meta).map(([id, m]) => [id, m.steps]));
     return sortGuides(filteredTemplates, sort, stepCounts);
   }, [filteredTemplates, sort, meta]);
 
   const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [search, effectiveLabel, sort]);
+  useEffect(() => { setPage(1); }, [search, effectiveLabel, sort, view]);
   const pageCount = Math.max(1, Math.ceil(sortedTemplates.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
-  const pagedTemplates = sortedTemplates.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  // A phone reveals 10 more as you reach the end; a computer gets page buttons.
+  const pagingMode = isMobile ? 'scroll' : 'pages';
+  const pagedTemplates = visibleGuides(sortedTemplates, safePage, PAGE_SIZE, pagingMode);
 
   // Reached from the teacher app's Guides tab, on the phone-sized surface
   // where that app's own chrome is showing (see App.tsx's isTeacherSurface)
@@ -212,25 +207,6 @@ export default function SopLibraryPage() {
     '--sop-accent-border': themeIsTeacher ? TEACHER_ACCENT.border : C.primaryBorder,
   } as React.CSSProperties;
 
-  // Teacher mobile: "Add/Suggest a How-To Guide" lives behind the "⋯" in
-  // the floating top bar rather than a floating "+" button — a bare "+"
-  // read as "this adds it now", which for most teachers isn't true (it
-  // goes to a supervisor for approval). Portaled into the top bar's own
-  // action slot, same technique as SopTemplateStepsPage.tsx's "⋯" menu.
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!moreMenuOpen) return;
-    const onClickOutside = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) setMoreMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [moreMenuOpen]);
-  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    if (themeIsTeacher) setTopbarSlot(document.getElementById('teacher-topbar-right-slot'));
-  }, [themeIsTeacher]);
   // Anchored to this page's own root div (rather than the portaled "⋯"
   // button itself) purely so the ref attaches on the very first render
   // no matter what — see useScrolledPast's own comment for why that
@@ -266,10 +242,11 @@ export default function SopLibraryPage() {
   // search taking the width and the filter as a compact trigger next to
   // it, same footprint as a typical mobile search-and-filter bar.
   const filterRowStyle: React.CSSProperties = themeIsTeacher
-    ? { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'nowrap' }
+    // Search gets its own full row (room to type); sort + labels share the row below.
+    ? { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }
     : { ...s.toolbar, ...(isMobile ? sMobile.toolbar : null) };
   const searchWrapStyle: React.CSSProperties = themeIsTeacher
-    ? { position: 'relative', flex: 1, minWidth: 0 }
+    ? { position: 'relative', flex: '1 1 100%', minWidth: 0 }
     : { ...s.searchWrap, ...(isMobile ? sMobile.searchWrap : null) };
 
   // With the in-page heading/subheading hidden (themeIsTeacher — the
@@ -355,11 +332,11 @@ export default function SopLibraryPage() {
 
         {/* All guides ↔ Labels (iOS segmented control: one-of view switch). */}
         {templates.length > 0 && (
-          <div style={{ marginBottom: 16, maxWidth: isMobile ? undefined : 320 }}>
+          <div style={{ marginBottom: 16, maxWidth: isMobile ? undefined : 420 }}>
             <SegmentedControl<LibraryView>
               ariaLabel="Show guides" value={view} accent={themeIsTeacher ? TEACHER_ACCENT.accent : C.primary}
               onChange={v => setLibraryParams({ view: v })}
-              segments={[{ key: 'guides', label: 'All guides' }, { key: 'labels', label: 'Labels' }]}
+              segments={[{ key: 'favorites', label: 'Favourites' }, { key: 'guides', label: 'All guides' }, { key: 'labels', label: 'Labels' }]}
             />
           </div>
         )}
@@ -381,14 +358,13 @@ export default function SopLibraryPage() {
             </div>
           )}
 
-          {templates.length > 1 && (
-            showLabelsList
-              ? <SopSortSelect<LabelSort> options={LABEL_SORTS} value={labelSort} onChange={setLabelSort} label="Sort labels" grow={themeIsTeacher || isMobile} />
-              : <SopSortSelect<SopSort> options={SOP_SORTS} value={sort} onChange={setSort} label="Sort guides" grow={themeIsTeacher || isMobile} />
+          {/* Labels are always A–Z — no sort to pick there. */}
+          {templates.length > 1 && !showLabelsList && (
+            <SopSortSelect<SopSort> options={SOP_SORTS} value={sort} onChange={setSort} label="Sort guides" grow={themeIsTeacher || isMobile} />
           )}
 
-          {categories.length > 0 && view === 'guides' && (
-            <SopLabelFilter labels={categories} value={categoryFilter} onChange={setCategoryFilter} compact={themeIsTeacher} fullWidth={isMobile} />
+          {filterLabels.length > 0 && view !== 'labels' && (
+            <SopLabelFilter labels={filterLabels} value={pickedLabel} onChange={setCategoryFilter} compact={themeIsTeacher} fullWidth={isMobile} />
           )}
 
           {/* Desktop/admin surface only — restricted to roles actually
@@ -405,56 +381,13 @@ export default function SopLibraryPage() {
           )}
         </div>
 
-        {/* Every teacher app user gets this, not just isAdmin —
-            addSopPath/addSopLabel already route each role correctly:
-            isAdmin lands on the direct-create form, everyone else on
-            SopProposePage's "Suggest a New How-To Guide" flow, which
-            submits a revision for supervisor approval (identical
-            mechanism to the per-guide "Suggest an Edit" button). Tucked
-            into a "⋯" in the floating top bar instead of a floating "+"
-            button — an icon-only "+" read as "this adds it now", which
-            for most teachers isn't true, and matches the "⋯" already
-            used for Download/Suggest-an-edit on the guide detail page.
-            Portaled into the top bar's own action slot. */}
-        {themeIsTeacher && topbarSlot && createPortal(
-          <div style={{ position: 'relative' }} ref={moreMenuRef}>
-            <button
-              type="button"
-              onClick={() => setMoreMenuOpen(o => !o)}
-              style={s.moreBtn}
-              aria-label="More actions" title="More actions"
-            >
-              <FontAwesomeIcon icon={faEllipsisVertical} />
-            </button>
-            {moreMenuOpen && (
-              <div style={s.moreMenu}>
-                <button
-                  type="button"
-                  className="sop-more-menu-item"
-                  onClick={() => { setMoreMenuOpen(false); navigate(`${addSopPath}${detailPathSuffix}`); }}
-                  style={s.moreMenuItem}
-                >
-                  <FontAwesomeIcon icon={isAdmin ? faPlus : faPenToSquare} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
-                  {addSopLabel}
-                </button>
-                {settingsPath && (
-                  <>
-                    <div style={{ height: 1, background: C.divider, margin: '4px 0' }} />
-                    <button
-                      type="button"
-                      className="sop-more-menu-item"
-                      onClick={() => { setMoreMenuOpen(false); navigate(settingsPath); }}
-                      style={s.moreMenuItem}
-                    >
-                      <FontAwesomeIcon icon={faGear} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
-                      Settings
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>,
-          topbarSlot,
+        {/* The ⋯ in the top bar is the shared one (My Profile / Report a Bug), same as every tab.
+            Supervisors add a guide with the floating "+", like the other list pages. */}
+        {themeIsTeacher && isAdmin && (
+          <>
+            <TeacherFab label={addSopLabel} onClick={() => navigate(`${addSopPath}${detailPathSuffix}`)} />
+            <div aria-hidden style={{ height: TEACHER_FAB_CLEARANCE }} />
+          </>
         )}
 
         <div style={listWrapStyle}>
@@ -462,10 +395,10 @@ export default function SopLibraryPage() {
             <SopLabelHeader name={openLabelInfo?.name ?? 'Label'} color={openLabelInfo?.color ?? '#94a3b8'}
               onAllLabels={() => setLibraryParams({ view: 'labels' })} />
           )}
-          {templatesLoading ? (
+          {templatesLoading || favorites.isLoading ? (
             <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
           ) : showLabelsList && templates.length > 0 ? (
-            <SopLabelsList labels={findLabels(labelSummary.labels, labelQuery, labelSort)} unlabelled={labelSummary.unlabelled}
+            <SopLabelsList labels={findLabels(labelSummary.labels, labelQuery)} unlabelled={labelSummary.unlabelled}
               query={labelQuery} onOpen={id => setLibraryParams({ view: 'labels', label: id })}
               look={{
                 row: rowStyle,
@@ -489,6 +422,12 @@ export default function SopLibraryPage() {
                 <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />
                 {isAdmin ? 'Add the first How-To Guide' : 'Suggest the first How-To Guide'}
               </button>
+            </div>
+          ) : view === 'favorites' && favorites.ids.length === 0 ? (
+            <div style={emptyBoxStyle('48px 20px')}>
+              <h3 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 700, color: C.text }}>No favourites yet</h3>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: C.muted }}>Tap the star on a guide you use often to keep it here.</p>
+              <button onClick={() => setLibraryParams({ view: 'guides' })} style={s.primaryBtnGhost}>Show all guides</button>
             </div>
           ) : filteredTemplates.length === 0 ? (
             <div style={emptyBoxStyle('48px 20px')}>
@@ -604,22 +543,15 @@ export default function SopLibraryPage() {
                           </div>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        className="sop-share-btn"
-                        onClick={e => { e.stopPropagation(); copyGuideLink(t.id, showToast); }}
-                        title="Copy link — only signed-in staff with access can open it"
-                        aria-label={`Copy link to ${t.title}`}
-                        style={s.shareBtn}
-                      >
-                        <FontAwesomeIcon icon={faLink} />
-                      </button>
+                      <FavoriteStarButton title={t.title} on={favorites.isFavorite(t.id)} onToggle={on => favorites.toggle(t.id, on)} style={s.shareBtn} />
                       <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 12, color: C.mutedSoft, marginLeft: 4, flexShrink: 0 }} />
                     </div>
                   );
                 })}
               </div>
-              <SopPagination page={safePage} pageCount={pageCount} totalCount={sortedTemplates.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+              {pagingMode === 'pages'
+                ? <SopPagination page={safePage} pageCount={pageCount} totalCount={sortedTemplates.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
+                : hasMoreToScroll(pagedTemplates.length, sortedTemplates.length) && <LoadMoreSentinel key={safePage} onReach={() => setPage(p => Math.min(p + 1, pageCount))} />}
             </>
           )}
         </div>
@@ -666,27 +598,6 @@ const s: Record<string, React.CSSProperties> = {
     width: 36, height: 36, borderRadius: 8, border: 'none', background: 'transparent',
     color: C.mutedSoft, fontSize: 14, cursor: 'pointer', flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  moreBtn: {
-    width: 32, height: 32, borderRadius: '50%',
-    border: '1px solid rgba(255,255,255,0.32)', boxSizing: 'border-box' as const,
-    background: 'rgba(255,255,255,0.22)',
-    backdropFilter: 'blur(22px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-    boxShadow: '0 2px 10px rgba(15,23,42,0.12)',
-    cursor: 'pointer', color: '#334155', display: 'inline-flex',
-    alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0,
-    transition: 'background 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
-  },
-  moreMenu: {
-    position: 'absolute' as const, top: '100%', right: 0, marginTop: 6, width: 200,
-    background: '#fff', border: `1px solid ${C.cardBorder}`, borderRadius: 10,
-    boxShadow: '0 8px 24px rgba(15,23,42,0.14)', zIndex: 20, overflow: 'hidden', padding: 4,
-  },
-  moreMenuItem: {
-    display: 'flex', alignItems: 'center', width: '100%', padding: '8px 10px',
-    border: 'none', borderRadius: 7, background: 'transparent', cursor: 'pointer',
-    fontSize: 13, fontWeight: 600, color: C.textSub, textAlign: 'left' as const, fontFamily: 'inherit',
   },
   emptyIconWrap: {
     width: 44, height: 44, borderRadius: 12, background: 'var(--sop-accent-soft)',

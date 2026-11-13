@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useGoBack } from '../../../hooks/useGoBack.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faCircleExclamation, faCircleInfo, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
@@ -24,6 +25,7 @@ type Confirming = 'live' | 'retire' | 'delete' | null;
 export default function AppraisalFormEditPage() {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useGoBack(LIST_PATH);
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { data: template, isLoading, error } = useQuery({
@@ -117,7 +119,7 @@ export default function AppraisalFormEditPage() {
   return (
     <Shell>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <button className="back-btn" onClick={() => navigate(LIST_PATH)} style={backBtn} aria-label="Back" title="Back">
+        <button className="back-btn" onClick={goBack} style={backBtn} aria-label="Back" title="Back">
           <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 13 }} />
         </button>
         <Link to={LIST_PATH} style={{ fontSize: 13, color: C.muted, textDecoration: 'none' }}>Appraisal Forms</Link>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
+import { useGoBack } from '../../hooks/useGoBack.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -11,7 +12,12 @@ import { fetchTemplates } from '../../api/sop-templates.js';
 import { fetchSteps } from '../../api/sop-steps.js';
 import { fetchCategories } from '../../api/sop-categories.js';
 import { fetchSections } from '../../api/sop-sections.js';
-import { createRevision, fetchRevision, updateRevision, approveRevision, ProposedStep } from '../../api/sop-revisions.js';
+import { createRevision, fetchRevision, updateRevision, approveRevision, resubmitRevision, ProposedStep } from '../../api/sop-revisions.js';
+import SentBackNote from './SentBackNote.js';
+import StepFeedback from './StepFeedback.js';
+import { attachComments, unplaced, type AttachedComments } from './reviewComments.js';
+import SopImproveReasonsStep from './SopImproveReasonsStep.js';
+import { canContinue, cleanReasons } from './sopImproveReasons.js';
 import { useToast } from '../../components/common/Toast.js';
 import { ALLOWED_SOP_ICONS, resolveSopIcon } from '../../utils/sopTemplateIcons.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
@@ -123,9 +129,13 @@ export default function SopProposePage() {
   // of these should do.
   const duplicateFrom = searchParams.get('duplicateFrom');
   const fromRevisionId = searchParams.get('fromRevision');
+  // "Make changes" on a guide idea a supervisor sent back (My guide ideas):
+  // the same form, filled with what was sent; submitting resends that idea.
+  const resubmitId = searchParams.get('resubmit');
+  const sourceRevisionId = fromRevisionId ?? resubmitId;
   const rawUser = localStorage.getItem('user');
   const currentUser = rawUser ? (JSON.parse(rawUser) as { id?: string }) : null;
-  const { isAdmin, hasView } = usePermissions();
+  const { isAdmin, hasView, loading: permissionsLoading } = usePermissions();
   // A supervisor already holds the approval permission this whole flow's
   // decisions are gated on — Save Draft / Publish Now (see the footer
   // below) replace the plain teacher's single "Submit for approval" for
@@ -150,9 +160,9 @@ export default function SopProposePage() {
     enabled: !!duplicateFrom,
   });
   const { data: sourceRevision, isLoading: sourceRevisionLoading } = useQuery({
-    queryKey: ['sop-revision', fromRevisionId],
-    queryFn: () => fetchRevision(fromRevisionId!),
-    enabled: !!fromRevisionId,
+    queryKey: ['sop-revision', sourceRevisionId],
+    queryFn: () => fetchRevision(sourceRevisionId!),
+    enabled: !!sourceRevisionId,
   });
   const { data: allCategories = [] } = useQuery({ queryKey: ['sop-categories'], queryFn: () => fetchCategories() });
   const { data: globalSections = [] } = useQuery({ queryKey: ['sop-sections'], queryFn: () => fetchSections() });
@@ -181,8 +191,20 @@ export default function SopProposePage() {
   // submitted snapshot). A brand-new proposal is the only flow that still
   // needs the Basic info step, since there's nothing to carry through yet.
   const [wizardStep, setWizardStep] = useState<1 | 2>(isEditingExisting ? 2 : 1);
+  // A teacher improving an existing guide goes through two steps: 1. identify
+  // what needs improving (list the reasons), 2. change the steps. Supervisors
+  // editing directly skip step 1. Decided once permissions have loaded.
+  const needsReasons = isEditingExisting && !permissionsLoading && !canSelfPublish;
+  const [reasons, setReasons] = useState<string[]>([]);
+  const showReasons = needsReasons && wizardStep === 1;
   const showBasicInfo = !isEditingExisting && wizardStep === 1;
-  const showSteps = isEditingExisting || wizardStep === 2;
+  const showSteps = (isEditingExisting && !needsReasons) || wizardStep === 2;
+  // Step 2 is only reachable with reasons listed — a reload or deep link to
+  // step 2 starts back at step 1, where they're asked for.
+  useEffect(() => {
+    if (needsReasons && wizardStep === 2 && !canContinue(reasons)) setWizardStep(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsReasons]);
   // App.tsx's ProtectedLayout resets its scroll container to the top on
   // every `pathname` change — but Next/Back here only ever change this
   // component's own wizardStep, same pathname throughout, so that reset
@@ -206,11 +228,14 @@ export default function SopProposePage() {
   useEffect(() => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
-      if (wizardStep === 2) next.set('step', '2'); else next.delete('step');
+      if (isEditingExisting) {
+        // Suggest-an-edit: step 1 / 2 for a teacher; no steps for a supervisor's direct edit.
+        if (needsReasons) next.set('step', String(wizardStep)); else next.delete('step');
+      } else if (wizardStep === 2) next.set('step', '2'); else next.delete('step');
       return next;
     }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wizardStep]);
+  }, [wizardStep, needsReasons]);
   // The other direction of that same mirror: TeacherTopBar's own back
   // chevron, while on Steps, now navigates to this same route with the
   // `step` param dropped (see teacherSopTopBar) instead of leaving the
@@ -220,19 +245,23 @@ export default function SopProposePage() {
   // (Next/Back already keep wizardStep and the URL in lockstep via the
   // effect above), so this never fights it.
   useEffect(() => {
-    if (isEditingExisting) return;
-    const paramStep = searchParams.get('step') === '2' ? 2 : 1;
+    if (isEditingExisting && !needsReasons) return;
+    // Step 2 of a suggested edit needs reasons first, whatever the URL says.
+    const paramStep = searchParams.get('step') === '2' && (!needsReasons || canContinue(reasons)) ? 2 : 1;
     setWizardStep(prev => (prev === paramStep ? prev : paramStep));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-  const hasPrefillSource = isEditingExisting || !!duplicateFrom || !!fromRevisionId;
+  // Resending a sent-back idea: the supervisor's step comments, pinned to the steps.
+  const [stepFeedback, setStepFeedback] = useState<AttachedComments>({ byKey: {}, loose: [] });
+  const hasPrefillSource = isEditingExisting || !!duplicateFrom || !!sourceRevisionId;
   const [prefilled, setPrefilled] = useState(!hasPrefillSource);
 
   // Seed the draft from the live SOP exactly once, as soon as both the
   // template and its steps have loaded — editing after that is purely
   // local state, never touching live data again until submit.
   useEffect(() => {
-    if (prefilled || !isEditingExisting || !target || stepsLoading) return;
+    // A resend starts from what was sent (below), not the live guide.
+    if (prefilled || resubmitId || !isEditingExisting || !target || stepsLoading) return;
     setTitle(target.title);
     setGoal(target.goal ?? '');
     setVideoUrl(target.videoUrl ?? '');
@@ -277,23 +306,27 @@ export default function SopProposePage() {
   // anything else (someone else's proposal, or any non-draft) is just a
   // content seed — the first save creates a brand-new revision instead.
   useEffect(() => {
-    if (prefilled || !fromRevisionId || !sourceRevision) return;
+    if (prefilled || !sourceRevisionId || !sourceRevision) return;
     setTitle(sourceRevision.title);
     setGoal(sourceRevision.goal ?? '');
     setVideoUrl(sourceRevision.videoUrl ?? '');
     setIcon(sourceRevision.icon ?? ALLOWED_SOP_ICONS[0]);
     setCategoryIds(sourceRevision.categoryIdsJson ?? []);
-    setSteps(
-      sourceRevision.stepsJson.map(st => ({
-        key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '',
-      })),
-    );
+    const seededSteps = sourceRevision.stepsJson.map(st => ({
+      key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '',
+    }));
+    setSteps(seededSteps);
     if (currentUser?.id && sourceRevision.proposedByUserId === currentUser.id && sourceRevision.status === 'DRAFT') {
       setWorkingRevisionId(sourceRevision.id);
     }
+    if (resubmitId) {
+      setReasons(sourceRevision.improvementReasonsJson ?? []);
+      // Pin each comment to its step now, so it stays on that step even if the teacher renames it.
+      setStepFeedback(attachComments(sourceRevision.reviewCommentsJson, seededSteps));
+    }
     setPrefilled(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefilled, fromRevisionId, sourceRevision]);
+  }, [prefilled, sourceRevisionId, sourceRevision]);
 
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
@@ -425,41 +458,46 @@ export default function SopProposePage() {
     closeDrawer();
   };
 
-  const backTo = () => navigate(isEditingExisting ? `/operations/sops/${templateId}${contextSuffix}` : `/operations/sops${contextSuffix}`);
   // "Cancel"/back-arrow, unlike a post-submit redirect, needs real history:
-  // this page is now reachable from more places than just the Guides list
-  // (the Author Guides hub's "Start a new guide" and "Improve an existing
-  // guide", plus duplicateFrom/fromRevision entry points) — hardcoding the
-  // list as "back" stranded anyone who arrived from one of those instead.
-  // Same bug class already fixed on SopTemplateFormPage.tsx and across the
-  // teacher app's TeacherTopBar spokes. `location.key === 'default'` means
-  // this is the first entry in the tab's history (fresh load/deep link),
-  // where there's nothing to go back to.
-  const goBack = () => {
-    if (location.key !== 'default') navigate(-1);
-    else backTo();
-  };
+  // this page is reachable from several places (a guide's Suggest an Edit,
+  // My guide ideas' "Suggest a new guide", the Author Guides hub,
+  // duplicateFrom/fromRevision) — a fixed "back" strands everyone else.
+  // The fixed path is only for a page opened directly with no history.
+  const goBack = useGoBack(isEditingExisting ? `/operations/sops/${templateId}${contextSuffix}` : `/operations/sops${contextSuffix}`);
+
+  // Resending a sent-back idea: the supervisor's comment on each step, shown under it.
+  const feedbackOn = (st: { key: string }) => stepFeedback.byKey[st.key]?.comment ?? null;
+  const unplacedComments = unplaced(stepFeedback, steps);
 
   const cleanSteps: ProposedStep[] = steps
     .filter(s => s.title.trim())
     .map(s => ({ section: s.section.trim() || 'General', title: s.title.trim(), detail: (s.detail ?? '').trim() || null }));
 
+  // Step 1's "Next": reasons listed (suggesting an edit) or title + goal (a new guide).
+  const step1Ready = needsReasons ? canContinue(reasons) : (!!title.trim() && !!goal.trim());
+
   const submit = async () => {
     if (!title.trim() || !goal.trim() || cleanSteps.length === 0) return;
+    if (needsReasons && !canContinue(reasons)) { setWizardStep(1); return; }
     setSaving(true);
     try {
-      await createRevision({
-        sopTemplateId: templateId ?? null,
+      const content = {
         title: title.trim(),
         goal: goal.trim() || null,
         videoUrl: videoUrl.trim() || null,
         icon,
         steps: cleanSteps,
         categoryIds,
-      });
+        ...(needsReasons ? { improvementReasons: cleanReasons(reasons) } : {}),
+      };
+      if (resubmitId) await resubmitRevision(resubmitId, content);
+      else await createRevision({ ...content, sopTemplateId: templateId ?? null });
       qc.invalidateQueries({ queryKey: ['sop-revisions'] });
-      showToast('Sent for approval');
-      backTo();
+      if (resubmitId) qc.invalidateQueries({ queryKey: ['sop-revision', resubmitId] });
+      showToast(resubmitId ? 'Sent for review again' : 'Sent for approval');
+      // Land on My guide ideas, where it now shows as "In review" — replacing
+      // the form in history, so Back doesn't return to a form that's already been sent.
+      navigate(`/operations/sops/my-suggestions${contextSuffix}`, { replace: true });
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to submit', 'error');
     } finally {
@@ -630,20 +668,37 @@ export default function SopProposePage() {
                   : 'A supervisor reviews and approves this before it appears in How-To Guides.')}
             </p>
           )}
-          {!isEditingExisting && (
+          {(!isEditingExisting || needsReasons) && (
             <p style={themeIsTeacher ? sTeacher.stepCaption : {
               margin: '8px 0 0', fontSize: 11.5, fontWeight: 700, color: 'var(--sop-accent)',
               textTransform: 'uppercase' as const, letterSpacing: '0.04em',
             }}>
-              Step {wizardStep} of 2 — {wizardStep === 1 ? 'Basic info' : 'Steps'}
+              Step {wizardStep} of 2 — {wizardStep === 1 ? (needsReasons ? 'Identify what needs improving' : 'Basic info') : 'Steps'}
             </p>
           )}
         </div>
 
-        {isEditingExisting && !prefilled ? (
+        {(isEditingExisting || resubmitId) && (!prefilled || permissionsLoading) ? (
           <p style={{ color: C.mutedSoft, fontSize: 13 }}>Loading current version…</p>
         ) : (
           <>
+            {/* Resending: step 1 shows only the overall note; step 2 shows each comment
+                under its own step (plus any whose step was renamed or removed, up here). */}
+            {resubmitId && sourceRevision && (
+              showSteps
+                ? <SentBackNote note={null} comments={unplacedComments} reviewer={sourceRevision.reviewedByName} />
+                : <SentBackNote note={sourceRevision.reviewNote} comments={null} reviewer={sourceRevision.reviewedByName} />
+            )}
+            {showReasons && (
+              <SopImproveReasonsStep
+                guideTitle={target?.title ?? title}
+                reasons={reasons}
+                onChange={setReasons}
+                wrapperStyle={themeIsTeacher ? undefined : { ...s.card, ...(isMobile ? sMobile.card : null) }}
+                labelStyle={s.label}
+                inputStyle={inputStyle}
+              />
+            )}
             {showBasicInfo && (
             // Teacher mobile drops the bordered/shadowed card wrapper
             // entirely — every field inside it (input, textarea) already
@@ -1024,6 +1079,7 @@ export default function SopProposePage() {
                         {detailLines.length > 0 && (
                           <div style={sMobile.stepCardDetail}>{renderDetailLines(detailLines)}</div>
                         )}
+                        {feedbackOn(st) && <StepFeedback comment={feedbackOn(st)!} />}
                         <div style={sMobile.stepCardActions}>
                           <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one" title="Insert step after this one">
                             <FontAwesomeIcon icon={faPlus} />
@@ -1091,7 +1147,10 @@ export default function SopProposePage() {
                                 </span>
                               </div>
                             </td>
-                            <td style={s.tdDetail}>{renderDetailLines(detailLines)}</td>
+                            <td style={s.tdDetail}>
+                              {renderDetailLines(detailLines)}
+                              {feedbackOn(st) && <StepFeedback comment={feedbackOn(st)!} />}
+                            </td>
                             <td style={s.tdActions}>
                               <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                                 <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one" title="Insert step after this one">
@@ -1129,13 +1188,13 @@ export default function SopProposePage() {
             )}
 
             <div style={themeIsTeacher ? sTeacher.footer : s.footer}>
-              {wizardStep === 1 ? (
+              {wizardStep === 1 && (!isEditingExisting || needsReasons) ? (
                 <>
                   <button onClick={goBack} style={{ ...s.cancelBtn, ...(themeIsTeacher ? sTeacher.footerBtn : null) }}>Cancel</button>
                   <button
                     onClick={() => setWizardStep(2)}
-                    disabled={!title.trim() || !goal.trim()}
-                    style={{ ...s.saveBtn, ...(themeIsTeacher ? sTeacher.footerBtn : null), opacity: !title.trim() || !goal.trim() ? 0.5 : 1 }}
+                    disabled={!step1Ready}
+                    style={{ ...s.saveBtn, ...(themeIsTeacher ? sTeacher.footerBtn : null), opacity: step1Ready ? 1 : 0.5, cursor: step1Ready ? 'pointer' : 'default' }}
                   >
                     Next
                     <FontAwesomeIcon icon={faChevronRight} style={{ marginLeft: 6, fontSize: 11 }} />
@@ -1168,8 +1227,8 @@ export default function SopProposePage() {
                 </>
               ) : (
                 <>
-                  {isEditingExisting ? (
-                    <button onClick={backTo} style={{ ...s.cancelBtn, ...(themeIsTeacher ? sTeacher.footerBtn : null) }}>Cancel</button>
+                  {isEditingExisting && !needsReasons ? (
+                    <button onClick={goBack} style={{ ...s.cancelBtn, ...(themeIsTeacher ? sTeacher.footerBtn : null) }}>Cancel</button>
                   ) : (
                     <button onClick={() => setWizardStep(1)} style={{ ...s.cancelBtn, ...(themeIsTeacher ? sTeacher.footerBtn : null) }}>Back</button>
                   )}
@@ -1185,7 +1244,7 @@ export default function SopProposePage() {
                         oversized (the extra height came from the wrap,
                         not the padding). Desktop keeps the full phrase —
                         plenty of width there for it to sit on one line. */}
-                    {saving ? 'Submitting…' : (themeIsTeacher ? 'Submit' : 'Submit for approval')}
+                    {saving ? 'Submitting…' : resubmitId ? 'Send again' : (themeIsTeacher ? 'Submit' : 'Submit for approval')}
                   </button>
                 </>
               )}
@@ -1330,6 +1389,7 @@ export default function SopProposePage() {
           themeIsTeacher={themeIsTeacher}
           onCancel={closeDrawer}
           onSave={saveDrawerStep}
+          feedback={drawer.mode === 'edit' ? feedbackOn({ key: drawer.key }) : null}
         />
       )}
     </div>
@@ -1339,8 +1399,10 @@ export default function SopProposePage() {
 // Local-only editor — nothing here is saved until the whole proposal is
 // submitted, so unlike the admin's StepDrawer this never calls an API.
 function ProposeStepDrawer({
-  mode, initial, insertAfterStep, sections, topOffset, themeIsTeacher, onCancel, onSave,
+  mode, initial, insertAfterStep, sections, topOffset, themeIsTeacher, onCancel, onSave, feedback,
 }: {
+  /** The supervisor's comment on this step, when resending a sent-back idea. */
+  feedback?: string | null;
   mode: 'new' | 'edit';
   initial: DraftStep | null;
   insertAfterStep: DraftStep | null;
@@ -1438,6 +1500,7 @@ function ProposeStepDrawer({
         </div>
 
         <div style={{ ...drawerS.body, ...(themeIsTeacher ? { flex: 'none' as const, overflowY: 'visible' as const } : null) }}>
+          {feedback && <div style={{ marginBottom: 16 }}><StepFeedback comment={feedback} /></div>}
           <div style={s.field}>
             <label style={s.label}>Section</label>
             {sections.length > 0 ? (

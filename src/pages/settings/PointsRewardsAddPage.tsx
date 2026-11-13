@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useGoBack } from '../../hooks/useGoBack.js';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -49,6 +50,7 @@ export default function PointsRewardsAddPage() {
   const mode: Mode = kind === 'rule' ? 'rule' : 'reward';
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const goBack = useGoBack('/settings/points-rewards');
   const qc = useQueryClient();
   const { showToast } = useToast();
 
@@ -173,7 +175,7 @@ export default function PointsRewardsAddPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <button
             type="button"
-            onClick={() => navigate('/settings/points-rewards')}
+            onClick={goBack}
             className="pra-back-btn back-btn"
             title="Back to Points & Rewards"
             aria-label="Back"
@@ -390,7 +392,7 @@ export default function PointsRewardsAddPage() {
           }}>
             <button
               type="button"
-              onClick={() => navigate('/settings/points-rewards')}
+              onClick={goBack}
               className="pra-cancel"
               style={{
                 display: 'inline-flex', alignItems: 'center',

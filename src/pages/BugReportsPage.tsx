@@ -102,9 +102,15 @@ export default function BugReportsPage() {
               return (
                 <div key={report.id} style={s.card}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' as const }}>
-                    <p style={{ margin: 0, flex: 1, minWidth: 240, fontSize: 13.5, color: C.text, lineHeight: 1.6, whiteSpace: 'pre-line' as const }}>
-                      {report.message}
-                    </p>
+                    {/* Title to scan by, then the description (older reports have no title). */}
+                    <div style={{ flex: 1, minWidth: 240 }}>
+                      {report.title && (
+                        <h3 style={{ margin: '0 0 4px', fontSize: 14.5, fontWeight: 700, color: C.text, overflowWrap: 'anywhere' }}>{report.title}</h3>
+                      )}
+                      <p style={{ margin: 0, fontSize: 13.5, color: C.text, lineHeight: 1.6, whiteSpace: 'pre-line' as const }}>
+                        {report.message}
+                      </p>
+                    </div>
                     {report.status === 'OPEN' && (
                       <button onClick={() => onResolve(report)} disabled={isResolving} style={s.resolveBtn}>
                         <FontAwesomeIcon icon={faCheck} style={{ marginRight: 5 }} />

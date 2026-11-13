@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { setMissionTarget, TeacherCareerData } from '../api/career-missions.js';
+import { useToast } from '../components/common/Toast.js';
+import { canPinAnother, FOCUS_FULL_MESSAGE } from '../utils/focusMissions.js';
 
 /**
  * Mission target management — persists pinned-target state to the
@@ -13,6 +15,7 @@ import { setMissionTarget, TeacherCareerData } from '../api/career-missions.js';
  */
 export function useMissionTargets(teacherId: string | undefined) {
   const qc = useQueryClient();
+  const { showToast } = useToast();
   const queryKey = ['teacher-career', teacherId];
 
   const cached = qc.getQueryData<TeacherCareerData>(queryKey);
@@ -68,19 +71,24 @@ export function useMissionTargets(teacherId: string | undefined) {
       }
       return { previous };
     },
-    onError: (_err, _vars, ctx) => {
+    onError: (err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(queryKey, ctx.previous);
+      showToast((err as Error)?.message || 'Couldn’t update your focus', 'error');
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey });
     },
   });
 
+  // At most three unfinished quests in focus (utils/focusMissions.ts; the server checks too).
+  const canPinMore = canPinAnother(cached?.missions ?? []);
+
   const toggle = useCallback((missionId: string) => {
     if (!teacherId) return;
     const next = !targets.has(missionId);
+    if (next && !canPinMore) { showToast(FOCUS_FULL_MESSAGE, 'error'); return; }
     mutation.mutate({ missionId, next });
-  }, [targets, teacherId, mutation]);
+  }, [targets, teacherId, mutation, canPinMore, showToast]);
 
-  return { targets, isTargeted, toggle };
+  return { targets, isTargeted, toggle, canPinMore };
 }

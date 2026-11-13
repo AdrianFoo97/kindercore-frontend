@@ -14,6 +14,8 @@ import { fetchCategories } from '../../api/sop-categories.js';
 import { fetchSections } from '../../api/sop-sections.js';
 import { useToast } from '../../components/common/Toast.js';
 import { copyGuideLink } from './copyGuideLink.js';
+import { useSopFavorites } from './useSopFavorites.js';
+import FavoriteStarButton from './FavoriteStarButton.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
 import { downloadSopPdf } from '../../utils/sopPdf.js';
 import { ALLOWED_SOP_ICONS, resolveSopIcon } from '../../utils/sopTemplateIcons.js';
@@ -372,6 +374,9 @@ export default function SopTemplateStepsPage() {
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [moreMenuOpen]);
+  // Star this guide from its own page too (same favourites as the Guides list).
+  const favorites = useSopFavorites();
+
   const onCopyGuideLink = () => {
     if (templateId) copyGuideLink(templateId, showToast);
   };
@@ -640,7 +645,9 @@ export default function SopTemplateStepsPage() {
             below it on the page background, uncarded.) */}
         <div style={outerWrapStyle}>
         <div style={headerCardStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: themeIsTeacher ? 14 : 18, minHeight: 36, flexWrap: isMobile ? 'wrap' as const : 'nowrap' as const }}>
+        {/* One row: the title takes the room and wraps onto more lines itself, so the
+            favourite star stays beside it instead of dropping onto its own line. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: themeIsTeacher ? 14 : 18, minHeight: 36, flexWrap: 'nowrap' as const }}>
           {canEdit ? (
             <div style={{ position: 'relative' }} ref={iconMenuRef}>
               <button
@@ -695,7 +702,7 @@ export default function SopTemplateStepsPage() {
             />
           ) : (
             <>
-              <h1 style={s.heading}>{template.title}</h1>
+              <h1 style={{ ...s.heading, flex: '1 1 auto', minWidth: 0, overflowWrap: 'anywhere' }}>{template.title}</h1>
               {/* On teacher mobile this moves to a "Last updated" line at
                   the end of the guide instead — see fmtUpdated below —
                   so the version number reads as dated context after
@@ -710,6 +717,16 @@ export default function SopTemplateStepsPage() {
                   <FontAwesomeIcon icon={faPen} style={{ fontSize: 11 }} />
                 </button>
               )}
+              {/* Is this one of my favourites? Filled amber star = yes; tap to change. */}
+              <FavoriteStarButton
+                title={template.title}
+                on={favorites.isFavorite(template.id)}
+                onToggle={on => { favorites.toggle(template.id, on); showToast(on ? 'Added to favourites' : 'Removed from favourites'); }}
+                style={{
+                  marginLeft: 'auto', flexShrink: 0, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'none', border: 'none', borderRadius: 12, fontSize: 20, cursor: 'pointer',
+                }}
+              />
               {!themeIsTeacher && isAdmin && (
                 <div style={{ position: 'relative' }} ref={moreMenuRef}>
                   <button

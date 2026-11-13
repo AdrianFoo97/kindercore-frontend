@@ -134,6 +134,8 @@ import IdleSignOut from './components/common/IdleSignOut.js';
 import AccessLogPage from './pages/admin/AccessLogPage.js';
 import SettingsLayout from './pages/settings/SettingsLayout.js';
 import SettingsHomePage from './pages/settings/SettingsHomePage.js';
+import MySuggestionsPage from './pages/operations/MySuggestionsPage.js';
+import MySuggestionPage from './pages/operations/MySuggestionPage.js';
 import CandidatesPage from './pages/CandidatesPage.js';
 import ImportCandidatesPage from './pages/candidates/ImportCandidatesPage.js';
 import RecruitmentSettingsPage from './pages/settings/RecruitmentSettingsPage.js';
@@ -432,6 +434,9 @@ export default function App() {
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><OperatingCostsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopLibraryPage /></ErrorBoundary></RequireModule>} />
+          {/* Your own guide suggestions (new + improvements) and where each stands — the server only returns your own. */}
+          <Route path="/operations/sops/my-suggestions" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><MySuggestionsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/operations/sops/my-suggestions/:id" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><MySuggestionPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops/propose" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopProposePage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops/:templateId" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopTemplateStepsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/guide/:templateId" element={<GuideShareRedirect />} />

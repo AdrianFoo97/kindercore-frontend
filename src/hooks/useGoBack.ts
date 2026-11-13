@@ -1,22 +1,24 @@
-import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+/** React Router gives the first entry of a tab's history this key (fresh load, deep link, refresh). */
+export const FIRST_ENTRY_KEY = 'default';
+
+/** True when there is an in-app screen behind this one to go back to. */
+export function hasInAppHistory(locationKey: string): boolean {
+  return locationKey !== FIRST_ENTRY_KEY;
+}
+
 /**
- * A "Back" that really goes back: pops browser history when there's an
- * in-app page behind this one, so the previous page comes back as it was
- * (tab, search, scroll) and pressing Back again doesn't bounce forward.
- * On a cold deep link (`location.key === 'default'` — nothing to pop), it
- * goes to `fallback` instead, replacing this entry.
- *
- * Use it instead of a forward <Link to="previous page">, which pushes a new
- * entry and leaves the page you were on sitting behind the one you "went
- * back" to.
+ * A back button that returns to wherever the person actually came from
+ * (real history), not a fixed screen — most pages are reachable from more
+ * than one place. `fallback` is only used when the page was opened directly
+ * and there is nothing in-app to go back to.
  */
 export function useGoBack(fallback: string): () => void {
   const navigate = useNavigate();
-  const location = useLocation();
-  return useCallback(() => {
-    if (location.key !== 'default') navigate(-1);
+  const { key } = useLocation();
+  return () => {
+    if (hasInAppHistory(key)) navigate(-1);
     else navigate(fallback, { replace: true });
-  }, [location.key, navigate, fallback]);
+  };
 }

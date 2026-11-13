@@ -5,7 +5,7 @@ import { TEACHER_NAV_SPACE } from './TeacherMobileNav.js';
 
 // Teacher app (phone): the round "+" button pinned to the bottom-right
 // corner, just above the bottom nav — the main "add" action of a list page
-// (Report an Incident, Report a Problem, Request an Item). Same look and
+// (Report an Incident, Report a Facility Issue, Request an Item). Same look and
 // position as the guide editor's "Add step" button.
 //
 // Portaled to <body>: some mobile browsers don't keep a position:fixed

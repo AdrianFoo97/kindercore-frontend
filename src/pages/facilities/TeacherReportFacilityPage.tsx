@@ -10,7 +10,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import FacilityIssueFields, { TEACHER_FACILITY_THEME } from './FacilityIssueFields.js';
 import { emptyFacilityDraft, facilityDraftProblem, facilityDraftToInput, sendingLabel, type FacilityDraft } from './facilityDisplay.js';
 
-// Teacher app → Report a Problem (facilities). The office follows it up at
+// Teacher app → Report a Facility Issue. The office follows it up at
 // Operation → Facilities. "Reported by" is the signed-in teacher.
 
 const C = { bg: '#f8fafc', textStrong: '#334155', muted: '#64748b', pAccent: '#7c3aed', pSoft: '#f5f3ff', pBorder: '#ddd6fe' };
@@ -64,7 +64,7 @@ export default function TeacherReportFacilityPage() {
           }}>
             <FontAwesomeIcon icon={faScrewdriverWrench} />
           </div>
-          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-0.01em' }}>Report a Problem</h1>
+          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-0.01em' }}>Report a Facility Issue</h1>
         </div>
         <p style={{ margin: '0 0 20px', fontSize: 13.5, color: C.muted, lineHeight: 1.55 }}>
           Something broken or unsafe in the centre? Tell the office. Your name is added automatically.
