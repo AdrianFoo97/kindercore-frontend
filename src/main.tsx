@@ -105,6 +105,29 @@ globalStyle.textContent = `
     .m-minw   { min-width: 640px !important; }
     .m-hide   { display: none !important; }
   }
+  /* Settings frame — every page inside the Settings area (SettingsLayout tags
+     the content column .settings-frame) gets the same spacing whatever its own
+     wrapper says: content starts beside the sidebar instead of centring, with
+     one padding and one content width. The page wrapper is the column's child;
+     its children are the page's container(s). Full-screen dialogs are left
+     alone. Phones keep .m-pad's 16px (this only applies from 768px up). */
+  @media (min-width: 768px) {
+    .settings-frame > * {
+      padding: 32px 40px 48px !important; max-width: none !important; margin: 0 !important;
+      justify-content: flex-start !important; /* pages that centre their container with flexbox */
+    }
+    .settings-frame > * > :not([style*="position: fixed"]) {
+      max-width: 1040px !important; margin-left: 0 !important; margin-right: 0 !important;
+    }
+    /* One title style on every settings page, starting at the same height. */
+    .settings-frame h1 {
+      margin-top: 0 !important; font-size: 24px !important; font-weight: 700 !important;
+      color: #0f172a !important; line-height: 1.3 !important; letter-spacing: -0.01em;
+    }
+    /* The same 24px between the title and the page's content. (Titles inside a
+       header row with a button get their spacing from that row instead.) */
+    .settings-frame > * > * > h1 { margin-bottom: 24px !important; }
+  }
   /* Back buttons are a phone thing — on the desktop web view people use the
      browser's back, the breadcrumb or the nav. Page-level back buttons carry
      .back-btn and only show at phone width. (Wizard-step "Back" buttons and

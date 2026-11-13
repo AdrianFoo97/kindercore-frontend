@@ -7,7 +7,6 @@ import {
   faChalkboardUser, faGraduationCap, faClock, faBullhorn,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchSettings, patchSetting } from '../../api/settings.js';
-import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
 import { useToast } from '../../components/common/Toast.js';
 
 // Two admin-curated lists that drive the public Apply form dropdowns:
@@ -152,15 +151,9 @@ export default function RecruitmentSettingsPage({ embedded = false }: { embedded
       <div style={embedded ? undefined : S.inner}>
         {!embedded && (
           <>
-            <SettingsBreadcrumb label="Recruitment" />
             <h1 style={S.heading}>Recruitment</h1>
           </>
         )}
-        <p style={S.sub}>
-          Choices candidates see on the public apply form. Keep the list short
-          and candidate-friendly — these are not the same as internal career
-          ranks.
-        </p>
         {!isAdmin && (
           <p style={S.readonly}>Read-only — admin role required to save changes.</p>
         )}

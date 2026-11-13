@@ -18,8 +18,7 @@ const STUDENT_SECTIONS: ChecklistSection[] = [{ settingKey: 'onboarding_tasks' }
 export default function OnboardingSettingsPage({
   sections = STUDENT_SECTIONS,
   title = 'Student Onboarding',
-  subtitle = 'Tasks to complete when a new student is enrolled.',
-}: { sections?: ChecklistSection[]; title?: string; subtitle?: string }) {
+}: { sections?: ChecklistSection[]; title?: string }) {
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
@@ -38,7 +37,6 @@ export default function OnboardingSettingsPage({
     <div className="m-pad" style={styles.page}>
       <div style={styles.inner}>
         <h1 style={styles.heading}>{title}</h1>
-        <p style={styles.subheading}>{subtitle}</p>
         {!isAdmin && (
           <p style={styles.readonlyNote}>You have read-only access. Admin role required to save changes.</p>
         )}

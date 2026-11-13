@@ -69,6 +69,8 @@ export interface LeadsResponse {
 export interface CompanyBranch {
   name: string;
   address: string;
+  /** Google Maps link for the address — made automatically from it (utils/mapsLink). */
+  mapsUrl?: string;
 }
 
 export interface Settings {

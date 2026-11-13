@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faShieldHalved, faTriangleExclamation, faKey, faCopy, faCheck, faRotate, faPowerOff, faServer, faIdBadge,
-} from '@fortawesome/free-solid-svg-icons';
+  faShieldHalved, faTriangleExclamation, faKey, faCopy, faCheck, faRotate, faPowerOff, faServer } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchReaderKeyStatus, generateReaderKey, clearReaderKey, attendanceScanUrl, ReaderKeyStatus,
 } from '../../api/admin.js';
@@ -58,12 +57,11 @@ export default function AttendanceReaderSettingsPage() {
   return (
     <div className="m-pad" style={st.page}>
       <div style={st.inner}>
-        <h1 style={st.h1}><FontAwesomeIcon icon={faIdBadge} style={{ color: C.primary, fontSize: 20, marginRight: 10 }} />Attendance Reader</h1>
-        <p style={st.sub}>
-          The RFID card readers at the door record attendance by sending each tap to the server. A reader key makes sure
-          only your readers can do that — without one, anyone who knows a card number could record a tap and see that
-          child’s name. Scans made by staff inside the app keep working either way.
-        </p>
+        {/* Wrapped so the flex gap below (16) plus this margin (8) makes the standard 24px under settings titles.
+            No description: the status card right below says whether the readers are protected. */}
+        <header style={{ marginBottom: 8 }}>
+          <h1 style={st.h1}>Attendance Reader</h1>
+        </header>
 
         {isLoading ? (
           <div style={st.card}>Checking…</div>
@@ -199,9 +197,8 @@ function SetupSteps() {
 
 const st = {
   page: { padding: '28px 32px 48px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100%', color: C.text } as React.CSSProperties,
-  inner: { maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 } as React.CSSProperties,
+  inner: { maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 } as React.CSSProperties,
   h1: { margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center' } as React.CSSProperties,
-  sub: { margin: '0 0 6px', fontSize: 13.5, color: C.muted, lineHeight: 1.6 } as React.CSSProperties,
   card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '18px 20px' } as React.CSSProperties,
   statusIcon: (on: boolean): React.CSSProperties => ({
     width: 42, height: 42, borderRadius: 11, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',

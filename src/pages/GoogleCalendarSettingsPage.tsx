@@ -122,9 +122,6 @@ export default function GoogleCalendarSettingsPage() {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{ width: '100%', maxWidth: 960 }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#1a202c' }}>Google Calendar</h1>
-        <p style={{ margin: '0 0 28px', fontSize: 14, color: '#6b7280' }}>
-          Connect a Google account to enable calendar event creation when booking appointments.
-        </p>
 
         {googleParam === 'connected' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, marginBottom: 20, fontSize: 14, color: '#15803d', fontWeight: 600 }}>

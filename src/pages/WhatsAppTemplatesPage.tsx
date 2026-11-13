@@ -378,7 +378,6 @@ export default function WhatsAppTemplatesPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
             <h1 style={s.heading}>Message Templates</h1>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#8893a7' }}>Manage message templates used when contacting leads.</p>
           </div>
           {isAdmin && (
             <button onClick={() => setCreating(true)} style={s.addBtn}>

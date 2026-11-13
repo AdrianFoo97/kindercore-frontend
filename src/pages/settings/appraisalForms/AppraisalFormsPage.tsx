@@ -9,6 +9,7 @@ import FormModal from '../../../components/common/FormModal.js';
 import type { Position } from '../../../types/index.js';
 import { FREQUENCY_LABEL, STATUS_LABEL } from './appraisalFormDraft.js';
 import { C, STATUS_TONE, btn, input, label, pill } from './formTheme.js';
+import SettingsNote from '../SettingsNote.js';
 
 const EDIT_PATH = '/settings/appraisal-forms';
 
@@ -25,10 +26,6 @@ export default function AppraisalFormsPage() {
         <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
           <div style={{ minWidth: 0, flex: '1 1 320px' }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Appraisal Forms</h1>
-            <p style={{ fontSize: 14, color: C.muted, margin: '4px 0 0', lineHeight: 1.5 }}>
-              Build each form from weighted sections, such as 50% core values and 50% KPI, and choose which positions assess and sign it off.
-              Appraisals are still recorded as one overall score until scoring with forms is switched on.
-            </p>
           </div>
           {forms.length > 0 && (
             <button type="button" style={btn('primary')} onClick={() => setCreating(true)}>
@@ -36,6 +33,7 @@ export default function AppraisalFormsPage() {
             </button>
           )}
         </header>
+        <SettingsNote>Appraisals are still recorded as one overall score until scoring with forms is switched on.</SettingsNote>
 
         {isLoading && <p style={{ color: C.muted, fontSize: 14 }}>Loading…</p>}
         {error && <p role="alert" style={{ color: C.red, fontSize: 14 }}>{(error as Error).message}</p>}

@@ -38,10 +38,6 @@ export default function AccessLogPage() {
     <div className="m-pad" style={{ padding: '24px 32px 48px', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
       <div style={{ maxWidth: 1040, margin: '0 auto' }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Access Log</h1>
-        <p style={{ fontSize: 14, color: C.muted, margin: '4px 0 24px', lineHeight: 1.5 }}>
-          Who opened pay, finance, appraisal and job-applicant records, and when. People opening their own record aren’t listed.
-          Entries are kept for {data?.retentionDays ?? 365} days.
-        </p>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
           <label style={{ position: 'relative', flex: '1 1 240px' }}>

@@ -10,7 +10,6 @@ import ConfirmDialog from '../components/common/ConfirmDialog.js';
 import DeleteDialog from '../components/common/DeleteDialog.js';
 import { useToast } from '../components/common/Toast.js';
 import { Package } from '../types/index.js';
-import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -279,7 +278,6 @@ export default function AgeGroupsSettingsPage({ embedded = false }: { embedded?:
 
       {!embedded && (
         <>
-          <SettingsBreadcrumb label="Age Groups" />
 
           {/* Header */}
           <header style={s.header}>

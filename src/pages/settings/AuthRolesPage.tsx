@@ -65,10 +65,6 @@ export default function AuthRolesPage() {
       <div style={s.inner}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={s.heading}>Access Roles</h1>
-          <p style={s.subheading}>
-            Controls what each position can access. Assign an access role to a position on the career ladder,
-            then grant it modules (nav sections) and, within a module, specific finer-grained views.
-          </p>
         </div>
 
         <div style={s.card}>

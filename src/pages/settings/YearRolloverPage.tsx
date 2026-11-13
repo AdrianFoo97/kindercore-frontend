@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faCircleInfo, faGraduationCap, faArrowRightArrowLeft, faTriangleExclamation, faBoxesStacked, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
+import { faCircleInfo, faGraduationCap, faArrowRightArrowLeft, faTriangleExclamation, faBoxesStacked, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
 import { runYearRollover, undoYearRollover, repairStuckRollovers, RolloverSummary, RolloverUndoSummary, RolloverRepairSummary } from '../../api/admin.js';
-import { useToast } from '../../components/common/Toast.js';
+import { useToast } from '../../components/common/Toast.js';
+import SettingsNote from './SettingsNote.js';
 
 const C = {
   bg: '#f8fafc', card: '#fff', border: '#e2e8f0', text: '#1e293b',
@@ -15,7 +15,6 @@ const C = {
 };
 
 export default function YearRolloverPage() {
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
   // Refresh every query that depends on student/enrollment state.
@@ -130,22 +129,14 @@ export default function YearRolloverPage() {
   return (
     <div className="m-pad" style={s.page}>
       <div style={s.inner}>
-        <div style={s.breadcrumb}>
-          <button className="back-btn" onClick={() => navigate(-1)} style={s.backBtn} title="Back">
-            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
-          </button>
-          <span style={s.breadcrumbLink}>Admin</span>
-          <span style={{ color: C.muted, fontSize: 11 }}>/</span>
-          <span style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Year Rollover</span>
-        </div>
-
         <h1 style={s.heading}>Year Rollover</h1>
-        <p style={{ margin: '8px 0 24px', fontSize: 13, color: C.muted, lineHeight: 1.55, maxWidth: 720 }}>
+        {/* What this changes for every student — needed before running it, so it stays (as a note, not a subtitle). */}
+        <SettingsNote tone="warning">
           Closes every active student's current enrolment on Dec 31 of last year and opens a new
           one on Jan 1 of the target year, automatically promoting them to the next age class.
           Students turning 7 are graduated. Missing target-year packages are auto-cloned from the
           previous year using the same prices.
-        </p>
+        </SettingsNote>
 
         {/* ── Form card ──────────────────────────────────────── */}
         <div style={s.card}>
@@ -544,9 +535,6 @@ function Row({
 const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text },
   inner: { maxWidth: 920, margin: '0 auto' },
-  breadcrumb: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 },
-  backBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 7, border: `1px solid ${C.border}`, background: C.card, color: C.muted, cursor: 'pointer' },
-  breadcrumbLink: { fontSize: 13, fontWeight: 600, color: C.primary },
   heading: { fontSize: 22, fontWeight: 800, color: C.text, margin: 0 },
   card: {
     background: C.card, borderRadius: 14, padding: '22px 26px', border: '1px solid #eef0f4', marginBottom: 16,

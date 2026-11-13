@@ -560,6 +560,37 @@ export const TEST_SUITES: TestSuite[] = [
     ],
   },
   {
+    id: 'fe-maps-link',
+    project: 'Frontend',
+    kind: 'Unit',
+    category: 'Settings',
+    file: 'src/tests/unit/mapsLink.test.ts',
+    area: 'Branches — Google Maps links',
+    summary: 'Each branch\'s address gets a Google Maps link automatically. It\'s stored with the branch and shown as "Open in Google Maps".',
+    cases: [
+      { name: 'makes a Google Maps search link for an address, safely encoded', explains: 'Commas, spaces and characters like & or # can\'t break the link.' },
+      { name: 'tidies extra spaces and gives no link for a blank address', explains: 'Stray spaces don\'t change the link, and an empty address has none.' },
+      { name: 'rebuilds the link from the address, so editing the address updates it', explains: 'Changing a branch\'s address changes its map link too — it never points at the old place.' },
+    ],
+  },
+  {
+    id: 'fe-settings-nav',
+    project: 'Frontend',
+    kind: 'Unit',
+    category: 'Settings',
+    file: 'src/tests/unit/settingsNav.test.ts',
+    area: 'Settings — grouped home page, sidebar and search',
+    summary:
+      'Settings is one link that opens a grouped Settings page (Organisation, People, Students & sales, Money, Operations, Team & access) with search, and every settings page has the same grouped sidebar. These check the one list behind all three.',
+    cases: [
+      { name: 'lists every setting once, under a group, with somewhere to go and a description', explains: 'No setting appears twice or without a description, and the former Admin menu is its own "Team & access" group.' },
+      { name: 'highlights the right setting on its sub-pages too', explains: 'Editing a position highlights Payroll; editing a role\'s views highlights Access roles — you always know where you are.' },
+      { name: 'treats settings pages and the moved admin pages as the Settings area, but not the developer pages', explains: 'The Settings tab lights up for every settings page, including Access log and Year rollover, but not for Test Catalog.' },
+      { name: 'finds a setting by any word in its name, description, group or keywords, in any order', explains: 'Typing "reward" finds Payroll, even though "reward" isn\'t in its name.' },
+      { name: 'shows test-server tools only on the test server, and drops a group left empty', explains: 'The destructive "Reset all candidates" never shows on the live site.' },
+    ],
+  },
+  {
     id: 'fe-idle-timeout',
     project: 'Frontend',
     kind: 'Unit',

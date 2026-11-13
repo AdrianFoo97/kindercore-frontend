@@ -338,7 +338,6 @@ export default function LeadStatusSettingsPage() {
       <div style={{ ...st.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={st.heading}>Lead Settings</h1>
-          <p style={st.subtitle}>Configure how leads are managed across the pipeline.</p>
           {!isAdmin && (
             <p style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>Read-only access. Admin role required to save changes.</p>
           )}

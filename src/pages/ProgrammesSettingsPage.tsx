@@ -8,7 +8,6 @@ import {
 import ConfirmDialog from '../components/common/ConfirmDialog.js';
 import DeleteDialog from '../components/common/DeleteDialog.js';
 import { useToast } from '../components/common/Toast.js';
-import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -263,7 +262,6 @@ export default function ProgrammesSettingsPage({ embedded = false }: { embedded?
 
       {!embedded && (
         <>
-          <SettingsBreadcrumb label="Programmes" />
 
           {/* Header */}
           <header style={s.header}>

@@ -2,8 +2,9 @@ import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPen, faXmark, faCheck, faPlus, faLocationDot, faBuilding, faSitemap } from '@fortawesome/free-solid-svg-icons';
+import { faPen, faXmark, faCheck, faPlus, faLocationDot, faBuilding, faSitemap, faArrowUpRightFromSquare, faMapLocationDot } from '@fortawesome/free-solid-svg-icons';
 import { CompanyBranch } from '../types/index.js';
+import { mapsLinkFor, withMapsLink } from '../utils/mapsLink.js';
 import DepartmentsPage from './settings/DepartmentsPage.js';
 
 const C = {
@@ -209,10 +210,25 @@ function TextListEditor({ title, subtitle, settingKey, items, isAdmin, onSaved, 
 
 // ── Branches — multi-value list, each with a name and an address ───────────
 
+/** Opens the address being typed in Google Maps, to check it lands in the right place. Hidden while blank. */
+function MapsCheckLink({ address }: { address: string }) {
+  const href = mapsLinkFor(address);
+  if (!href) return null;
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="maps-check"
+      aria-label="Check this address on Google Maps" title="Check on Google Maps"
+      style={{ width: 32, height: 32, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: '#5a67d8', textDecoration: 'none' }}>
+      <FontAwesomeIcon icon={faMapLocationDot} />
+    </a>
+  );
+}
+
 function BranchListEditor({ items, isAdmin, onSaved }: {
   items: CompanyBranch[]; isAdmin: boolean; onSaved: () => void;
 }) {
-  const [list, setList] = useState<CompanyBranch[]>(items);
+  // Every branch carries a Google Maps link made from its address — branches
+  // saved before links existed get one here and keep it on the next save.
+  const [list, setList] = useState<CompanyBranch[]>(() => items.map(withMapsLink));
   const [newName, setNewName] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [saving, setSaving] = useState(false);
@@ -227,7 +243,7 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
 
   const mark = () => { setDirty(true); setSaved(false); };
   const reset = () => {
-    setList(items); setNewName(''); setNewAddress(''); setEditingIdx(null);
+    setList(items.map(withMapsLink)); setNewName(''); setNewAddress(''); setEditingIdx(null);
     setEditName(''); setEditAddress(''); setDirty(false); setError('');
   };
 
@@ -249,7 +265,7 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
     const name = newName.trim();
     const address = newAddress.trim();
     if (!name || !address) return;
-    setList(prev => [...prev, { name, address }]);
+    setList(prev => [...prev, withMapsLink({ name, address })]);
     setNewName(''); setNewAddress(''); mark();
   };
 
@@ -261,7 +277,7 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
     const name = editName.trim();
     const address = editAddress.trim();
     if (name && address) {
-      setList(prev => prev.map((b, i) => i === editingIdx ? { name, address } : b));
+      setList(prev => prev.map((b, i) => i === editingIdx ? withMapsLink({ name, address }) : b));
       mark();
     }
     setEditingIdx(null); setEditName(''); setEditAddress('');
@@ -279,6 +295,7 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
 
   return (
     <div style={st.card}>
+      <style>{`.maps-link:hover { text-decoration: underline !important; } .maps-check:hover { background: #eef2ff !important; }`}</style>
       <div style={{ ...st.cardHeader, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           <h2 style={st.cardTitle}>Branches</h2>
@@ -303,6 +320,7 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
               onChange={e => setNewAddress(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addBranch()}
             />
+            <MapsCheckLink address={newAddress} />
             <button onClick={addBranch} style={rs.addBtn} disabled={!newName.trim() || !newAddress.trim()}>
               <FontAwesomeIcon icon={faPlus} style={{ marginRight: 5 }} /> Add
             </button>
@@ -342,17 +360,29 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
                     style={{ ...st.textInput, flex: 2, padding: '2px 7px' }}
                     value={editAddress}
                     onChange={e => setEditAddress(e.target.value)}
-                    onBlur={commitEdit}
+                    onBlur={e => {
+                      // Clicking the map check button shouldn't end editing.
+                      if ((e.relatedTarget as HTMLElement | null)?.classList.contains('maps-check')) return;
+                      commitEdit();
+                    }}
                     onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') { setEditingIdx(null); setEditName(''); setEditAddress(''); } }}
                     placeholder="Address…"
                   />
+                  <MapsCheckLink address={editAddress} />
                 </div>
               ) : (
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{branch.name}</div>
-                  <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
+                  <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 5, marginTop: 1, flexWrap: 'wrap' }}>
                     <FontAwesomeIcon icon={faLocationDot} style={{ fontSize: 10 }} />
                     {branch.address}
+                    {branch.mapsUrl && (
+                      <a href={branch.mapsUrl} target="_blank" rel="noopener noreferrer" className="maps-link"
+                        onClick={e => e.stopPropagation()} draggable={false}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 8, color: '#5a67d8', fontWeight: 600, textDecoration: 'none' }}>
+                        Open in Google Maps <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9 }} />
+                      </a>
+                    )}
                   </div>
                 </div>
               )}
@@ -376,13 +406,11 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
 
 type TabKey = 'info' | 'branches' | 'departments';
 
-// Branches and Departments have no page-level subtitle — their own card
-// header / internal description already says it, so a subtitle here
-// would just duplicate it.
-const TABS: { key: TabKey; label: string; icon: any; subtitle: string }[] = [
-  { key: 'info', label: 'Company', icon: faBuilding, subtitle: 'Vision, mission, and core values — set once, referenced across the app.' },
-  { key: 'branches', label: 'Branches', icon: faLocationDot, subtitle: '' },
-  { key: 'departments', label: 'Departments', icon: faSitemap, subtitle: '' },
+// Settings pages have no description under the title (see SettingsNote for the rare must-know note).
+const TABS: { key: TabKey; label: string; icon: any }[] = [
+  { key: 'info', label: 'Company', icon: faBuilding },
+  { key: 'branches', label: 'Branches', icon: faLocationDot },
+  { key: 'departments', label: 'Departments', icon: faSitemap },
 ];
 
 export default function CompanySettingsPage() {
@@ -413,7 +441,6 @@ export default function CompanySettingsPage() {
       <style>{`.company-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
       <div style={st.inner}>
         <h1 style={st.heading}>{active.label}</h1>
-        {active.subtitle && <p style={st.subtitle}>{active.subtitle}</p>}
         {!isAdmin && (
           <p style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>Read-only access. Admin role required to save changes.</p>
         )}
@@ -464,7 +491,6 @@ const st: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text },
   inner: { maxWidth: 960, margin: '0 auto' },
   heading: { fontSize: 22, fontWeight: 800, color: C.text, margin: '4px 0 0' },
-  subtitle: { margin: '4px 0 0', fontSize: 13, color: '#64748b' },
   tabStrip: { display: 'flex', flexWrap: 'wrap' as const, gap: 2, borderBottom: `1px solid ${C.border}`, margin: '20px 0 20px' },
   tabBtn: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', fontSize: 13, fontWeight: 500,

@@ -6,7 +6,8 @@ import { faPlus, faTrash, faPen, faEye } from '@fortawesome/free-solid-svg-icons
 import { fetchAuthViews, deleteAuthView, AuthViewRecord } from '../../api/auth-views.js';
 import { MODULE_LABELS } from '../../constants/authModules.js';
 import { useToast } from '../../components/common/Toast.js';
-import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import SettingsNote from './SettingsNote.js';
 
 const C = {
   bg: '#f8fafc',
@@ -59,12 +60,11 @@ export default function AuthViewsPage() {
       <div style={s.inner}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={s.heading}>Views</h1>
-          <p style={s.subheading}>
-            The catalog of finer-grained actions within a module (e.g. "Approve/reject How-To Guide changes").
-            Defining a view here doesn't grant anyone anything by itself — a developer still has to wire an
-            actual permission check to its key in code. This is just what's available to assign under Access Roles.
-          </p>
         </div>
+        <SettingsNote>
+          Adding a view here doesn't grant anyone anything by itself — a developer still has to wire a
+          permission check to its key in code. It just becomes available to assign under Access roles.
+        </SettingsNote>
 
         <div style={s.card}>
           <div style={s.cardHeader}>

@@ -1,16 +1,17 @@
 import { whatsappSendUrl } from '../../utils/whatsapp.js';
 import { signOut } from '../../utils/signOut.js';
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { NavLink, useNavigate, useMatch } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate, useMatch } from 'react-router-dom';
+import { isSettingsArea } from '../../pages/settings/settingsNav.js';
+import { useIsTestServer } from '../../hooks/useIsTestServer.js';
 import { useQuery } from '@tanstack/react-query';
 import { fetchSettings } from '../../api/settings.js';
 import { fetchCandidateFormOptions } from '../../api/candidates.js';
-import { fetchTestRunner } from '../../api/admin.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faCartShopping, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faClockRotateLeft, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faIdBadge, faListCheck } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCartShopping, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBars, faClipboardList, faClipboardCheck, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faChalkboardUser, faSliders, faScrewdriverWrench, faChildren, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faListCheck } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
@@ -99,7 +100,6 @@ export default function Navbar() {
     }
   }, [fit, width, isTablet, navItemsKey]);
   const [analysisOpen, setAnalysisOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [studentsOpen, setStudentsOpen] = useState(false);
   const [marketingOpen, setMarketingOpen] = useState(false);
   const [hrOpen, setHrOpen] = useState(false);
@@ -107,7 +107,6 @@ export default function Navbar() {
   const [operationOpen, setOperationOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
   const [developerOpen, setDeveloperOpen] = useState(false);
   const [whatsappModal, setWhatsappModal] = useState(false);
   const [templatesModal, setTemplatesModal] = useState(false);
@@ -117,7 +116,6 @@ export default function Navbar() {
   const [waTemplate, setWaTemplate] = useState('none');
   const [waLang, setWaLang] = useState<'en' | 'zh'>('zh');
   const analysisRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
   const studentsRef = useRef<HTMLDivElement>(null);
   const marketingRef = useRef<HTMLDivElement>(null);
   const hrRef = useRef<HTMLDivElement>(null);
@@ -125,7 +123,6 @@ export default function Navbar() {
   const operationRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const devRef = useRef<HTMLDivElement>(null);
-  const adminRef = useRef<HTMLDivElement>(null);
   const developerRef = useRef<HTMLDivElement>(null);
   const onFinanceRoute = !!useMatch('/operations/operating-costs');
   // The flat "Guides" link (`/operations/sops?app=teacher`) used NavLink's
@@ -162,8 +159,6 @@ export default function Navbar() {
   // short-circuits, which would skip the second call whenever the first
   // matches, changing the number of hooks called between renders and
   // crashing React's hook-order check on the next navigation.
-  const usersSettingsMatch = useMatch('/settings/users');
-  const adminWildcardMatch = useMatch('/admin/*');
   // The Developer pages keep their /admin/* URLs (bookmarks keep working)
   // but sit under the Developer dropdown, so they light that up, not Admin.
   // All three useMatch calls run unconditionally (same hook-order footgun).
@@ -171,10 +166,11 @@ export default function Navbar() {
   const dbDesignMatch = useMatch('/admin/database-design');
   const architectureMatch = useMatch('/admin/architecture');
   const onDeveloperRoute = !!(testCatalogMatch || dbDesignMatch || architectureMatch);
-  const onAdminRoute = !!(usersSettingsMatch || adminWildcardMatch) && !onDeveloperRoute;
   const onDevRoute = !!useMatch('/settings/test/*');
   const onAnalysisRoute = !!useMatch('/analysis/*');
-  const onSettingsRoute = !!useMatch('/settings/*') && !onAdminRoute && !onDevRoute;
+  // Settings is lit anywhere in the Settings area — including Team & access pages under /admin/*.
+  const { pathname } = useLocation();
+  const onSettingsRoute = isSettingsArea(pathname) && !onDevRoute;
   const studentsMatch = useMatch('/students');
   const onboardingMatch = useMatch('/onboarding');
   const onStudentsRoute = !!(studentsMatch || onboardingMatch);
@@ -195,14 +191,8 @@ export default function Navbar() {
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
 
   // Delete-everything / dummy-data tools only exist on the test server
-  // (backend answers 404 elsewhere) — same probe + cache key as Test Catalog.
-  const { data: testRunner } = useQuery({
-    queryKey: ['test-runner'],
-    queryFn: fetchTestRunner,
-    enabled: user?.role === 'ADMIN' || user?.role === 'SUPERADMIN',
-    retry: false,
-  });
-  const isTestServer = !!testRunner;
+  // (backend answers 404 elsewhere).
+  const isTestServer = useIsTestServer(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN');
 
   // Referral sources for the Apply Form Links modal — same public
   // endpoint + cache key the Candidates page and apply form both use,
@@ -228,7 +218,6 @@ export default function Navbar() {
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (analysisRef.current && !analysisRef.current.contains(e.target as Node)) setAnalysisOpen(false);
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) setSettingsOpen(false);
       if (studentsRef.current && !studentsRef.current.contains(e.target as Node)) setStudentsOpen(false);
       if (marketingRef.current && !marketingRef.current.contains(e.target as Node)) setMarketingOpen(false);
       if (hrRef.current && !hrRef.current.contains(e.target as Node)) setHrOpen(false);
@@ -236,7 +225,6 @@ export default function Navbar() {
       if (operationRef.current && !operationRef.current.contains(e.target as Node)) setOperationOpen(false);
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) setToolsOpen(false);
       if (devRef.current && !devRef.current.contains(e.target as Node)) setDevOpen(false);
-      if (adminRef.current && !adminRef.current.contains(e.target as Node)) setAdminOpen(false);
       if (developerRef.current && !developerRef.current.contains(e.target as Node)) setDeveloperOpen(false);
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
     }
@@ -250,7 +238,7 @@ export default function Navbar() {
   // Close mobile menu on navigate
   useEffect(() => { setMobileMenuOpen(false); }, [navCollapsed]);
 
-  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setSettingsOpen(false); setStudentsOpen(false); setMarketingOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setAdminOpen(false); setDeveloperOpen(false); setProfileOpen(false); };
+  const closeAll = () => { setMobileMenuOpen(false); setAnalysisOpen(false); setStudentsOpen(false); setMarketingOpen(false); setHrOpen(false); setFinanceOpen(false); setOperationOpen(false); setToolsOpen(false); setDevOpen(false); setDeveloperOpen(false); setProfileOpen(false); };
 
   // Shared nav items renderer (used for both desktop and mobile drawer)
   const renderNavItems = (mobile = false) => {
@@ -700,136 +688,17 @@ export default function Navbar() {
         </div>
         )}
 
-        {/* Settings dropdown — admin only */}
+        {/* Settings — one link to the Settings area (grouped home page + sidebar;
+            see pages/settings/settingsNav.ts). Team & access, formerly the Admin
+            menu, lives there too. Admin only. */}
         {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
-          <div ref={mobile ? undefined : settingsRef} style={mobile ? {} : { position: 'relative' }}>
-            <button onClick={() => setSettingsOpen(o => !o)} className={mobile ? '' : 'nav-link'}
-              style={{ ...mDropBtn, ...(onSettingsRoute && !mobile ? styles.activeLink : {}), ...(onSettingsRoute && mobile ? mLinkActive : {}) }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faSliders)}Settings</span>
-              {mobile ? (settingsOpen ? '−' : '+') : '▾'}
-            </button>
-            {settingsOpen && (
-              <div style={mPanel}>
-                {[
-                  { to: '/settings/company', icon: faBuilding, label: 'Company' },
-                  { to: '/settings/leads', icon: faUsers, label: 'CRM' },
-                  { to: '/settings/onboarding', icon: faGraduationCap, label: 'Students' },
-                  { to: '/settings/packages', icon: faBoxesStacked, label: 'Packages & Pricing' },
-                  {
-                    to: '/settings/hr', icon: faCoins, label: 'HR & Payroll',
-                    subItems: [
-                      { to: '/settings/recruitment', label: 'Recruitment' },
-                      { to: '/settings/staff-onboarding', label: 'Staff Onboarding' },
-                      { to: '/settings/appraisal-forms', label: 'Appraisal Forms' },
-                      { to: '/settings/hr', label: 'Payroll' },
-                    ],
-                  },
-                  { to: '/settings/operating-cost', icon: faReceipt, label: 'Operating Cost' },
-                  { to: '/settings/operation', icon: faGears, label: 'Operation' },
-                  { to: '/settings/finance', icon: faMoneyBillTrendUp, label: 'Finance' },
-                  { to: '/settings/whatsapp-templates', icon: faMessage, label: 'Message Templates' },
-                  { to: '/settings/calendar', icon: faPlug, label: 'Integrations' },
-                  { to: '/settings/attendance-reader', icon: faIdBadge, label: 'Attendance Reader' },
-                  { to: '/settings/data', icon: faFileImport, label: 'Data' },
-                ].map(it => (
-                  <div key={it.to}>
-                    <NavLink to={it.to} onClick={closeAll}
-                      className={mobile ? '' : 'nav-drop-item'}
-                      style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                      <FontAwesomeIcon icon={it.icon} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
-                      {it.label}
-                    </NavLink>
-                    {it.subItems?.map(sub => (
-                      <NavLink key={sub.to} to={sub.to} onClick={closeAll}
-                        className={mobile ? '' : 'nav-drop-item'}
-                        style={{
-                          ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center',
-                          paddingLeft: mobile ? 46 : 40, fontSize: 12.5, color: '#6b7280',
-                        }}>
-                        {sub.label}
-                      </NavLink>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Admin dropdown — ADMIN+ only */}
-        {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
-          <div ref={mobile ? undefined : adminRef} style={mobile ? {} : { position: 'relative' }}>
-            <button onClick={() => setAdminOpen(o => !o)} className={mobile ? '' : 'nav-link'}
-              style={{ ...mDropBtn, ...(onAdminRoute && !mobile ? styles.activeLink : {}), ...(onAdminRoute && mobile ? mLinkActive : {}) }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faUserShield)}Admin</span>
-              {mobile ? (adminOpen ? '−' : '+') : '▾'}
-            </button>
-            {adminOpen && (
-              <div style={mobile ? { ...mPanel } : { position: 'absolute', top: 'calc(100% + 8px)', right: 0, background: '#fff', borderRadius: 10, boxShadow: '0 10px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)', minWidth: 200, zIndex: 100, padding: '6px', border: '1px solid #e8eaed' }}>
-                <NavLink to="/settings/users" onClick={closeAll}
-                  className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
-                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
-                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
-                  })}>
-                  <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#64748b' }} /> Manage Users
-                </NavLink>
-                <NavLink to="/settings/auth-views" onClick={closeAll}
-                  className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
-                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
-                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
-                  })}>
-                  <FontAwesomeIcon icon={faEye} style={{ fontSize: 12, color: '#64748b' }} /> Views
-                </NavLink>
-                <NavLink to="/settings/auth-roles" onClick={closeAll}
-                  className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
-                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
-                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
-                  })}>
-                  <FontAwesomeIcon icon={faUserShield} style={{ fontSize: 12, color: '#64748b' }} /> Access Roles
-                </NavLink>
-                {/* Who opened pay / finance / appraisal / applicant records. */}
-                <NavLink to="/admin/access-log" onClick={closeAll}
-                  className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
-                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
-                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
-                  })}>
-                  <FontAwesomeIcon icon={faClockRotateLeft} style={{ fontSize: 12, color: '#64748b' }} /> Access Log
-                </NavLink>
-                <NavLink to="/admin/year-rollover" onClick={closeAll}
-                  className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
-                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
-                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
-                  })}>
-                  <FontAwesomeIcon icon={faCalendarDays} style={{ fontSize: 12, color: '#64748b' }} /> Year Rollover
-                </NavLink>
-                {/* Destructive — coloured red so it doesn't blend in
-                    with the safe admin actions above. Route is
-                    role-gated at the wrapper (only ADMIN / SUPERADMIN
-                    render this whole dropdown), and the backend
-                    /api/candidates/reset-all endpoint also enforces
-                    adminMiddleware + testEnvOnly — test server only. */}
-                {isTestServer && <NavLink to="/settings/test/reset-candidates" onClick={closeAll}
-                  className={mobile ? '' : 'nav-drop-item'}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
-                    color: isActive ? '#9b1c1c' : '#c53030', fontWeight: isActive ? 700 : 600,
-                    background: isActive ? '#fef2f2' : 'none', borderRadius: 6,
-                  })}>
-                  <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12, color: '#c53030' }} /> Reset All Candidates
-                </NavLink>}
-              </div>
-            )}
-          </div>
+          <Link to="/settings" onClick={closeAll} className={mobile ? '' : 'nav-link'} aria-current={onSettingsRoute ? 'page' : undefined}
+            style={{
+              ...(mobile ? mLink : styles.link), display: 'flex', alignItems: 'center',
+              ...(onSettingsRoute && !mobile ? styles.activeLink : {}), ...(onSettingsRoute && mobile ? mLinkActive : {}),
+            }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faSliders)}Settings</span>
+          </Link>
         )}
 
         {/* Developer — ADMIN+ only. Read-only docs of how the app is built

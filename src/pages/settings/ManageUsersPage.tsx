@@ -5,7 +5,6 @@ import { faUserPlus, faCopy, faCheck, faTrash, faPaperPlane, faPen, faCircle } f
 import { apiFetch } from '../../api/client.js';
 import { fetchTeachers } from '../../api/planner.js';
 import { fetchAuthRoles } from '../../api/auth-roles.js';
-import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
 import { useToast } from '../../components/common/Toast.js';
 import { memberActivity } from './memberActivity.js';
 
@@ -165,11 +164,9 @@ export default function ManageUsersPage() {
 
   return (
     <div className="m-pad" style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
-      <SettingsBreadcrumb label="Team Members" />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', margin: 0 }}>Team Members</h1>
-          <p style={{ fontSize: 14, color: '#64748b', margin: '4px 0 0' }}>Manage who has access to the admin portal.</p>
         </div>
         <button
           onClick={() => { setShowInvite(true); setInviteEmail(''); setInviteError(''); setInviteRole('USER'); setInviteAuthRoleId(''); }}

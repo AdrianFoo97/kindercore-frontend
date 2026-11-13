@@ -30,9 +30,9 @@ function readPercent(settings: Settings | undefined, key: string, fallback: numb
 
 type TabKey = 'targets' | 'compensation';
 
-const TABS: { key: TabKey; label: string; icon: any; subtitle: string }[] = [
-  { key: 'targets', label: 'Finance Targets', icon: faPercent, subtitle: 'Targets and thresholds used by the Finance Analysis dashboards.' },
-  { key: 'compensation', label: 'Compensation Tiers', icon: faLayerGroup, subtitle: 'Appraisal score thresholds that gate the Performer and High-Performer tiers on the Teacher Compensation page.' },
+const TABS: { key: TabKey; label: string; icon: any }[] = [
+  { key: 'targets', label: 'Finance Targets', icon: faPercent },
+  { key: 'compensation', label: 'Compensation Tiers', icon: faLayerGroup },
 ];
 
 export default function FinanceSettingsPage() {
@@ -48,9 +48,6 @@ export default function FinanceSettingsPage() {
       <style>{`.finance-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>{active.label}</h1>
-        <p style={{ margin: '4px 0 20px', fontSize: 13, color: C.muted }}>
-          {active.subtitle}
-        </p>
 
         <div style={tabS.tabStrip}>
           {TABS.map(t => (

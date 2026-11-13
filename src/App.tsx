@@ -132,6 +132,8 @@ import { loginUrlReturningTo } from './utils/loginReturn.js';
 import { isSignedIn } from './api/client.js';
 import IdleSignOut from './components/common/IdleSignOut.js';
 import AccessLogPage from './pages/admin/AccessLogPage.js';
+import SettingsLayout from './pages/settings/SettingsLayout.js';
+import SettingsHomePage from './pages/settings/SettingsHomePage.js';
 import CandidatesPage from './pages/CandidatesPage.js';
 import ImportCandidatesPage from './pages/candidates/ImportCandidatesPage.js';
 import RecruitmentSettingsPage from './pages/settings/RecruitmentSettingsPage.js';
@@ -286,27 +288,69 @@ export default function App() {
           <Route path="/leads/import" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><ImportLeadsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/marketing/campaigns" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><MarketingCampaignsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/packages" element={<ErrorBoundary><PackagesPage /></ErrorBoundary>} />
-          <Route path="/settings/leads" element={<ErrorBoundary><LeadStatusSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/company" element={<ErrorBoundary><CompanySettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/leads/status" element={<Navigate to="/settings/leads" replace />} />
-          <Route path="/settings/whatsapp-templates" element={<ErrorBoundary><WhatsAppTemplatesPage /></ErrorBoundary>} />
-          <Route path="/settings/leads/whatsapp-templates" element={<Navigate to="/settings/whatsapp-templates" replace />} />
-          <Route path="/settings/leads/whatsapp-appointment" element={<Navigate to="/settings/whatsapp-templates" replace />} />
-          <Route path="/settings/leads/whatsapp-followup" element={<Navigate to="/settings/whatsapp-templates" replace />} />
+          {/* Every settings page (and the admin pages that moved into Settings) shares the settings sidebar. */}
+          <Route element={<SettingsLayout />}>
+            <Route path="/settings" element={<ErrorBoundary><SettingsHomePage /></ErrorBoundary>} />
+            <Route path="/settings/leads" element={<ErrorBoundary><LeadStatusSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/company" element={<ErrorBoundary><CompanySettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/leads/status" element={<Navigate to="/settings/leads" replace />} />
+            <Route path="/settings/whatsapp-templates" element={<ErrorBoundary><WhatsAppTemplatesPage /></ErrorBoundary>} />
+            <Route path="/settings/leads/whatsapp-templates" element={<Navigate to="/settings/whatsapp-templates" replace />} />
+            <Route path="/settings/leads/whatsapp-appointment" element={<Navigate to="/settings/whatsapp-templates" replace />} />
+            <Route path="/settings/leads/whatsapp-followup" element={<Navigate to="/settings/whatsapp-templates" replace />} />
+            <Route path="/settings/packages/assignment" element={<Navigate to="/packages" replace />} />
+            <Route path="/settings/packages/programmes" element={<ErrorBoundary><ProgrammesSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/packages/age-groups" element={<ErrorBoundary><AgeGroupsSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/packages" element={<ErrorBoundary><SettingsPackagesPage /></ErrorBoundary>} />
+            <Route path="/settings/packages" element={<Navigate to="/packages" replace />} />
+            <Route path="/settings/onboarding" element={<ErrorBoundary><OnboardingSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/staff-onboarding" element={<ErrorBoundary><OnboardingSettingsPage title="Staff Onboarding" sections={STAFF_ONBOARDING_SECTIONS} /></ErrorBoundary>} />
+            <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/attendance-reader" element={<ErrorBoundary><AttendanceReaderSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/data" element={<ErrorBoundary><SettingsDataPage /></ErrorBoundary>} />
+            <Route path="/settings/recruitment" element={<ErrorBoundary><RecruitmentSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/points-rewards" element={<ErrorBoundary><PointsRewardsSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/points-rewards/add/:kind" element={<ErrorBoundary><PointsRewardsAddPage /></ErrorBoundary>} />
+            <Route path="/settings/points-rewards/edit/:kind/:id" element={<ErrorBoundary><PointsRewardsAddPage /></ErrorBoundary>} />
+            <Route path="/settings/employee-salary" element={<ErrorBoundary><EmployeeSalaryPage /></ErrorBoundary>} />
+            <Route path="/settings/employee-salary/positions/new" element={<ErrorBoundary><PositionEditPage /></ErrorBoundary>} />
+            <Route path="/settings/employee-salary/positions/:id/edit" element={<ErrorBoundary><PositionEditPage /></ErrorBoundary>} />
+            <Route path="/settings/career-missions" element={<ErrorBoundary><CareerMissionSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/mission-categories" element={<ErrorBoundary><MissionCategoriesPage /></ErrorBoundary>} />
+            <Route path="/settings/hr" element={<ErrorBoundary><SettingsHrPage /></ErrorBoundary>} />
+            <Route path="/settings/appraisal-forms" element={<ErrorBoundary><AppraisalFormsPage /></ErrorBoundary>} />
+            <Route path="/settings/appraisal-forms/:id" element={<ErrorBoundary><AppraisalFormEditPage /></ErrorBoundary>} />
+            <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage key="reset-leads" tool="reset-leads" /></ErrorBoundary>} />
+            <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
+            <Route path="/settings/test/reset-candidates" element={<ErrorBoundary><TestToolsPage key="reset-candidates" tool="reset-candidates" /></ErrorBoundary>} />
+            <Route path="/settings/test/seed-dummy" element={<ErrorBoundary><TestToolsPage key="seed-dummy" tool="seed-dummy" /></ErrorBoundary>} />
+            <Route path="/settings/test/seed-candidates" element={<ErrorBoundary><TestToolsPage key="seed-candidates" tool="seed-candidates" /></ErrorBoundary>} />
+            <Route path="/settings/test/unit-tests" element={<Navigate to="/admin/test-catalog" replace />} />
+            <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
+            <Route path="/settings/auth-roles" element={<ErrorBoundary><AuthRolesPage /></ErrorBoundary>} />
+            <Route path="/settings/auth-roles/new" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
+            <Route path="/settings/auth-roles/:id/edit" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
+            <Route path="/settings/auth-roles/:id/views" element={<ErrorBoundary><AuthRoleViewsPage /></ErrorBoundary>} />
+            <Route path="/settings/auth-views" element={<ErrorBoundary><AuthViewsPage /></ErrorBoundary>} />
+            <Route path="/settings/auth-views/new" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
+            <Route path="/settings/auth-views/:id/edit" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
+            <Route path="/admin/year-rollover" element={<ErrorBoundary><YearRolloverPage /></ErrorBoundary>} />
+            <Route path="/admin/access-log" element={<ErrorBoundary><AccessLogPage /></ErrorBoundary>} />
+            <Route path="/settings/sop-categories" element={<ErrorBoundary><SopCategoriesPage /></ErrorBoundary>} />
+            <Route path="/settings/sop-sections" element={<ErrorBoundary><SopSectionsPage /></ErrorBoundary>} />
+            <Route path="/settings/operation" element={<ErrorBoundary><SettingsOperationPage /></ErrorBoundary>} />
+            <Route path="/settings/operating-cost-main-categories" element={<ErrorBoundary><OperatingCostMainCategoriesPage /></ErrorBoundary>} />
+            <Route path="/settings/operating-cost-categories" element={<ErrorBoundary><OperatingCostCategoriesPage /></ErrorBoundary>} />
+            <Route path="/settings/operating-cost" element={<ErrorBoundary><SettingsOperatingCostPage /></ErrorBoundary>} />
+            <Route path="/settings/finance" element={<ErrorBoundary><FinanceSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/compensation" element={<ErrorBoundary><CompensationSettingsPage /></ErrorBoundary>} />
+          </Route>
           <Route path="/students" element={<RequireModule module={MODULES.STUDENTS}><ErrorBoundary><StudentsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/students/import" element={<RequireModule module={MODULES.STUDENTS}><ErrorBoundary><ImportStudentsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/students/:id" element={<RequireModule module={MODULES.STUDENTS}><ErrorBoundary><EditStudentPage /></ErrorBoundary></RequireModule>} />
           <Route path="/onboarding" element={<RequireModule module={MODULES.STUDENTS}><ErrorBoundary><OnboardingPage /></ErrorBoundary></RequireModule>} />
           {/* Package Assignment was merged into the unified /packages page (matrix-based) */}
-          <Route path="/settings/packages/assignment" element={<Navigate to="/packages" replace />} />
-          <Route path="/settings/packages/programmes" element={<ErrorBoundary><ProgrammesSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/packages/age-groups" element={<ErrorBoundary><AgeGroupsSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/packages" element={<ErrorBoundary><SettingsPackagesPage /></ErrorBoundary>} />
-          <Route path="/settings/packages" element={<Navigate to="/packages" replace />} />
-          <Route path="/settings/onboarding" element={<ErrorBoundary><OnboardingSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/staff-onboarding" element={<ErrorBoundary><OnboardingSettingsPage title="Staff Onboarding" subtitle="Two checklists for every new staff member. Each new joiner gets a copy of both." sections={STAFF_ONBOARDING_SECTIONS} /></ErrorBoundary>} />
-          <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/attendance-reader" element={<ErrorBoundary><AttendanceReaderSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers" element={<RequireModule module={MODULES.HR}><ErrorBoundary><TeachersPage /></ErrorBoundary></RequireModule>} />
           <Route path="/teachers/:id" element={<RequireModule module={MODULES.HR}><ErrorBoundary><EditTeacherPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/candidates" element={<RequireModule module={MODULES.HR}><ErrorBoundary><CandidatesPage /></ErrorBoundary></RequireModule>} />
@@ -333,8 +377,6 @@ export default function App() {
               since only someone who can self-publish (see SopProposePage.tsx's
               Save Draft/Publish Now) ever has drafts to see here. */}
           <Route path="/operations/sops/author" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_SOP_APPROVE"><ErrorBoundary><SopAuthorPage /></ErrorBoundary></RequireView></RequireModule>} />
-          <Route path="/settings/data" element={<ErrorBoundary><SettingsDataPage /></ErrorBoundary>} />
-          <Route path="/settings/recruitment" element={<ErrorBoundary><RecruitmentSettingsPage /></ErrorBoundary>} />
           {/* Admin/legacy views of a teacher's record — see the
               TeacherXyzPage vs TeacherMyXyzPage naming convention in
               CLAUDE.md. Gated under HR since these are staff HR-ops
@@ -375,37 +417,9 @@ export default function App() {
           <Route path="/teachers/:id/rewards/catalog/:rewardId" element={<ErrorBoundary><TeacherRewardDetailsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/rewards/earn" element={<ErrorBoundary><TeacherEarnPointsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/rewards/my/:redemptionId" element={<ErrorBoundary><TeacherRedeemedRewardPage /></ErrorBoundary>} />
-          <Route path="/settings/points-rewards" element={<ErrorBoundary><PointsRewardsSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/points-rewards/add/:kind" element={<ErrorBoundary><PointsRewardsAddPage /></ErrorBoundary>} />
-          <Route path="/settings/points-rewards/edit/:kind/:id" element={<ErrorBoundary><PointsRewardsAddPage /></ErrorBoundary>} />
-          <Route path="/settings/employee-salary" element={<ErrorBoundary><EmployeeSalaryPage /></ErrorBoundary>} />
-          <Route path="/settings/employee-salary/positions/new" element={<ErrorBoundary><PositionEditPage /></ErrorBoundary>} />
-          <Route path="/settings/employee-salary/positions/:id/edit" element={<ErrorBoundary><PositionEditPage /></ErrorBoundary>} />
-          <Route path="/settings/career-missions" element={<ErrorBoundary><CareerMissionSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/mission-categories" element={<ErrorBoundary><MissionCategoriesPage /></ErrorBoundary>} />
-          <Route path="/settings/hr" element={<ErrorBoundary><SettingsHrPage /></ErrorBoundary>} />
-          <Route path="/settings/appraisal-forms" element={<ErrorBoundary><AppraisalFormsPage /></ErrorBoundary>} />
-          <Route path="/settings/appraisal-forms/:id" element={<ErrorBoundary><AppraisalFormEditPage /></ErrorBoundary>} />
-          <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage key="reset-leads" tool="reset-leads" /></ErrorBoundary>} />
-          <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
-          <Route path="/settings/test/reset-candidates" element={<ErrorBoundary><TestToolsPage key="reset-candidates" tool="reset-candidates" /></ErrorBoundary>} />
-          <Route path="/settings/test/seed-dummy" element={<ErrorBoundary><TestToolsPage key="seed-dummy" tool="seed-dummy" /></ErrorBoundary>} />
-          <Route path="/settings/test/seed-candidates" element={<ErrorBoundary><TestToolsPage key="seed-candidates" tool="seed-candidates" /></ErrorBoundary>} />
-          <Route path="/settings/test/unit-tests" element={<Navigate to="/admin/test-catalog" replace />} />
-          <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
-          <Route path="/settings/auth-roles" element={<ErrorBoundary><AuthRolesPage /></ErrorBoundary>} />
-          <Route path="/settings/auth-roles/new" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
-          <Route path="/settings/auth-roles/:id/edit" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
-          <Route path="/settings/auth-roles/:id/views" element={<ErrorBoundary><AuthRoleViewsPage /></ErrorBoundary>} />
-          <Route path="/settings/auth-views" element={<ErrorBoundary><AuthViewsPage /></ErrorBoundary>} />
-          <Route path="/settings/auth-views/new" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
-          <Route path="/settings/auth-views/:id/edit" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
-          <Route path="/admin/year-rollover" element={<ErrorBoundary><YearRolloverPage /></ErrorBoundary>} />
           <Route path="/admin/test-catalog" element={<ErrorBoundary><TestCatalogPage /></ErrorBoundary>} />
           <Route path="/admin/database-design" element={<ErrorBoundary><DatabaseDesignPage /></ErrorBoundary>} />
           <Route path="/admin/architecture" element={<ErrorBoundary><BackendArchitecturePage /></ErrorBoundary>} />
-          <Route path="/admin/access-log" element={<ErrorBoundary><AccessLogPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><OperationsPlannerPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/incidents" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><IncidentsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/incidents/new" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><IncidentFormPage /></ErrorBoundary></RequireModule>} />
@@ -422,14 +436,6 @@ export default function App() {
           <Route path="/operations/sops/:templateId" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopTemplateStepsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/guide/:templateId" element={<GuideShareRedirect />} />
           <Route path="/operations/sops/:templateId/propose" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopProposePage /></ErrorBoundary></RequireModule>} />
-          <Route path="/settings/sop-categories" element={<ErrorBoundary><SopCategoriesPage /></ErrorBoundary>} />
-          <Route path="/settings/sop-sections" element={<ErrorBoundary><SopSectionsPage /></ErrorBoundary>} />
-          <Route path="/settings/operation" element={<ErrorBoundary><SettingsOperationPage /></ErrorBoundary>} />
-          <Route path="/settings/operating-cost-main-categories" element={<ErrorBoundary><OperatingCostMainCategoriesPage /></ErrorBoundary>} />
-          <Route path="/settings/operating-cost-categories" element={<ErrorBoundary><OperatingCostCategoriesPage /></ErrorBoundary>} />
-          <Route path="/settings/operating-cost" element={<ErrorBoundary><SettingsOperatingCostPage /></ErrorBoundary>} />
-          <Route path="/settings/finance" element={<ErrorBoundary><FinanceSettingsPage /></ErrorBoundary>} />
-          <Route path="/settings/compensation" element={<ErrorBoundary><CompensationSettingsPage /></ErrorBoundary>} />
           <Route path="/analysis/sales-marketing" element={<RequireModule module={MODULES.ANALYSIS}><ErrorBoundary><SalesMarketingPage /></ErrorBoundary></RequireModule>} />
           <Route path="/analysis/sales" element={<RequireModule module={MODULES.ANALYSIS}><ErrorBoundary><SalesAnalysisPage /></ErrorBoundary></RequireModule>} />
           <Route path="/analysis/revenue" element={<RequireModule module={MODULES.ANALYSIS}><ErrorBoundary><RevenueAnalysisPage /></ErrorBoundary></RequireModule>} />

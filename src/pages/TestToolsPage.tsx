@@ -4,7 +4,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { apiFetch } from '../api/client.js';
 import { fetchTestRunner } from '../api/admin.js';
-import { SettingsBreadcrumb } from '../components/common/SettingsBreadcrumb.js';
 
 type Tool = 'reset-leads' | 'reset-students' | 'reset-candidates' | 'seed-dummy' | 'seed-candidates';
 
@@ -73,7 +72,6 @@ export default function TestToolsPage({ tool }: { tool: Tool }) {
 
   return (
     <div style={{ maxWidth: 480, margin: '60px auto', padding: '0 24px' }}>
-      <SettingsBreadcrumb label={config.title} />
       <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1a202c', marginBottom: 8 }}>{config.title}</h2>
       <p style={{ fontSize: 14, color: '#718096', marginBottom: 32 }}>{config.description}</p>
 
