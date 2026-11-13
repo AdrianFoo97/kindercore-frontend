@@ -148,7 +148,7 @@ function KpiCard({ label, value, accent, valueColor, trend, bar, segments, break
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, background: accent, display: 'inline-block', flexShrink: 0 }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
         </span>
         {trend && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: trendColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' as any }}>
@@ -207,7 +207,7 @@ function KpiCard({ label, value, accent, valueColor, trend, bar, segments, break
         </div>
       )}
       {breakdown && (
-        <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{breakdown}</div>
+        <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b', marginTop: 4 }}>{breakdown}</div>
       )}
     </div>
   );
@@ -766,7 +766,7 @@ export default function SalesMarketingPage() {
             <tbody>
               {pagedLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#cbd5e1', padding: '32px 0' }}>
+                  <td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#64748b', padding: '32px 0' }}>
                     No leads match this filter.
                   </td>
                 </tr>
@@ -1086,7 +1086,7 @@ const s: Record<string, any> = {
   donutTable: { marginTop: 12, borderTop: `1px solid ${C.border}`, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6 },
   donutRow2: { display: 'flex', alignItems: 'center', gap: 8 },
   centered: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: C.muted, fontSize: 15 },
-  empty: { color: '#cbd5e1', fontSize: 14, textAlign: 'center' as const, padding: '60px 0', margin: 0 },
+  empty: { color: '#64748b', fontSize: 14, textAlign: 'center' as const, padding: '60px 0', margin: 0 },
   clearBtn: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 11, fontWeight: 600, border: `1px solid ${C.border}`, borderRadius: 6, background: C.card, color: C.muted, cursor: 'pointer', fontFamily: 'inherit' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: { textAlign: 'left', padding: '12px 12px', fontWeight: 600, fontSize: 11, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap', background: '#fafbfc', verticalAlign: 'middle' },

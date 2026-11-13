@@ -18,7 +18,7 @@ const C = {
   text:      '#0f172a',
   textSub:   '#3f4b5c',
   muted:     '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   card:      '#ffffff',
   cardBorder:'#eceef2',
   divider:   '#eef0f3',
@@ -310,7 +310,7 @@ function BadgeCard({ badge, onTap, isMobile, compact = false }: {
             background: '#fff',
             color: C.mutedSoft,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 9,
+            fontSize: 10,
             border: `1px solid ${C.cardBorder}`,
             boxShadow: '0 1px 2px rgba(15,23,42,0.06)',
           }}>
@@ -496,7 +496,7 @@ export function BadgeDetailSheet({ badge, relatedMissions, onClose, isMobile }: 
               cursor: 'pointer',
               flexShrink: 0,
             }}
-            aria-label="Close"
+            aria-label="Close" title="Close"
           >
             <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
           </button>
@@ -577,7 +577,7 @@ export function BadgeDetailSheet({ badge, relatedMissions, onClose, isMobile }: 
                       background: done ? meta.color : '#fff',
                       color: done ? '#fff' : C.mutedSoft,
                       border: `1px solid ${done ? meta.color : C.cardBorder}`,
-                      fontSize: 8,
+                      fontSize: 10,
                       flexShrink: 0,
                       marginTop: 1,
                     }}>

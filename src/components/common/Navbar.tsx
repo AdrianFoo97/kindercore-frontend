@@ -1,4 +1,5 @@
 import { whatsappSendUrl } from '../../utils/whatsapp.js';
+import { signOut } from '../../utils/signOut.js';
 import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { NavLink, useNavigate, useMatch } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -9,7 +10,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faIdBadge, faListCheck } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCartShopping, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBoxesStacked, faMessage, faPlug, faFileImport, faBars, faClipboardList, faClipboardCheck, faCalendarDays, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faTrash, faChalkboardUser, faSliders, faScrewdriverWrench, faUserShield, faClockRotateLeft, faChildren, faBuilding, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faEye, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faIdBadge, faListCheck } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
@@ -18,7 +19,7 @@ import FormLinksModal from './FormLinksModal.js';
 function NavSectionLabel({ label, first, mobile }: { label: string; first?: boolean; mobile: boolean }) {
   const top = first ? 8 : 10;
   return (
-    <div style={{ padding: mobile ? `${top}px 20px 6px` : `${top}px 14px 6px`, fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+    <div style={{ padding: mobile ? `${top}px 20px 6px` : `${top}px 14px 6px`, fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
       {label}
     </div>
   );
@@ -150,8 +151,13 @@ export default function Navbar() {
   // Improvement Inbox.
   const sopRevisionsMatch = useMatch('/hr/sop-revisions');
   const incidentsMatch = useMatch('/operations/incidents/*');
-  const onOperationRoute = (!!useMatch('/operations/sops/*') && !onGuidesRoute) || !!sopRevisionsMatch || !!incidentsMatch;
-  const onToolsRoute = !!useMatch('/tools/*');
+  // Planner keeps its /tools URL (bookmarks, login landing) but lives in the
+  // Operation menu, so it lights up Operation rather than Tools.
+  const plannerMatch = useMatch('/tools/operations-planner');
+  const facilitiesMatch = useMatch('/operations/facilities');
+  const shoppingMatch = useMatch('/operations/shopping-list');
+  const onOperationRoute = (!!useMatch('/operations/sops/*') && !onGuidesRoute) || !!sopRevisionsMatch || !!incidentsMatch || !!plannerMatch || !!facilitiesMatch || !!shoppingMatch;
+  const onToolsRoute = !!useMatch('/tools/*') && !plannerMatch;
   // Both useMatch calls must run every render, unconditionally — `||`
   // short-circuits, which would skip the second call whenever the first
   // matches, changing the number of hooks called between renders and
@@ -238,11 +244,8 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login', { replace: true });
-  };
+  // Full reload (not an in-app navigate) so nothing loaded stays in memory for the next person.
+  const handleLogout = () => signOut();
 
   // Close mobile menu on navigate
   useEffect(() => { setMobileMenuOpen(false); }, [navCollapsed]);
@@ -353,13 +356,13 @@ export default function Navbar() {
               <NavLink to="/leads" end onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faInbox} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faInbox} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Leads
               </NavLink>
               <NavLink to="/marketing/campaigns" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Campaigns
               </NavLink>
             </div>
@@ -384,13 +387,13 @@ export default function Navbar() {
               <NavLink to="/students" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faUsers} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faUsers} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 All Students
               </NavLink>
               <NavLink to="/onboarding" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Onboarding
               </NavLink>
             </div>
@@ -418,28 +421,33 @@ export default function Navbar() {
               <div style={mPanel}>
                 <NavSectionLabel label="Team" first mobile={mobile} />
                 <NavLink to="/teachers" end onClick={closeAll} className={itemClass} style={linkStyle}>
-                  <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Staff
                 </NavLink>
+                {/* Monthly appraisals for every staff member — who's done, who's due. */}
+                <NavLink to="/hr/appraisals" onClick={closeAll} className={itemClass} style={linkStyle}>
+                  <FontAwesomeIcon icon={faStar} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
+                  Appraisals
+                </NavLink>
                 <NavLink to="/hr/sop-observations" onClick={closeAll} className={itemClass} style={linkStyle}>
-                  <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Practice Observations
                 </NavLink>
 
                 <NavSectionDivider />
                 <NavSectionLabel label="Hiring" mobile={mobile} />
                 <NavLink to="/hr/candidates" onClick={closeAll} className={itemClass} style={linkStyle}>
-                  <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Recruitment
                 </NavLink>
                 {/* Joiners who didn't come through Recruitment — HR approves them onto Staff. */}
                 <NavLink to="/hr/new-staff" onClick={closeAll} className={itemClass} style={linkStyle}>
-                  <FontAwesomeIcon icon={faIdCard} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  <FontAwesomeIcon icon={faIdCard} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   New Staff
                 </NavLink>
                 {/* Last step of bringing someone in: their joiner checklist. */}
                 <NavLink to="/hr/onboarding" onClick={closeAll} className={itemClass} style={linkStyle}>
-                  <FontAwesomeIcon icon={faListCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  <FontAwesomeIcon icon={faListCheck} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Onboarding
                 </NavLink>
               </div>
@@ -463,7 +471,7 @@ export default function Navbar() {
               <NavLink to="/operations/operating-costs" className={mobile ? '' : 'nav-drop-item'}
                 style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
                 onClick={closeAll}>
-                <FontAwesomeIcon icon={faReceipt} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faReceipt} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Operating Costs
               </NavLink>
             </div>
@@ -498,13 +506,15 @@ export default function Navbar() {
             const showLibrary = !user?.teacherId;
             const canReviewGuides = hasView('OPERATION_SOP_APPROVE');
             const showGuides = showLibrary || canReviewGuides;
+            const showPlanner = allowModule(MODULES.TOOLS);
+            const canManagePurchases = hasView('OPERATION_PURCHASE_MANAGE');
             const linkStyle = ({ isActive }: { isActive: boolean }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) });
             return (
               <div style={mPanel}>
                 {showGuides && <NavSectionLabel label="Guides" first mobile={mobile} />}
                 {showLibrary && (
                   <NavLink to="/operations/sops" end className={mobile ? '' : 'nav-drop-item'} style={linkStyle} onClick={closeAll}>
-                    <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                    <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                     How-To Guides
                   </NavLink>
                 )}
@@ -512,7 +522,7 @@ export default function Navbar() {
                     Inbox, which reviews OTHER people's submissions. */}
                 {canReviewGuides && (
                   <NavLink to="/operations/sops/author" onClick={closeAll} className={mobile ? '' : 'nav-drop-item'} style={linkStyle}>
-                    <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                    <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                     Author Guides
                   </NavLink>
                 )}
@@ -520,19 +530,46 @@ export default function Navbar() {
                     /hr/sop-revisions route itself. */}
                 {canReviewGuides && (
                   <NavLink to="/hr/sop-revisions" onClick={closeAll} className={mobile ? '' : 'nav-drop-item'} style={linkStyle}>
-                    <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                    <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                     Improvement Inbox
                   </NavLink>
                 )}
 
                 {showGuides && <NavSectionDivider />}
-                {showGuides && <NavSectionLabel label="Incidents" mobile={mobile} />}
+                <NavSectionLabel label="Incidents" first={!showGuides} mobile={mobile} />
                 {/* Follow-up queue for incident reports staff file (teachers
                     from their mobile app) — replaces the Google Form. */}
                 <NavLink to="/operations/incidents" onClick={closeAll} className={mobile ? '' : 'nav-drop-item'} style={linkStyle}>
-                  <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Incident Reports
                 </NavLink>
+
+                {/* Broken door, leaking pipe… — everyone reports here;
+                    facility managers see them all and move the status. */}
+                <NavSectionDivider />
+                <NavSectionLabel label="Facilities" mobile={mobile} />
+                <NavLink to="/operations/facilities" onClick={closeAll} className={mobile ? '' : 'nav-drop-item'} style={linkStyle}>
+                  <FontAwesomeIcon icon={faScrewdriverWrench} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
+                  Facility Issues
+                </NavLink>
+                {/* The weekly list of what staff asked to be bought — same guard as its route. */}
+                {canManagePurchases && (
+                  <NavLink to="/operations/shopping-list" onClick={closeAll} className={mobile ? '' : 'nav-drop-item'} style={linkStyle}>
+                    <FontAwesomeIcon icon={faCartShopping} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
+                    Shopping List
+                  </NavLink>
+                )}
+
+                {/* Day-to-day planning. The page (and its API) is still
+                    granted by the Tools module, so the link follows that. */}
+                {showPlanner && <NavSectionDivider />}
+                {showPlanner && <NavSectionLabel label="Planning" mobile={mobile} />}
+                {showPlanner && (
+                  <NavLink to="/tools/operations-planner" onClick={closeAll} className={mobile ? '' : 'nav-drop-item'} style={linkStyle}>
+                    <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
+                    Planner
+                  </NavLink>
+                )}
               </div>
             );
           })()}
@@ -558,49 +595,49 @@ export default function Navbar() {
               <NavLink to="/analysis/sales-marketing" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faBullhorn} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Marketing
               </NavLink>
               <NavLink to="/analysis/sales" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faChartLine} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faChartLine} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Sales
               </NavLink>
               <NavLink to="/analysis/revenue" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faCoins} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faCoins} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Revenue
               </NavLink>
               <NavLink to="/analysis/employee-cost" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faUsers} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faUsers} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Staff
               </NavLink>
               <NavLink to="/analysis/operating-cost" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faReceipt} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faReceipt} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Operating Cost
               </NavLink>
               <NavLink to="/analysis/finance" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faMoneyBillTrendUp} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faMoneyBillTrendUp} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Finance
               </NavLink>
               <NavLink to="/analysis/profit-sharing" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faChartPie} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faChartPie} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Profit Sharing
               </NavLink>
               <NavLink to="/analysis/annual-bonus" onClick={closeAll}
                 className={mobile ? '' : 'nav-drop-item'}
                 style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                <FontAwesomeIcon icon={faGift} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                <FontAwesomeIcon icon={faGift} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                 Annual Bonus
               </NavLink>
             </div>
@@ -640,15 +677,8 @@ export default function Navbar() {
             );
             return (
               <div style={mPanel}>
-                {section('Planning', true)}
-                <NavLink to="/tools/operations-planner" className={mobile ? '' : 'nav-drop-item'}
-                  style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
-                  onClick={closeAll}>
-                  <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
-                  Planner
-                </NavLink>
-                {sep}
-                {section('Messaging')}
+                {/* Planner moved to Operation → Planning. */}
+                {section('Messaging', true)}
                 {item(faWhatsapp, '#25D366', 'WhatsApp', () => { closeAll(); setWaPhone(''); setWaMessage(''); setWaTemplate('none'); setWaLang('zh'); setWhatsappModal(true); })}
                 {item(faCopy, '#94a3b8', 'Message Templates', () => { closeAll(); setTemplatesModal(true); })}
                 {sep}
@@ -661,7 +691,7 @@ export default function Navbar() {
                 <NavLink to="/tools/bug-reports" className={mobile ? '' : 'nav-drop-item'}
                   style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
                   onClick={closeAll}>
-                  <FontAwesomeIcon icon={faBug} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                  <FontAwesomeIcon icon={faBug} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Bug Reports
                 </NavLink>
               </div>
@@ -690,6 +720,7 @@ export default function Navbar() {
                     subItems: [
                       { to: '/settings/recruitment', label: 'Recruitment' },
                       { to: '/settings/staff-onboarding', label: 'Staff Onboarding' },
+                      { to: '/settings/appraisal-forms', label: 'Appraisal Forms' },
                       { to: '/settings/hr', label: 'Payroll' },
                     ],
                   },
@@ -705,7 +736,7 @@ export default function Navbar() {
                     <NavLink to={it.to} onClick={closeAll}
                       className={mobile ? '' : 'nav-drop-item'}
                       style={({ isActive }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) })}>
-                      <FontAwesomeIcon icon={it.icon} style={{ fontSize: 12, color: '#94a3b8', width: 16 }} />
+                      <FontAwesomeIcon icon={it.icon} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                       {it.label}
                     </NavLink>
                     {it.subItems?.map(sub => (
@@ -742,7 +773,7 @@ export default function Navbar() {
                     color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
-                  <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#94a3b8' }} /> Manage Users
+                  <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#64748b' }} /> Manage Users
                 </NavLink>
                 <NavLink to="/settings/auth-views" onClick={closeAll}
                   className={mobile ? '' : 'nav-drop-item'}
@@ -751,7 +782,7 @@ export default function Navbar() {
                     color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
-                  <FontAwesomeIcon icon={faEye} style={{ fontSize: 12, color: '#94a3b8' }} /> Views
+                  <FontAwesomeIcon icon={faEye} style={{ fontSize: 12, color: '#64748b' }} /> Views
                 </NavLink>
                 <NavLink to="/settings/auth-roles" onClick={closeAll}
                   className={mobile ? '' : 'nav-drop-item'}
@@ -760,7 +791,17 @@ export default function Navbar() {
                     color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
-                  <FontAwesomeIcon icon={faUserShield} style={{ fontSize: 12, color: '#94a3b8' }} /> Access Roles
+                  <FontAwesomeIcon icon={faUserShield} style={{ fontSize: 12, color: '#64748b' }} /> Access Roles
+                </NavLink>
+                {/* Who opened pay / finance / appraisal / applicant records. */}
+                <NavLink to="/admin/access-log" onClick={closeAll}
+                  className={mobile ? '' : 'nav-drop-item'}
+                  style={({ isActive }) => ({
+                    display: 'flex', alignItems: 'center', gap: 8, padding: mobile ? '10px 20px' : '9px 14px', fontSize: 13, textDecoration: 'none',
+                    color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
+                    background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
+                  })}>
+                  <FontAwesomeIcon icon={faClockRotateLeft} style={{ fontSize: 12, color: '#64748b' }} /> Access Log
                 </NavLink>
                 <NavLink to="/admin/year-rollover" onClick={closeAll}
                   className={mobile ? '' : 'nav-drop-item'}
@@ -769,7 +810,7 @@ export default function Navbar() {
                     color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
-                  <FontAwesomeIcon icon={faCalendarDays} style={{ fontSize: 12, color: '#94a3b8' }} /> Year Rollover
+                  <FontAwesomeIcon icon={faCalendarDays} style={{ fontSize: 12, color: '#64748b' }} /> Year Rollover
                 </NavLink>
                 {/* Destructive — coloured red so it doesn't blend in
                     with the safe admin actions above. Route is
@@ -810,7 +851,7 @@ export default function Navbar() {
                     color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
-                  <FontAwesomeIcon icon={faVial} style={{ fontSize: 12, color: '#94a3b8' }} /> Test Catalog
+                  <FontAwesomeIcon icon={faVial} style={{ fontSize: 12, color: '#64748b' }} /> Test Catalog
                 </NavLink>
                 {/* Read-only — live structure of this environment's database. */}
                 <NavLink to="/admin/database-design" onClick={closeAll}
@@ -820,7 +861,7 @@ export default function Navbar() {
                     color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
-                  <FontAwesomeIcon icon={faDatabase} style={{ fontSize: 12, color: '#94a3b8' }} /> Database Design
+                  <FontAwesomeIcon icon={faDatabase} style={{ fontSize: 12, color: '#64748b' }} /> Database Design
                 </NavLink>
                 {/* Read-only — routes → controllers → services → tables, generated from the backend code. */}
                 <NavLink to="/admin/architecture" onClick={closeAll}
@@ -830,7 +871,7 @@ export default function Navbar() {
                     color: isActive ? '#3c339a' : '#374151', fontWeight: isActive ? 600 : 500,
                     background: isActive ? '#eef0fa' : 'none', borderRadius: 6,
                   })}>
-                  <FontAwesomeIcon icon={faSitemap} style={{ fontSize: 12, color: '#94a3b8' }} /> Backend Architecture
+                  <FontAwesomeIcon icon={faSitemap} style={{ fontSize: 12, color: '#64748b' }} /> Backend Architecture
                 </NavLink>
               </div>
             )}
@@ -877,7 +918,7 @@ export default function Navbar() {
     <nav ref={navRef} style={{ ...styles.nav, padding: navCollapsed ? '0 12px' : navCompact ? '0 16px' : '0 24px', gap: navCompact ? 12 : styles.nav.gap }}>
       {/* ── Mobile/Tablet/overflow: hamburger on left ── */}
       {navCollapsed && (
-        <button onClick={() => setMobileMenuOpen(o => !o)} aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} style={{
+        <button onClick={() => setMobileMenuOpen(o => !o)} aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} title={mobileMenuOpen ? 'Close menu' : 'Open menu'} style={{
           width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
           // Frosted-glass circle on the navbar's own solid colour —
           // same round, translucent language as the teacher app's other
@@ -921,7 +962,7 @@ export default function Navbar() {
                   <div style={styles.profileMenu}>
                     <div style={{ padding: '8px 12px 10px', borderBottom: '1px solid #f0f0f0', marginBottom: 4 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{user.name}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, textTransform: 'capitalize' as const }}>{user.role.toLowerCase()}</div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, textTransform: 'capitalize' as const }}>{user.role.toLowerCase()}</div>
                     </div>
                     <button onClick={handleLogout} className="nav-drop-item"
                       style={{ ...styles.panelItem, width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' as const, display: 'flex', alignItems: 'center', gap: 10, color: '#c53030' }}>
@@ -993,7 +1034,7 @@ export default function Navbar() {
                     <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Send WhatsApp</h2>
                   </div>
                 </div>
-                <button onClick={() => setWhatsappModal(false)} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#b0b8c9', padding: '2px 4px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
+                <button onClick={() => setWhatsappModal(false)} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#64748b', padding: '2px 4px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
               </div>
             </div>
 
@@ -1079,7 +1120,7 @@ export default function Navbar() {
               <div style={{ flex: 1 }} />
               <button onClick={open} disabled={!valid} style={{
                 padding: '9px 22px', background: valid ? '#22c55e' : '#e2e8f0', color: valid ? '#fff' : '#94a3b8',
-                border: 'none', borderRadius: 8, cursor: valid ? 'pointer' : 'not-allowed',
+                border: 'none', borderRadius: 8, cursor: valid ? 'pointer' : 'default',
                 fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7,
                 boxShadow: valid ? '0 1px 3px rgba(34,197,94,0.3)' : 'none',
               }}>
@@ -1118,10 +1159,10 @@ const modal: Record<string, React.CSSProperties> = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   title: { fontWeight: 700, fontSize: 16, color: '#0f172a', lineHeight: 1.3 },
-  subtitle: { fontSize: 12, color: '#94a3b8', fontWeight: 400, lineHeight: 1.3 },
+  subtitle: { fontSize: 12, color: '#64748b', fontWeight: 400, lineHeight: 1.3 },
   closeBtn: {
     background: 'none', border: 'none', fontSize: 18, cursor: 'pointer',
-    color: '#94a3b8', lineHeight: 1, padding: 4,
+    color: '#64748b', lineHeight: 1, padding: 4,
   },
   field: { display: 'flex', flexDirection: 'column', gap: 5 },
   label: { fontSize: 13, fontWeight: 600, color: '#374151' },
@@ -1148,8 +1189,8 @@ const modal: Record<string, React.CSSProperties> = {
     borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700,
   },
   openBtnDisabled: {
-    padding: '8px 18px', background: '#e2e8f0', color: '#94a3b8', border: 'none',
-    borderRadius: 8, cursor: 'not-allowed', fontSize: 13, fontWeight: 700,
+    padding: '8px 18px', background: '#e2e8f0', color: '#64748b', border: 'none',
+    borderRadius: 8, cursor: 'default', fontSize: 13, fontWeight: 700,
   },
 };
 

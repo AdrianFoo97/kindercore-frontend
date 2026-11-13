@@ -14,7 +14,7 @@ import BackendArchitectureGraph, { nodeId, overviewRows, OverviewRow, Layer, LAY
 
 const C = {
   bg: '#f8fafc', card: '#fff', border: '#e8ebf0', borderSoft: '#f1f3f6',
-  text: '#0f172a', textSub: '#475569', muted: '#64748b', mutedSoft: '#94a3b8',
+  text: '#0f172a', textSub: '#475569', muted: '#64748b', mutedSoft: '#64748b',
   primary: '#5a67d8', primarySoft: '#eef0fa', primaryDeep: '#3c339a',
 };
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
@@ -126,7 +126,7 @@ export default function BackendArchitecturePage() {
                   <div style={st.searchWrap}>
                     <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: C.mutedSoft }} />
                     <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search — e.g. points, payroll, /api/leads, Teacher…" style={st.search} />
-                    {query && <button onClick={() => setQuery('')} aria-label="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>}
+                    {query && <button onClick={() => setQuery('')} aria-label="Clear search" title="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>}
                   </div>
                 </div>
                 <div style={st.legendRow}>

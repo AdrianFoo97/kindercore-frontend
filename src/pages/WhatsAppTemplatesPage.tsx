@@ -159,13 +159,13 @@ function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, variabl
       {/* ── Variables section ── */}
       {isAdmin && (
         <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: 10, padding: '14px 16px', marginBottom: 20 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em', textTransform: 'uppercase' as const, marginBottom: 10 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' as const, marginBottom: 10 }}>
             Click to insert variable
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
             {groups.map(group => (
               <div key={group.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', minWidth: 72, flexShrink: 0 }}>{group.label}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b', minWidth: 72, flexShrink: 0 }}>{group.label}</span>
                 <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 5 }}>
                   {group.items.map(p => (
                     <button key={p.value} onClick={() => insertPlaceholder(p.value)} style={chipStyle}>
@@ -394,7 +394,7 @@ export default function WhatsAppTemplatesPage() {
         {/* Search */}
         {(
           <div style={{ position: 'relative', marginBottom: 12 }}>
-            <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: 13 }} />
+            <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: 13 }} />
             <input
               style={s.searchInput}
               placeholder="Search by name or message content..."
@@ -402,7 +402,7 @@ export default function WhatsAppTemplatesPage() {
               onChange={e => setSearch(e.target.value)}
             />
             {search && (
-              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 2 }}>
+              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 12, padding: 2 }}>
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             )}
@@ -413,7 +413,7 @@ export default function WhatsAppTemplatesPage() {
         <div style={{ background: '#fff', border: '1px solid #eef0f4', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)' }}>
           {/* Table header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: 11, fontWeight: 600, color: '#8893a7', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>
-            <span>Template {q && <span style={{ fontWeight: 400, textTransform: 'none' as const, color: '#b0b8c9' }}>({filtered.length} of {allTemplates.length})</span>}</span>
+            <span>Template {q && <span style={{ fontWeight: 400, textTransform: 'none' as const, color: '#64748b' }}>({filtered.length} of {allTemplates.length})</span>}</span>
           </div>
 
           {/* Template rows */}
@@ -424,11 +424,11 @@ export default function WhatsAppTemplatesPage() {
               <div key={t.id} style={s.row}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2 }}>
-                    <FontAwesomeIcon icon={faMessage} style={{ color: '#94a3b8', fontSize: 12 }} />
+                    <FontAwesomeIcon icon={faMessage} style={{ color: '#64748b', fontSize: 12 }} />
                     <span style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>{t.name}</span>
                     <span style={isSystem ? s.systemBadge : s.customBadge}>{isSystem ? 'System' : 'Custom'}</span>
                   </div>
-                  {preview && <p style={{ margin: 0, fontSize: 12, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{preview.length > 80 ? preview.slice(0, 80) + '...' : preview}</p>}
+                  {preview && <p style={{ margin: 0, fontSize: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{preview.length > 80 ? preview.slice(0, 80) + '...' : preview}</p>}
                 </div>
                 <div style={{ display: 'flex', gap: 4, alignSelf: 'center' }}>
                   {langPill(!!t.content_en, 'EN')}
@@ -450,7 +450,7 @@ export default function WhatsAppTemplatesPage() {
 
           {/* Empty states */}
           {filtered.length === 0 && q && (
-            <div style={{ padding: '24px 18px', textAlign: 'center' as const, color: '#94a3b8', fontSize: 13 }}>
+            <div style={{ padding: '24px 18px', textAlign: 'center' as const, color: '#64748b', fontSize: 13 }}>
               No templates matching "{search.trim()}"
             </div>
           )}

@@ -142,7 +142,7 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
   // View-only row
   const ViewRow = ({ label, value }: { label: string; value: string }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>{label}</span>
       <span style={{ fontSize: 14, color: value && value !== '—' ? '#1e293b' : '#cbd5e1', fontWeight: 400 }}>{value || '—'}</span>
     </div>
   );
@@ -245,7 +245,7 @@ export default function EditLeadModal({ lead, lostReasons, onClose, onSaved }: {
                     {lead.status === 'LOST' && <ViewRow label="Lost Reason" value={lead.lostReason || '—'} />}
                   </div>
                   <div>
-                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Notes</span>
+                    <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>Notes</span>
                     <p style={{ fontSize: 14, color: cleanNotes ? '#1e293b' : '#cbd5e1', margin: '2px 0 0', lineHeight: 1.5 }}>
                       {cleanNotes || '—'}
                     </p>

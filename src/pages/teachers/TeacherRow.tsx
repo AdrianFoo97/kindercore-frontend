@@ -96,7 +96,7 @@ function deriveRow(t: TeacherLike, pos: PositionLike | null | undefined, sal: Sa
   const dobDate = t.dob ? new Date(t.dob) : null;
   const isBirthdayMonth = !!dobDate && dobDate.getMonth() === new Date().getMonth();
   const careerDisabledReason = !pos
-    ? 'Assign a position first to unlock career, appraisal, and compensation.'
+    ? 'Assign a position first to unlock career and compensation.'
     : pos.inCareerProgression === false
       ? `${pos.name} is not on the career progression track — these actions don't apply.`
       : undefined;
@@ -326,7 +326,7 @@ function IncompleteChip() {
         alignItems: 'center',
         gap: 4,
         padding: '2px 7px',
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: 700,
         borderRadius: TP_RADIUS.chip,
         background: TP_C.amberBg,
@@ -351,7 +351,7 @@ function StartsChip({ date }: { date: string }) {
         alignItems: 'center',
         gap: 4,
         padding: '2px 8px',
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: 700,
         borderRadius: TP_RADIUS.chip,
         background: TP_C.primaryLight,
@@ -373,7 +373,7 @@ function ResignedChip({ date, isFuture }: { date: string; isFuture: boolean }) {
       alignItems: 'center',
       gap: 4,
       padding: '2px 8px',
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: 700,
       borderRadius: TP_RADIUS.chip,
       background: isFuture ? TP_C.amberBg : TP_C.subtle,
@@ -507,7 +507,7 @@ function SalaryCell({ amount, type, hourlyRate }: {
       )}
       {!isHourly && type === 'fixed' && (
         <div style={{
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: 700,
           color: TP_C.mutedMore,
           marginTop: 3,
@@ -550,7 +550,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 4,
     background: TP_C.primaryLight,
     color: TP_C.primary,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: 700,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.05em',

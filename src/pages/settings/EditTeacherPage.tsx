@@ -10,9 +10,9 @@ import {
 import { fetchPositions, fetchLevelIncentives, fetchDepartments } from '../../api/salary.js';
 import { fetchCareerRecords, createCareerRecord, updateCareerRecord, deleteCareerRecord } from '../../api/career.js';
 import { fetchAllowanceTypes, fetchTeacherAllowances, upsertTeacherAllowances } from '../../api/allowance.js';
-import { fetchTeacherAppraisals, upsertTeacherAppraisal, deleteTeacherAppraisal, TeacherAppraisal } from '../../api/teacher-appraisals.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import { AppraisalTab } from '../appraisals/AppraisalTab.js';
 
 const C = {
   primary: '#5a67d8', primaryLight: '#eef0fa', card: '#fff', text: '#1e293b',
@@ -51,7 +51,7 @@ function randomUnusedHexColor(usedColors: string[]): string {
   return randomHexColor();
 }
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-type Tab = 'personal' | 'operations' | 'career' | 'salary';
+type Tab = 'personal' | 'operations' | 'career' | 'salary' | 'appraisals';
 
 function minutesToTime(m: number): string {
   const h = Math.floor(m / 60), mm = m % 60, p = h >= 12 ? 'PM' : 'AM';
@@ -107,6 +107,7 @@ export default function EditTeacherPage() {
   const [workStartMinute, setWorkStartMinute] = useState<number | ''>('');
   const [workEndMinute, setWorkEndMinute] = useState<number | ''>('');
   const [workDays, setWorkDays] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [reportsToTeacherId, setReportsToTeacherId] = useState('');
   const [positionId, setPositionId] = useState<string>('');
   const [level, setLevel] = useState(0);
   const [allowanceDrafts, setAllowanceDrafts] = useState<Record<string, number>>({});
@@ -156,6 +157,7 @@ export default function EditTeacherPage() {
       setWorkStartMinute(teacher.workStartMinute ?? '');
       setWorkEndMinute(teacher.workEndMinute ?? '');
       setWorkDays(teacher.workDays || [0, 1, 2, 3, 4]);
+      setReportsToTeacherId(teacher.reportsToTeacherId ?? '');
       setPositionId(teacher.positionId ?? '');
       setLevel(teacher.level ?? 0);
       setSalaryType((teacher.salaryType as any) ?? (teacher.isFixedSalary ? 'fixed' : 'formula'));
@@ -255,6 +257,13 @@ export default function EditTeacherPage() {
     },
   });
 
+  // Possible managers: current staff (not this person, not someone who's left), A–Z.
+  // The person already chosen stays listed even if they've since left.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const reportsToOptions = (teachers as { id: string; name: string; resignedAt?: string | null }[])
+    .filter(t => t.id !== id && (t.id === reportsToTeacherId || !t.resignedAt || t.resignedAt.slice(0, 10) >= todayIso))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const handleSave = () => {
     if (!name.trim()) return;
     const d = {
@@ -270,6 +279,8 @@ export default function EditTeacherPage() {
       workStartMinute: workStartMinute !== '' ? workStartMinute : undefined,
       workEndMinute: workEndMinute !== '' ? workEndMinute : undefined,
       workDays: workDays.length > 0 ? workDays : undefined,
+      // New staff: left out (the record doesn't exist yet to point a manager at).
+      ...(isNew ? {} : { reportsToTeacherId: reportsToTeacherId || null }),
       positionId: positionId || null, level,
       salaryType,
       isFixedSalary: salaryType === 'fixed',
@@ -427,15 +438,17 @@ export default function EditTeacherPage() {
     { key: 'operations', label: 'Operations', icon: faCalendarDays },
     { key: 'career', label: 'Career', icon: faBriefcase },
     { key: 'salary', label: 'Salary', icon: faCoins },
+    // Every staff member can be appraised, whatever their position.
+    ...(isNew ? [] : [{ key: 'appraisals' as Tab, label: 'Appraisals', icon: faStar }]),
   ];
 
   return (
     <div className="m-pad" style={s.page}>
-      <style>{`.et-tab:hover { background: #f1f5f9 !important; } .et-del-career:hover { color: #ef4444 !important; background: #fef2f2 !important; } .et-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }`}</style>
+      <style>{`.et-tab:not(.et-tab-active):hover { color: ${C.text} !important; border-bottom-color: #cbd5e1 !important; } .et-tabs::-webkit-scrollbar { display: none; } .et-del-career:hover { color: #ef4444 !important; background: #fef2f2 !important; } .et-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }`}</style>
       <div style={s.inner}>
         {/* Back + breadcrumb */}
         <div style={s.breadcrumb}>
-          <button onClick={() => navigate('/teachers')} className="et-back-btn" style={s.backBtn} title="Back">
+          <button onClick={() => navigate('/teachers')} className="et-back-btn back-btn" style={s.backBtn} title="Back">
             <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
           </button>
           <span onClick={() => navigate('/teachers')} style={s.breadcrumbLink}>Teachers</span>
@@ -447,14 +460,16 @@ export default function EditTeacherPage() {
           <h1 style={s.heading}>{isNew ? 'New Teacher' : teacher?.name ?? 'Teacher'}</h1>
         </div>
 
-        {/* Layout: tabs left + content right */}
+        {/* Layout: tab bar on top, content full width underneath */}
         <div style={s.layout}>
-          {/* Tab nav */}
-          <div style={s.tabNav}>
+          {/* Tab bar — sticks under the page top while scrolling a long tab;
+              slides sideways on a phone rather than wrapping. */}
+          <div role="tablist" className="et-tabs" style={s.tabNav}>
             {TABS.map(t => (
-              <button key={t.key} className="et-tab" onClick={() => setTab(t.key)}
+              <button key={t.key} type="button" role="tab" aria-selected={tab === t.key}
+                className={`et-tab${tab === t.key ? ' et-tab-active' : ''}`} onClick={() => setTab(t.key)}
                 style={{ ...s.tabBtn, ...(tab === t.key ? s.tabBtnActive : {}) }}>
-                <FontAwesomeIcon icon={t.icon} style={{ fontSize: 12, width: 16 }} />
+                <FontAwesomeIcon icon={t.icon} style={{ fontSize: 12 }} />
                 {t.label}
               </button>
             ))}
@@ -582,6 +597,11 @@ export default function EditTeacherPage() {
                     <div style={{ width: 150 }}>
                       <label style={s.label}>Last Working Day</label>
                       <input style={s.input} type="date" value={resignedAt} onChange={e => setResignedAt(e.target.value)} />
+                      {resignedAt && (
+                        <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4, maxWidth: 220, lineHeight: 1.4 }}>
+                          They can sign in until the end of this day, then not at all.
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -696,6 +716,20 @@ export default function EditTeacherPage() {
             {/* ── Operations ── */}
             {tab === 'operations' && (
               <>
+                {!isNew && (
+                  <div style={s.card}>
+                    <h2 style={s.sectionTitle}>Reporting</h2>
+                    <label style={s.label} htmlFor="et-reports-to">Reports to</label>
+                    <select id="et-reports-to" style={{ ...s.input, maxWidth: 320 }} value={reportsToTeacherId} onChange={e => setReportsToTeacherId(e.target.value)}>
+                      <option value="">Nobody</option>
+                      {reportsToOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
+                      Appraisal steps set to “their own team” go to the people they report to.
+                    </div>
+                  </div>
+                )}
+
                 <div style={s.card}>
                   <h2 style={s.sectionTitle}>Schedule</h2>
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -807,7 +841,7 @@ export default function EditTeacherPage() {
                   ) : careerHistory.length === 0 && !showCareerForm ? (
                     <div style={{ textAlign: 'center', padding: '24px 0' }}>
                       <p style={{ fontSize: 13, color: C.muted, margin: '0 0 8px' }}>No career records yet</p>
-                      <p style={{ fontSize: 12, color: '#cbd5e1', margin: 0 }}>Click "Record Progression" to start tracking.</p>
+                      <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Click "Record Progression" to start tracking.</p>
                     </div>
                   ) : (
                     <div>
@@ -914,22 +948,22 @@ export default function EditTeacherPage() {
                                       {recPos?.name ?? rec.positionId}{rec.level > 0 ? ` — Level ${rec.level}` : ''}
                                     </span>
                                     {isTitlePromotion && (
-                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 700, color: '#92400e', background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '3px 9px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.04em', border: '1px solid #fcd34d', boxShadow: '0 1px 3px rgba(251, 191, 36, 0.2)' }}>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#92400e', background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', padding: '3px 9px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.04em', border: '1px solid #fcd34d', boxShadow: '0 1px 3px rgba(251, 191, 36, 0.2)' }}>
                                         <FontAwesomeIcon icon={faStar} style={{ fontSize: 8 }} /> Promoted
                                       </span>
                                     )}
                                     {isLevelUp && (
-                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 700, color: C.green, background: '#dcfce7', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: C.green, background: '#dcfce7', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                         <FontAwesomeIcon icon={faArrowUp} style={{ fontSize: 7 }} /> Level Up
                                       </span>
                                     )}
-                                    {isCurrent && <span style={{ fontSize: 9, fontWeight: 700, color: C.primary, background: C.primaryLight, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Current</span>}
+                                    {isCurrent && <span style={{ fontSize: 10, fontWeight: 700, color: C.primary, background: C.primaryLight, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Current</span>}
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <button onClick={() => startEditCareer(rec)} className="et-del-career" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', padding: '4px 6px', fontSize: 11, borderRadius: 4 }} title="Edit">
+                                    <button onClick={() => startEditCareer(rec)} className="et-del-career" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px 6px', fontSize: 11, borderRadius: 4 }} title="Edit">
                                       <FontAwesomeIcon icon={faPen} />
                                     </button>
-                                    <button onClick={() => handleDeleteCareer(rec)} className="et-del-career" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', padding: '4px 6px', fontSize: 11, borderRadius: 4 }} title="Delete">
+                                    <button onClick={() => handleDeleteCareer(rec)} className="et-del-career" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px 6px', fontSize: 11, borderRadius: 4 }} title="Delete">
                                       <FontAwesomeIcon icon={faTrash} />
                                     </button>
                                   </div>
@@ -1055,6 +1089,8 @@ export default function EditTeacherPage() {
               </>
             )}
 
+            {tab === 'appraisals' && id && <AppraisalTab teacherId={id} />}
+
             {/* Actions per tab */}
             {(tab === 'personal' || tab === 'operations') && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
@@ -1081,7 +1117,7 @@ export default function EditTeacherPage() {
 function Row({ label, value }: { label: string; value: number }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-      <span style={{ color: '#94a3b8' }}>{label}</span>
+      <span style={{ color: '#64748b' }}>{label}</span>
       <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>RM {value.toLocaleString()}</span>
     </div>
   );
@@ -1130,7 +1166,7 @@ function AllowanceRow({
             textAlign: 'right', fontWeight: 600,
             background: disabled ? '#f1f5f9' : '#fff',
             color: disabled ? C.muted : C.text,
-            cursor: disabled ? 'not-allowed' : 'text',
+            cursor: disabled ? 'default' : 'text',
           }}
           type="text" inputMode="numeric"
           disabled={disabled}
@@ -1154,14 +1190,22 @@ const s: Record<string, React.CSSProperties> = {
   heading: { fontSize: 22, fontWeight: 800, color: C.text, margin: 0 },
 
   // Layout
-  layout: { display: 'flex', gap: 24 },
-  tabNav: { width: 180, flexShrink: 0, display: 'flex', flexDirection: 'column' as const, gap: 2, position: 'sticky' as const, top: 28, alignSelf: 'flex-start' as const },
-  tabBtn: {
-    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', fontSize: 13, fontWeight: 500,
-    color: C.muted, background: 'none', border: 'none', borderRadius: 8, cursor: 'pointer',
-    textAlign: 'left' as const, fontFamily: 'inherit', transition: 'all 0.1s',
+  layout: { display: 'flex', flexDirection: 'column' as const, gap: 20 },
+  tabNav: {
+    display: 'flex', gap: 4, overflowX: 'auto' as const, scrollbarWidth: 'none' as const,
+    borderBottom: `1px solid ${C.border}`, position: 'sticky' as const, top: 0, zIndex: 5,
+    background: '#f8fafc', margin: '0 -4px', padding: '0 4px',
   },
-  tabBtnActive: { background: C.primaryLight, color: C.primary, fontWeight: 600 },
+  tabBtn: {
+    display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', fontSize: 13.5, fontWeight: 600,
+    // Longhands only — mixing `border`/`borderBottom` with `borderBottomColor`
+    // lets React drop the colour when the active tab changes (renders black).
+    color: C.muted, background: 'none', borderStyle: 'none none solid', borderWidth: '0 0 2px',
+    borderColor: 'transparent', marginBottom: -1,
+    cursor: 'pointer', whiteSpace: 'nowrap' as const, flexShrink: 0, fontFamily: 'inherit',
+    transition: 'color 0.1s, border-color 0.1s',
+  },
+  tabBtnActive: { color: C.primary, borderColor: `transparent transparent ${C.primary}` },
   content: { flex: 1, minWidth: 0 },
 
   // Cards
@@ -1177,293 +1221,3 @@ const s: Record<string, React.CSSProperties> = {
   cancelBtn: { padding: '10px 22px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: `1px solid ${C.border}`, background: C.card, color: C.text, cursor: 'pointer' },
   saveBtn: { padding: '10px 28px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: C.primary, color: '#fff', cursor: 'pointer' },
 };
-
-// ── Appraisal Tab ────────────────────────────────────────────────────────────
-
-const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-// Score banding: ≥80 green, 60–79 amber, <60 red. Reused for the row pill
-// and the summary average so the colour story stays consistent.
-function scoreColors(score: number): { bg: string; color: string } {
-  if (score >= 80) return { bg: '#dcfce7', color: '#15803d' };
-  if (score >= 60) return { bg: '#fef3c7', color: '#b45309' };
-  return { bg: '#fee2e2', color: '#991b1b' };
-}
-
-export function AppraisalTab({ teacherId }: { teacherId: string }) {
-  const qc = useQueryClient();
-  const { showToast } = useToast();
-  const { confirm } = useDeleteDialog();
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['teacher-appraisals', teacherId],
-    queryFn: () => fetchTeacherAppraisals(teacherId),
-  });
-  const items = data?.items ?? [];
-
-  const now = new Date();
-
-  // Year filter — defaults to current calendar year, scoping both the
-  // summary average and the history list below.
-  const [filterYear, setFilterYear] = useState(now.getFullYear());
-
-  // Items in the selected year only — drives the list + year-average.
-  const yearItems = useMemo(() => items.filter(it => it.year === filterYear), [items, filterYear]);
-  const yearAverage = useMemo(() => {
-    if (yearItems.length === 0) return null;
-    const sum = yearItems.reduce((acc, r) => acc + (r.score ?? 0), 0);
-    return Math.round(sum / yearItems.length);
-  }, [yearItems]);
-
-  // Form state — defaults to "current month, blank score" for fast monthly entry.
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
-  const [score, setScore] = useState<string>('');
-  const [notes, setNotes] = useState('');
-  const [evaluatedBy, setEvaluatedBy] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Existing record for the selected (year, month) — drives "this overwrites
-  // an existing entry" hint and pre-fills the form when editing.
-  const existingForPeriod = useMemo(
-    () => items.find(it => it.year === year && it.month === month) ?? null,
-    [items, year, month],
-  );
-
-  const startEdit = (a: TeacherAppraisal) => {
-    setEditingId(a.id);
-    setYear(a.year);
-    setMonth(a.month);
-    setScore(String(a.score));
-    setNotes(a.notes ?? '');
-    setEvaluatedBy(a.evaluatedBy ?? '');
-  };
-  const cancelEdit = () => {
-    setEditingId(null);
-    setYear(now.getFullYear()); setMonth(now.getMonth());
-    setScore(''); setNotes(''); setEvaluatedBy('');
-  };
-
-  const submit = async () => {
-    const parsed = parseFloat(score);
-    if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
-      showToast('Score must be between 0 and 100', 'error');
-      return;
-    }
-    setSaving(true);
-    try {
-      await upsertTeacherAppraisal(teacherId, {
-        year, month, score: parsed,
-        notes: notes.trim() || null,
-        evaluatedBy: evaluatedBy.trim() || null,
-      });
-      qc.invalidateQueries({ queryKey: ['teacher-appraisals', teacherId] });
-      qc.invalidateQueries({ queryKey: ['teacher-career', teacherId] });
-      showToast(existingForPeriod ? 'Appraisal updated' : 'Appraisal recorded');
-      cancelEdit();
-    } catch (e: any) {
-      showToast(e?.message ?? 'Failed to save', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const remove = async (a: TeacherAppraisal) => {
-    const ok = await confirm({
-      entityType: 'Appraisal',
-      entityName: `${MONTH_LABELS[a.month]} ${a.year}`,
-      consequence: 'This appraisal record will be permanently removed.',
-      onConfirm: async () => {
-        await deleteTeacherAppraisal(a.id);
-        qc.invalidateQueries({ queryKey: ['teacher-appraisals', teacherId] });
-        qc.invalidateQueries({ queryKey: ['teacher-career', teacherId] });
-      },
-    });
-    if (ok) showToast('Appraisal deleted');
-  };
-
-  const yearOptions = useMemo(() => {
-    const ys = new Set<number>();
-    ys.add(now.getFullYear());
-    ys.add(now.getFullYear() - 1);
-    for (const it of items) ys.add(it.year);
-    return [...ys].sort((a, b) => b - a);
-  }, [items, now]);
-
-  // Filter pill year options — same set, ordered newest-first. The form
-  // and filter share the same option pool so admins don't see a year
-  // they can't enter records for.
-  const filterYearOptions = yearOptions;
-
-  if (isLoading) return <div style={s.card}><p style={{ color: C.muted, fontSize: 13, margin: 0 }}>Loading…</p></div>;
-
-  return (
-    <>
-      {/* Summary card with inline year filter */}
-      <div style={{ ...s.card, background: 'linear-gradient(135deg, #f8fafc 0%, #eef0fa 100%)', borderColor: '#c7d2fe' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.primary, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Average Appraisal
-              </div>
-              <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>
-                {yearItems.length} record{yearItems.length === 1 ? '' : 's'} in {filterYear}
-              </div>
-            </div>
-            <select
-              value={filterYear}
-              onChange={e => setFilterYear(Number(e.target.value))}
-              style={{
-                padding: '6px 12px', fontSize: 12, fontWeight: 600,
-                border: `1px solid ${C.primary}33`, borderRadius: 8,
-                background: '#fff', color: C.primary, cursor: 'pointer', outline: 'none',
-              }}
-            >
-              {filterYearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{
-              fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1,
-              color: yearAverage != null ? scoreColors(yearAverage).color : C.muted,
-            }}>
-              {yearAverage != null ? `${yearAverage}%` : '—'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Entry form */}
-      <div style={s.card}>
-        <h2 style={{ ...s.sectionTitle, margin: 0, marginBottom: 14 }}>
-          {editingId ? 'Edit appraisal' : existingForPeriod ? 'Update existing month' : 'Record monthly appraisal'}
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 12 }}>
-          <div>
-            <label style={s.label}>Year</label>
-            <select value={year} onChange={e => setYear(Number(e.target.value))} style={s.input as React.CSSProperties}>
-              {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={s.label}>Month</label>
-            <select value={month} onChange={e => setMonth(Number(e.target.value))} style={s.input as React.CSSProperties}>
-              {MONTH_LABELS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={s.label}>Score (0–100)</label>
-            <input
-              type="number" min={0} max={100} step={1}
-              value={score}
-              onChange={e => setScore(e.target.value)}
-              placeholder="e.g. 78"
-              style={s.input}
-            />
-          </div>
-          <div>
-            <label style={s.label}>Evaluator (optional)</label>
-            <input
-              type="text"
-              value={evaluatedBy}
-              onChange={e => setEvaluatedBy(e.target.value)}
-              placeholder="e.g. Principal Tan"
-              style={s.input}
-            />
-          </div>
-        </div>
-        <div style={{ marginBottom: 12 }}>
-          <label style={s.label}>Notes (optional)</label>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder="Strengths, areas for growth, next-month focus…"
-            style={{ ...s.input, minHeight: 60, resize: 'vertical', fontFamily: 'inherit' }}
-          />
-        </div>
-        {existingForPeriod && !editingId && (
-          <div style={{
-            padding: '8px 12px', marginBottom: 12, borderRadius: 8,
-            background: '#fef9c3', color: '#854d0e', fontSize: 12, fontWeight: 500,
-          }}>
-            An entry for {MONTH_LABELS[month]} {year} already exists ({existingForPeriod.score}%). Saving will overwrite it.
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          {editingId && (
-            <button onClick={cancelEdit} style={s.cancelBtn} type="button">Cancel</button>
-          )}
-          <button
-            onClick={submit}
-            disabled={saving || !score.trim()}
-            style={{ ...s.saveBtn, opacity: saving || !score.trim() ? 0.5 : 1 }}
-          >
-            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 11, marginRight: 6 }} />
-            {saving ? 'Saving…' : editingId ? 'Save changes' : existingForPeriod ? 'Overwrite' : 'Add appraisal'}
-          </button>
-        </div>
-      </div>
-
-      {/* History list — scoped to selected year */}
-      <div style={s.card}>
-        <h2 style={{ ...s.sectionTitle, margin: 0, marginBottom: 12 }}>History · {filterYear}</h2>
-        {yearItems.length === 0 ? (
-          <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>No appraisals recorded for {filterYear}.</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {yearItems.map(a => {
-              const sc = scoreColors(a.score);
-              return (
-                <div key={a.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  padding: '12px 14px', border: `1px solid ${C.border}`, borderRadius: 10,
-                  background: editingId === a.id ? '#eef0fa' : '#fff',
-                }}>
-                  <div style={{
-                    width: 56, padding: '6px 8px', borderRadius: 8,
-                    background: sc.bg, color: sc.color,
-                    textAlign: 'center', fontWeight: 700, fontSize: 13,
-                  }}>
-                    {Math.round(a.score)}%
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
-                      {MONTH_LABELS[a.month]} {a.year}
-                      {a.evaluatedBy && (
-                        <span style={{ marginLeft: 8, fontWeight: 500, color: C.muted, fontSize: 11 }}>
-                          · {a.evaluatedBy}
-                        </span>
-                      )}
-                    </div>
-                    {a.notes && (
-                      <div style={{ fontSize: 12, color: C.sub, marginTop: 4, lineHeight: 1.5 }}>
-                        {a.notes}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => startEdit(a)} className="et-tab" style={{
-                      padding: '6px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6,
-                      border: `1px solid ${C.border}`, background: '#fff', color: C.sub, cursor: 'pointer',
-                    }}>
-                      <FontAwesomeIcon icon={faPen} style={{ fontSize: 10, marginRight: 4 }} />
-                      Edit
-                    </button>
-                    <button onClick={() => remove(a)} className="et-del-career" style={{
-                      padding: '6px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6,
-                      border: `1px solid ${C.border}`, background: '#fff', color: C.muted, cursor: 'pointer',
-                    }}>
-                      <FontAwesomeIcon icon={faTrash} style={{ fontSize: 10 }} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </>
-  );
-}

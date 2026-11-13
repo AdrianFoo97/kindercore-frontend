@@ -27,7 +27,7 @@ const C = {
   text: '#475569',
   textStrong: '#334155',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   slateSoft: '#f1f5f9',
   pAccent: '#7c3aed',
   pSoft: '#f5f3ff',
@@ -52,7 +52,7 @@ function rankBadgeColor(rank: number): string {
 
 function DeltaBadge({ delta, prevRank }: { delta: number | null; prevRank: number | null }) {
   if (prevRank === null) {
-    return <span style={{ fontSize: 10.5, fontWeight: 700, color: C.mutedSoft }}>New</span>;
+    return <span style={{ fontSize: 11, fontWeight: 700, color: C.mutedSoft }}>New</span>;
   }
   if (delta === null || delta === 0) {
     return (

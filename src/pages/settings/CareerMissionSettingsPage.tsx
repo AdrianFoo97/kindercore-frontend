@@ -24,7 +24,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -398,14 +398,14 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
                           <button
                             onClick={() => { setEditing(m); setEditorOpen(true); }}
                             style={s.iconBtn}
-                            aria-label="Edit"
+                            aria-label="Edit" title="Edit"
                           >
                             <FontAwesomeIcon icon={faPen} />
                           </button>
                           <button
                             onClick={() => onDelete(m)}
                             style={{ ...s.iconBtn, color: C.danger }}
-                            aria-label="Delete"
+                            aria-label="Delete" title="Delete"
                           >
                             <FontAwesomeIcon icon={faTrash} />
                           </button>
@@ -500,7 +500,7 @@ function MissionEditorModal({
             <h2 style={modalS.title}>{mission ? 'Edit mission' : 'New mission'}</h2>
             <div style={modalS.subtitle}>For position <strong>{positionName}</strong></div>
           </div>
-          <button onClick={onCancel} style={modalS.closeBtn} aria-label="Close">
+          <button onClick={onCancel} style={modalS.closeBtn} aria-label="Close" title="Close">
             <FontAwesomeIcon icon={faTimes} />
           </button>
         </div>

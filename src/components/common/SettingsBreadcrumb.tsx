@@ -26,7 +26,7 @@ export function SettingsBreadcrumb({ label, backTo, inline }: SettingsBreadcrumb
       <style>{`.sb-back-btn:hover { background: #f1f5f9 !important; color: #1e293b !important; border-color: #cbd5e1 !important; }`}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: inline ? 0 : 24 }}>
         {hasPrevious && (
-          <button onClick={goBack} className="sb-back-btn" style={{
+          <button onClick={goBack} className="sb-back-btn back-btn" style={{
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -49,7 +49,7 @@ export function SettingsBreadcrumb({ label, backTo, inline }: SettingsBreadcrumb
               fontWeight: i === lastIdx ? 700 : 600,
               color: i === lastIdx ? '#334155' : '#64748b',
             }}>{c}</span>
-            {i < lastIdx && <span style={{ color: '#94a3b8', fontSize: 14 }}>&gt;</span>}
+            {i < lastIdx && <span style={{ color: '#64748b', fontSize: 14 }}>&gt;</span>}
           </span>
         ))}
       </div>

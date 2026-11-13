@@ -132,7 +132,7 @@ export default function RevenueAnalysisPage() {
     if (!entry) setPeriod('all');
   }, [entries, period]);
 
-  if (isLoading) return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: '#94a3b8' }}>Loading...</p></div></div>;
+  if (isLoading) return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: '#64748b' }}>Loading...</p></div></div>;
   if (isError || !data) return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: '#dc2626' }}>Failed to load revenue data.</p></div></div>;
 
   const years = data.availableYears.length > 0 ? data.availableYears : [currentYear];
@@ -226,7 +226,7 @@ export default function RevenueAnalysisPage() {
         {/* Chart 1: Monthly Revenue */}
         <div style={s.chartCard}>
           <h3 style={s.chartTitle}>Revenue by {groupBy === 'quarter' ? 'Quarter' : 'Month'} — {selectedYear}</h3>
-          <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: 11, color: '#94a3b8' }}>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 8, fontSize: 11, color: '#64748b' }}>
             <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: C.blue, marginRight: 4 }} />Actual</span>
             <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#bfdbfe', marginRight: 4 }} />Forecast</span>
             <span><span style={{ display: 'inline-block', width: 10, height: 4, background: C.amber, marginRight: 4, verticalAlign: 'middle' }} />Students</span>
@@ -452,7 +452,7 @@ export default function RevenueAnalysisPage() {
         {/* Year over Year — bottom of page */}
         <div style={s.chartCard}>
           <h3 style={s.chartTitle}>Year-over-Year Revenue</h3>
-          <p style={{ margin: '-4px 0 12px', fontSize: 12, color: '#94a3b8' }}>Comparing {selectedYear} vs {data.prevYear}</p>
+          <p style={{ margin: '-4px 0 12px', fontSize: 12, color: '#64748b' }}>Comparing {selectedYear} vs {data.prevYear}</p>
           <ResponsiveContainer width="100%" height={250}>
             <ComposedChart data={data.monthlyRevenue} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -867,7 +867,7 @@ function EnrollmentEventsList({
               Forecast
             </span>
           )}
-          <span style={{ fontSize: 12, fontWeight: 500, color: '#94a3b8' }}>
+          <span style={{ fontSize: 12, fontWeight: 500, color: '#64748b' }}>
             {newCount} new · {changeCount} change{changeCount === 1 ? '' : 's'} · {withdrawnCount} withdrawn
           </span>
           {filtered.length > 0 && (
@@ -879,7 +879,7 @@ function EnrollmentEventsList({
             </span>
           )}
         </div>
-        <div style={{ fontSize: 11, color: '#94a3b8' }}>
+        <div style={{ fontSize: 11, color: '#64748b' }}>
           {selectedMonth !== null ? (
             <button
               onClick={onClearMonth}
@@ -897,7 +897,7 @@ function EnrollmentEventsList({
       </div>
 
       {filtered.length === 0 ? (
-        <p style={{ margin: 0, padding: '20px 0', textAlign: 'center', fontSize: 13, color: '#94a3b8' }}>
+        <p style={{ margin: 0, padding: '20px 0', textAlign: 'center', fontSize: 13, color: '#64748b' }}>
           No enrolment events {selectedMonth !== null ? `in ${MONTH_NAMES[selectedMonth]} ${data.selectedYear}` : `in ${data.selectedYear}`}
         </p>
       ) : (() => {
@@ -972,7 +972,7 @@ function EnrollmentEventsList({
                             <td style={{ ...evTd, fontWeight: 600, color: '#0f172a' }}>
                               {ev.studentName}
                               {isWithdrawn && ev.withdrawReason && (
-                                <div style={{ fontWeight: 400, fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                                <div style={{ fontWeight: 400, fontSize: 11, color: '#64748b', marginTop: 2 }}>
                                   {ev.withdrawReason}
                                 </div>
                               )}
@@ -980,15 +980,15 @@ function EnrollmentEventsList({
                             <td style={evTd}>
                               {isChange && ev.prevProgramme && ev.prevProgramme !== ev.programme && (
                                 <>
-                                  <span style={{ color: '#94a3b8' }}>{ev.prevProgramme}</span>
-                                  <span style={{ color: '#cbd5e1', margin: '0 6px', fontWeight: 500 }}>→</span>
+                                  <span style={{ color: '#64748b' }}>{ev.prevProgramme}</span>
+                                  <span style={{ color: '#64748b', margin: '0 6px', fontWeight: 500 }}>→</span>
                                 </>
                               )}
                               <span style={{ color: '#0f172a', fontWeight: isChange ? 600 : 400 }}>
                                 {ev.programme ?? '—'}
                               </span>
                               {ev.packageAge != null && (
-                                <span style={{ color: '#94a3b8', marginLeft: 4 }}>· {ev.packageAge}y</span>
+                                <span style={{ color: '#64748b', marginLeft: 4 }}>· {ev.packageAge}y</span>
                               )}
                             </td>
                             <td style={{ ...evTd, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: isWithdrawn ? '#dc2626' : '#5b21b6', fontWeight: 600 }}>
@@ -1042,10 +1042,10 @@ function KpiCard({ label, value, color, sub }: { label: string; value: string; c
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b', marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }

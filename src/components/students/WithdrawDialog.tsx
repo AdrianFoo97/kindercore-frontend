@@ -45,7 +45,7 @@ export default function WithdrawDialog({
           </label>
           <label style={label}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              Reason <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span>
+              Reason <span style={{ fontWeight: 400, color: '#64748b' }}>(optional)</span>
             </span>
             <textarea
               value={reason}
@@ -55,7 +55,7 @@ export default function WithdrawDialog({
             />
           </label>
         </div>
-        <p style={{ margin: '14px 0 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+        <p style={{ margin: '14px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
           The current enrolment closes on this date. Past months keep their
           original package and fee for revenue reporting.
         </p>
@@ -70,7 +70,7 @@ export default function WithdrawDialog({
             style={{
               ...confirmBtn,
               opacity: !valid || submitting ? 0.6 : 1,
-              cursor: !valid || submitting ? 'not-allowed' : 'pointer',
+              cursor: !valid || submitting ? 'default' : 'pointer',
             }}
           >
             {submitting ? 'Withdrawing…' : 'Confirm Withdraw'}

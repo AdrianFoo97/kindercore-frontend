@@ -22,7 +22,7 @@ const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   border: '#e2e8f0',
   borderSoft: '#eef0f3',
   surface: '#ffffff',
@@ -111,8 +111,8 @@ export default function HomePage() {
       <style>{`
         .ktc-cta-primary:hover { background: ${C.primaryDeep} !important; }
         .ktc-cta-secondary:hover { background: ${C.primarySoft} !important; }
-        .ktc-feature-card:hover { border-color: ${C.primaryBorder}; transform: translateY(-2px); }
-        .ktc-feature-card { transition: border-color 180ms ease, transform 180ms ease; }
+        .ktc-feature-card:hover { border-color: ${C.primaryBorder}; }
+        .ktc-feature-card { transition: border-color 180ms ease; }
         .ktc-top-link:hover { color: ${C.primary} !important; }
       `}</style>
 

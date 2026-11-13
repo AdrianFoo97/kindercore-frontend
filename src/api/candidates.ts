@@ -1,4 +1,4 @@
-import { apiFetch } from './client.js';
+import { apiFetch, withSession } from './client.js';
 import { Candidate, CandidatesResponse, CandidateStatus, CommuteTime, Teacher } from '../types/index.js';
 
 export interface CandidatesQuery {
@@ -102,15 +102,10 @@ export function fetchCandidateFormOptions() {
  *  called within 60 min of the original POST (server-enforced) and only
  *  once. Returns nothing useful on success. */
 export async function uploadCandidateResume(candidateId: string, file: File): Promise<void> {
-  const token = localStorage.getItem('token');
   const fd = new FormData();
   fd.append('resume', file);
   const BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? '';
-  const res = await fetch(`${BASE_URL}/api/candidates/${candidateId}/resume`, {
-    method: 'POST',
-    body: fd,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  const res = await fetch(`${BASE_URL}/api/candidates/${candidateId}/resume`, withSession({ method: 'POST', body: fd }));
   if (!res.ok) {
     let message = `Upload failed (${res.status})`;
     try { message = (await res.json()).message ?? message; } catch { /* keep default */ }
@@ -133,11 +128,8 @@ export async function downloadCandidateResume(
   candidateId: string,
   targetWindow?: Window | null,
 ): Promise<void> {
-  const token = localStorage.getItem('token');
   const BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? '';
-  const res = await fetch(`${BASE_URL}/api/candidates/${candidateId}/resume`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  const res = await fetch(`${BASE_URL}/api/candidates/${candidateId}/resume`, withSession());
   if (!res.ok) {
     // If we pre-opened a blank tab, close it — nothing to show there.
     try { targetWindow?.close(); } catch { /* ignore */ }

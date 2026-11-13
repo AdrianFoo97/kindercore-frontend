@@ -30,7 +30,7 @@ const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   success: '#059669',
   successSoft: '#ecfdf5',
   successBorder: '#a7f3d0',
@@ -183,7 +183,7 @@ function BalanceHero({ teacherId }: { teacherId: string }) {
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{
-              fontSize: 10, fontWeight: 800, color: POINTS_C.accent,
+              fontSize: 11, fontWeight: 800, color: POINTS_C.accent,
               textTransform: 'uppercase', letterSpacing: '0.1em',
               marginBottom: 4,
             }}>
@@ -269,7 +269,7 @@ function InlineStat({ label, value, tone = 'default' }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
       <div style={{
-        fontSize: 9, fontWeight: 800, color: C.muted,
+        fontSize: 11, fontWeight: 800, color: C.muted,
         textTransform: 'uppercase', letterSpacing: '0.08em',
       }}>
         {label}
@@ -377,7 +377,7 @@ function MyGoalCard({ teacherId }: {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 10, fontWeight: 800,
+            fontSize: 11, fontWeight: 800,
             color: accentColor,
             textTransform: 'uppercase', letterSpacing: '0.1em',
           }}>
@@ -555,7 +555,7 @@ function RecentActivity({
             gridTemplateColumns: '32px minmax(0, 1fr) 76px 56px',
             gap: 10, alignItems: 'center',
             padding: '4px 0 8px',
-            fontSize: 9, fontWeight: 800, color: C.muted,
+            fontSize: 11, fontWeight: 800, color: C.muted,
             textTransform: 'uppercase', letterSpacing: '0.08em',
             borderBottom: `1px solid ${C.divider}`,
           }}>
@@ -606,7 +606,7 @@ function RecentActivity({
                 }}>
                   {tx.delta > 0 ? '+' : '−'}{Math.abs(tx.delta).toLocaleString('en-MY')}
                   <span style={{
-                    fontSize: 10, fontWeight: 600, color: C.muted, marginLeft: 3,
+                    fontSize: 11, fontWeight: 600, color: C.muted, marginLeft: 3,
                   }}>pts</span>
                 </div>
                 <div style={{
@@ -754,7 +754,7 @@ function MyRewards({ teacherId, filter, onFilterChange }: {
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5,
                     padding: '2px 8px 2px 7px', height: 20, borderRadius: 999,
-                    fontSize: 10, fontWeight: 700,
+                    fontSize: 11, fontWeight: 700,
                     background: badge.bg, color: badge.color,
                     border: `1px solid ${badge.border}`,
                     textTransform: 'uppercase', letterSpacing: '0.06em',
@@ -868,7 +868,7 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: 'center', justifyContent: 'center', fontSize: 12,
   },
   eyebrow: {
-    fontSize: 10, fontWeight: 700, color: C.muted,
+    fontSize: 11, fontWeight: 700, color: C.muted,
     textTransform: 'uppercase' as const, letterSpacing: '0.1em',
   },
   heading: {

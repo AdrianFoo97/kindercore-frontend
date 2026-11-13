@@ -92,7 +92,7 @@ export function StickySaveBar({
           }}>
             <FontAwesomeIcon
               icon={deltaIsPositive ? faArrowUp : faArrowDown}
-              style={{ fontSize: 9 }}
+              style={{ fontSize: 10 }}
             />
             {fmtRMCompact(Math.abs(deltaTotal))}
           </span>
@@ -117,7 +117,7 @@ export function StickySaveBar({
             borderRadius: 9,
             fontSize: 13,
             fontWeight: 600,
-            cursor: isSaving ? 'not-allowed' : 'pointer',
+            cursor: isSaving ? 'default' : 'pointer',
             fontFamily: 'inherit',
             transition: `background ${MOTION.fast}, border-color ${MOTION.fast}`,
           }}

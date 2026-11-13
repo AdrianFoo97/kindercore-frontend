@@ -525,7 +525,7 @@ export default function OperatingCostCategoriesPage({ embedded = false }: { embe
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 padding: 6,
-                                color: '#cbd5e1',
+                                color: '#64748b',
                                 cursor: isEditing ? 'default' : 'grab',
                                 borderRadius: 4,
                                 transition: 'color 0.12s, background 0.12s',
@@ -840,7 +840,7 @@ const s: Record<string, React.CSSProperties> = {
   th: { padding: '12px 20px', fontSize: 10, fontWeight: 700, color: C.muted, textTransform: 'uppercase' as const, letterSpacing: '0.06em', borderBottom: `1px solid ${C.border}`, background: C.card },
   td: { padding: '10px 20px', borderBottom: `1px solid ${C.border}`, fontSize: 13, color: C.text, verticalAlign: 'middle' as const },
   moneyCell: { fontVariantNumeric: 'tabular-nums' as const, color: C.text, fontWeight: 600 },
-  dashCell: { color: '#cbd5e1' },
+  dashCell: { color: '#64748b' },
   // Inputs use negative margin so their interior text lines up with the display-span
   // position, preventing a visible text shift when entering edit mode.
   cellInput: {
@@ -888,6 +888,6 @@ const s: Record<string, React.CSSProperties> = {
   secondaryBtn: { background: C.card, color: C.muted, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', height: 36, cursor: 'pointer' },
   iconBtn: { background: 'transparent', border: 'none', color: C.muted, cursor: 'pointer', padding: 8, borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
   iconBtnGreen: { background: '#ecfdf5', border: `1px solid #a7f3d0`, color: '#059669', cursor: 'pointer', padding: 8, borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
-  empty: { color: '#cbd5e1', fontSize: 13, textAlign: 'center' as const, padding: '24px 0', margin: 0 },
+  empty: { color: '#64748b', fontSize: 13, textAlign: 'center' as const, padding: '24px 0', margin: 0 },
   pageBtn: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 4, padding: '4px 10px', fontSize: 12, fontWeight: 600, color: C.muted, cursor: 'pointer', fontFamily: 'inherit', minWidth: 28 },
 };

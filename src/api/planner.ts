@@ -34,6 +34,8 @@ export function updateTeacher(id: string, data: Partial<{
   /** False while they're on HR → Onboarding (HR/admin views only). */
   onboardingCompleted?: boolean;
   phone: string | null; dob: string | null; employmentType: string | null;
+  /** Who they report to — decides who may appraise them ("their own team"). HR only. */
+  reportsToTeacherId: string | null;
 }>) {
   return apiFetch<Teacher>(`/api/planner/teachers/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 }

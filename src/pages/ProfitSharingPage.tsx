@@ -23,7 +23,7 @@ const C = {
   text:         '#0f172a',
   textSub:      '#475569',
   muted:        '#64748b',
-  faint:        '#94a3b8',
+  faint:        '#64748b',
   ghost:        '#cbd5e1',
 
   success:      '#059669',
@@ -260,7 +260,7 @@ export default function ProfitSharingPage() {
               options={QUARTERS.map(q => ({ value: String(q.idx), label: q.label }))}
             />
             <div ref={teacherFilterRef} style={{ position: 'relative' }}>
-              <button
+              <button aria-label="Filter by staff" title="Filter by staff"
                 type="button"
                 onClick={() => setTeacherFilterOpen(o => !o)}
                 className="pill-select"
@@ -835,7 +835,7 @@ function StatusPill({ hit, hasRatio, isPending }: { hit: boolean; hasRatio: bool
       padding: '2px 8px',
       background: bg, color,
       borderRadius: 999,
-      fontSize: 9.5, fontWeight: 700,
+      fontSize: 10, fontWeight: 700,
       textTransform: 'uppercase' as const, letterSpacing: '0.06em',
       lineHeight: 1.5,
     }}>
@@ -853,7 +853,7 @@ function MiniTag({ children, color, bg, title }: { children: React.ReactNode; co
       style={{
         display: 'inline-block',
         padding: '2px 7px',
-        fontSize: 9.5,
+        fontSize: 10,
         fontWeight: 700,
         borderRadius: 999,
         background: bg ?? C.divider,

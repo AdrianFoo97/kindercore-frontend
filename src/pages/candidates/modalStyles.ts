@@ -26,7 +26,7 @@ export const ISM = {
   subtitle: { fontSize: 12, color: '#64748b', marginTop: 2 } as React.CSSProperties,
   closeBtn: {
     background: 'none', border: 'none', fontSize: 15, cursor: 'pointer',
-    color: '#94a3b8', padding: '4px 6px',
+    color: '#64748b', padding: '4px 6px',
   } as React.CSSProperties,
 
   summaryWrap: { padding: '16px 24px 0' } as React.CSSProperties,
@@ -41,7 +41,7 @@ export const ISM = {
   } as React.CSSProperties,
   summaryDow: { fontSize: 10, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' } as React.CSSProperties,
   summaryDay: { fontSize: 20, fontWeight: 800, color: '#0c4a6e', lineHeight: 1.2 } as React.CSSProperties,
-  summaryMonth: { fontSize: 9, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' } as React.CSSProperties,
+  summaryMonth: { fontSize: 10, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' } as React.CSSProperties,
   summaryTime: { fontSize: 14, fontWeight: 700, color: '#0c4a6e' } as React.CSSProperties,
   summaryFullDate: { fontSize: 11, color: '#0369a1', marginTop: 2 } as React.CSSProperties,
   clashCol: { marginLeft: 'auto', textAlign: 'right' as const, minWidth: 200, flexShrink: 0 } as React.CSSProperties,
@@ -71,7 +71,7 @@ export const ISM = {
     background: '#fff', color: '#1e293b',
   } as React.CSSProperties,
   slotGroupLabel: {
-    fontSize: 10, fontWeight: 600, color: '#94a3b8',
+    fontSize: 10, fontWeight: 600, color: '#64748b',
     textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 6,
   } as React.CSSProperties,
   slotGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 5 } as React.CSSProperties,
@@ -93,7 +93,7 @@ export const ISM = {
   langBtn: {
     padding: '2px 11px', borderRadius: 5, fontSize: 11, fontWeight: 600,
     cursor: 'pointer', lineHeight: '18px', border: 'none',
-    background: 'transparent', color: '#94a3b8',
+    background: 'transparent', color: '#64748b',
   } as React.CSSProperties,
   msgMissing: {
     padding: '12px 14px', borderRadius: 10,

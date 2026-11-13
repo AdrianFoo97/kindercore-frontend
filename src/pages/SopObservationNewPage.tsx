@@ -20,7 +20,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -127,7 +127,7 @@ export default function SopObservationNewPage() {
         .sop-obs-catfilter-item:hover { background: ${C.divider} !important; }
       `}</style>
       <div style={s.inner}>
-        <button onClick={backTo} style={s.backBtn}>
+        <button className="back-btn" onClick={backTo} style={s.backBtn}>
           <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
           Practice Observations
         </button>

@@ -25,7 +25,7 @@ const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   success: '#059669',
   successSoft: '#ecfdf5',
   successBorder: '#a7f3d0',
@@ -164,7 +164,7 @@ export default function TeacherRedeemedRewardPage() {
                   <span style={{
                     display: 'inline-flex', alignItems: 'center',
                     padding: '2px 9px', height: 22, borderRadius: 999,
-                    fontSize: 10, fontWeight: 700,
+                    fontSize: 11, fontWeight: 700,
                     background: badge.bg, color: badge.color,
                     border: `1px solid ${badge.border}`,
                     textTransform: 'uppercase', letterSpacing: '0.06em',
@@ -326,7 +326,7 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: 14, boxShadow: '0 1px 2px rgba(15,23,42,0.03)',
   },
   eyebrow: {
-    fontSize: 10, fontWeight: 700, color: C.muted,
+    fontSize: 11, fontWeight: 700, color: C.muted,
     textTransform: 'uppercase' as const, letterSpacing: '0.1em',
   },
   heading: {
@@ -340,7 +340,7 @@ const s: Record<string, React.CSSProperties> = {
     borderTop: `1px solid ${C.divider}`,
   },
   sectionLabel: {
-    fontSize: 10, fontWeight: 800, color: C.muted,
+    fontSize: 11, fontWeight: 800, color: C.muted,
     textTransform: 'uppercase' as const, letterSpacing: '0.08em',
     marginBottom: 10,
   },

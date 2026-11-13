@@ -35,7 +35,7 @@ export const SearchBar = forwardRef<SearchBarHandle, SearchBarProps>(function Se
     <>
       <style>{searchCss}</style>
       <div className="sb-wrap" style={{ ...styles.wrap, width: width ?? '100%' }}>
-        <FontAwesomeIcon icon={faSearch} style={{ fontSize: 13, color: '#94a3b8', flexShrink: 0 }} />
+        <FontAwesomeIcon icon={faSearch} style={{ fontSize: 13, color: '#64748b', flexShrink: 0 }} />
         <input
           ref={inputRef}
           type="text"

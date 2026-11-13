@@ -15,7 +15,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   danger: '#dc2626',
@@ -112,10 +112,10 @@ export default function AuthViewsPage() {
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => navigate(`/settings/auth-views/${view.id}/edit`)} style={s.iconBtn} aria-label="Edit">
+                    <button onClick={() => navigate(`/settings/auth-views/${view.id}/edit`)} style={s.iconBtn} aria-label="Edit" title="Edit">
                       <FontAwesomeIcon icon={faPen} />
                     </button>
-                    <button onClick={() => onDelete(view)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete">
+                    <button onClick={() => onDelete(view)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete" title="Delete">
                       <FontAwesomeIcon icon={faTrash} />
                     </button>
                   </div>

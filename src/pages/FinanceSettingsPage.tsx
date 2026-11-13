@@ -12,7 +12,7 @@ const C = {
   border: '#e5e7eb',
   text: '#0f172a',
   muted: '#64748b',
-  faint: '#94a3b8',
+  faint: '#64748b',
   divider: '#f1f5f9',
   green: '#059669',
   indigo: '#4f46e5',

@@ -5,11 +5,18 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faPenToSquare, faEllipsisVertical, faMagnifyingGlass, faGear,
-  faClipboardCheck, faChevronRight, faChevronDown, faCheck, faListCheck, faLayerGroup, faClockRotateLeft, faLink,
+  faClipboardCheck, faChevronRight, faListCheck, faLayerGroup, faClockRotateLeft, faLink,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchTemplates } from '../../api/sop-templates.js';
 import { fetchSteps } from '../../api/sop-steps.js';
 import { fetchCategories } from '../../api/sop-categories.js';
+import SegmentedControl from '../../components/common/SegmentedControl.js';
+import { DEFAULT_LABEL_SORT, LABEL_SORTS, NO_LABEL, findLabels, guideHasLabel, labelSummaries, parseLabelSort, type LabelSort } from './sopLabels.js';
+import SopSortSelect from './SopSortSelect.js';
+import { SopLabelHeader, SopLabelsList } from './SopLabelsView.js';
+import SopPagination from './SopPagination.js';
+import SopLabelFilter from './SopLabelFilter.js';
+import { DEFAULT_SOP_SORT, SOP_SORTS, parseSopSort, sortGuides, type SopSort } from './sopSort.js';
 import { resolveSopIcon } from '../../utils/sopTemplateIcons.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
@@ -27,7 +34,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   // True neutral, no blue undertone — reserved for the goal preview text on
   // each card, which otherwise reads like link text next to the page's
   // actual indigo accents (same fix as SopTemplateStepsPage's textBody).
@@ -51,15 +58,12 @@ const RADIUS = 14;
 const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 const PAGE_SIZE = 10;
 
+type LibraryView = 'guides' | 'labels';
+
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-const PRINCIPLES = [
-  { key: 'learn', label: 'Learn', color: '#5a67d8', bg: '#eef2ff', text: 'See our current best-known way.' },
-  { key: 'follow', label: 'Follow', color: '#0d9488', bg: '#f0fdfa', text: 'Work consistently as one team.' },
-  { key: 'improve', label: 'Improve', color: '#b45309', bg: '#fffbeb', text: 'See a better way? Help us improve it.' },
-];
 
 export default function SopLibraryPage() {
   const navigate = useNavigate();
@@ -88,7 +92,7 @@ export default function SopLibraryPage() {
   // admin so they can check it without a separate USER login. Query-param
   // read is gated on import.meta.env.DEV so it's inert in production even
   // if someone guesses the param.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const previewingTeacher = import.meta.env.DEV && searchParams.get('previewTeacher') === '1';
   // Reached via the teacher app's own Guides tab (see TeacherMobileNav.tsx)
   // rather than the admin Navbar's Operation menu — keeps the floating
@@ -129,38 +133,33 @@ export default function SopLibraryPage() {
   const { data: categories = [] } = useQuery({ queryKey: ['sop-categories'], queryFn: () => fetchCategories() });
 
   const [search, setSearch] = useState('');
+  const [labelQuery, setLabelQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
-  const selectedCategory = categories.find(c => c.id === categoryFilter);
-  // A flat pill row breaks down once the category list grows past a
-  // handful (imagine 20+ labels wrapping across the top of the page) —
-  // a dropdown stays a fixed size and scrolls internally regardless of
-  // how many categories exist.
-  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
-  const categoryFilterRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!categoryFilterOpen) return;
-    const onClickOutside = (e: MouseEvent) => {
-      if (categoryFilterRef.current && !categoryFilterRef.current.contains(e.target as Node)) {
-        setCategoryFilterOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [categoryFilterOpen]);
+  // All guides ↔ Labels, and the label opened from the Labels view — kept in
+  // the URL (?view=labels&label=…) so the browser's back and shared links work.
+  const view: LibraryView = searchParams.get('view') === 'labels' ? 'labels' : 'guides';
+  const openLabel = view === 'labels' ? searchParams.get('label') : null;
+  const showLabelsList = view === 'labels' && !openLabel;
+  const setLibraryParams = (next: { view: LibraryView; label?: string | null }) => setSearchParams(prev => {
+    const p = new URLSearchParams(prev);
+    if (next.view === 'labels') p.set('view', 'labels'); else p.delete('view');
+    if (next.label) p.set('label', next.label); else p.delete('label');
+    return p;
+  });
+  const labelSummary = useMemo(() => labelSummaries(categories, templates), [categories, templates]);
+  const openLabelInfo = openLabel === NO_LABEL
+    ? { name: 'No label', color: '#cbd5e1', count: labelSummary.unlabelled }
+    : labelSummary.labels.find(l => l.id === openLabel);
+
+  // An opened label replaces the dropdown filter.
+  const effectiveLabel = openLabel ?? categoryFilter;
   const filteredTemplates = useMemo(() => {
     const q = search.trim().toLowerCase();
     return templates.filter(t => {
       const matchesSearch = !q || t.title.toLowerCase().includes(q) || (t.goal ?? '').toLowerCase().includes(q);
-      const matchesCategory = categoryFilter === 'ALL' || (t.categories ?? []).some(c => c.id === categoryFilter);
-      return matchesSearch && matchesCategory;
+      return matchesSearch && guideHasLabel(t, effectiveLabel);
     });
-  }, [templates, search, categoryFilter]);
-
-  const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [search, categoryFilter]);
-  const pageCount = Math.max(1, Math.ceil(filteredTemplates.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
-  const pagedTemplates = filteredTemplates.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  }, [templates, search, effectiveLabel]);
 
   // Each template's step + section counts, fetched once so the card can
   // show real document scope ("3 sections · 13 steps") without a click-through.
@@ -176,6 +175,31 @@ export default function SopLibraryPage() {
     },
     enabled: templates.length > 0,
   });
+
+  // Sort order — in the URL (?sort=updated) like the view, so back / links keep it.
+  const sort = parseSopSort(searchParams.get('sort'));
+  const setSort = (next: SopSort) => setSearchParams(prev => {
+    const p = new URLSearchParams(prev);
+    if (next === DEFAULT_SOP_SORT) p.delete('sort'); else p.set('sort', next);
+    return p;
+  }, { replace: true });
+  // The Labels list has its own sort (?lsort=most), same idea.
+  const labelSort = parseLabelSort(searchParams.get('lsort'));
+  const setLabelSort = (next: LabelSort) => setSearchParams(prev => {
+    const p = new URLSearchParams(prev);
+    if (next === DEFAULT_LABEL_SORT) p.delete('lsort'); else p.set('lsort', next);
+    return p;
+  }, { replace: true });
+  const sortedTemplates = useMemo(() => {
+    const stepCounts = Object.fromEntries(Object.entries(meta).map(([id, m]) => [id, m.steps]));
+    return sortGuides(filteredTemplates, sort, stepCounts);
+  }, [filteredTemplates, sort, meta]);
+
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [search, effectiveLabel, sort]);
+  const pageCount = Math.max(1, Math.ceil(sortedTemplates.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pagedTemplates = sortedTemplates.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Reached from the teacher app's Guides tab, on the phone-sized surface
   // where that app's own chrome is showing (see App.tsx's isTeacherSurface)
@@ -247,15 +271,6 @@ export default function SopLibraryPage() {
   const searchWrapStyle: React.CSSProperties = themeIsTeacher
     ? { position: 'relative', flex: 1, minWidth: 0 }
     : { ...s.searchWrap, ...(isMobile ? sMobile.searchWrap : null) };
-  const catFilterWrapStyle: React.CSSProperties = themeIsTeacher
-    ? { position: 'relative', flexShrink: 0, width: 132 }
-    : { position: 'relative', ...(isMobile ? { width: '100%' } : null) };
-  const catFilterTriggerStyle: React.CSSProperties = themeIsTeacher
-    ? { ...s.categoryFilterTrigger, width: '100%', minWidth: 0, padding: '8px 10px' }
-    : { ...s.categoryFilterTrigger, ...(isMobile ? { width: '100%' } : null) };
-  const catFilterMenuStyle: React.CSSProperties = themeIsTeacher
-    ? { ...s.categoryFilterMenu, width: 220, left: 'auto', right: 0 }
-    : { ...s.categoryFilterMenu, ...(isMobile ? { width: '100%' } : null) };
 
   // With the in-page heading/subheading hidden (themeIsTeacher — the
   // floating TeacherTopBar already carries the title), this strip is the
@@ -263,15 +278,6 @@ export default function SopLibraryPage() {
   // breathing room below the floating bar and a bit more presence
   // (bigger pills, bigger number badges) instead of the tight, purely
   // decorative treatment it had underneath a full heading+subheading.
-  const principlesStripStyle: React.CSSProperties = themeIsTeacher
-    ? { ...sMobile.principlesStrip, marginTop: 4, marginBottom: 20, gap: 8 }
-    : sMobile.principlesStrip;
-  const principleChipStyle: React.CSSProperties = themeIsTeacher
-    ? { ...sMobile.principleChip, padding: '7px 14px', fontSize: 12 }
-    : sMobile.principleChip;
-  const principleStepNumberStyle: React.CSSProperties = themeIsTeacher
-    ? { ...sMobile.principleStepNumber, width: 19, height: 19, fontSize: 10.5 }
-    : sMobile.principleStepNumber;
 
   // Longhand only when mobile — never mix the `padding` shorthand with a
   // `paddingTop` override in the same style object (React can drop the
@@ -322,8 +328,6 @@ export default function SopLibraryPage() {
         @media (hover: hover) {
           .sop-share-btn:hover { background: var(--sop-accent-soft) !important; color: var(--sop-accent) !important; }
           .sop-tpl-row:hover { border-color: ${'var(--sop-accent-border)'} !important; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 16px rgba(90,103,216,0.08) !important; }
-          .sop-catfilter-trigger:hover { border-color: ${'var(--sop-accent-border)'} !important; background: ${'var(--sop-accent-soft)'} !important; }
-          .sop-catfilter-item:hover { background: ${C.divider} !important; }
           .sop-more-menu-item:hover { background: ${C.divider} !important; }
         }
       `}</style>
@@ -349,96 +353,42 @@ export default function SopLibraryPage() {
           </div>
         )}
 
-        {isMobile ? (
-          // The three-row card was still a lot of vertical real estate to
-          // spend before the actual guide list appears — the guides are
-          // what someone opened this page for. The subheading above
-          // already carries the same "learn/follow/improve" idea in one
-          // sentence, so this only needs to be a quiet one-line reminder
-          // of the three words, not a restatement of their descriptions.
-          <div style={principlesStripStyle}>
-            {PRINCIPLES.map((p, i) => (
-              <span key={p.key} style={principleChipStyle}>
-                <span style={{ ...principleStepNumberStyle, background: p.color }}>{i + 1}</span>
-                {p.label}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div style={s.principlesRow}>
-            {PRINCIPLES.map(p => (
-              <div key={p.key} style={s.principleItem}>
-                <span style={{ ...s.principleBadge, background: p.bg, color: p.color }}>{p.label.toUpperCase()}</span>
-                <span style={s.principleText}>{p.text}</span>
-              </div>
-            ))}
+        {/* All guides ↔ Labels (iOS segmented control: one-of view switch). */}
+        {templates.length > 0 && (
+          <div style={{ marginBottom: 16, maxWidth: isMobile ? undefined : 320 }}>
+            <SegmentedControl<LibraryView>
+              ariaLabel="Show guides" value={view} accent={themeIsTeacher ? TEACHER_ACCENT.accent : C.primary}
+              onChange={v => setLibraryParams({ view: v })}
+              segments={[{ key: 'guides', label: 'All guides' }, { key: 'labels', label: 'Labels' }]}
+            />
           </div>
         )}
 
         <div style={filterRowStyle}>
+          {/* One toolbar for both views — it searches / sorts guides or labels. */}
           {templates.length > 0 && (
             <div style={searchWrapStyle}>
               <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12.5, color: C.mutedSoft }} />
               <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search guides…"
+                type="search"
+                value={showLabelsList ? labelQuery : search}
+                onChange={e => (showLabelsList ? setLabelQuery : setSearch)(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') (showLabelsList ? setLabelQuery : setSearch)(''); }}
+                placeholder={showLabelsList ? 'Search labels…' : 'Search guides…'}
+                aria-label={showLabelsList ? 'Search labels' : 'Search guides'}
                 style={s.searchInput}
               />
             </div>
           )}
 
-          {categories.length > 0 && (
-            <div style={catFilterWrapStyle} ref={categoryFilterRef}>
-              <button
-                type="button"
-                className="sop-catfilter-trigger"
-                onClick={() => setCategoryFilterOpen(o => !o)}
-                style={catFilterTriggerStyle}
-              >
-                {selectedCategory ? (
-                  <>
-                    <span style={{ ...s.categoryFilterDot, background: selectedCategory.color }} />
-                    <span style={themeIsTeacher ? { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 } : undefined}>
-                      {selectedCategory.name}
-                    </span>
-                  </>
-                ) : (
-                  <span style={themeIsTeacher ? { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 } : undefined}>
-                    All categories
-                  </span>
-                )}
-                <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 9, color: C.mutedSoft, marginLeft: 'auto', paddingLeft: 6, flexShrink: 0 }} />
-              </button>
+          {templates.length > 1 && (
+            showLabelsList
+              ? <SopSortSelect<LabelSort> options={LABEL_SORTS} value={labelSort} onChange={setLabelSort} label="Sort labels" grow={themeIsTeacher || isMobile} />
+              : <SopSortSelect<SopSort> options={SOP_SORTS} value={sort} onChange={setSort} label="Sort guides" grow={themeIsTeacher || isMobile} />
+          )}
 
-              {categoryFilterOpen && (
-                <div style={catFilterMenuStyle}>
-                  <button
-                    type="button"
-                    className="sop-catfilter-item"
-                    onClick={() => { setCategoryFilter('ALL'); setCategoryFilterOpen(false); }}
-                    style={s.categoryFilterItem}
-                  >
-                    <span style={{ width: 14 }}>{categoryFilter === 'ALL' && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10, color: 'var(--sop-accent)' }} />}</span>
-                    All categories
-                  </button>
-                  {categories.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="sop-catfilter-item"
-                      onClick={() => { setCategoryFilter(c.id); setCategoryFilterOpen(false); }}
-                      style={s.categoryFilterItem}
-                    >
-                      <span style={{ width: 14 }}>{categoryFilter === c.id && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 10, color: 'var(--sop-accent)' }} />}</span>
-                      <span style={{ ...s.categoryFilterDot, background: c.color }} />
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+          {categories.length > 0 && view === 'guides' && (
+            <SopLabelFilter labels={categories} value={categoryFilter} onChange={setCategoryFilter} compact={themeIsTeacher} fullWidth={isMobile} />
           )}
 
           {/* Desktop/admin surface only — restricted to roles actually
@@ -472,7 +422,7 @@ export default function SopLibraryPage() {
               type="button"
               onClick={() => setMoreMenuOpen(o => !o)}
               style={s.moreBtn}
-              aria-label="More actions"
+              aria-label="More actions" title="More actions"
             >
               <FontAwesomeIcon icon={faEllipsisVertical} />
             </button>
@@ -508,8 +458,24 @@ export default function SopLibraryPage() {
         )}
 
         <div style={listWrapStyle}>
+          {openLabel && (
+            <SopLabelHeader name={openLabelInfo?.name ?? 'Label'} color={openLabelInfo?.color ?? '#94a3b8'}
+              onAllLabels={() => setLibraryParams({ view: 'labels' })} />
+          )}
           {templatesLoading ? (
             <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
+          ) : showLabelsList && templates.length > 0 ? (
+            <SopLabelsList labels={findLabels(labelSummary.labels, labelQuery, labelSort)} unlabelled={labelSummary.unlabelled}
+              query={labelQuery} onOpen={id => setLibraryParams({ view: 'labels', label: id })}
+              look={{
+                row: rowStyle,
+                icon: { ...s.catIconWrap, ...(themeIsTeacher ? { width: 44, height: 44, fontSize: 17 } : null) },
+                title: { fontSize: 14.5, fontWeight: 600, color: C.text },
+                meta: s.metaItem,
+                count: themeIsTeacher ? undefined : countLabelStyle,
+                empty: emptyBoxStyle('48px 20px'),
+                chevronColor: C.mutedSoft,
+              }} />
           ) : templates.length === 0 ? (
             <div style={emptyBoxStyle('56px 20px')}>
               <div style={s.emptyIconWrap}>
@@ -527,7 +493,7 @@ export default function SopLibraryPage() {
           ) : filteredTemplates.length === 0 ? (
             <div style={emptyBoxStyle('48px 20px')}>
               <p style={{ margin: 0, fontSize: 13, color: C.muted }}>
-                {search ? `No How-To Guides match "${search}".` : 'No How-To Guides in this category.'}
+                {search ? `No How-To Guides match "${search}".` : 'No How-To Guides with this label yet.'}
               </p>
             </div>
           ) : (
@@ -653,46 +619,11 @@ export default function SopLibraryPage() {
                   );
                 })}
               </div>
-              <SopPagination page={safePage} pageCount={pageCount} totalCount={filteredTemplates.length} onPageChange={setPage} />
+              <SopPagination page={safePage} pageCount={pageCount} totalCount={sortedTemplates.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
             </>
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function SopPagination({ page, pageCount, totalCount, onPageChange }: {
-  page: number;
-  pageCount: number;
-  totalCount: number;
-  onPageChange: (p: number) => void;
-}) {
-  if (totalCount <= PAGE_SIZE) return null;
-  const btn: React.CSSProperties = {
-    background: '#fff', border: `1px solid ${C.cardBorder}`, borderRadius: 7,
-    padding: '5px 11px', fontSize: 12, fontWeight: 600, color: C.muted,
-    cursor: 'pointer', minWidth: 30,
-  };
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-      padding: '16px 4px 4px', marginTop: 6, borderTop: `1px solid ${C.divider}`,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <button type="button" onClick={() => onPageChange(1)} disabled={page === 1} style={btn}>«</button>
-        <button type="button" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1} style={btn}>‹</button>
-        <span style={{
-          fontSize: 12, fontWeight: 700, color: 'var(--sop-accent)', padding: '5px 14px',
-          background: 'var(--sop-accent-soft)', borderRadius: 7, fontVariantNumeric: 'tabular-nums',
-          minWidth: 52, textAlign: 'center',
-        }}>{page} / {pageCount}</span>
-        <button type="button" onClick={() => onPageChange(Math.min(pageCount, page + 1))} disabled={page >= pageCount} style={btn}>›</button>
-        <button type="button" onClick={() => onPageChange(pageCount)} disabled={page >= pageCount} style={btn}>»</button>
-      </div>
-      <span style={{ fontSize: 11, color: C.mutedSoft, fontVariantNumeric: 'tabular-nums' }}>
-        {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
-      </span>
     </div>
   );
 }
@@ -704,13 +635,6 @@ const s: Record<string, React.CSSProperties> = {
   inner: { maxWidth: 1100, margin: '0 auto' },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
   subheading: { margin: 0, fontSize: 13, color: C.muted, maxWidth: 620 },
-  principlesRow: { display: 'flex', gap: 20, flexWrap: 'wrap' as const, marginBottom: 20 },
-  principleItem: { display: 'flex', alignItems: 'center', gap: 8 },
-  principleBadge: {
-    display: 'inline-flex', padding: '3px 9px', borderRadius: 999,
-    fontSize: 10, fontWeight: 800, letterSpacing: '0.05em', flexShrink: 0,
-  },
-  principleText: { fontSize: 12.5, color: C.textSub },
   toolbar: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const, marginBottom: 20 },
   searchWrap: { position: 'relative', flex: '1 1 320px', maxWidth: 420, minWidth: 220 },
   searchInput: {
@@ -788,24 +712,6 @@ const s: Record<string, React.CSSProperties> = {
     display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
     borderRadius: 999, fontSize: 10.5, fontWeight: 700,
   },
-  categoryFilterTrigger: {
-    display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px',
-    border: `1px solid ${C.cardBorder}`, borderRadius: 10, background: '#fff',
-    cursor: 'pointer', fontSize: 13, fontWeight: 600, color: C.textSub,
-    minWidth: 180, transition: 'border-color 120ms ease, background 120ms ease',
-  },
-  categoryFilterDot: { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 },
-  categoryFilterMenu: {
-    position: 'absolute' as const, top: '100%', left: 0, marginTop: 6, width: 240,
-    background: '#fff', border: `1px solid ${C.cardBorder}`, borderRadius: 10,
-    boxShadow: '0 8px 24px rgba(15,23,42,0.12)', zIndex: 25, overflow: 'hidden',
-    maxHeight: 280, overflowY: 'auto' as const, padding: 6,
-  },
-  categoryFilterItem: {
-    display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 8px',
-    border: 'none', background: 'transparent', borderRadius: 7, cursor: 'pointer',
-    fontSize: 13, color: C.text, textAlign: 'left' as const,
-  },
   metaRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' as const },
   metaItem: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: C.mutedSoft, fontWeight: 500 },
   metaDot: { width: 3, height: 3, borderRadius: '50%', background: C.mutedSoft, flexShrink: 0 },
@@ -821,26 +727,6 @@ const sMobile: Record<string, React.CSSProperties> = {
   // Single row, no wrap — the three chips split the full row width
   // evenly (each flex: 1) instead of sizing to their own content and
   // leaving empty space on the right.
-  principlesStrip: { display: 'flex', gap: 10, marginBottom: 16 },
-  // Rounded card, same chrome as every other surface on this page
-  // (white background, cardBorder, RADIUS-scaled corners) instead of a
-  // saturated pill — only the step-number circle keeps its accent
-  // colour now, so the three still read as distinct steps without the
-  // whole chip competing with the page's other cards for attention.
-  // Symmetric padding — asymmetric (tight-left, loose-right) made each
-  // chip's own edges uneven, which read as inconsistent gaps between
-  // chips even though the flex `gap` between them is a uniform 10px.
-  principleChip: {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    flex: 1, minWidth: 0, padding: '7px 12px',
-    background: '#fff', border: `1px solid ${C.cardBorder}`,
-    borderRadius: 10, fontSize: 11, fontWeight: 700, color: C.text,
-  },
-  principleStepNumber: {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    width: 17, height: 17, borderRadius: '50%', color: '#fff',
-    fontSize: 9.5, fontWeight: 800, marginRight: 6, flexShrink: 0,
-  },
   toolbar: { flexDirection: 'column' as const, alignItems: 'stretch' },
   searchWrap: { flex: '1 1 auto', maxWidth: 'none', minWidth: 0 },
   card: { padding: '16px 14px' },

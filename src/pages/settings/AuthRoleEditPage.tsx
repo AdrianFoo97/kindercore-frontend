@@ -22,7 +22,7 @@ import RoleEditTabs from './RoleEditTabs.js';
 const C = {
   primary: '#5a67d8', primarySoft: '#eef2ff', primaryBorder: '#c7d2fe',
   bg: '#f8fafc', card: '#ffffff',
-  text: '#0f172a', muted: '#64748b', mutedSoft: '#94a3b8',
+  text: '#0f172a', muted: '#64748b', mutedSoft: '#64748b',
   border: '#e2e8f0', divider: '#eceef2',
   danger: '#ef4444',
 };
@@ -113,7 +113,7 @@ export default function AuthRoleEditPage() {
     <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         <div style={s.breadcrumb}>
-          <button onClick={() => navigate('/settings/auth-roles')} style={s.backBtn} title="Back">
+          <button className="back-btn" onClick={() => navigate('/settings/auth-roles')} style={s.backBtn} title="Back">
             <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
           </button>
           <Link to="/settings/auth-roles" style={s.crumbLink}>Access Roles</Link>

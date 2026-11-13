@@ -20,7 +20,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -207,14 +207,14 @@ export default function MissionCategoriesPage({ embedded = false }: { embedded?:
                       <button
                         onClick={() => { setEditing(cat); setEditorOpen(true); }}
                         style={s.iconBtn}
-                        aria-label="Edit"
+                        aria-label="Edit" title="Edit"
                       >
                         <FontAwesomeIcon icon={faPen} />
                       </button>
                       <button
                         onClick={() => onDelete(cat)}
                         style={{ ...s.iconBtn, color: C.danger }}
-                        aria-label="Delete"
+                        aria-label="Delete" title="Delete"
                       >
                         <FontAwesomeIcon icon={faTrash} />
                       </button>
@@ -281,7 +281,7 @@ function CategoryEditorModal({
               {isEdit ? `Editing ${category!.name}` : 'Add a new capability bucket'}
             </div>
           </div>
-          <button onClick={onCancel} style={modal.closeBtn} aria-label="Close">
+          <button onClick={onCancel} style={modal.closeBtn} aria-label="Close" title="Close">
             <FontAwesomeIcon icon={faTimes} />
           </button>
         </div>
@@ -351,7 +351,7 @@ function CategoryEditorModal({
                 const ic = resolveCategoryIcon(name);
                 const active = icon === name;
                 return (
-                  <button
+                  <button aria-label={name} title={name}
                     key={name}
                     type="button"
                     onClick={() => setIcon(name)}
@@ -391,7 +391,7 @@ function CategoryEditorModal({
                         : '0 1px 2px rgba(15,23,42,0.06)',
                       transition: 'all 150ms ease',
                     }}
-                    aria-label={c}
+                    aria-label={c} title={c}
                   />
                 );
               })}

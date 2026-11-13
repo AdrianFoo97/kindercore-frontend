@@ -27,7 +27,7 @@ const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   success: '#059669',
   successSoft: '#ecfdf5',
   successBorder: '#a7f3d0',
@@ -193,7 +193,7 @@ export default function TeacherRedeemCatalogPage() {
               }}
             >
               <FontAwesomeIcon icon={faCheck} style={{
-                fontSize: 9,
+                fontSize: 11,
                 opacity: affordableOnly ? 1 : 0.45,
               }} />
               Affordable only
@@ -278,7 +278,7 @@ function FilterChip({ label, count, active, onClick }: {
       <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         minWidth: 18, height: 16, padding: '0 5px',
-        borderRadius: 999, fontSize: 10, fontWeight: 800,
+        borderRadius: 999, fontSize: 11, fontWeight: 800,
         background: active ? 'rgba(255,255,255,0.22)' : C.slateSoft,
         color: active ? '#fff' : C.muted,
         fontVariantNumeric: 'tabular-nums',
@@ -326,7 +326,7 @@ function CatalogGroup({
             <span style={{
               display: 'inline-flex', alignItems: 'center',
               padding: '1px 8px', height: 20, borderRadius: 999,
-              fontSize: 10, fontWeight: 800,
+              fontSize: 11, fontWeight: 800,
               background: palette.soft, color: palette.accent,
               border: `1px solid ${palette.border}`,
               fontVariantNumeric: 'tabular-nums',
@@ -395,7 +395,7 @@ function RewardCard({ item, locked, stockChip, teacherId, balance }: {
         position: 'absolute', top: 14, right: 14,
         display: 'inline-flex', alignItems: 'center',
         padding: '2px 8px', height: 20, borderRadius: 999,
-        fontSize: 9, fontWeight: 800,
+        fontSize: 11, fontWeight: 800,
         background: stock.bg, color: stock.color,
         border: `1px solid ${stock.border}`,
         textTransform: 'uppercase', letterSpacing: '0.06em',
@@ -418,7 +418,7 @@ function RewardCard({ item, locked, stockChip, teacherId, balance }: {
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
             padding: '3px 9px', height: 22, borderRadius: 999,
-            fontSize: 10, fontWeight: 800,
+            fontSize: 11, fontWeight: 800,
             background: POINTS_C.soft, color: POINTS_C.deep,
             border: `1px solid ${POINTS_C.border}`,
             textTransform: 'uppercase', letterSpacing: '0.06em',
@@ -549,7 +549,7 @@ function RewardCard({ item, locked, stockChip, teacherId, balance }: {
             background: C.slateSoft, color: C.muted,
             border: `1px solid #e2e8f0`,
             fontSize: 12, fontWeight: 700,
-            cursor: 'not-allowed',
+            cursor: 'default',
           }}>
             Sold out
           </span>
@@ -601,7 +601,7 @@ const s: Record<string, React.CSSProperties> = {
     marginTop: SP.xl, marginBottom: SP.lg,
   },
   eyebrow: {
-    fontSize: 10, fontWeight: 700, color: C.muted,
+    fontSize: 11, fontWeight: 700, color: C.muted,
     textTransform: 'uppercase' as const, letterSpacing: '0.1em',
   },
   heading: {

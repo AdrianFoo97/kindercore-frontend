@@ -36,7 +36,7 @@ const C = {
   // next to the page's actual indigo accents (buttons, pills, edit icons).
   textBody: '#52525b',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -626,7 +626,7 @@ export default function SopTemplateStepsPage() {
             already shows a back chevron to the guides list — this
             in-page link would just repeat it right underneath. */}
         {!themeIsTeacher && (
-          <button onClick={() => navigate(`/operations/sops${contextSuffix}`)} style={s.backBtn}>
+          <button className="back-btn" onClick={() => navigate(`/operations/sops${contextSuffix}`)} style={s.backBtn}>
             <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
             How-To Guides
           </button>
@@ -656,7 +656,7 @@ export default function SopTemplateStepsPage() {
                   {ALLOWED_SOP_ICONS.map(name => {
                     const active = template.icon === name;
                     return (
-                      <button
+                      <button aria-label={name} title={name}
                         key={name}
                         type="button"
                         onClick={() => pickIcon(name)}
@@ -716,7 +716,7 @@ export default function SopTemplateStepsPage() {
                     type="button"
                     onClick={() => setMoreMenuOpen(o => !o)}
                     style={s.moreBtn}
-                    aria-label="More actions"
+                    aria-label="More actions" title="More actions"
                   >
                     <FontAwesomeIcon icon={faEllipsisVertical} />
                   </button>
@@ -1220,7 +1220,7 @@ export default function SopTemplateStepsPage() {
                               disabled={isFirst}
                               aria-label="Move step up"
                               title="Move step up"
-                              style={{ ...s.iconBtn, width: 20, height: 16, fontSize: 9, opacity: isFirst ? 0.35 : 1, cursor: isFirst ? 'default' : 'pointer' }}
+                              style={{ ...s.iconBtn, width: 20, height: 16, fontSize: 10, opacity: isFirst ? 0.35 : 1, cursor: isFirst ? 'default' : 'pointer' }}
                             >
                               <FontAwesomeIcon icon={faArrowUp} />
                             </button>
@@ -1230,7 +1230,7 @@ export default function SopTemplateStepsPage() {
                               disabled={isLast}
                               aria-label="Move step down"
                               title="Move step down"
-                              style={{ ...s.iconBtn, width: 20, height: 16, fontSize: 9, opacity: isLast ? 0.35 : 1, cursor: isLast ? 'default' : 'pointer' }}
+                              style={{ ...s.iconBtn, width: 20, height: 16, fontSize: 10, opacity: isLast ? 0.35 : 1, cursor: isLast ? 'default' : 'pointer' }}
                             >
                               <FontAwesomeIcon icon={faArrowDown} />
                             </button>

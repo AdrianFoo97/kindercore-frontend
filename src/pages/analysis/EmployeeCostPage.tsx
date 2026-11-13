@@ -497,8 +497,8 @@ export default function EmployeeCostPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{t.name}</span>
-                        {t.isPartTime && <span style={{ fontSize: 9, fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Part Time</span>}
-                        {(t as any).isOverride && <span style={{ fontSize: 9, fontWeight: 700, color: '#7c3aed', background: '#ede9fe', padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Override</span>}
+                        {t.isPartTime && <span style={{ fontSize: 10, fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Part Time</span>}
+                        {(t as any).isOverride && <span style={{ fontSize: 10, fontWeight: 700, color: '#7c3aed', background: '#ede9fe', padding: '1px 6px', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Override</span>}
                       </div>
                       <div style={{ fontSize: 11, color: C.muted }}>
                         {(t as any).isOverride ? (
@@ -563,7 +563,7 @@ export default function EmployeeCostPage() {
                     {t.calculatedSalary > 0 ? (
                       <span style={{ fontWeight: 700, color: C.green, fontVariantNumeric: 'tabular-nums' }}>{fmtRM(t.calculatedSalary)}</span>
                     ) : <span style={{ color: '#cbd5e1' }}>—</span>}
-                    {t.isFixedSalary && t.calculatedSalary > 0 && <span style={{ fontSize: 9, color: C.muted, marginLeft: 4, fontWeight: 600, textTransform: 'uppercase' }}>fixed</span>}
+                    {t.isFixedSalary && t.calculatedSalary > 0 && <span style={{ fontSize: 10, color: C.muted, marginLeft: 4, fontWeight: 600, textTransform: 'uppercase' }}>fixed</span>}
                   </td>
                 </tr>
               ))}
@@ -723,13 +723,13 @@ function TeacherWeightsTable({
                   <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.teacherName}</span>
                   {row.employmentType === 'part-time' && (
                     <span style={{
-                      fontSize: 9, fontWeight: 700, color: '#d97706', background: '#fef3c7',
+                      fontSize: 10, fontWeight: 700, color: '#d97706', background: '#fef3c7',
                       padding: '1px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.04em',
                     }}>PT</span>
                   )}
                   {row.isOverride && (
                     <span style={{
-                      fontSize: 9, fontWeight: 700, color: '#7c3aed', background: '#ede9fe',
+                      fontSize: 10, fontWeight: 700, color: '#7c3aed', background: '#ede9fe',
                       padding: '1px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.04em',
                     }}>Override</span>
                   )}
@@ -796,10 +796,10 @@ function KpiCard({ label, value, color, sub }: { label: string; value: string; c
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
       </div>
       <div style={{ fontSize: 22, fontWeight: 700, color, letterSpacing: '-0.01em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' as any }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b', marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -993,7 +993,7 @@ function StaffChangesList({
         </span>
         <span style={{ fontSize: 12, color: C.muted, minWidth: 160, textAlign: 'right' }}>
           {e.career && <span style={{ marginRight: 8 }}>{rightText}</span>}
-          <span style={{ color: '#cbd5e1' }}>{fmtDate(e.date.toISOString())}</span>
+          <span style={{ color: '#64748b' }}>{fmtDate(e.date.toISOString())}</span>
         </span>
       </div>
     );
@@ -1031,7 +1031,7 @@ function StaffChangesList({
       </div>
 
       {events.length === 0 ? (
-        <p style={{ margin: 0, padding: '16px 0', textAlign: 'center', fontSize: 13, color: '#cbd5e1' }}>
+        <p style={{ margin: 0, padding: '16px 0', textAlign: 'center', fontSize: 13, color: '#64748b' }}>
           No staff changes in this period
         </p>
       ) : showGrouped ? (
@@ -1076,5 +1076,5 @@ const s: Record<string, React.CSSProperties> = {
   th: { textAlign: 'left' as const, padding: '12px 12px', fontWeight: 600, fontSize: 11, color: C.muted, letterSpacing: '0.06em', textTransform: 'uppercase' as const, borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' as const, background: '#fafbfc', verticalAlign: 'middle' as const },
   td: { padding: '10px 12px', borderBottom: '1px solid #f1f5f9', fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap' as const, verticalAlign: 'middle' as const },
   centered: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: C.muted, fontSize: 14 },
-  empty: { color: '#cbd5e1', fontSize: 14, textAlign: 'center' as const, padding: '40px 0', margin: 0 },
+  empty: { color: '#64748b', fontSize: 14, textAlign: 'center' as const, padding: '40px 0', margin: 0 },
 };

@@ -10,7 +10,7 @@ export const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   border: '#e5e7ec',
   borderSoft: '#eff0f4',
   // Slightly deeper indigo — reads as "product primary", not "brand

@@ -36,7 +36,7 @@ const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',        // a touch warmer/darker for body
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -200,7 +200,7 @@ export default function TeacherCareerPage() {
         .tcp-card:hover { box-shadow: 0 1px 3px rgba(15,23,42,0.04), 0 6px 18px rgba(15,23,42,0.05); border-color: ${C.cardBorderHover}; }
         .tcp-back-btn:hover { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
         .tcp-cta { transition: transform 140ms ease, box-shadow 160ms ease, background-color 160ms ease; }
-        .tcp-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(90,103,216,0.25); }
+        .tcp-cta:hover { filter: brightness(1.08); }
         .tcp-link:hover { text-decoration: underline; text-underline-offset: 2px; }
         .tcp-gate { transition: border-color 160ms cubic-bezier(0.4,0,0.2,1), box-shadow 160ms cubic-bezier(0.4,0,0.2,1); }
         .tcp-gate:hover { border-color: ${C.cardBorderHover}; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
@@ -213,8 +213,8 @@ export default function TeacherCareerPage() {
           <button
             onClick={() => navigate('/teachers')}
             style={s.backBtn}
-            className="tcp-back-btn"
-            aria-label="Back"
+            className="tcp-back-btn back-btn"
+            aria-label="Back" title="Back"
           >
             <FontAwesomeIcon icon={faArrowLeft} />
           </button>
@@ -586,7 +586,7 @@ function CareerHero({
               <span style={{
                 width: 6, height: 6, borderRadius: 999, background: statusMeta.color,
               }} />
-              <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, color: statusMeta.color }}>
+              <span style={{ fontSize: isMobile ? 11 : 11, fontWeight: 700, color: statusMeta.color }}>
                 {statusMeta.label}
               </span>
             </div>
@@ -1390,7 +1390,7 @@ export function CareerJourneyVertical({
                   <span style={{
                     display: 'inline-flex', alignItems: 'center',
                     padding: '0 10px', height: 20,
-                    fontSize: 9, fontWeight: 800,
+                    fontSize: 10, fontWeight: 800,
                     background: C.primary, color: '#fff',
                     border: `1px solid ${C.primary}`,
                     borderRadius: 999,
@@ -1403,7 +1403,7 @@ export function CareerJourneyVertical({
                   <span style={{
                     display: 'inline-flex', alignItems: 'center',
                     padding: '0 10px', height: 20,
-                    fontSize: 9, fontWeight: 700,
+                    fontSize: 10, fontWeight: 700,
                     background: C.primarySoft, color: C.primary,
                     border: `1px solid ${C.primaryBorder}`,
                     borderRadius: 999,
@@ -2222,7 +2222,7 @@ function PositionDetailSheet({
               border: `1px solid ${C.divider}`,
               cursor: 'pointer', flexShrink: 0,
             }}
-            aria-label="Close"
+            aria-label="Close" title="Close"
           >
             <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
           </button>
@@ -2268,7 +2268,7 @@ function PositionDetailSheet({
                 fontSize: 13, fontWeight: 600, color: C.muted,
               }}>
                 <span style={{
-                  fontSize: 9, fontWeight: 800, color: C.mutedSoft,
+                  fontSize: 10, fontWeight: 800, color: C.mutedSoft,
                   textTransform: 'uppercase' as const, letterSpacing: '0.08em',
                 }}>
                   Basic Salary
@@ -2454,7 +2454,7 @@ function PositionDetailSheet({
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                             background: row.done ? C.success : '#f1f5f9',
                             color: row.done ? '#fff' : C.mutedSoft,
-                            fontSize: 9,
+                            fontSize: 10,
                             flexShrink: 0,
                             marginTop: 1,
                           }}>
@@ -2674,7 +2674,7 @@ function CareerJourneyMap({
                 <span style={{
                   width: 16, height: 16, borderRadius: 999, background: '#fff',
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  border: `1px solid ${C.primaryBorder}`, color: C.primary, fontSize: 9, flexShrink: 0,
+                  border: `1px solid ${C.primaryBorder}`, color: C.primary, fontSize: 10, flexShrink: 0,
                 }}>{i + 1}</span>
                 {req}
               </li>
@@ -3179,7 +3179,7 @@ export function MissionDetailModal({
               </div>
             </div>
           </div>
-          <button onClick={onClose} style={mdS.closeBtn} aria-label="Close">
+          <button onClick={onClose} style={mdS.closeBtn} aria-label="Close" title="Close">
             <FontAwesomeIcon icon={faTimes} />
           </button>
         </div>
@@ -3253,7 +3253,7 @@ export function MissionDetailModal({
                       color: active ? '#fff' : meta.color,
                       borderColor: meta.color,
                       opacity: disabled ? 0.4 : 1,
-                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      cursor: disabled ? 'default' : 'pointer',
                     }}
                   >
                     <FontAwesomeIcon icon={meta.icon} style={{ marginRight: 5, fontSize: 10 }} />
@@ -3291,7 +3291,7 @@ export function MissionDetailModal({
                   background: disabled ? '#fafbfc' : '#fff',
                   color: disabled ? C.mutedSoft : C.text,
                   fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  cursor: disabled ? 'default' : 'pointer',
                   flexShrink: 0,
                   transition: 'background 160ms ease, border-color 160ms ease',
                 });
@@ -3304,7 +3304,7 @@ export function MissionDetailModal({
                   }}>
                     <button
                       type="button"
-                      aria-label="Decrease evidence count"
+                      aria-label="Decrease evidence count" title="Decrease evidence count"
                       disabled={decDisabled}
                       onClick={() => setCountWithStatusSync(evidenceCount - 1)}
                       style={stepBtn(decDisabled)}
@@ -3320,7 +3320,7 @@ export function MissionDetailModal({
                     </div>
                     <button
                       type="button"
-                      aria-label="Increase evidence count"
+                      aria-label="Increase evidence count" title="Increase evidence count"
                       disabled={incDisabled}
                       onClick={() => setCountWithStatusSync(evidenceCount + 1)}
                       style={stepBtn(incDisabled)}
@@ -3507,7 +3507,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   journeyLabel: { marginTop: 12, fontSize: 12, lineHeight: 1.35, maxWidth: 120 },
   journeyBadge: {
-    marginTop: 6, fontSize: 9, fontWeight: 700, padding: '3px 8px',
+    marginTop: 6, fontSize: 10, fontWeight: 700, padding: '3px 8px',
     borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.06em',
     background: C.primary, color: '#fff',
     boxShadow: '0 1px 2px rgba(90,103,216,0.25)',
@@ -3523,7 +3523,7 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0,
   },
   missionPill: {
-    padding: '2px 7px', borderRadius: 999, fontSize: 9, fontWeight: 700,
+    padding: '2px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
     textTransform: 'uppercase', letterSpacing: '0.04em',
   },
   missionCardDesc: { margin: '0 0 10px', fontSize: 12, color: C.muted, lineHeight: 1.5 },

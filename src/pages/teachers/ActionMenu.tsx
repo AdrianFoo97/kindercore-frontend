@@ -14,7 +14,7 @@ interface ActionMenuProps {
   onCompensation: () => void;
   /** Omit to hide the Resign entry (e.g. for already-resigned teachers). */
   onResign?: () => void;
-  /** When set, Career Path / Appraisal / Compensation are rendered as
+  /** When set, Career Path / Compensation are rendered as
    *  disabled (greyed out, non-clickable) with this string as a native
    *  tooltip on each item. Used for non-career-progression positions
    *  (Staff etc.) where those flows don't apply. */
@@ -85,7 +85,7 @@ export function ActionMenu({
         onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
         className="tp-more"
         style={styles.moreBtn}
-        aria-label="More actions"
+        aria-label="More actions" title="More actions"
       >
         <FontAwesomeIcon icon={faEllipsisVertical} style={{ fontSize: 14 }} />
       </button>
@@ -104,10 +104,10 @@ export function ActionMenu({
             disabledReason={careerDisabledReason}
             onClick={() => { setOpen(false); onCareer(); }}
           />
+          {/* Every staff member can be appraised, whatever their position. */}
           <MenuItem
             icon={faClipboardCheck}
             label="Appraisal"
-            disabledReason={careerDisabledReason}
             onClick={() => { setOpen(false); onAppraisal(); }}
           />
           <MenuItem
@@ -262,7 +262,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: TP_C.subtle,
     color: TP_C.muted,
     border: `1px solid ${TP_C.borderSoft}`,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 800,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.06em',

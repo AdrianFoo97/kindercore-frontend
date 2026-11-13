@@ -40,7 +40,7 @@ export default function TeacherReportIncidentPage() {
       await createIncident(incidentDraftToInput(draft));
       qc.invalidateQueries({ queryKey: ['my-incidents'] });
       qc.invalidateQueries({ queryKey: ['incidents'] });
-      showToast('Incident reported — the office has it.', 'success');
+      showToast('Incident reported', 'success');
       // This form is opened from My Incident Reports, which is right behind
       // it — go back to it (a forward push/replace would leave a second
       // copy of that list in history, so Back from it would seem stuck).

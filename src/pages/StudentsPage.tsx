@@ -275,7 +275,7 @@ export default function StudentsPage() {
 
   const th: React.CSSProperties = {
     padding: '10px 16px 9px', textAlign: 'left', fontSize: 11, fontWeight: 600,
-    color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em',
+    color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em',
     borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap', userSelect: 'none',
     background: '#fafafa',
   };
@@ -349,7 +349,7 @@ export default function StudentsPage() {
                       {counts[stage.tab]}
                     </span>
                     <span style={{
-                      fontSize: isMobile ? 9 : 10.5, fontWeight: 600, letterSpacing: '0.07em',
+                      fontSize: isMobile ? 11 : 10.5, fontWeight: 600, letterSpacing: '0.07em',
                       textTransform: 'uppercase',
                       color: active ? stage.accent : '#9ca3af',
                       transition: 'color 0.1s',
@@ -378,7 +378,7 @@ export default function StudentsPage() {
           {/* Search */}
           <div style={{ position: 'relative', flexShrink: isMobile ? undefined : 0, ...(isMobile ? { flex: '1 1 100%' } : {}) }}>
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none"
-              style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#b0b8c8', pointerEvents: 'none' }}>
+              style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }}>
               <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.6"/>
               <path d="M10 10l3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
             </svg>
@@ -482,7 +482,7 @@ export default function StudentsPage() {
 
           {/* Sort */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, ...(isMobile ? { flex: 1 } : {}) }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Sort</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Sort</span>
             <div style={{ position: 'relative' }}>
               <select
                 value={sortKey}
@@ -498,7 +498,7 @@ export default function StudentsPage() {
                 <option value="name">Name</option>
               </select>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
-                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }}>
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }}>
                 <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
@@ -553,7 +553,7 @@ export default function StudentsPage() {
               padding: '5px 12px', fontSize: 12, fontWeight: 500,
               color: '#374151', background: '#fff',
               border: '1px solid #d1d5db', borderRadius: 7,
-              cursor: sorted.length === 0 ? 'not-allowed' : 'pointer',
+              cursor: sorted.length === 0 ? 'default' : 'pointer',
               opacity: sorted.length === 0 ? 0.4 : 1,
             }}
           >
@@ -566,7 +566,7 @@ export default function StudentsPage() {
 
         {/* States */}
         {isPending && (
-          <div style={{ padding: '80px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Loading…</div>
+          <div style={{ padding: '80px 0', textAlign: 'center', color: '#64748b', fontSize: 13 }}>Loading…</div>
         )}
         {isError && (
           <div style={{ padding: '80px 0', textAlign: 'center', color: '#ef4444', fontSize: 13 }}>Failed to load students.</div>
@@ -577,7 +577,7 @@ export default function StudentsPage() {
               No {TAB_LABELS[tab].toLowerCase()} students
             </p>
             {(filterAge !== 'all' || filterProgramme !== 'all' || search) && (
-              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8' }}>Adjust your filters or search.</p>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>Adjust your filters or search.</p>
             )}
           </div>
         )}
@@ -594,7 +594,7 @@ export default function StudentsPage() {
                     color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em',
                   }}>
                     {label}
-                    <span style={{ marginLeft: 8, fontWeight: 500, color: '#9ca3af', textTransform: 'none', letterSpacing: 0 }}>{groupTotals.get(label) ?? rows.length}</span>
+                    <span style={{ marginLeft: 8, fontWeight: 500, color: '#64748b', textTransform: 'none', letterSpacing: 0 }}>{groupTotals.get(label) ?? rows.length}</span>
                   </div>
                 )}
                 {rows.map(s => {
@@ -637,16 +637,16 @@ export default function StudentsPage() {
                           <AgeBadge age={age} />
                         </span>
                         <span>{s.package.programme}</span>
-                        <span style={{ color: '#94a3b8' }}>
+                        <span style={{ color: '#64748b' }}>
                           {formatDate(s.lead.childDob)}
                         </span>
                         {(tab === 'active' || tab === 'enrolled') && (
-                          <span style={{ color: '#94a3b8' }}>
+                          <span style={{ color: '#64748b' }}>
                             Enrolled {formatEnrolmentMonth(s.enrolmentMonth, s.enrolmentYear)}
                           </span>
                         )}
                         {tab === 'withdrawn' && (
-                          <span style={{ color: '#94a3b8' }}>
+                          <span style={{ color: '#64748b' }}>
                             Withdrawn {s.withdrawnAt ? formatDate(s.withdrawnAt) : '—'}
                           </span>
                         )}
@@ -694,7 +694,7 @@ export default function StudentsPage() {
                             background: '#f8fafc', borderBottom: '1px solid #f3f4f6',
                           }}>
                             {label}
-                            <span style={{ marginLeft: 8, fontWeight: 500, color: '#9ca3af', textTransform: 'none', letterSpacing: 0 }}>{groupTotals.get(label) ?? rows.length}</span>
+                            <span style={{ marginLeft: 8, fontWeight: 500, color: '#64748b', textTransform: 'none', letterSpacing: 0 }}>{groupTotals.get(label) ?? rows.length}</span>
                           </td>
                         </tr>
                       )}
@@ -738,12 +738,12 @@ export default function StudentsPage() {
 
                             {/* First day / Withdrawn date */}
                             {(tab === 'active' || tab === 'enrolled') && (
-                              <td style={{ ...td, fontSize: 13, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                              <td style={{ ...td, fontSize: 13, color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
                                 {s.startDate ? formatDate(s.startDate) : '—'}
                               </td>
                             )}
                             {tab === 'withdrawn' && (
-                              <td style={{ ...td, fontSize: 13, color: '#94a3b8' }}>
+                              <td style={{ ...td, fontSize: 13, color: '#64748b' }}>
                                 {s.withdrawnAt ? formatDate(s.withdrawnAt) : '—'}
                               </td>
                             )}
@@ -752,7 +752,7 @@ export default function StudentsPage() {
                             <td style={{ ...td, paddingRight: 20 }}>
                               <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
                                 {/* Three-dot overflow menu — always visible. Row click navigates to /students/:id, so Edit doesn't need a button. */}
-                                <button
+                                <button aria-label="More actions" title="More actions"
                                   className="sp-dots-btn"
                                   onClick={(e) => { e.stopPropagation(); openMenu(s.id, e.currentTarget); }}
                                   style={{
@@ -914,7 +914,7 @@ export default function StudentsPage() {
                         className="sp-menu-item"
                         disabled
                         title="Onboarding already in progress"
-                        style={{ ...menuItemStyle, color: '#cbd5e1', cursor: 'default' }}
+                        style={{ ...menuItemStyle, color: '#64748b', cursor: 'default' }}
                       >
                         <FontAwesomeIcon icon={faListCheck} style={{ width: 14 }} /> Create Onboarding Tasks
                       </button>
@@ -932,7 +932,7 @@ export default function StudentsPage() {
                         }
                         await patchOnboardingProgress(s.id, template.map(task => ({ task, done: false })));
                         invalidateStudentDerived();
-                        showToast(`Created ${template.length} onboarding tasks for ${s.lead.childName}`);
+                        showToast('Onboarding tasks created');
                         navigate(`/onboarding?student=${s.id}`);
                       } catch (e) {
                         setConfirmModal({ message: e instanceof Error ? e.message : 'Failed to create onboarding tasks', onConfirm: () => {} });
@@ -994,7 +994,7 @@ const mLabel: React.CSSProperties       = { display: 'flex', flexDirection: 'col
 const mInput: React.CSSProperties       = { padding: '8px 10px', borderRadius: 7, border: '1px solid #e5e7eb', fontSize: 14, color: '#111827', background: '#fff', width: '100%', boxSizing: 'border-box' };
 const mCancel: React.CSSProperties      = { padding: '8px 18px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 500 };
 const mAction: React.CSSProperties      = { padding: '8px 18px', borderRadius: 7, border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 };
-const mFieldLabel: React.CSSProperties  = { fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 };
+const mFieldLabel: React.CSSProperties  = { fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 };
 const menuItemStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8, width: '100%',
   padding: '8px 14px', border: 'none', background: 'none',

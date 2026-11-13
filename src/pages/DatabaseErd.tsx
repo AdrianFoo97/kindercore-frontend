@@ -242,5 +242,5 @@ const st = {
     color: '#64748b', cursor: 'pointer', fontSize: 12,
   } as React.CSSProperties,
   canvas: { overflow: 'auto', maxHeight: 'calc(100vh - 230px)', background: '#fbfcfd' } as React.CSSProperties,
-  foot: { padding: '8px 14px', borderTop: '1px solid #f1f3f6', fontSize: 11.5, color: '#94a3b8' } as React.CSSProperties,
+  foot: { padding: '8px 14px', borderTop: '1px solid #f1f3f6', fontSize: 11.5, color: '#64748b' } as React.CSSProperties,
 };

@@ -32,7 +32,7 @@ const labelStyle: React.CSSProperties = {
 const helperStyle: React.CSSProperties = {
   display: 'block',
   fontSize: 11,
-  color: '#94a3b8',
+  color: '#64748b',
   marginBottom: 6,
 };
 
@@ -438,7 +438,7 @@ export default function EnquiryFormPage() {
               <div style={{ height: 1, background: '#f1f5f9', margin: '16px 0' }} />
 
               {/* Visit benefits */}
-              <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>
+              <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: '#64748b' }}>
                 参观当天您将了解
               </p>
               {[
@@ -455,7 +455,7 @@ export default function EnquiryFormPage() {
 
             {/* Closing */}
             <div style={{ textAlign: 'center', marginTop: 20 }}>
-              <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>
+              <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
                 期待见到您和孩子
               </p>
             </div>
@@ -590,11 +590,11 @@ export default function EnquiryFormPage() {
                           <span style={{ fontSize: 14, fontWeight: 600, color: form.programme === opt.value ? '#3c339a' : '#1e293b' }}>
                             {opt.name}
                           </span>
-                          <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                          <span style={{ fontSize: 11, color: '#64748b' }}>
                             {opt.time}
                           </span>
                         </div>
-                        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8' }}>
+                        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
                           {opt.desc}
                         </p>
                       </label>
@@ -850,7 +850,7 @@ export default function EnquiryFormPage() {
                       border: '1px solid #c7d2fe',
                     }}>
                       <label style={{ ...labelStyle, marginBottom: 6 }}>
-                        朋友的孩子叫什么名字？<span style={{ color: '#94a3b8', fontWeight: 400 }}>（可选）</span>
+                        朋友的孩子叫什么名字？<span style={{ color: '#64748b', fontWeight: 400 }}>（可选）</span>
                       </label>
                       <input
                         type="text"
@@ -873,7 +873,7 @@ export default function EnquiryFormPage() {
 
                 <div style={{ marginBottom: 18 }}>
                   <label style={labelStyle}>
-                    优惠码 <span style={{ color: '#94a3b8', fontWeight: 400 }}>（可选）</span>
+                    优惠码 <span style={{ color: '#64748b', fontWeight: 400 }}>（可选）</span>
                   </label>
                   <input
                     type="text"
@@ -887,7 +887,7 @@ export default function EnquiryFormPage() {
                     }}
                   />
                   {promoCodeStatus === 'checking' && (
-                    <p style={{ margin: '6px 0 0', fontSize: 12, color: '#94a3b8' }}>检查中…</p>
+                    <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b' }}>检查中…</p>
                   )}
                   {promoCodeStatus === 'invalid' && (
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444' }}>&#9888; 此优惠码无效</p>
@@ -943,7 +943,7 @@ export default function EnquiryFormPage() {
                   borderRadius: 50,
                   fontSize: 15,
                   fontWeight: 700,
-                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  cursor: submitting ? 'default' : 'pointer',
                   fontFamily: 'inherit',
                   letterSpacing: '1px',
                   boxShadow: '0 4px 16px rgba(60, 51, 154, 0.25)',

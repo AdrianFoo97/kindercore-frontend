@@ -1,6 +1,8 @@
 import { useState, useEffect, useId } from 'react';
+import { signOut } from '../utils/signOut.js';
 import { useNavigate, Link } from 'react-router-dom';
-import { nextPathFrom } from '../utils/loginReturn.js';
+import { clearLoginNotice, nextPathFrom, readLoginNotice } from '../utils/loginReturn.js';
+import { STAFF_LEFT_CODE, isSignedIn, rememberUser } from '../api/client.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import { login } from '../api/auth.js';
@@ -222,11 +224,13 @@ export default function LoginPage() {
   const [touched, setTouched] = useState({ email: false, password: false });
 
   // Submission state
-  const [authError, setAuthError] = useState('');
+  // Starts with why an open session was just ended, if it was (e.g. past their last working day).
+  // Read in the initializer (pure), cleared in an effect, so a refresh doesn't show it again.
+  const [authError, setAuthError] = useState(readLoginNotice);
+  useEffect(() => { clearLoginNotice(); }, []);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const token = localStorage.getItem('token');
-  const isLoggedIn = !!token;
+  const isLoggedIn = isSignedIn();
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -255,14 +259,17 @@ export default function LoginPage() {
     setIsLoggingIn(true);
     try {
       const data = await login(email.trim(), password);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // The session itself arrived as an httpOnly cookie; keep only who it is.
+      rememberUser(data.user);
       // Back to whatever they were opening (e.g. a shared guide), else home.
       navigate(nextPathFrom(window.location.search) ?? await resolveLandingPath(data.user.teacherId));
     } catch (err: unknown) {
       const { ApiError } = await import('../api/client.js');
       if (err instanceof ApiError) {
-        if (err.status === 401) {
+        if (err.code === STAFF_LEFT_CODE) {
+          // Past their last working day — the server's message names the date.
+          setAuthError(err.message);
+        } else if (err.status === 401) {
           setAuthError('The email or password you entered is incorrect. Please try again.');
         } else if (err.status === 429) {
           setAuthError('Too many login attempts. Please wait a few minutes and try again.');
@@ -281,11 +288,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.reload();
-  };
+  const handleLogout = () => signOut(window.location.pathname + window.location.search);
 
   return (
     <>
@@ -375,7 +378,7 @@ export default function LoginPage() {
                         type="button"
                         onClick={() => setShowPassword(s => !s)}
                         style={S.eyeBtn}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'} title={showPassword ? 'Hide password' : 'Show password'}
                       >
                         {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                       </button>
@@ -393,7 +396,7 @@ export default function LoginPage() {
                     style={{
                       ...S.submitBtn,
                       opacity: isLoggingIn ? 0.72 : 1,
-                      cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                      cursor: isLoggingIn ? 'default' : 'pointer',
                     }}
                   >
                     {isLoggingIn
@@ -439,8 +442,6 @@ const globalStyles = `
   }
   .kc-submit-btn:not(:disabled):hover {
     opacity: 0.92;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(29, 78, 216, 0.35) !important;
   }
   .kc-submit-btn:not(:disabled):active {
     transform: translateY(0);
@@ -647,7 +648,7 @@ const S: Record<string, React.CSSProperties> = {
     padding: 0,
     display: 'flex',
     alignItems: 'center',
-    color: '#9ca3af',
+    color: '#64748b',
     lineHeight: 1,
   },
 
@@ -675,7 +676,7 @@ const S: Record<string, React.CSSProperties> = {
     gap: 6,
     marginTop: 22,
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
     fontWeight: 500,
     letterSpacing: '0.01em',
   },
@@ -703,7 +704,7 @@ const S: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     padding: '16px 24px calc(env(safe-area-inset-bottom) + 16px)',
     fontSize: 11.5,
-    color: '#cbd5e1',
+    color: '#64748b',
     fontWeight: 500,
   },
 

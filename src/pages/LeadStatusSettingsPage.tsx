@@ -236,7 +236,7 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
     <div style={st.card}>
       <div style={{ ...st.cardHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h2 style={st.cardTitle}>Lost Reasons</h2>
-        <span style={{ fontSize: 11, color: '#b0b8c9' }}>{SYSTEM_LOST_REASONS.length + items.length} reasons</span>
+        <span style={{ fontSize: 11, color: '#64748b' }}>{SYSTEM_LOST_REASONS.length + items.length} reasons</span>
       </div>
       <div style={st.cardBody}>
         {/* Add input */}
@@ -264,7 +264,7 @@ function LostReasonsEditor({ reasons, isAdmin, onSaved }: {
               <span style={rs.systemBadge}>system</span>
             </div>
           ))}
-          <p style={{ fontSize: 11, color: '#94a3b8', margin: '2px 0 8px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 8px', lineHeight: 1.5 }}>
             The two system reasons above power Lead Quality and Appointment Rate. They can't be renamed or deleted.
           </p>
 
@@ -340,7 +340,7 @@ export default function LeadStatusSettingsPage() {
           <h1 style={st.heading}>Lead Settings</h1>
           <p style={st.subtitle}>Configure how leads are managed across the pipeline.</p>
           {!isAdmin && (
-            <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 6 }}>Read-only access. Admin role required to save changes.</p>
+            <p style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>Read-only access. Admin role required to save changes.</p>
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -359,7 +359,7 @@ const st: Record<string, React.CSSProperties> = {
   page: { padding: '32px 24px', fontFamily: 'system-ui, sans-serif', display: 'flex', justifyContent: 'center' },
   inner: { width: '100%', maxWidth: 960 },
   heading: { margin: 0, fontSize: 21, fontWeight: 700, color: '#0f172a' },
-  subtitle: { margin: '4px 0 0', fontSize: 13, color: '#94a3b8' },
+  subtitle: { margin: '4px 0 0', fontSize: 13, color: '#64748b' },
 
   // Card
   card: {
@@ -381,7 +381,7 @@ const st: Record<string, React.CSSProperties> = {
   ftValue: {
     padding: '7px 0', display: 'flex', alignItems: 'center', gap: 8,
   },
-  ftUnit: { fontSize: 12, color: '#b0b8c9' },
+  ftUnit: { fontSize: 12, color: '#64748b' },
   ftHint: { fontSize: 11, color: '#c4c9d4', display: 'block', marginTop: 3 },
   ftInlineText: { fontSize: 13, fontWeight: 500, color: '#475569', minWidth: 130 },
 
@@ -429,9 +429,9 @@ const rs: Record<string, React.CSSProperties> = {
   },
   handle: { color: '#d4d4d8', fontSize: 12, cursor: 'grab', userSelect: 'none', flexShrink: 0, width: 12, textAlign: 'center' },
   text: { flex: 1, fontSize: 13, color: '#334155' },
-  systemText: { flex: 1, fontSize: 13, color: '#b0b8c9' },
+  systemText: { flex: 1, fontSize: 13, color: '#64748b' },
   systemBadge: {
-    fontSize: 9, fontWeight: 500, color: '#ccc', letterSpacing: '0.05em', textTransform: 'uppercase',
+    fontSize: 10, fontWeight: 500, color: '#ccc', letterSpacing: '0.05em', textTransform: 'uppercase',
     flexShrink: 0,
   },
   actions: { display: 'flex', gap: 4, flexShrink: 0, marginLeft: 'auto' },

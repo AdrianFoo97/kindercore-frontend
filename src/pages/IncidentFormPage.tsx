@@ -45,7 +45,7 @@ export default function IncidentFormPage() {
       background: C.bg, minHeight: '100%', color: C.text,
     }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        <button type="button" onClick={goBack} style={{
+        <button type="button" className="back-btn" onClick={goBack} style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: C.muted, marginBottom: 10,
           background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
         }}>

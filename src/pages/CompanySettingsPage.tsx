@@ -142,7 +142,7 @@ function TextListEditor({ title, subtitle, settingKey, items, isAdmin, onSaved, 
           <h2 style={st.cardTitle}>{title}</h2>
           <p style={st.cardSub}>{subtitle}</p>
         </div>
-        <span style={{ fontSize: 11, color: '#b0b8c9', flexShrink: 0, marginLeft: 12 }}>{list.length} {list.length === 1 ? itemNoun : `${itemNoun}s`}</span>
+        <span style={{ fontSize: 11, color: '#64748b', flexShrink: 0, marginLeft: 12 }}>{list.length} {list.length === 1 ? itemNoun : `${itemNoun}s`}</span>
       </div>
       <div style={st.cardBody}>
         {isAdmin && (
@@ -284,7 +284,7 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
           <h2 style={st.cardTitle}>Branches</h2>
           <p style={st.cardSub}>Physical locations, each with an address.</p>
         </div>
-        <span style={{ fontSize: 11, color: '#b0b8c9', flexShrink: 0, marginLeft: 12 }}>{list.length} {list.length === 1 ? 'branch' : 'branches'}</span>
+        <span style={{ fontSize: 11, color: '#64748b', flexShrink: 0, marginLeft: 12 }}>{list.length} {list.length === 1 ? 'branch' : 'branches'}</span>
       </div>
       <div style={st.cardBody}>
         {isAdmin && (
@@ -350,7 +350,7 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
               ) : (
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{branch.name}</div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
+                  <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
                     <FontAwesomeIcon icon={faLocationDot} style={{ fontSize: 10 }} />
                     {branch.address}
                   </div>
@@ -415,7 +415,7 @@ export default function CompanySettingsPage() {
         <h1 style={st.heading}>{active.label}</h1>
         {active.subtitle && <p style={st.subtitle}>{active.subtitle}</p>}
         {!isAdmin && (
-          <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 6 }}>Read-only access. Admin role required to save changes.</p>
+          <p style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>Read-only access. Admin role required to save changes.</p>
         )}
 
         <div style={st.tabStrip}>
@@ -464,7 +464,7 @@ const st: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text },
   inner: { maxWidth: 960, margin: '0 auto' },
   heading: { fontSize: 22, fontWeight: 800, color: C.text, margin: '4px 0 0' },
-  subtitle: { margin: '4px 0 0', fontSize: 13, color: '#94a3b8' },
+  subtitle: { margin: '4px 0 0', fontSize: 13, color: '#64748b' },
   tabStrip: { display: 'flex', flexWrap: 'wrap' as const, gap: 2, borderBottom: `1px solid ${C.border}`, margin: '20px 0 20px' },
   tabBtn: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', fontSize: 13, fontWeight: 500,
@@ -482,7 +482,7 @@ const st: Record<string, React.CSSProperties> = {
     padding: '14px 20px', borderBottom: '1px solid #f1f3f5',
   },
   cardTitle: { margin: 0, fontSize: 14, fontWeight: 700, color: '#1e293b' },
-  cardSub: { margin: '3px 0 0', fontSize: 12, color: '#94a3b8' },
+  cardSub: { margin: '3px 0 0', fontSize: 12, color: '#64748b' },
   cardBody: { padding: '16px 20px' },
 
   // Inputs

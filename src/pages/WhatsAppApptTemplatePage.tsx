@@ -258,7 +258,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   groupRowLeft: { display: 'flex', flexDirection: 'column', gap: 2, flex: 1 },
   groupRowLabel: { fontSize: 13, fontWeight: 600, color: '#2d3748' },
-  groupRowDesc: { fontSize: 11, color: '#a0aec0' },
+  groupRowDesc: { fontSize: 11, color: '#64748b' },
   groupRowRight: { display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 },
   inlineInput: {
     padding: '6px 10px', border: '1px solid #cbd5e0', borderRadius: 4,

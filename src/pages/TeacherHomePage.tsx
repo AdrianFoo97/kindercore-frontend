@@ -5,20 +5,17 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
   faChevronRight, faStar, faBullseye, faArrowTrendUp,
-  faHandHoldingDollar, faTrophy, faTriangleExclamation,
+  faHandHoldingDollar, faTrophy,
 } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { fetchTeachers } from '../api/planner.js';
 import { fetchTeacherCareer, MissionWithProgress } from '../api/career-missions.js';
-import { fetchFinanceSummary } from '../api/finance.js';
-import { fetchSettings } from '../api/settings.js';
-import {
-  DEFAULT_EXPENSE_RATIO_TARGET, DEFAULT_PROFIT_SHARE_PERCENT,
-} from './FinanceSettingsPage.js';
 import { TEACHER_TOPBAR_SPACE } from '../components/common/TeacherTopBar.js';
 import { MilestoneTrack, remainingLabel, type MonthDotState } from '../components/common/MilestoneTrack.js';
 import { useAnnualBonusSummary } from '../hooks/useAnnualBonusSummary.js';
+import { useTeamPoolSummary } from '../hooks/useTeamPoolSummary.js';
 import { MyOnboardingCard } from './teacherHome/MyOnboardingCard.js';
+import { QuickActions } from './teacherHome/QuickActions.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher Home — a warm, motivating landing. Answers three things at a
@@ -38,7 +35,7 @@ const C = {
   text: '#475569',
   textStrong: '#334155',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   slateSoft: '#f1f5f9',
   track: '#ede9fe',
   pAccent: '#7c3aed',
@@ -135,13 +132,6 @@ function pickTeamHeadline(hits: number, elapsed: number, pooled: number): {
   };
 }
 
-// Same setting parser the Pools page uses — keeps Home and Pools in
-// lock-step on the qualify-ratio and profit-share rates.
-function settingNum(v: unknown, lo: number, hi: number, fallback: number): number {
-  const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
-  return Number.isFinite(n) && n > lo && n <= hi ? n : fallback;
-}
-
 export default function TeacherHomePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -157,19 +147,6 @@ export default function TeacherHomePage() {
     queryKey: ['teacher-career', id],
     queryFn: () => fetchTeacherCareer(id!),
     enabled: !!id,
-  });
-
-  // Team-pool data — finance summary + settings drive the "Team this
-  // month" card. Same cache keys as the Team Pool page so the two
-  // surfaces never disagree.
-  const year = new Date().getFullYear();
-  const { data: finance } = useQuery({
-    queryKey: ['finance-summary', year],
-    queryFn: () => fetchFinanceSummary(year),
-  });
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: fetchSettings,
   });
 
   const firstName = (teacher?.name ?? career?.teacher?.name ?? '').trim().split(/\s+/)[0];
@@ -195,45 +172,17 @@ export default function TeacherHomePage() {
   const pct = mTotal > 0 ? Math.round((mDone / mTotal) * 100) : 0;
   const barFill = mTotal > 0 ? Math.max(8, pct) : 8;
 
-  // Team-quarter stats — current quarter's hits/elapsed + a rough
-  // pooled estimate. Mirrors the Team Pool page's monthPool logic so
-  // the two surfaces never disagree on what "hit target" means.
+  // This quarter's team pool and this year's annual bonus — worked out on the
+  // server (only hit / missed / upcoming per month, the pool and the
+  // teacher's own share), shared with the Pay pages so they never disagree.
+  const teamPool = useTeamPoolSummary(id);
   const teamStats = useMemo(() => {
-    const months = finance?.months ?? [];
-    if (months.length === 0) return null;
-    const target = settingNum(settings?.expense_ratio_target, 0, 2, DEFAULT_EXPENSE_RATIO_TARGET);
-    const psPct  = settingNum(settings?.profit_share_percent, 0, 1, DEFAULT_PROFIT_SHARE_PERCENT);
-    const qIdx = Math.floor(new Date().getMonth() / 3);
-    const idxs = [qIdx * 3, qIdx * 3 + 1, qIdx * 3 + 2];
-    let hits = 0, elapsed = 0, pooled = 0;
-    // Per-month hit/miss/pending, not just the totals — a milestone
-    // track needs to know WHICH months hit, not just how many, so a
-    // miss in the middle of the quarter renders honestly instead of
-    // being smoothed into a plain percentage fill.
-    const monthStates: MonthDotState[] = [];
-    for (const mi of idxs) {
-      const m = months[mi];
-      if (!m) { monthStates.push('pending'); continue; }
-      if (!m.isForecast) elapsed++;
-      const ratio = m.revenue > 0 ? (m.staffCost + m.operatingCost) / m.revenue : null;
-      const qualifies = ratio !== null && ratio <= target;
-      if (m.isForecast) {
-        monthStates.push('pending');
-      } else if (qualifies) {
-        hits++;
-        pooled += m.revenue * psPct;
-        monthStates.push('hit');
-      } else {
-        monthStates.push('missed');
-      }
-    }
-    return { hits, elapsed, pooled, monthStates };
-  }, [finance, settings]);
-
-  // Annual Bonus preview — via the shared hook (not an inline re-
-  // computation like teamStats above, which predates it) so this can
-  // never disagree with the Pay Breakdown preview or the full Annual
-  // Bonus page.
+    if (teamPool.monthlyPools.length === 0) return null;
+    // Per-month state, not just totals — the milestone track shows WHICH
+    // months hit, so a miss mid-quarter reads honestly.
+    const monthStates: MonthDotState[] = teamPool.monthlyPools.map(m => (m.isForecast ? 'pending' : m.hit ? 'hit' : 'missed'));
+    return { hits: teamPool.hitsCount, elapsed: teamPool.elapsedCount, pooled: teamPool.poolAmount, monthStates };
+  }, [teamPool.monthlyPools, teamPool.hitsCount, teamPool.elapsedCount, teamPool.poolAmount]);
   const annualBonus = useAnnualBonusSummary(id);
 
   // Personal avatar colour — stable hash so the avatar always looks
@@ -278,7 +227,6 @@ export default function TeacherHomePage() {
       : C.bg,
   };
 
-  const goCareer = () => navigate(`/teachers/${id}/my-career`);
   const goMissionBoard = () => navigate(`/teachers/${id}/career/missions`);
   // Current Focus card — Mission Board reads this same `focus` param
   // back and opens straight into that mission's own detail popup, not
@@ -292,7 +240,7 @@ export default function TeacherHomePage() {
   };
 
   const sectionLabel: React.CSSProperties = {
-    fontSize: 10.5, fontWeight: 800, color: C.muted,
+    fontSize: 11, fontWeight: 800, color: C.muted,
     textTransform: 'uppercase', letterSpacing: '0.09em', margin: '0 2px 8px',
   };
 
@@ -372,22 +320,45 @@ export default function TeacherHomePage() {
                     <FontAwesomeIcon
                       key={i}
                       icon={faStar}
-                      style={{ fontSize: 10.5, color: C.pAccent }}
+                      style={{ fontSize: 11, color: C.pAccent }}
                     />
                   ))}
                 </span>
               )}
             </div>
+            {/* Career progress — replaces the old Career card. */}
+            {mTotal > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {isFinalStage ? 'Top role reached' : mDone >= mTotal ? 'Ready for what\'s next' : `On the way to ${nextRole ?? 'your next role'}`}
+                  </span>
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: C.pDeep, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                    {pct}%
+                  </span>
+                </div>
+                <div style={{ height: 6, borderRadius: 999, background: '#efeafe', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', width: `${barFill}%`, borderRadius: 999,
+                    background: 'linear-gradient(90deg, #a78bfa, #7c3aed)',
+                    transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)',
+                  }} />
+                </div>
+              </div>
+            )}
           </div>
           <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: C.mutedSoft, flexShrink: 0 }} />
         </button>
+
+        {/* ── Quick actions ─────────────────────────────────── */}
+        {id && <QuickActions teacherId={id} />}
 
         {/* ── My onboarding (new joiners only) ─────────────────── */}
         {id && <MyOnboardingCard teacherId={id} sectionLabelStyle={sectionLabel} />}
 
         {/* ── Current Focus ────────────────────────────────────── */}
         <div style={sectionLabel}>Current Focus</div>
-        <button
+        <button aria-label="Open mission" title="Open mission"
           type="button"
           onClick={goFocusMission}
           style={{
@@ -426,105 +397,6 @@ export default function TeacherHomePage() {
             </div>
           </div>
           <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: C.mutedSoft, flexShrink: 0 }} />
-        </button>
-
-        {/* ── Incidents (replaces the Google Form) ─────────────── */}
-        <div style={sectionLabel}>Incidents</div>
-        <button
-          type="button"
-          onClick={() => navigate(`/teachers/${id}/incidents`)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 14, width: '100%',
-            textAlign: 'left', font: 'inherit', cursor: 'pointer', color: 'inherit',
-            marginBottom: 26,
-            background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16,
-            padding: '16px 16px',
-            boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <div style={{
-            width: 42, height: 42, borderRadius: 13, flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: '#fef2f2', color: '#dc2626', fontSize: 17,
-            border: '1px solid #fecaca',
-          }}>
-            <FontAwesomeIcon icon={faTriangleExclamation} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: C.textStrong, letterSpacing: '-0.01em' }}>
-              Report an incident
-            </div>
-            <div style={{ marginTop: 2, fontSize: 12.5, fontWeight: 600, color: C.muted }}>
-              A child got hurt or something went wrong? Log it here.
-            </div>
-          </div>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: C.mutedSoft, flexShrink: 0 }} />
-        </button>
-
-        {/* ── Growth Snapshot ──────────────────────────────────── */}
-        <div style={sectionLabel}>Career</div>
-        <button
-          type="button"
-          onClick={goCareer}
-          style={{
-            display: 'block', width: '100%', textAlign: 'left', font: 'inherit',
-            cursor: 'pointer', color: 'inherit', marginBottom: 26,
-            background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 18,
-            padding: '16px 16px',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          {/* Status shell — no icon tile. Role transition is the visual
-              anchor, progress bar carries the rest. */}
-          <div style={{
-            display: 'flex', alignItems: 'baseline', gap: 8,
-            flexWrap: 'wrap', marginBottom: 14,
-          }}>
-            <span style={{ fontSize: 16, fontWeight: 800, color: C.textStrong, letterSpacing: '-0.01em' }}>
-              {currentRole ?? 'Your role'}
-            </span>
-            {!isFinalStage && nextRole && (
-              <>
-                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 10, color: C.mutedSoft }} />
-                <span style={{ fontSize: 14.5, fontWeight: 700, color: C.pDeep }}>{nextRole}</span>
-              </>
-            )}
-          </div>
-
-          {isFinalStage ? (
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.pDeep }}>
-              You've reached the top role — keep shining.
-            </div>
-          ) : (
-            <>
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                marginBottom: 8,
-              }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: C.muted }}>
-                  Missions
-                </span>
-                <span style={{ fontSize: 12.5, fontWeight: 800, color: C.pDeep, fontVariantNumeric: 'tabular-nums' }}>
-                  {pct}% complete
-                </span>
-              </div>
-              <div style={{ height: 8, borderRadius: 999, background: '#efeafe', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%', width: `${barFill}%`, borderRadius: 999,
-                  background: 'linear-gradient(90deg, #a78bfa, #7c3aed)',
-                  transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)',
-                }} />
-              </div>
-              <div style={{ marginTop: 9, fontSize: 12, fontWeight: 600, color: C.muted }}>
-                {mTotal === 0
-                  ? 'Your growth path appears here once your role is set.'
-                  : mDone >= mTotal
-                    ? "All steps done — you're ready for what's next."
-                    : `On the way to ${nextRole ?? 'your next role'}.`}
-              </div>
-            </>
-          )}
         </button>
 
         {/* ── Team this month (team pool preview) ──────────────── */}

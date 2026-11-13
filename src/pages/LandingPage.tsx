@@ -167,7 +167,7 @@ export default function LandingPage() {
               margin: isDesktop ? '16px auto 4px' : '12px auto 4px',
               fontSize: isDesktop ? 16 : 14,
               fontWeight: 400,
-              color: '#9ca3af',
+              color: '#64748b',
               lineHeight: 1.6,
             }}>
               当遇到问题时会
@@ -226,8 +226,8 @@ export default function LandingPage() {
                 boxShadow: '0 6px 28px rgba(30,42,120,0.25)',
                 transition: 'transform 0.2s, box-shadow 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 36px rgba(30,42,120,0.35)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(30,42,120,0.25)'; }}
+              onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.08)'; }}
+              onMouseLeave={e => { e.currentTarget.style.filter = 'none'; }}
             >
               预约参观学校
               <br />
@@ -317,7 +317,7 @@ export default function LandingPage() {
           <p style={{ margin: '0 0 6px', fontSize: isDesktop ? 24 : 21, fontWeight: 700, color: '#1e2a78' }}>
             一放上去，就倒下来
           </p>
-          <p style={{ margin: '0 0 36px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
+          <p style={{ margin: '0 0 36px', fontSize: isDesktop ? 17 : 16, color: '#64748b' }}>
             再试一次，还是倒
           </p>
 
@@ -431,13 +431,13 @@ export default function LandingPage() {
             </p>
 
             {/* Climax */}
-            <p style={{ margin: '0 0 4px', fontSize: isDesktop ? 16 : 15, color: '#9ca3af', letterSpacing: 2 }}>
+            <p style={{ margin: '0 0 4px', fontSize: isDesktop ? 16 : 15, color: '#64748b', letterSpacing: 2 }}>
               这一次——
             </p>
             <p style={{ margin: '0 0 8px', fontSize: isDesktop ? 30 : 26, fontWeight: 700, color: '#1e2a78' }}>
               塔没有倒
             </p>
-            <p style={{ margin: '0 0 40px', fontSize: isDesktop ? 17 : 16, color: '#9ca3af' }}>
+            <p style={{ margin: '0 0 40px', fontSize: isDesktop ? 17 : 16, color: '#64748b' }}>
               孩子们马上很开心地说：
               <br />
               "Teacher，我做好了！"
@@ -549,7 +549,7 @@ export default function LandingPage() {
               }}>01</span>
             </div>
             <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 28 : 24, fontWeight: 700, color: '#1e2a78' }}>从好奇开始</h2>
-            <p style={{ margin: '0 0 24px', fontSize: isDesktop ? 15 : 14, color: '#94a3b8', letterSpacing: 1 }}>探索式学习</p>
+            <p style={{ margin: '0 0 24px', fontSize: isDesktop ? 15 : 14, color: '#64748b', letterSpacing: 1 }}>探索式学习</p>
             <img src="/explore.jpeg" alt="探索式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 32px', display: 'block' }} />
 
             <p style={{ margin: '0 0 32px' }}>
@@ -596,7 +596,7 @@ export default function LandingPage() {
               }}>02</span>
             </div>
             <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 28 : 24, fontWeight: 700, color: '#1e2a78' }}>在尝试中学习</h2>
-            <p style={{ margin: '0 0 24px', fontSize: isDesktop ? 15 : 14, color: '#94a3b8', letterSpacing: 1 }}>活动式学习</p>
+            <p style={{ margin: '0 0 24px', fontSize: isDesktop ? 15 : 14, color: '#64748b', letterSpacing: 1 }}>活动式学习</p>
             <img src="/try.jpg" alt="活动式学习" style={{ width: '100%', borderRadius: 12, margin: '0 0 32px', display: 'block' }} />
 
             <p style={{ margin: '0 0 32px' }}>
@@ -652,7 +652,7 @@ export default function LandingPage() {
               }}>03</span>
             </div>
             <h2 style={{ margin: '0 0 4px', fontSize: isDesktop ? 28 : 24, fontWeight: 700, color: '#1e2a78' }}>在真实情境中成长</h2>
-            <p style={{ margin: '0 0 24px', fontSize: isDesktop ? 15 : 14, color: '#94a3b8', letterSpacing: 1 }}>真实体验活动</p>
+            <p style={{ margin: '0 0 24px', fontSize: isDesktop ? 15 : 14, color: '#64748b', letterSpacing: 1 }}>真实体验活动</p>
             <img src="/event.jpeg" alt="真实体验活动" style={{ width: '100%', borderRadius: 12, margin: '0 0 32px', display: 'block' }} />
 
             <p style={{ margin: '0 0 32px' }}>

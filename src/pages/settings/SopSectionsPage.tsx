@@ -16,7 +16,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -188,10 +188,10 @@ export default function SopSectionsPage({ embedded = false }: { embedded?: boole
                     </div>
                     <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: C.text }}>{sec.name}</span>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => startEdit(sec)} style={s.iconBtn} aria-label="Edit section">
+                      <button onClick={() => startEdit(sec)} style={s.iconBtn} aria-label="Edit section" title="Edit section">
                         <FontAwesomeIcon icon={faPen} />
                       </button>
-                      <button onClick={() => onDelete(sec)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete section">
+                      <button onClick={() => onDelete(sec)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete section" title="Delete section">
                         <FontAwesomeIcon icon={faTrash} />
                       </button>
                     </div>

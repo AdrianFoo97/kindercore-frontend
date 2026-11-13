@@ -25,7 +25,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   danger: '#dc2626',
@@ -309,10 +309,10 @@ function CampaignRow({ campaign: c, status, onEdit, onDelete }: {
         </span>
       </div>
       <div style={{ display: 'flex', gap: 4 }}>
-        <button onClick={onEdit} style={s.iconBtn} aria-label="Edit">
+        <button onClick={onEdit} style={s.iconBtn} aria-label="Edit" title="Edit">
           <FontAwesomeIcon icon={faPen} />
         </button>
-        <button onClick={onDelete} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete">
+        <button onClick={onDelete} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete" title="Delete">
           <FontAwesomeIcon icon={faTrash} />
         </button>
       </div>
@@ -357,7 +357,7 @@ function CampaignEditorModal({
               {isEdit ? `Editing ${campaign!.name}` : 'A promo code valid for a specific date range'}
             </div>
           </div>
-          <button onClick={onCancel} style={modal.closeBtn} aria-label="Close">
+          <button onClick={onCancel} style={modal.closeBtn} aria-label="Close" title="Close">
             <FontAwesomeIcon icon={faTimes} />
           </button>
         </div>

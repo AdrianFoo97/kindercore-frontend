@@ -149,7 +149,7 @@ function AssignmentsEditor({
             <button onClick={() => commitEdit(pkg.id)} disabled={savingId === pkg.id} style={{ ...st.iconBtn, color: '#16a34a', borderColor: '#bbf7d0' }} title="Save">
               <FontAwesomeIcon icon={faCheck} />
             </button>
-            <button onClick={() => setEditingId(null)} style={{ ...st.iconBtn, color: '#94a3b8' }} title="Cancel">
+            <button onClick={() => setEditingId(null)} style={{ ...st.iconBtn, color: '#64748b' }} title="Cancel">
               <FontAwesomeIcon icon={faXmark} />
             </button>
           </span>
@@ -262,7 +262,7 @@ function AssignmentsEditor({
         <div style={st.addCard}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>New Package for {filterYear}</span>
-            <button onClick={() => { setShowAddForm(false); setAddError(''); setAddPrice(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 13 }}>
+            <button aria-label="Cancel" title="Cancel" onClick={() => { setShowAddForm(false); setAddError(''); setAddPrice(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 13 }}>
               <FontAwesomeIcon icon={faXmark} />
             </button>
           </div>
@@ -296,7 +296,7 @@ function AssignmentsEditor({
             </button>
           </div>
           {autoName() && (
-            <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8' }}>
+            <div style={{ marginTop: 8, fontSize: 11, color: '#64748b' }}>
               Will be created as: <strong style={{ color: '#64748b' }}>{autoName()}</strong>
             </div>
           )}
@@ -306,7 +306,7 @@ function AssignmentsEditor({
 
       {/* ── Assignment list ── */}
       {visible.length === 0 && (
-        <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+        <div style={{ padding: '32px 0', textAlign: 'center', color: '#64748b', fontSize: 13 }}>
           No packages assigned for {filterYear}.
         </div>
       )}
@@ -318,7 +318,7 @@ function AssignmentsEditor({
       )}
 
       {/* Summary */}
-      <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
+      <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
         {visible.length} package{visible.length !== 1 ? 's' : ''} for {filterYear}
       </div>
     </>
@@ -389,7 +389,7 @@ const st: Record<string, React.CSSProperties> = {
     padding: '0 4px 8px', display: 'flex', alignItems: 'center', gap: 8,
     borderBottom: '2px solid #e2e8f0', marginBottom: 6,
   },
-  groupCount: { fontSize: 10, fontWeight: 600, color: '#94a3b8', background: '#f1f5f9', padding: '1px 7px', borderRadius: 20 },
+  groupCount: { fontSize: 10, fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '1px 7px', borderRadius: 20 },
   groupList: { display: 'flex', flexDirection: 'column' as const, gap: 0 },
 
   // Row
@@ -408,7 +408,7 @@ const st: Record<string, React.CSSProperties> = {
   pill: { fontSize: 11, fontWeight: 700, borderRadius: 4, padding: '2px 8px', display: 'inline-block', whiteSpace: 'nowrap' as const },
 
   // Action buttons
-  iconBtn: { background: 'none', border: '1px solid #e2e8f0', cursor: 'pointer', color: '#94a3b8', fontSize: 11, padding: '3px 6px', lineHeight: 1, borderRadius: 4, transition: 'all 0.12s' },
+  iconBtn: { background: 'none', border: '1px solid #e2e8f0', cursor: 'pointer', color: '#64748b', fontSize: 11, padding: '3px 6px', lineHeight: 1, borderRadius: 4, transition: 'all 0.12s' },
   deleteIconBtn: { background: 'none', border: '1px solid #fecaca', cursor: 'pointer', color: '#fca5a5', fontSize: 11, padding: '3px 6px', lineHeight: 1, borderRadius: 4, transition: 'all 0.12s' },
   confirmYes: { padding: '2px 8px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 },
   confirmNo: { padding: '2px 8px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11 },

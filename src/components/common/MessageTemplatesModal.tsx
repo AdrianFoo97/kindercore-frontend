@@ -129,7 +129,7 @@ export default function MessageTemplatesModal({ onClose, canEdit }: { onClose: (
                 <button key={l} onClick={() => setLang(l)} style={st.langBtn(lang === l)}>{l === 'en' ? 'EN' : '中文'}</button>
               ))}
             </div>
-            <button onClick={onClose} style={st.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
+            <button onClick={onClose} style={st.closeBtn} aria-label="Close" title="Close"><FontAwesomeIcon icon={faXmark} /></button>
           </div>
         </div>
 
@@ -137,7 +137,7 @@ export default function MessageTemplatesModal({ onClose, canEdit }: { onClose: (
           {showList && (
             <div style={st.listPane(isMobile)}>
               <div style={st.searchWrap}>
-                <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 24, top: '50%', marginTop: 2, transform: 'translateY(-50%)', fontSize: 12, color: '#94a3b8' }} />
+                <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 24, top: '50%', marginTop: 2, transform: 'translateY(-50%)', fontSize: 12, color: '#64748b' }} />
                 <input
                   ref={searchRef}
                   value={query}
@@ -178,7 +178,7 @@ export default function MessageTemplatesModal({ onClose, canEdit }: { onClose: (
                   <div style={st.detailHead}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                       {isMobile && (
-                        <button onClick={() => setMobileDetail(false)} style={st.backBtn} aria-label="Back to list">
+                        <button onClick={() => setMobileDetail(false)} style={st.backBtn} aria-label="Back to list" title="Back to list">
                           <FontAwesomeIcon icon={faArrowLeft} />
                         </button>
                       )}
@@ -289,7 +289,7 @@ const st = {
   }),
   closeBtn: {
     width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent',
-    color: '#94a3b8', cursor: 'pointer', fontSize: 15,
+    color: '#64748b', cursor: 'pointer', fontSize: 15,
   } as React.CSSProperties,
   panes: (mobile: boolean): React.CSSProperties => ({
     flex: 1, minHeight: 0, display: 'grid',
@@ -307,7 +307,7 @@ const st = {
   } as React.CSSProperties,
   list: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 8px 10px' } as React.CSSProperties,
   groupLabel: {
-    fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em',
+    fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '0.07em',
     textTransform: 'uppercase', padding: '10px 8px 4px',
   } as React.CSSProperties,
   row: (active: boolean): React.CSSProperties => ({
@@ -329,7 +329,7 @@ const st = {
   }),
   detailPane: { display: 'flex', flexDirection: 'column', minHeight: 0, padding: '16px 20px', gap: 12 } as React.CSSProperties,
   detailHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 } as React.CSSProperties,
-  detailGroup: { fontSize: 10, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase' } as React.CSSProperties,
+  detailGroup: { fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '0.07em', textTransform: 'uppercase' } as React.CSSProperties,
   detailName: { fontSize: 16, fontWeight: 700, color: '#0f172a', marginTop: 2 } as React.CSSProperties,
   backBtn: {
     width: 30, height: 30, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff',
@@ -353,14 +353,14 @@ const st = {
   fillHint: { fontSize: 12, color: '#64748b', flexShrink: 0 } as React.CSSProperties,
   empty: {
     flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
-    fontSize: 13, color: '#94a3b8', background: '#f8fafc', borderRadius: 10, padding: 20,
+    fontSize: 13, color: '#64748b', background: '#f8fafc', borderRadius: 10, padding: 20,
   } as React.CSSProperties,
-  hint: { fontSize: 13, color: '#94a3b8', padding: '8px 10px', margin: 0 } as React.CSSProperties,
+  hint: { fontSize: 13, color: '#64748b', padding: '8px 10px', margin: 0 } as React.CSSProperties,
   footer: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
     padding: '10px 20px', borderTop: '1px solid #f0f0f0', flexShrink: 0,
   } as React.CSSProperties,
-  keys: { fontSize: 11, color: '#94a3b8' } as React.CSSProperties,
+  keys: { fontSize: 11, color: '#64748b' } as React.CSSProperties,
   editLink: {
     display: 'inline-flex', alignItems: 'center', gap: 7, border: 'none', background: 'none', marginLeft: 'auto',
     color: '#5a67d8', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 2px',

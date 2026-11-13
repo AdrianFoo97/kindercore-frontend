@@ -13,7 +13,7 @@ const C = {
   cardBorder: '#eef0f4',
   text: '#0f172a',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
 };

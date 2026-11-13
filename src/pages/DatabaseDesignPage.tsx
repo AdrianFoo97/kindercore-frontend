@@ -17,7 +17,7 @@ import DatabaseErd from './DatabaseErd.js';
 
 const C = {
   bg: '#f8fafc', card: '#fff', border: '#e8ebf0', borderSoft: '#f1f3f6',
-  text: '#0f172a', textSub: '#475569', muted: '#64748b', mutedSoft: '#94a3b8',
+  text: '#0f172a', textSub: '#475569', muted: '#64748b', mutedSoft: '#64748b',
   primary: '#5a67d8', primarySoft: '#eef0fa', primaryDeep: '#3c339a',
   warn: '#b45309', warnSoft: '#fffbeb',
 };
@@ -118,7 +118,7 @@ export default function DatabaseDesignPage() {
               <div style={st.searchWrap}>
                 <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: C.mutedSoft }} />
                 <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search tables or columns — e.g. teacherId, fee, Lead…" style={st.search} />
-                {query && <button onClick={() => setQuery('')} aria-label="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>}
+                {query && <button onClick={() => setQuery('')} aria-label="Clear search" title="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>}
               </div>
               <select value={domain} onChange={e => setDomain(e.target.value as Domain | 'All')} style={st.select} aria-label="Filter by area">
                 <option value="All">All areas</option>
@@ -207,7 +207,7 @@ function TableDetail({ table: t, schema, onSelect, onBack }: {
     <div style={st.detailPane}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         {onBack && (
-          <button onClick={onBack} style={st.backBtn} aria-label="Back to tables"><FontAwesomeIcon icon={faArrowLeft} /></button>
+          <button onClick={onBack} style={st.backBtn} aria-label="Back to tables" title="Back to tables"><FontAwesomeIcon icon={faArrowLeft} /></button>
         )}
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={st.detailDomain}>{domainOf(t.name)}</div>

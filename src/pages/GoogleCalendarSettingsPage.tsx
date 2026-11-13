@@ -153,17 +153,17 @@ export default function GoogleCalendarSettingsPage() {
                 {googleStatus?.connected ? (
                   <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
                     <div style={{ fontSize: 12, color: '#374151', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ color: '#9ca3af', flexShrink: 0 }}>Account:</span>
+                      <span style={{ color: '#64748b', flexShrink: 0 }}>Account:</span>
                       <span style={{ fontWeight: 600 }}>
-                        {googleStatus.email ?? <span style={{ color: '#9ca3af', fontWeight: 400, fontStyle: 'italic' }}>Reconnect to see</span>}
+                        {googleStatus.email ?? <span style={{ color: '#64748b', fontWeight: 400, fontStyle: 'italic' }}>Reconnect to see</span>}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, color: '#374151', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ color: '#9ca3af', flexShrink: 0 }}>Calendar:</span>
+                      <span style={{ color: '#64748b', flexShrink: 0 }}>Calendar:</span>
                       <span style={{ fontWeight: 600 }}>
                         {googleStatus.calendarName ?? (googleStatus.calendarId
                           ? <span style={{ fontFamily: 'monospace', fontSize: 11 }}>{googleStatus.calendarId}</span>
-                          : <span style={{ color: '#9ca3af', fontWeight: 400, fontStyle: 'italic' }}>Reconnect to see</span>)}
+                          : <span style={{ color: '#64748b', fontWeight: 400, fontStyle: 'italic' }}>Reconnect to see</span>)}
                       </span>
                     </div>
                   </div>
@@ -197,7 +197,7 @@ export default function GoogleCalendarSettingsPage() {
                   Used for enquiry appointments and any event without a more specific setting.
                 </div>
                 {calendarsLoading ? (
-                  <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading calendars…</div>
+                  <div style={{ fontSize: 13, color: '#64748b' }}>Loading calendars…</div>
                 ) : calendarsError ? (
                   <div style={{ fontSize: 13, color: '#dc2626' }}>Failed to load calendars. Try reconnecting your account.</div>
                 ) : calendarList && calendarList.length > 0 ? (
@@ -222,7 +222,7 @@ export default function GoogleCalendarSettingsPage() {
                     </button>
                   </div>
                 ) : (
-                  <div style={{ fontSize: 13, color: '#9ca3af' }}>No calendars found.</div>
+                  <div style={{ fontSize: 13, color: '#64748b' }}>No calendars found.</div>
                 )}
               </div>
             )}
@@ -263,7 +263,7 @@ export default function GoogleCalendarSettingsPage() {
               <button
                 onClick={handleConnect}
                 disabled={isConnecting}
-                style={{ padding: '9px 18px', background: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: 7, cursor: isConnecting ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, color: '#4a5568', opacity: isConnecting ? 0.7 : 1 }}
+                style={{ padding: '9px 18px', background: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: 7, cursor: isConnecting ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, color: '#4a5568', opacity: isConnecting ? 0.7 : 1 }}
               >
                 {isConnecting
                   ? <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ width: 13, height: 13, border: '2px solid #a0aec0', borderTopColor: '#4a5568', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />Redirecting…</span>
@@ -273,7 +273,7 @@ export default function GoogleCalendarSettingsPage() {
               <button
                 onClick={handleConnect}
                 disabled={isConnecting}
-                style={{ padding: '9px 18px', background: '#2b6cb0', color: '#fff', border: 'none', borderRadius: 7, cursor: isConnecting ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, opacity: isConnecting ? 0.7 : 1 }}
+                style={{ padding: '9px 18px', background: '#2b6cb0', color: '#fff', border: 'none', borderRadius: 7, cursor: isConnecting ? 'default' : 'pointer', fontSize: 14, fontWeight: 700, opacity: isConnecting ? 0.7 : 1 }}
               >
                 {isConnecting
                   ? <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Spinner />Redirecting…</span>

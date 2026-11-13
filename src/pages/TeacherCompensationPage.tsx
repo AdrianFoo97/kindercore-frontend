@@ -47,7 +47,7 @@ const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',          // matches Career Path
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -236,7 +236,7 @@ function MechanicChip({ label, color }: { label: string; color: string }) {
     <span style={{
       display: 'inline-flex', alignItems: 'center',
       padding: '2px 8px', height: 18, borderRadius: 999,
-      fontSize: 9, fontWeight: 700,
+      fontSize: 10, fontWeight: 700,
       background: `${color}14`, color, border: `1px solid ${color}33`,
       textTransform: 'uppercase', letterSpacing: '0.06em',
       whiteSpace: 'nowrap',
@@ -493,7 +493,7 @@ export default function TeacherCompensationPage() {
 
       <div style={s.inner}>
         <div style={s.breadcrumb}>
-          <button onClick={() => navigate('/teachers')} className="tcomp-back-btn" style={s.backBtn} title="Back">
+          <button onClick={() => navigate('/teachers')} className="tcomp-back-btn back-btn" style={s.backBtn} title="Back">
             <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
           </button>
           <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
@@ -577,10 +577,10 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
       background: eligStatusVisuals.bg,
       border: `1px solid ${eligStatusVisuals.border}`,
       color: eligStatusVisuals.color,
-      fontSize: isMobile ? 10 : 12, fontWeight: 700,
+      fontSize: isMobile ? 11 : 12, fontWeight: 700,
       textTransform: 'uppercase', letterSpacing: '0.05em',
     }}>
-      <FontAwesomeIcon icon={eligStatusVisuals.icon} style={{ fontSize: isMobile ? 10 : 11 }} />
+      <FontAwesomeIcon icon={eligStatusVisuals.icon} style={{ fontSize: isMobile ? 11 : 11 }} />
       {eligibilityLabel}
     </div>
   );
@@ -687,7 +687,7 @@ function Hero({ teacher, teacherId, eligibility, badgeUrl }: { teacher: any; tea
                 padding: isMobile ? '2px 8px' : '3px 10px', borderRadius: 999,
                 background: C.primarySoft, color: C.primary,
                 border: `1px solid ${C.primaryBorder}`,
-                fontSize: isMobile ? 10 : 11, fontWeight: 700,
+                fontSize: isMobile ? 11 : 11, fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: isMobile ? '0.04em' : '0.06em',
               }}>
                 <FontAwesomeIcon icon={faAward} style={{ fontSize: 9 }} />
@@ -1240,7 +1240,7 @@ function RewardChip({ item, style }: { item: { icon: any; label: string; amount:
               {expanded ? 'Show less' : `+ ${hiddenCount} more`}
               <FontAwesomeIcon
                 icon={expanded ? faChevronUp : faChevronDown}
-                style={{ fontSize: 9 }}
+                style={{ fontSize: 10 }}
               />
             </button>
           )}
@@ -1291,7 +1291,7 @@ function ZoneGate({ score }: { score: number }) {
           border: `3px solid ${zoneColor}`,
           boxShadow: '0 1px 3px rgba(15,23,42,0.15)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 9, fontWeight: 800, color: C.text,
+          fontSize: 10, fontWeight: 800, color: C.text,
           fontVariantNumeric: 'tabular-nums',
         }}>
           {score}
@@ -1385,7 +1385,7 @@ function ThresholdLabel({
       }}>{number}</span>
       {label && (
         <span style={{
-          fontSize: 9, fontWeight: 700, color: labelColor,
+          fontSize: 10, fontWeight: 700, color: labelColor,
           textTransform: 'uppercase', letterSpacing: '0.06em',
           whiteSpace: 'nowrap',
         }}>{label}</span>
@@ -1804,7 +1804,7 @@ function CompanyGoalCard({
             padding: '2px 8px', borderRadius: 999,
             background: badgePalette.bg, color: badgePalette.fg,
             border: `1px solid ${badgePalette.border}`,
-            fontSize: 9, fontWeight: 800,
+            fontSize: 10, fontWeight: 800,
             textTransform: 'uppercase', letterSpacing: '0.08em',
           }}>
             {badgeLabel}
@@ -1826,7 +1826,7 @@ function CompanyGoalCard({
         border: `1px solid ${C.divider}`,
       }}>
         <div style={{
-          fontSize: 9, fontWeight: 800, color: C.muted,
+          fontSize: 10, fontWeight: 800, color: C.muted,
           textTransform: 'uppercase', letterSpacing: '0.08em',
           marginBottom: 8,
         }}>
@@ -1928,7 +1928,7 @@ export function MoneyBenefits({ eligibility }: { eligibility: ReturnType<typeof 
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: 9, fontWeight: 800, color: isEligibleForBenefits ? C.silver : C.muted,
+              fontSize: 10, fontWeight: 800, color: isEligibleForBenefits ? C.silver : C.muted,
               textTransform: 'uppercase', letterSpacing: '0.1em',
             }}>
               {isEligibleForBenefits ? 'You qualify' : 'Eligibility threshold'}
@@ -2166,7 +2166,7 @@ function BenefitCard({ icon, title, amount, bonus, status, description, requirem
             marginBottom: 8,
           }}>
             <span style={{
-              fontSize: 9, fontWeight: 800, color: C.muted,
+              fontSize: 10, fontWeight: 800, color: C.muted,
               textTransform: 'uppercase', letterSpacing: '0.08em',
             }}>
               {hasOptional ? 'Conditions' : 'Requirements'}
@@ -2197,7 +2197,7 @@ function BenefitCard({ icon, title, amount, bonus, status, description, requirem
                   background: r.met ? C.successSoft : '#fff',
                   color: r.met ? C.success : C.mutedSoft,
                   border: `1px solid ${r.met ? C.successBorder : '#cbd5e1'}`,
-                  fontSize: 8,
+                  fontSize: 10,
                   flexShrink: 0,
                 }}>
                   <FontAwesomeIcon icon={r.met ? faCheck : faCircle} style={{
@@ -2234,7 +2234,7 @@ function EnrollmentTierStrip() {
       marginBottom: 12,
     }}>
       <div style={{
-        fontSize: 9, fontWeight: 800, color: C.muted,
+        fontSize: 10, fontWeight: 800, color: C.muted,
         textTransform: 'uppercase', letterSpacing: '0.08em',
         marginBottom: 8,
       }}>
@@ -2253,7 +2253,7 @@ function EnrollmentTierStrip() {
             textAlign: 'center',
           }}>
             <div style={{
-              fontSize: 9, fontWeight: 700, color: C.muted,
+              fontSize: 10, fontWeight: 700, color: C.muted,
               textTransform: 'uppercase', letterSpacing: '0.06em',
             }}>
               {tier.label}
@@ -2282,7 +2282,7 @@ function QualificationTierStrip() {
       marginBottom: 12,
     }}>
       <div style={{
-        fontSize: 9, fontWeight: 800, color: C.muted,
+        fontSize: 10, fontWeight: 800, color: C.muted,
         textTransform: 'uppercase', letterSpacing: '0.08em',
         marginBottom: 8,
       }}>
@@ -2353,7 +2353,7 @@ function LevelPromotionTierStrip({
       marginBottom: 12,
     }}>
       <div style={{
-        fontSize: 9, fontWeight: 800, color: C.muted,
+        fontSize: 10, fontWeight: 800, color: C.muted,
         textTransform: 'uppercase', letterSpacing: '0.08em',
         marginBottom: 8,
       }}>
@@ -2372,7 +2372,7 @@ function LevelPromotionTierStrip({
             textAlign: 'center',
           }}>
             <div style={{
-              fontSize: 9, fontWeight: 700, color: C.muted,
+              fontSize: 10, fontWeight: 700, color: C.muted,
               textTransform: 'uppercase', letterSpacing: '0.06em',
             }}>
               {t.label}
@@ -2453,7 +2453,7 @@ export function HighPerformerBenefits({ unlocked }: { unlocked: boolean }) {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: 9, fontWeight: 800, color: unlocked ? C.gold : C.muted,
+              fontSize: 10, fontWeight: 800, color: unlocked ? C.gold : C.muted,
               textTransform: 'uppercase', letterSpacing: '0.1em',
             }}>
               {unlocked ? 'You qualify' : 'Eligibility threshold'}
@@ -2651,7 +2651,7 @@ function HighPerformerCard({
               marginBottom: 6,
             }}>
               <span style={{
-                fontSize: 9, fontWeight: 800, color: C.muted,
+                fontSize: 10, fontWeight: 800, color: C.muted,
                 textTransform: 'uppercase', letterSpacing: '0.08em',
               }}>
                 Conditions
@@ -2687,7 +2687,7 @@ function HighPerformerCard({
                     background: c.met ? C.successSoft : '#fff',
                     color: c.met ? C.success : C.mutedSoft,
                     border: `1px solid ${c.met ? C.successBorder : '#cbd5e1'}`,
-                    fontSize: 7, flexShrink: 0,
+                    fontSize: 10, flexShrink: 0,
                     marginTop: 2,
                   }}>
                     <FontAwesomeIcon icon={c.met ? faCheck : faCircle} style={{

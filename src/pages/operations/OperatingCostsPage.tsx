@@ -428,7 +428,7 @@ export default function OperatingCostsPage() {
         .occ-copy-btn:hover { background: ${C.primaryLight}; border-color: ${C.primaryBorder}; color: ${C.primary}; }
 
         .occ-discard-btn:hover:not(:disabled) { background: ${C.hover}; border-color: ${C.mutedMore}; color: ${C.textStrong}; }
-        .occ-save-btn:hover:not(:disabled) { background: ${C.primaryHover}; transform: translateY(-1px); }
+        .occ-save-btn:hover:not(:disabled) { background: ${C.primaryHover}; }
         .occ-save-btn:active:not(:disabled) { transform: translateY(0); }
 
         /* Year grid: highlight the row being edited + its sticky category label */
@@ -506,7 +506,7 @@ export default function OperatingCostsPage() {
               color: hasAnyData ? '#dc2626' : '#cbd5e1',
               fontSize: 12,
               fontWeight: 600,
-              cursor: hasAnyData && !isSaving && !isResetting ? 'pointer' : 'not-allowed',
+              cursor: hasAnyData && !isSaving && !isResetting ? 'pointer' : 'default',
               transition: 'background 120ms, border-color 120ms',
             }}
             onMouseEnter={e => { if (hasAnyData && !isSaving && !isResetting) e.currentTarget.style.background = '#fef2f2'; }}

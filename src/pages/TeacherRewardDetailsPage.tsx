@@ -31,7 +31,7 @@ const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   success: '#059669',
   successSoft: '#ecfdf5',
   successBorder: '#a7f3d0',
@@ -224,7 +224,7 @@ export default function TeacherRewardDetailsPage() {
             borderTop: `1px solid ${C.divider}`,
           }}>
             <div style={{
-              fontSize: 10, fontWeight: 800, color: C.muted,
+              fontSize: 11, fontWeight: 800, color: C.muted,
               textTransform: 'uppercase', letterSpacing: '0.08em',
               marginBottom: 8,
             }}>
@@ -302,7 +302,7 @@ export default function TeacherRewardDetailsPage() {
               background: canRedeem ? POINTS_C.accent : '#cbd5e1',
               color: '#fff', border: 'none',
               fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
-              cursor: canRedeem ? 'pointer' : 'not-allowed',
+              cursor: canRedeem ? 'pointer' : 'default',
               boxShadow: canRedeem ? `0 1px 2px ${POINTS_C.accent}30, 0 4px 12px ${POINTS_C.accent}24` : 'none',
               transition: 'background 160ms ease, box-shadow 160ms ease',
             }}
@@ -394,7 +394,7 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: 14, boxShadow: '0 1px 2px rgba(15,23,42,0.03)',
   },
   eyebrow: {
-    fontSize: 10, fontWeight: 700, color: C.muted,
+    fontSize: 11, fontWeight: 700, color: C.muted,
     textTransform: 'uppercase' as const, letterSpacing: '0.1em',
   },
   heading: {

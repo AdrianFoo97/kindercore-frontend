@@ -25,7 +25,7 @@ export interface HirePerson {
 }
 
 const EMP_TOGGLE_ON = { padding: '6px 16px', fontSize: 12, fontWeight: 700, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#4f46e5', color: '#fff' } as React.CSSProperties;
-const EMP_TOGGLE_OFF = { ...EMP_TOGGLE_ON, background: '#f1f5f9', color: '#94a3b8' } as React.CSSProperties;
+const EMP_TOGGLE_OFF = { ...EMP_TOGGLE_ON, background: '#f1f5f9', color: '#64748b' } as React.CSSProperties;
 
 // Schedule picker constants — same shape as EditTeacherPage's Operations
 // tab (workStartMinute/workEndMinute/workDays), duplicated here rather

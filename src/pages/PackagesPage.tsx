@@ -768,7 +768,7 @@ const s: Record<string, React.CSSProperties> = {
     background: '#fafbfc',
   },
   emptyTitle: { fontSize: 15, fontWeight: 600, color: '#334155', marginBottom: 6 },
-  emptySub: { fontSize: 13, color: '#94a3b8', maxWidth: 460, margin: '0 auto', lineHeight: 1.55 },
+  emptySub: { fontSize: 13, color: '#64748b', maxWidth: 460, margin: '0 auto', lineHeight: 1.55 },
 
   // ── Table ───────────────────────────────────────────────────────────────
   tableWrap: {
@@ -793,7 +793,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: '14px 16px',
     fontWeight: 600,
     fontSize: 11,
-    color: '#94a3b8',
+    color: '#64748b',
     letterSpacing: '0.06em',
     textTransform: 'uppercase' as const,
     whiteSpace: 'nowrap' as const,
@@ -819,7 +819,7 @@ const s: Record<string, React.CSSProperties> = {
     display: 'block',
     fontSize: 10,
     fontWeight: 500,
-    color: '#94a3b8',
+    color: '#64748b',
     letterSpacing: '0.08em',
     marginBottom: 2,
   },
@@ -857,7 +857,7 @@ const s: Record<string, React.CSSProperties> = {
   progEmptyHint: {
     fontSize: 11,
     fontWeight: 500,
-    color: '#cbd5e1',
+    color: '#64748b',
     fontStyle: 'italic' as const,
   },
 
@@ -909,9 +909,9 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     fontSize: 13,
     fontWeight: 600,
-    color: '#94a3b8',
+    color: '#64748b',
     background: '#fff',
-    cursor: 'not-allowed',
+    cursor: 'default',
     outline: 'none',
     transition: 'all 0.15s',
     boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
@@ -931,10 +931,10 @@ const s: Record<string, React.CSSProperties> = {
     opacity: 1,
   },
   toolbarBtnBlocked: {
-    color: '#cbd5e1',
+    color: '#64748b',
     borderColor: '#e2e8f0',
     background: '#f8fafc',
-    cursor: 'not-allowed',
+    cursor: 'default',
     opacity: 0.6,
   },
 
@@ -954,13 +954,13 @@ const s: Record<string, React.CSSProperties> = {
   emptyAddText: {
     fontSize: 12,
     fontWeight: 500,
-    color: '#cbd5e1',
+    color: '#64748b',
     transition: 'color 0.12s',
     display: 'inline-flex',
     alignItems: 'center',
   },
   naDash: {
-    color: '#cbd5e1',
+    color: '#64748b',
     fontSize: 16,
   },
 
@@ -1020,7 +1020,7 @@ const s: Record<string, React.CSSProperties> = {
   readonlyNote: {
     marginTop: 16,
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
     textAlign: 'center' as const,
   },
 };

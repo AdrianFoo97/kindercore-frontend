@@ -468,7 +468,7 @@ export default function SalesAnalysisPage() {
             <tbody>
               {pagedLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#cbd5e1', padding: '32px 0' }}>
+                  <td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#64748b', padding: '32px 0' }}>
                     No leads match this filter.
                   </td>
                 </tr>
@@ -611,7 +611,7 @@ function KpiCard({ label, value, accent, valueColor, trend, bar, breakdown }: Kp
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, background: accent, display: 'inline-block', flexShrink: 0 }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
         </span>
         {trend && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: trendColor, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' as any }}>
@@ -631,7 +631,7 @@ function KpiCard({ label, value, accent, valueColor, trend, bar, breakdown }: Kp
         </div>
       )}
       {breakdown && (
-        <div style={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', marginTop: 4 }}>{breakdown}</div>
+        <div style={{ fontSize: 11, fontWeight: 500, color: '#64748b', marginTop: 4 }}>{breakdown}</div>
       )}
     </div>
   );
@@ -824,5 +824,5 @@ const s: Record<string, any> = {
   badge:  { display: 'inline-block', padding: '2px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' },
   name:   { fontWeight: 600, color: C.text },
   centered: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300, color: C.muted, fontSize: 15 },
-  empty:  { color: '#cbd5e1', fontSize: 13, textAlign: 'center' as const, padding: '40px 0', margin: 0 },
+  empty:  { color: '#64748b', fontSize: 13, textAlign: 'center' as const, padding: '40px 0', margin: 0 },
 };

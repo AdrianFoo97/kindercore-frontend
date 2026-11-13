@@ -166,7 +166,7 @@ function FilterTab({ label, count, percent, dot, isActive, onClick }: FilterTabP
           <span
             style={{
               fontWeight: 500,
-              color: '#94a3b8',
+              color: '#64748b',
               fontSize: 11,
               fontVariantNumeric: 'tabular-nums' as any,
             }}

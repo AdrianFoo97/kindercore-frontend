@@ -696,7 +696,7 @@ function RowMenu({ onRename, onDelete, canDelete }: {
         className="mcat-menu-btn"
         onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
         style={s.menuBtn}
-        aria-label="More actions"
+        aria-label="More actions" title="More actions"
       >
         <FontAwesomeIcon icon={faEllipsisVertical} style={{ fontSize: 14 }} />
       </button>

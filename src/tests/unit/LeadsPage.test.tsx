@@ -54,7 +54,7 @@ function renderPage() {
 
 describe('LeadsPage', () => {
   beforeEach(() => {
-    localStorage.setItem('token', 'test-token');
+    localStorage.setItem('user', JSON.stringify({ id: 'u1', role: 'ADMIN' }));
     vi.clearAllMocks();
   });
 

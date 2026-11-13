@@ -25,7 +25,7 @@ import { usePermissions } from '../hooks/usePermissions.js';
 
 const C = {
   bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0', divider: '#f1f5f9',
-  text: '#0f172a', textSub: '#334155', muted: '#64748b', mutedSoft: '#94a3b8',
+  text: '#0f172a', textSub: '#334155', muted: '#64748b', mutedSoft: '#64748b',
   primary: '#5a67d8', primarySoft: '#eef2ff',
 };
 
@@ -130,7 +130,7 @@ export default function IncidentsPage() {
           <div style={st.searchWrap}>
             <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: C.mutedSoft }} />
             <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search child, location, reporter…" style={st.search} />
-            {query && <button onClick={() => setQuery('')} aria-label="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>}
+            {query && <button onClick={() => setQuery('')} aria-label="Clear search" title="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>}
           </div>
         </div>
 

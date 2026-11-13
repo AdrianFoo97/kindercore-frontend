@@ -27,7 +27,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -458,7 +458,7 @@ export default function SopProposePage() {
         categoryIds,
       });
       qc.invalidateQueries({ queryKey: ['sop-revisions'] });
-      showToast('Submitted for supervisor approval');
+      showToast('Sent for approval');
       backTo();
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to submit', 'error');
@@ -591,7 +591,7 @@ export default function SopProposePage() {
             line stays (real, non-redundant information), just without
             the heading floating above it. */}
         {!themeIsTeacher && (
-          <button onClick={goBack} style={s.backBtn}>
+          <button className="back-btn" onClick={goBack} style={s.backBtn}>
             <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
             {isEditingExisting ? target?.title ?? 'Back' : 'Back'}
           </button>
@@ -683,7 +683,7 @@ export default function SopProposePage() {
                       <FontAwesomeIcon icon={resolveSopIcon(icon)} />
                       <span style={{
                         position: 'absolute', bottom: -3, right: -3, width: 21, height: 21, borderRadius: '50%',
-                        background: '#fff', border: `1.5px solid ${C.cardBorder}`, color: C.muted, fontSize: 9,
+                        background: '#fff', border: `1.5px solid ${C.cardBorder}`, color: C.muted, fontSize: 10,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         boxShadow: '0 1px 2px rgba(15,23,42,0.08)',
                       }}>
@@ -714,7 +714,7 @@ export default function SopProposePage() {
                             key={name}
                             type="button"
                             onClick={() => setIcon(name)}
-                            aria-label={iconLabel(name)}
+                            aria-label={iconLabel(name)} title={iconLabel(name)}
                             aria-pressed={active}
                             style={{
                               width: 40, height: 40, borderRadius: 10, flexShrink: 0,
@@ -1001,7 +1001,7 @@ export default function SopProposePage() {
                               disabled={isFirst}
                               aria-label="Move step up"
                               title="Move step up"
-                              style={{ ...s.stepIconBtn, width: 20, height: 16, fontSize: 9, opacity: isFirst ? 0.35 : 1, cursor: isFirst ? 'default' : 'pointer' }}
+                              style={{ ...s.stepIconBtn, width: 20, height: 16, fontSize: 10, opacity: isFirst ? 0.35 : 1, cursor: isFirst ? 'default' : 'pointer' }}
                             >
                               <FontAwesomeIcon icon={faArrowUp} />
                             </button>
@@ -1011,7 +1011,7 @@ export default function SopProposePage() {
                               disabled={isLast}
                               aria-label="Move step down"
                               title="Move step down"
-                              style={{ ...s.stepIconBtn, width: 20, height: 16, fontSize: 9, opacity: isLast ? 0.35 : 1, cursor: isLast ? 'default' : 'pointer' }}
+                              style={{ ...s.stepIconBtn, width: 20, height: 16, fontSize: 10, opacity: isLast ? 0.35 : 1, cursor: isLast ? 'default' : 'pointer' }}
                             >
                               <FontAwesomeIcon icon={faArrowDown} />
                             </button>
@@ -1028,10 +1028,10 @@ export default function SopProposePage() {
                           <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one" title="Insert step after this one">
                             <FontAwesomeIcon icon={faPlus} />
                           </button>
-                          <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step">
+                          <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step" title="Edit step">
                             <FontAwesomeIcon icon={faPen} />
                           </button>
-                          <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step">
+                          <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step" title="Remove step">
                             <FontAwesomeIcon icon={faTrash} />
                           </button>
                         </div>
@@ -1097,10 +1097,10 @@ export default function SopProposePage() {
                                 <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one" title="Insert step after this one">
                                   <FontAwesomeIcon icon={faPlus} />
                                 </button>
-                                <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step">
+                                <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step" title="Edit step">
                                   <FontAwesomeIcon icon={faPen} />
                                 </button>
-                                <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step">
+                                <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step" title="Remove step">
                                   <FontAwesomeIcon icon={faTrash} />
                                 </button>
                               </div>
@@ -1264,7 +1264,7 @@ export default function SopProposePage() {
             }}>
               <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>Choose an icon</span>
               <button
-                type="button" onClick={() => setIconSheetOpen(false)} aria-label="Close"
+                type="button" onClick={() => setIconSheetOpen(false)} aria-label="Close" title="Close"
                 style={{
                   width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.cardBorder}`,
                   background: '#fff', color: C.muted, cursor: 'pointer',
@@ -1286,7 +1286,7 @@ export default function SopProposePage() {
                     key={name}
                     type="button"
                     onClick={() => { setIcon(name); setIconSheetOpen(false); }}
-                    aria-label={iconLabel(name)}
+                    aria-label={iconLabel(name)} title={iconLabel(name)}
                     aria-pressed={active}
                     style={{
                       aspectRatio: '1', borderRadius: 14, cursor: 'pointer',
@@ -1431,7 +1431,7 @@ function ProposeStepDrawer({
               next to those two. Admin's drawer keeps it (round, not a
               square, to begin with — see the old comment this replaced). */}
           {!themeIsTeacher && (
-            <button onClick={onCancel} style={drawerS.closeBtn} aria-label="Close">
+            <button onClick={onCancel} style={drawerS.closeBtn} aria-label="Close" title="Close">
               <FontAwesomeIcon icon={faXmark} />
             </button>
           )}

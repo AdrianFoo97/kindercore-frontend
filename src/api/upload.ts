@@ -1,4 +1,4 @@
-import { ApiError } from './client.js';
+import { ApiError, withSession } from './client.js';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -22,17 +22,12 @@ export function uploadUrl(path: string | null | undefined): string {
  * which can be stored in `Position.badgeUrl`. Server enforces image type and 1 MB limit.
  */
 export async function uploadBadge(file: File): Promise<{ url: string }> {
-  const token = localStorage.getItem('token');
   const form = new FormData();
   form.append('image', file);
 
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}/api/upload/badge`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    });
+    res = await fetch(`${BASE_URL}/api/upload/badge`, withSession({ method: 'POST', body: form }));
   } catch {
     throw new ApiError('Unable to connect to server.', 0, 'NETWORK_ERROR');
   }
@@ -50,17 +45,12 @@ export async function uploadBadge(file: File): Promise<{ url: string }> {
  * image type and a 5 MB per-file limit.
  */
 export async function uploadBugReportPhotos(files: File[]): Promise<{ urls: string[] }> {
-  const token = localStorage.getItem('token');
   const form = new FormData();
   files.forEach(f => form.append('photos', f));
 
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}/api/upload/bug-report-photos`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    });
+    res = await fetch(`${BASE_URL}/api/upload/bug-report-photos`, withSession({ method: 'POST', body: form }));
   } catch {
     throw new ApiError('Unable to connect to server.', 0, 'NETWORK_ERROR');
   }

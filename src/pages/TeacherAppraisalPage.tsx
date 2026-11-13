@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers } from '../api/planner.js';
-import { AppraisalTab } from './settings/EditTeacherPage.js';
+import { AppraisalTab } from './appraisals/AppraisalTab.js';
 
 const C = {
   primary: '#5a67d8', card: '#fff', text: '#1e293b',
@@ -22,7 +22,7 @@ export default function TeacherAppraisalPage() {
       <style>{`.tap-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }`}</style>
       <div style={s.inner}>
         <div style={s.breadcrumb}>
-          <button onClick={() => navigate('/teachers')} className="tap-back-btn" style={s.backBtn} title="Back">
+          <button onClick={() => navigate('/teachers')} className="tap-back-btn back-btn" style={s.backBtn} title="Back">
             <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
           </button>
           <span onClick={() => navigate('/teachers')} style={s.breadcrumbLink}>Teachers</span>

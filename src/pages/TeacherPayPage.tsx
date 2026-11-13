@@ -53,7 +53,7 @@ const C = {
   text: '#475569',          // soft slate-600 (matches career hub)
   textStrong: '#334155',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -249,7 +249,7 @@ export default function TeacherPayPage() {
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                fontSize: 10, fontWeight: 800, color: C.muted,
+                fontSize: 11, fontWeight: 800, color: C.muted,
                 textTransform: 'uppercase', letterSpacing: '0.1em',
               }}>
                 Your Pay
@@ -307,7 +307,7 @@ export default function TeacherPayPage() {
           }}>
             <div style={{ minWidth: 0 }}>
               <div style={{
-                fontSize: 10, fontWeight: 800, color: C.mutedSoft,
+                fontSize: 11, fontWeight: 800, color: C.mutedSoft,
                 textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3,
               }}>
                 Current Tier
@@ -323,7 +323,7 @@ export default function TeacherPayPage() {
             {tier.nextLabel && (
               <div style={{ textAlign: 'right', minWidth: 0 }}>
                 <div style={{
-                  fontSize: 10, fontWeight: 800, color: C.mutedSoft,
+                  fontSize: 11, fontWeight: 800, color: C.mutedSoft,
                   textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3,
                 }}>
                   Next
@@ -404,10 +404,10 @@ export default function TeacherPayPage() {
                 </div>
                 {/* Gate ticks — the explicit settings values. */}
                 <div style={{ position: 'relative', height: 13, marginTop: 3 }}>
-                  <span style={{ position: 'absolute', left: 0, fontSize: 10, fontWeight: 700, color: C.mutedSoft, fontVariantNumeric: 'tabular-nums' }}>0</span>
-                  <span style={{ position: 'absolute', left: `${pm}%`, transform: 'translateX(-50%)', fontSize: 10, fontWeight: 800, color: C.primary, fontVariantNumeric: 'tabular-nums' }}>{perfMin}</span>
-                  <span style={{ position: 'absolute', left: `${hm}%`, transform: 'translateX(-50%)', fontSize: 10, fontWeight: 800, color: C.goldDeep, fontVariantNumeric: 'tabular-nums' }}>{highMin}</span>
-                  <span style={{ position: 'absolute', right: 0, fontSize: 10, fontWeight: 700, color: C.mutedSoft, fontVariantNumeric: 'tabular-nums' }}>100</span>
+                  <span style={{ position: 'absolute', left: 0, fontSize: 11, fontWeight: 700, color: C.mutedSoft, fontVariantNumeric: 'tabular-nums' }}>0</span>
+                  <span style={{ position: 'absolute', left: `${pm}%`, transform: 'translateX(-50%)', fontSize: 11, fontWeight: 800, color: C.primary, fontVariantNumeric: 'tabular-nums' }}>{perfMin}</span>
+                  <span style={{ position: 'absolute', left: `${hm}%`, transform: 'translateX(-50%)', fontSize: 11, fontWeight: 800, color: C.goldDeep, fontVariantNumeric: 'tabular-nums' }}>{highMin}</span>
+                  <span style={{ position: 'absolute', right: 0, fontSize: 11, fontWeight: 700, color: C.mutedSoft, fontVariantNumeric: 'tabular-nums' }}>100</span>
                 </div>
               </>
             );

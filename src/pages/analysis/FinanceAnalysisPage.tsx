@@ -24,7 +24,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
 
   positive: '#059669',      // profit / revenue value
   positiveSoft: '#10b981',  // revenue bar
@@ -958,7 +958,7 @@ function ExpenseCell({ staff, operating, muted, strong, projected }: {
           {projected && (
             <FontAwesomeIcon
               icon={faWandMagicSparkles}
-              style={{ fontSize: 9, color: '#a5b4cb', opacity: 0.8 }}
+              style={{ fontSize: 10, color: '#a5b4cb', opacity: 0.8 }}
             />
           )}
         </span>
@@ -1004,7 +1004,7 @@ function Badge({ tone, children }: { tone: 'indigo' | 'ghost'; children: React.R
       border: '1px solid #c7d2fe',
     },
     ghost: {
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: 600,
       padding: '1px 6px',
       borderRadius: 999,

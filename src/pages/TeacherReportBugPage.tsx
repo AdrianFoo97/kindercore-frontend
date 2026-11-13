@@ -168,7 +168,7 @@ export default function TeacherReportBugPage() {
                 type="button"
                 onClick={() => setPhotoUrls(prev => prev.filter(u => u !== url))}
                 disabled={submitting}
-                aria-label="Remove photo"
+                aria-label="Remove photo" title="Remove photo"
                 style={{
                   position: 'absolute', top: -6, right: -6, width: 20, height: 20,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',

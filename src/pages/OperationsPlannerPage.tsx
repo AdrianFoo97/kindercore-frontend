@@ -214,7 +214,7 @@ function EditTaskModal({ task, onClose, onSave, onDelete }: {
       <div style={{ width: 380, maxWidth: 'calc(100vw - 32px)', background: C.card, borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Edit Task</span>
-          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: C.muted, width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button aria-label="Close" title="Close" onClick={onClose} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: C.muted, width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
           </button>
         </div>
@@ -391,7 +391,7 @@ function ResourcePanel({ teachers, subjects, tasks, classrooms, blocks, search, 
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: 10, color: '#cbd5e1' }} />
+                <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: 10, color: '#64748b' }} />
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.color, flexShrink: 0 }} />
                 <span style={{ color: C.text, flex: 1 }}>{t.name}</span>
               </div>
@@ -399,18 +399,18 @@ function ResourcePanel({ teachers, subjects, tasks, classrooms, blocks, search, 
                 <div style={{ display: 'flex', gap: 2, marginLeft: 28 }}>
                   {DAYS.map((d, i) => {
                     const workDays = t.workDays ?? [0, 1, 2, 3, 4];
-                    if (!workDays.includes(i)) return <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: '#d1d5db' }}>-</div>;
+                    if (!workDays.includes(i)) return <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 10, color: '#d1d5db' }}>-</div>;
                     const rem = info.perDay[i];
                     const h = Math.floor(Math.abs(rem) / 60);
                     const m = Math.abs(rem) % 60;
                     const label = rem < 0 ? `-${h}${m ? `:${m.toString().padStart(2, '0')}` : ''}` : `${h}${m ? `:${m.toString().padStart(2, '0')}` : ''}`;
                     return (
                       <div key={i} style={{
-                        flex: 1, textAlign: 'center', fontSize: 9, fontWeight: 600, borderRadius: 3, padding: '1px 0',
+                        flex: 1, textAlign: 'center', fontSize: 10, fontWeight: 600, borderRadius: 3, padding: '1px 0',
                         color: rem < 0 ? C.danger : rem === 0 ? C.success : C.muted,
                         background: rem < 0 ? hexToRgba(C.danger, 0.08) : rem === 0 ? hexToRgba(C.success, 0.08) : 'transparent',
                       }}>
-                        <div style={{ fontSize: 8, fontWeight: 400, color: '#94a3b8' }}>{d.slice(0, 1)}</div>
+                        <div style={{ fontSize: 10, fontWeight: 400, color: '#64748b' }}>{d.slice(0, 1)}</div>
                         {label}
                       </div>
                     );
@@ -446,11 +446,11 @@ function ResourcePanel({ teachers, subjects, tasks, classrooms, blocks, search, 
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: 10, color: '#cbd5e1' }} />
+                <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: 10, color: '#64748b' }} />
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
                 <span style={{ color: C.text, flex: 1 }}>{s.name}</span>
                 {s.defaultDuration && (
-                  <span style={{ fontSize: 9, color: C.muted }}>{s.defaultDuration}m</span>
+                  <span style={{ fontSize: 10, color: C.muted }}>{s.defaultDuration}m</span>
                 )}
               </div>
               {hasTargets && (
@@ -463,7 +463,7 @@ function ResourcePanel({ teachers, subjects, tasks, classrooms, blocks, search, 
                     const isOver = count > target;
                     return (
                       <span key={cls.id} style={{
-                        fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 3,
+                        fontSize: 10, fontWeight: 600, padding: '1px 5px', borderRadius: 3,
                         color: isOver ? C.danger : isFull ? C.success : C.muted,
                         background: isOver ? hexToRgba(C.danger, 0.08) : isFull ? hexToRgba(C.success, 0.08) : '#f8fafc',
                       }}>
@@ -505,7 +505,7 @@ function ResourcePanel({ teachers, subjects, tasks, classrooms, blocks, search, 
               onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
               onMouseLeave={e => (e.currentTarget.style.background = '')}
             >
-              <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: 10, color: '#cbd5e1' }} />
+              <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: 10, color: '#64748b' }} />
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
                 background: hexToRgba(t.color, 0.15), color: t.color,
@@ -525,7 +525,7 @@ function ResourcePanel({ teachers, subjects, tasks, classrooms, blocks, search, 
           <div style={{ width: 360, maxWidth: 'calc(100vw - 32px)', background: C.card, borderRadius: 14, boxShadow: '0 12px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>New Task</span>
-              <button onClick={() => setAddTaskOpen(false)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: C.muted, width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button aria-label="Close" title="Close" onClick={() => setAddTaskOpen(false)} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', color: C.muted, width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
               </button>
             </div>
@@ -1111,7 +1111,7 @@ function TimetableGrid({ weekDate, blocks, selectedBlockId, onSelectBlock, onCon
                             : `1px dashed ${hexToRgba(C.primary, 0.2)}`,
                           borderRadius: 4,
                           zIndex: 1,
-                          cursor: draggingData ? (teacherAllowed ? 'copy' : 'not-allowed') : 'default',
+                          cursor: draggingData ? (teacherAllowed ? 'copy' : 'default') : 'default',
                           pointerEvents: draggingData ? 'auto' : 'none',
                         }}
                       >
@@ -1386,14 +1386,14 @@ function TimetableGrid({ weekDate, blocks, selectedBlockId, onSelectBlock, onCon
                             : isTask ? `1px dashed ${blockColor}` : `1px solid ${hexToRgba(blockColor, 0.4)}`,
                           borderLeft: isDragHover ? `3px solid ${C.danger}` : hasConflict ? `3px solid ${C.warning}` : isSelected ? `3px solid ${C.primary}` : isTask ? `1px dashed ${blockColor}` : `3px solid ${blockColor}`,
                           borderRadius: 4, padding: '3px 6px',
-                          cursor: isDragHover ? 'not-allowed' : 'pointer',
+                          cursor: isDragHover ? 'default' : 'pointer',
                           overflow: 'hidden', zIndex: blockDragReady ? 10 : 2, fontSize: 11,
                           boxShadow: isSelected ? `0 0 0 2px ${hexToRgba(C.primary, 0.3)}` : 'none',
                           transition: 'box-shadow 0.15s, background 0.15s',
                         }}
                       >
                         {isDragHover && (
-                          <div style={{ fontSize: 9, color: C.danger, fontWeight: 600, marginBottom: 1 }}>
+                          <div style={{ fontSize: 10, color: C.danger, fontWeight: 600, marginBottom: 1 }}>
                             {blockDropReason}
                           </div>
                         )}
@@ -1442,7 +1442,7 @@ function TimetableGrid({ weekDate, blocks, selectedBlockId, onSelectBlock, onCon
                       <div key={`label-${cls.id}`} style={{
                         position: 'absolute', top: clsTop - 9, left: `${leftPct}%`, transform: 'translateX(-50%)',
                         background: '#eef0fa', padding: '1px 7px', borderRadius: 4,
-                        fontSize: 9, fontWeight: 700, color: hexToRgba(C.primary, 0.7),
+                        fontSize: 10, fontWeight: 700, color: hexToRgba(C.primary, 0.7),
                         textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap',
                         pointerEvents: 'none', zIndex: 20,
                         border: `1px solid ${hexToRgba(C.primary, 0.15)}`,
@@ -1565,7 +1565,7 @@ function AssignmentDrawer({
                         background: t.color, flexShrink: 0,
                       }} />
                       {t.name}
-                      <button onClick={() => onChange({ assignedTeacherIds: formData.assignedTeacherIds.filter(x => x !== tid) })}
+                      <button aria-label="Remove" title="Remove" onClick={() => onChange({ assignedTeacherIds: formData.assignedTeacherIds.filter(x => x !== tid) })}
                         style={{
                           background: 'none', border: 'none', cursor: 'pointer',
                           color: t.color, fontSize: 10, padding: '0 0 0 2px', lineHeight: 1,

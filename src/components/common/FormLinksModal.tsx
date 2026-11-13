@@ -91,7 +91,7 @@ export default function FormLinksModal({ initialTab = 'enquiry', applySources, o
             <h3 style={st.title}>Form Links</h3>
             <div style={st.subtitle}>Click a link to copy it. Use for QR codes, ads, or social posts — each one tracks where the submission came from.</div>
           </div>
-          <button onClick={onClose} style={st.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
+          <button onClick={onClose} style={st.closeBtn} aria-label="Close" title="Close"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
 
         <div style={st.tabRow}>
@@ -117,7 +117,7 @@ export default function FormLinksModal({ initialTab = 'enquiry', applySources, o
                 <span style={st.iconBox}><FontAwesomeIcon icon={item.icon} style={{ fontSize: 14, color: '#64748b' }} /></span>
                 <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                   <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{item.label}</span>
-                  <span style={{ display: 'block', fontSize: 11, color: '#94a3b8' }}>{item.desc}</span>
+                  <span style={{ display: 'block', fontSize: 11, color: '#64748b' }}>{item.desc}</span>
                 </span>
                 <span style={{ flexShrink: 0, fontSize: 11, color: isCopied ? '#16a34a' : '#cbd5e1', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
                   {isCopied ? <><FontAwesomeIcon icon={faCircleCheck} /> Copied</> : <FontAwesomeIcon icon={faCopy} />}
@@ -126,7 +126,7 @@ export default function FormLinksModal({ initialTab = 'enquiry', applySources, o
             );
           })}
           {tab === 'apply' && applySources.length === 0 && (
-            <div style={{ padding: '10px 12px', fontSize: 11, color: '#94a3b8' }}>
+            <div style={{ padding: '10px 12px', fontSize: 11, color: '#64748b' }}>
               Add sources in Settings → Recruitment to get tracked links per channel.
             </div>
           )}
@@ -151,8 +151,8 @@ const st = {
     padding: '16px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12,
   } as React.CSSProperties,
   title: { margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' } as React.CSSProperties,
-  subtitle: { fontSize: 11, color: '#94a3b8', marginTop: 2, lineHeight: 1.5 } as React.CSSProperties,
-  closeBtn: { background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#cbd5e1', padding: '4px 2px', lineHeight: 1 } as React.CSSProperties,
+  subtitle: { fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.5 } as React.CSSProperties,
+  closeBtn: { background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#64748b', padding: '4px 2px', lineHeight: 1 } as React.CSSProperties,
   tabRow: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap',
     padding: '0 20px 12px', borderBottom: '1px solid #f1f5f9',

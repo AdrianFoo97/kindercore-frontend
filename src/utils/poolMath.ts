@@ -1,7 +1,9 @@
-// Profit-sharing (quarterly) and annual-bonus pool maths — the one copy used
-// by the admin pages (ProfitSharingPage, AnnualBonusPage) and the teacher's
-// Pay surfaces (useTeamPoolSummary, useAnnualBonusSummary), so the amount a
-// teacher sees can never differ from what the admin page pays out.
+// Profit-sharing (quarterly) and annual-bonus pool maths for the admin
+// Analysis pages (ProfitSharingPage, AnnualBonusPage), which split the pool
+// interactively in the browser. Teachers' figures are worked out on the
+// server (kindercore-backend/src/services/poolMath.service.ts) so their phones
+// never receive the school's finances. The two copies must stay identical —
+// the backend test poolMath.parity.test.ts fails if they differ.
 
 /** A numeric system setting, or the fallback when it's missing / out of range (lo exclusive, hi inclusive). */
 export function settingNum(v: unknown, lo: number, hi: number, fallback: number): number {

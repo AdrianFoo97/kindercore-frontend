@@ -19,7 +19,7 @@ export const filterRow: React.CSSProperties = {
 };
 
 export const filterLabel: React.CSSProperties = {
-  fontSize: 11, color: '#94a3b8', fontWeight: 600,
+  fontSize: 11, color: '#64748b', fontWeight: 600,
   whiteSpace: 'nowrap', textTransform: 'uppercase',
   letterSpacing: '0.06em', minWidth: 64,
 };
@@ -27,7 +27,7 @@ export const filterLabel: React.CSSProperties = {
 export const clearFiltersBtn: React.CSSProperties = {
   marginLeft: 'auto',
   padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-  cursor: 'pointer', border: 'none', background: 'none', color: '#94a3b8',
+  cursor: 'pointer', border: 'none', background: 'none', color: '#64748b',
   whiteSpace: 'nowrap', flexShrink: 0,
   display: 'flex', alignItems: 'center', gap: 5,
 };

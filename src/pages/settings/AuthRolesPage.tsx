@@ -16,7 +16,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   danger: '#dc2626',
@@ -119,13 +119,13 @@ export default function AuthRolesPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => navigate(`/settings/auth-roles/${role.id}/edit`)} style={s.iconBtn} aria-label="Edit modules">
+                    <button onClick={() => navigate(`/settings/auth-roles/${role.id}/edit`)} style={s.iconBtn} aria-label="Edit modules" title="Edit modules">
                       <FontAwesomeIcon icon={faPen} />
                     </button>
                     <button onClick={() => navigate(`/settings/auth-roles/${role.id}/views`)} style={s.iconBtn} aria-label="Edit views" title="Edit views">
                       <FontAwesomeIcon icon={faEye} />
                     </button>
-                    <button onClick={() => onDelete(role)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete">
+                    <button onClick={() => onDelete(role)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete" title="Delete">
                       <FontAwesomeIcon icon={faTrash} />
                     </button>
                   </div>

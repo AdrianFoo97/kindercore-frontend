@@ -29,7 +29,7 @@ const C = {
   divider: '#eef0f3',
   text: '#0f172a',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   danger: '#dc2626',
 };
 const POINTS_C = {
@@ -174,7 +174,7 @@ export default function PointsRewardsAddPage() {
           <button
             type="button"
             onClick={() => navigate('/settings/points-rewards')}
-            className="pra-back-btn"
+            className="pra-back-btn back-btn"
             title="Back to Points & Rewards"
             aria-label="Back"
             style={{
@@ -413,7 +413,7 @@ export default function PointsRewardsAddPage() {
                 background: canSave ? POINTS_C.accent : '#cbd5e1',
                 color: '#fff', border: 'none',
                 fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
-                cursor: canSave ? 'pointer' : 'not-allowed',
+                cursor: canSave ? 'pointer' : 'default',
               }}
             >
               <FontAwesomeIcon icon={faCheck} style={{ fontSize: 11 }} />
@@ -438,7 +438,7 @@ function ActiveToggle({
       type="button"
       role="switch"
       aria-checked={active}
-      aria-label={label}
+      aria-label={label} title={label}
       onClick={onChange}
       style={{
         position: 'relative',

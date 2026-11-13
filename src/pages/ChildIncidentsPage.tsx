@@ -17,7 +17,7 @@ import { useGoBack } from '../hooks/useGoBack.js';
 
 const C = {
   bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0', divider: '#f1f5f9',
-  text: '#0f172a', textSub: '#334155', muted: '#64748b', mutedSoft: '#94a3b8',
+  text: '#0f172a', textSub: '#334155', muted: '#64748b', mutedSoft: '#64748b',
   primary: '#5a67d8', primarySoft: '#eef2ff',
 };
 
@@ -50,7 +50,7 @@ export default function ChildIncidentsPage() {
       background: C.bg, minHeight: '100%', color: C.text,
     }}>
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        <button onClick={goBack} style={st.back}>
+        <button className="back-btn" onClick={goBack} style={st.back}>
           <FontAwesomeIcon icon={faArrowLeft} style={{ fontSize: 11 }} /> Back
         </button>
 

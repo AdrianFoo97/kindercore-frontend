@@ -27,7 +27,7 @@ const C = {
   text: '#475569',
   textStrong: '#334155',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   slateSoft: '#f1f5f9',
   pAccent: '#7c3aed',
   pSoft: '#f5f3ff',
@@ -112,12 +112,12 @@ export default function TeacherMyAnnualBonusPage() {
                     background: m.isForecast ? C.slateSoft : m.hit ? C.greenSoft : '#fef2f2',
                     border: `1px solid ${m.isForecast ? C.cardBorder : m.hit ? C.greenBorder : '#fecaca'}`,
                   }}>
-                    <div style={{ fontSize: 10.5, fontWeight: 700, color: C.muted, textTransform: 'uppercase' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase' }}>
                       {MONTH_LABELS_SHORT[m.monthIdx]}
                     </div>
                     <div style={{ marginTop: 4, fontSize: 14 }}>
                       {m.isForecast ? (
-                        <span style={{ color: C.mutedSoft, fontSize: 10.5, fontWeight: 700 }}>—</span>
+                        <span style={{ color: C.mutedSoft, fontSize: 11, fontWeight: 700 }}>—</span>
                       ) : (
                         <FontAwesomeIcon icon={m.hit ? faCheck : faXmark} style={{ color: m.hit ? C.green : '#dc2626' }} />
                       )}

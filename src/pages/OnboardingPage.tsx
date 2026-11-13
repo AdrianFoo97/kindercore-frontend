@@ -181,7 +181,7 @@ function StudentOnboardingCard({
           <div style={{ fontSize: 12, color: '#64748b', marginBottom: 2 }}>
             {student.package.name}
           </div>
-          <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const }}>
+          <div style={{ fontSize: 12, color: '#64748b', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const }}>
             {student.startDate ? (
               <>
                 <span>{countdown?.isPast ? 'Started' : 'Starting'} {formatStartDate(student)}</span>
@@ -197,7 +197,7 @@ function StudentOnboardingCard({
                 )}
               </>
             ) : (
-              <span style={{ color: '#cbd5e1', fontStyle: 'italic' as const }}>First day not set</span>
+              <span style={{ color: '#64748b', fontStyle: 'italic' as const }}>First day not set</span>
             )}
           </div>
         </div>
@@ -243,7 +243,7 @@ function StudentOnboardingCard({
       {/* Progress section */}
       <div style={{ paddingLeft: isMobile ? 0 : 54 }}>
         {total === 0 ? (
-          <span style={{ fontSize: 12, color: '#94a3b8' }}>No tasks configured — set up tasks to begin onboarding</span>
+          <span style={{ fontSize: 12, color: '#64748b' }}>No tasks configured — set up tasks to begin onboarding</span>
         ) : (
           <ProgressBar done={done} total={total} />
         )}
@@ -363,9 +363,9 @@ function OnboardingWhatsAppModal({ phone, childName, templates, onClose }: {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f172a' }}>{childName}</h2>
-            <p style={{ margin: '2px 0 0', fontSize: 13, color: '#94a3b8' }}>+{phone}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 13, color: '#64748b' }}>+{phone}</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#94a3b8', padding: 2 }}><FontAwesomeIcon icon={faXmark} /></button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#64748b', padding: 2 }}><FontAwesomeIcon icon={faXmark} /></button>
         </div>
 
         {/* Template + Language */}
@@ -543,9 +543,9 @@ export default function OnboardingPage() {
                 transition: 'border-color 0.15s, background 0.15s',
               }}
             />
-            <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#b0b8c8', fontSize: 12 }} />
+            <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: 12 }} />
             {search && (
-              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 2 }}>
+              <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 12, padding: 2 }}>
                 <FontAwesomeIcon icon={faXmark} />
               </button>
             )}
@@ -646,7 +646,7 @@ export default function OnboardingPage() {
           }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}><FontAwesomeIcon icon={faTriangleExclamation} /></div>
             <div style={{ fontSize: 14, color: '#dc2626', fontWeight: 600 }}>Failed to load students</div>
-            <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Please refresh the page.</div>
+            <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>Please refresh the page.</div>
           </div>
         )}
 
@@ -660,7 +660,7 @@ export default function OnboardingPage() {
             <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>
               {totalStudents === 0 ? 'All caught up!' : `No pending students for ${selectedYear}`}
             </div>
-            <div style={{ fontSize: 13, color: '#94a3b8' }}>
+            <div style={{ fontSize: 13, color: '#64748b' }}>
               {totalStudents === 0
                 ? 'All students have completed onboarding.'
                 : `There are ${totalStudents} pending student(s) in other years.`}

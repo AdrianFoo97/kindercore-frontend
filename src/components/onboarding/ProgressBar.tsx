@@ -31,7 +31,7 @@ export function ProgressBar({ done, total, label }: {
           {done} of {total} tasks complete
         </span>
         {!isComplete && (
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>{remaining} remaining</span>
+          <span style={{ fontSize: 11, color: '#64748b' }}>{remaining} remaining</span>
         )}
       </div>
     </div>

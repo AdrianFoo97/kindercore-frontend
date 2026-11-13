@@ -37,7 +37,7 @@ const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -287,7 +287,7 @@ export default function TeacherMyCareerPage() {
                       <FontAwesomeIcon
                         icon={aprMet ? faCircleCheck : faCircle}
                         style={{
-                          fontSize: 10,
+                          fontSize: 11,
                           color: aprMet ? C.success : C.mutedSoft,
                         }}
                       />
@@ -380,7 +380,7 @@ export default function TeacherMyCareerPage() {
                       {renderThumb(currentPosition.badgeUrl, currentPosition.name, false)}
                       <div style={{ textAlign: 'center' as const }}>
                         <div style={{
-                          fontSize: 9, fontWeight: 700, color: C.mutedSoft,
+                          fontSize: 11, fontWeight: 700, color: C.mutedSoft,
                           textTransform: 'uppercase' as const, letterSpacing: '0.08em',
                         }}>
                           Current Rank
@@ -407,7 +407,7 @@ export default function TeacherMyCareerPage() {
                       <div style={{
                         marginBottom: 6,
                         textAlign: 'center' as const,
-                        fontSize: 10, fontWeight: 700, color: C.mutedSoft,
+                        fontSize: 11, fontWeight: 700, color: C.mutedSoft,
                         textTransform: 'uppercase' as const, letterSpacing: '0.08em',
                       }}>
                         Promotion Progress
@@ -475,7 +475,7 @@ export default function TeacherMyCareerPage() {
                       {renderThumb(nextPosition?.badgeUrl, nextPosition?.name ?? 'Next', false)}
                       <div style={{ textAlign: 'center' as const }}>
                         <div style={{
-                          fontSize: 9, fontWeight: 700, color: C.mutedSoft,
+                          fontSize: 11, fontWeight: 700, color: C.mutedSoft,
                           textTransform: 'uppercase' as const, letterSpacing: '0.08em',
                         }}>
                           Next Rank
@@ -815,7 +815,7 @@ function FocusMissionCard({ mission, teacherId, requiredTotal }: {
           <div style={{
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 10, fontWeight: 600, lineHeight: 1,
+            fontSize: 11, fontWeight: 600, lineHeight: 1,
             // Grey until the fill crosses halfway, then crisp white
             // with a soft shadow so the count stays legible on colour.
             color: pct >= 50 ? '#fff' : C.mutedSoft,
@@ -915,7 +915,7 @@ function QuestDetailSheet({ mission, onClose }: {
             display: 'inline-flex', alignItems: 'center', gap: 5,
             padding: '3px 10px', borderRadius: 999,
             background: cat.bg, color: cat.color,
-            fontSize: 10, fontWeight: 700,
+            fontSize: 11, fontWeight: 700,
             letterSpacing: '0.02em',
           }}>
             <FontAwesomeIcon icon={cat.icon} style={{ fontSize: 9 }} />
@@ -928,7 +928,7 @@ function QuestDetailSheet({ mission, onClose }: {
                 padding: '2px 8px', borderRadius: 999,
                 background: C.successSoft, color: C.success,
                 border: `1px solid ${C.successBorder}`,
-                fontSize: 9, fontWeight: 800,
+                fontSize: 11, fontWeight: 800,
                 textTransform: 'uppercase' as const, letterSpacing: '0.06em',
               }}>
                 <FontAwesomeIcon icon={faCheck} style={{ fontSize: 8 }} />
@@ -945,7 +945,7 @@ function QuestDetailSheet({ mission, onClose }: {
                 border: `1px solid ${C.divider}`,
                 cursor: 'pointer', flexShrink: 0,
               }}
-              aria-label="Close"
+              aria-label="Close" title="Close"
             >
               <FontAwesomeIcon icon={faXmark} style={{ fontSize: 12 }} />
             </button>
@@ -984,7 +984,7 @@ function QuestDetailSheet({ mission, onClose }: {
           }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 10, fontWeight: 800,
+              fontSize: 11, fontWeight: 800,
               color: cat.color,
               textTransform: 'uppercase' as const, letterSpacing: '0.1em',
               marginBottom: 6,
@@ -1014,7 +1014,7 @@ function QuestDetailSheet({ mission, onClose }: {
             gap: 10, marginBottom: 8,
           }}>
             <span style={{
-              fontSize: 10, fontWeight: 800,
+              fontSize: 11, fontWeight: 800,
               color: completed ? C.success : C.muted,
               textTransform: 'uppercase' as const, letterSpacing: '0.1em',
             }}>

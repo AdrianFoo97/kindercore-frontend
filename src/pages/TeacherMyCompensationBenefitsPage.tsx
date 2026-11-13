@@ -25,7 +25,7 @@ const C = {
   cardBorder: '#eceef2',
   text: '#0f172a',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
 };
 
 export default function TeacherMyCompensationBenefitsPage() {

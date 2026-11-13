@@ -352,6 +352,8 @@ export interface Teacher {
   name: string;
   color: string;
   isActive: boolean;
+  /** Who they report to (another staff member) — HR / admin views only. */
+  reportsToTeacherId?: string | null;
   allowedSubjectIds: string[] | null;
   allowedClassroomIds: string[] | null;
   workStartMinute: number | null;

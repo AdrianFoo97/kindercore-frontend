@@ -17,7 +17,7 @@ const C = {
   textSub: '#475569',
   textBody: '#52525b',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   success: '#059669',

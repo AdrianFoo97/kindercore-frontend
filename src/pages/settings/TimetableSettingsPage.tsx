@@ -481,7 +481,7 @@ export default function TimetableSettingsPage({ embedded = false }: { embedded?:
               <FontAwesomeIcon icon={faPen} style={{ fontSize: 12 }} />
             </button>
             <div style={{ position: 'relative' }}>
-              <button onClick={() => setMenuOpenId(menuOpenId === item.id ? null : item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: '6px 8px', borderRadius: 6 }}
+              <button aria-label="More actions" title="More actions" onClick={() => setMenuOpenId(menuOpenId === item.id ? null : item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, padding: '6px 8px', borderRadius: 6 }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')} onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
                 <FontAwesomeIcon icon={faEllipsisVertical} style={{ fontSize: 14 }} />
               </button>

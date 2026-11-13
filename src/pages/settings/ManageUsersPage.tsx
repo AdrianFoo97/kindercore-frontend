@@ -242,7 +242,7 @@ export default function ManageUsersPage() {
                         <option key={r.id} value={r.id}>{r.name}</option>
                       ))}
                     </select>
-                    <p style={{ margin: '6px 0 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                    <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
                       What modules/views they can see in the admin portal. Can also be set later from this page, or
                       — for teaching staff — inherited from whichever Teacher record they get linked to instead.
                     </p>
@@ -297,7 +297,7 @@ export default function ManageUsersPage() {
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
                 </select>
-                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
                   Direct grant, separate from whatever a linked Teacher's position gives below.
                 </p>
               </div>
@@ -353,9 +353,9 @@ export default function ManageUsersPage() {
           </h3>
         </div>
         {isLoading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>Loading...</div>
+          <div style={{ padding: 32, textAlign: 'center', color: '#64748b', fontSize: 14 }}>Loading...</div>
         ) : activeUsers.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>No active members.</div>
+          <div style={{ padding: 32, textAlign: 'center', color: '#64748b', fontSize: 14 }}>No active members.</div>
         ) : (
           activeUsers.map(u => {
             const activity = memberActivity(u.lastSeenAt);
@@ -401,7 +401,7 @@ export default function ManageUsersPage() {
                   <FontAwesomeIcon icon={faPen} />
                 </button>
                 {canDelete(u) && (
-                  <button onClick={() => setDeleteTarget({ id: u.id, name: u.name || u.email })} style={{
+                  <button aria-label="Delete user" title="Delete user" onClick={() => setDeleteTarget({ id: u.id, name: u.name || u.email })} style={{
                     background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: 6, fontSize: 13,
                   }}>
                     <FontAwesomeIcon icon={faTrash} />
@@ -492,7 +492,7 @@ export default function ManageUsersPage() {
               <button onClick={confirmDelete} disabled={deleting} style={{
                 flex: 1, padding: '10px', border: 'none', borderRadius: 8,
                 background: '#dc2626', color: '#fff', fontSize: 14, fontWeight: 600,
-                cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                cursor: deleting ? 'default' : 'pointer', fontFamily: 'inherit',
                 opacity: deleting ? 0.7 : 1,
               }}>{deleting ? 'Removing...' : 'Remove'}</button>
             </div>

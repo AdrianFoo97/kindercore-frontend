@@ -169,7 +169,7 @@ export default function AddStudentModal({
       <div style={modal.card} onClick={(e) => e.stopPropagation()}>
         <div style={modal.header}>
           <h2 style={modal.title}>Add Student</h2>
-          <button onClick={onClose} style={modal.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
+          <button onClick={onClose} style={modal.closeBtn} aria-label="Close" title="Close"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
         <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748b' }}>
           Manually enrol a child who didn't fill in the enquiry form.
@@ -248,7 +248,7 @@ export default function AddStudentModal({
                 <label style={modal.label}>
                   Lead Date
                   <input type="date" style={modal.input} value={submittedAt} onChange={e => setSubmittedAt(e.target.value)} required />
-                  <span style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>Defaults to today. Backdate if the parent enquired earlier.</span>
+                  <span style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Defaults to today. Backdate if the parent enquired earlier.</span>
                 </label>
               </>
             )}
@@ -273,7 +273,7 @@ export default function AddStudentModal({
                 </div>
 
                 {packages.length === 0 ? (
-                  <span style={{ fontSize: 13, color: '#a0aec0' }}>Loading packages…</span>
+                  <span style={{ fontSize: 13, color: '#64748b' }}>Loading packages…</span>
                 ) : (
                   <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <label style={modal.label}>
@@ -309,7 +309,7 @@ export default function AddStudentModal({
                     onChange={e => setMonthlyFee(Number(e.target.value))}
                     disabled={!feeOverridden}
                   />
-                  {!feeOverridden && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Auto-set from package price</div>}
+                  {!feeOverridden && <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Auto-set from package price</div>}
                 </div>
               </>
             )}
@@ -374,12 +374,12 @@ const modal: Record<string, React.CSSProperties> = {
   title: { margin: 0, fontSize: 20, fontWeight: 700 },
   closeBtn: {
     background: 'none', border: 'none', fontSize: 18, cursor: 'pointer',
-    color: '#a0aec0', lineHeight: 1, padding: 4,
+    color: '#64748b', lineHeight: 1, padding: 4,
   },
   tabBar: { display: 'flex', borderBottom: '2px solid #e2e8f0', gap: 0 },
   tab: {
     flex: 1, padding: '8px 8px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-    border: 'none', background: 'none', color: '#a0aec0', textAlign: 'center' as const,
+    border: 'none', background: 'none', color: '#64748b', textAlign: 'center' as const,
     borderBottom: '2px solid transparent', marginBottom: -2,
   },
   tabActive: { color: '#3182ce', borderBottom: '2px solid #3182ce' },

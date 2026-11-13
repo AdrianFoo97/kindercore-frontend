@@ -85,7 +85,7 @@ export function ChecklistModal({
             <h2 style={modal.title}>Onboarding Checklist</h2>
             <p style={modal.subtitle}>{subtitle}</p>
           </div>
-          <button onClick={onClose} style={modal.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
+          <button onClick={onClose} style={modal.closeBtn} aria-label="Close" title="Close"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
 
         <div style={{ marginBottom: 16 }}>
@@ -113,7 +113,7 @@ export function ChecklistModal({
 
         <div ref={listRef} style={modal.list}>
           {items.length === 0 && (
-            <p style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', margin: 0 }}>
+            <p style={{ color: '#64748b', fontSize: 13, textAlign: 'center', margin: 0 }}>
               No onboarding tasks configured.
             </p>
           )}
@@ -136,7 +136,7 @@ export function ChecklistModal({
                 onChange={() => toggle(idx)}
                 style={{ width: 15, height: 15, accentColor: '#10b981', flexShrink: 0, marginTop: 1 }}
               />
-              <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600, width: 18, flexShrink: 0 }}>{idx + 1}.</span>
+              <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600, width: 18, flexShrink: 0 }}>{idx + 1}.</span>
               <span style={{ fontSize: 13, color: t.done ? '#6ee7b7' : '#374151', flex: 1, lineHeight: 1.5, textDecoration: t.done ? 'line-through' : 'none' }}>
                 {t.task}
               </span>
@@ -186,7 +186,7 @@ const modal: Record<string, React.CSSProperties> = {
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
   title: { margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' },
   subtitle: { margin: '4px 0 0', fontSize: 13, color: '#64748b' },
-  closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#94a3b8', lineHeight: 1, padding: 4 },
+  closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#64748b', lineHeight: 1, padding: 4 },
   list: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2, maxHeight: 240 },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 18, paddingTop: 14, borderTop: '1px solid #f1f5f9' },
   cancelBtn: {

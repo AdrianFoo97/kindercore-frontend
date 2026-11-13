@@ -421,7 +421,7 @@ function RowMenu({ onRename, onDelete, renameLabel = 'Rename' }: {
 
   return (
     <>
-      <button ref={btnRef} type="button" className="recruit-menu-btn" onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }} style={S.menuBtn} aria-label="More actions">
+      <button ref={btnRef} type="button" className="recruit-menu-btn" onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }} style={S.menuBtn} aria-label="More actions" title="More actions">
         <FontAwesomeIcon icon={faEllipsisVertical} style={{ fontSize: 14 }} />
       </button>
       {open && ReactDOM.createPortal(

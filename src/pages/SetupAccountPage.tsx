@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { apiFetch } from '../api/client.js';
+import { apiFetch, rememberUser } from '../api/client.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Password requirements
@@ -184,12 +184,12 @@ export default function SetupAccountPage() {
     setSubmitError('');
     setIsSubmitting(true);
     try {
-      const data = await apiFetch<{ token: string; user: { id: string; email: string; name: string; role: string } }>('/api/auth/activate', {
+      const data = await apiFetch<{ user: { id: string; email: string; name: string; role: string } }>('/api/auth/activate', {
         method: 'POST',
         body: JSON.stringify({ token: inviteToken, name: name.trim(), password }),
       });
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // Signed in by an httpOnly cookie; keep only who it is.
+      rememberUser(data.user);
       setPageState('success');
       setTimeout(() => navigate('/leads'), 2000);
     } catch (err: any) {
@@ -288,7 +288,7 @@ export default function SetupAccountPage() {
             onBlur={() => { setTouched(t => ({ ...t, password: true })); }}
             error={passwordError} placeholder="Create a password" autoComplete="new-password" disabled={isSubmitting}
             suffix={
-              <button type="button" onClick={() => setShowPassword(s => !s)} style={S.eyeBtn} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+              <button type="button" onClick={() => setShowPassword(s => !s)} style={S.eyeBtn} aria-label={showPassword ? 'Hide password' : 'Show password'} title={showPassword ? 'Hide password' : 'Show password'}>
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             }
@@ -303,7 +303,7 @@ export default function SetupAccountPage() {
             onBlur={() => setTouched(t => ({ ...t, confirm: true }))}
             error={confirmError} placeholder="Confirm your password" autoComplete="new-password" disabled={isSubmitting}
             suffix={
-              <button type="button" onClick={() => setShowConfirm(s => !s)} style={S.eyeBtn} aria-label={showConfirm ? 'Hide password' : 'Show password'}>
+              <button type="button" onClick={() => setShowConfirm(s => !s)} style={S.eyeBtn} aria-label={showConfirm ? 'Hide password' : 'Show password'} title={showConfirm ? 'Hide password' : 'Show password'}>
                 {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             }
@@ -316,7 +316,7 @@ export default function SetupAccountPage() {
             style={{
               ...S.submitBtn,
               opacity: isSubmitting ? 0.72 : !isFormValid ? 0.55 : 1,
-              cursor: isSubmitting || !isFormValid ? 'not-allowed' : 'pointer',
+              cursor: isSubmitting || !isFormValid ? 'default' : 'pointer',
             }}
           >
             {isSubmitting
@@ -362,8 +362,6 @@ const globalStyles = `
   }
   .kc-submit-btn:not(:disabled):hover {
     opacity: 0.92 !important;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(29, 78, 216, 0.35) !important;
   }
   .kc-submit-btn:not(:disabled):active {
     transform: translateY(0);
@@ -495,7 +493,7 @@ const S: Record<string, React.CSSProperties> = {
     padding: 0,
     display: 'flex',
     alignItems: 'center',
-    color: '#9ca3af',
+    color: '#64748b',
     lineHeight: 1,
   },
   submitBtn: {
@@ -519,7 +517,7 @@ const S: Record<string, React.CSSProperties> = {
     gap: 6,
     marginTop: 22,
     fontSize: 12,
-    color: '#94a3b8',
+    color: '#64748b',
     fontWeight: 500,
     letterSpacing: '0.01em',
   },

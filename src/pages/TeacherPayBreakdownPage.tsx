@@ -55,7 +55,7 @@ const C = {
   text: '#475569',
   textStrong: '#334155',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',

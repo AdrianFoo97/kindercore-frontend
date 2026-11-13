@@ -198,7 +198,7 @@ export default function TeachersPage() {
       const { hrTasks, ownTasks } = await startStaffOnboarding(t.id);
       qc.invalidateQueries({ queryKey: ['planner-teachers'] });
       qc.invalidateQueries({ queryKey: ['staff-onboarding'] });
-      showToast(`Created ${hrTasks + ownTasks} onboarding tasks for ${t.name}`);
+      showToast('Onboarding tasks created');
       navigate('/hr/onboarding');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Could not create onboarding tasks', 'error');

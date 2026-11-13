@@ -203,7 +203,16 @@ export function teacherTopBar(pathname: string, search: string = ''): TopBarStat
   }
   if (tail === 'incidents' || tail === 'incidents/new') {
     // Opened from Home (and the list opens the form) — real history back.
-    return { title: tail === 'incidents' ? 'Incidents' : 'Report an Incident', showBack: true, backTo: GO_BACK };
+    return { title: tail === 'incidents' ? 'Incident Log' : 'Report an Incident', showBack: true, backTo: GO_BACK };
+  }
+  if (tail === 'facilities' || tail === 'facilities/new') {
+    // Opened from Home's quick actions (and the list opens the form) — real history back.
+    return { title: tail === 'facilities' ? 'Facilities' : 'Report a Problem', showBack: true, backTo: GO_BACK };
+  }
+  if (tail === 'purchases' || tail === 'purchases/new' || /^purchases\/[^/]+\/edit$/.test(tail)) {
+    // Opened from Home's quick actions (and the list opens the form) — real history back.
+    const title = tail === 'purchases' ? 'Requests' : tail === 'purchases/new' ? 'Request an Item' : 'Edit Request';
+    return { title, showBack: true, backTo: GO_BACK };
   }
   // Which section this tail belongs to (drives the back target).
   const section: 'my-career' | 'my-compensation' | 'rewards' | 'home' | 'leaderboard' | null =
@@ -460,11 +469,11 @@ export default function TeacherTopBar() {
         }}
       />
       {showMoreMenu && (
-        <button
+        <button className="tap"
           ref={menuBtnElRef}
           type="button"
           onClick={() => setMenuOpen(o => !o)}
-          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'} title={menuOpen ? 'Close menu' : 'Open menu'}
           style={{
             position: 'fixed',
             right: 8,
@@ -491,7 +500,7 @@ export default function TeacherTopBar() {
         </button>
       )}
       {bar.showBack && (
-        <button
+        <button className="tap"
           type="button"
           onClick={() => {
             // replace, not push: "back" is an undo, and pushing a new
@@ -511,7 +520,7 @@ export default function TeacherTopBar() {
             if (locationKey !== 'default') navigate(-1);
             else navigate(teacherIdMatch ? `/teachers/${teacherIdMatch[1]}/home` : '/teachers');
           }}
-          aria-label="Back"
+          aria-label="Back" title="Back"
           style={{
             // Always the liquid-glass circle, on every page, regardless
             // of scroll position — was conditional on `scrolled` before
@@ -640,9 +649,9 @@ export default function TeacherTopBar() {
               compete with the page's violet accents. Always fixed +
               liquid-glass, same as the back chevron/"⋯", on every page
               regardless of scroll position. */}
-          <button
+          <button className="tap"
             type="button"
-            aria-label="What this means"
+            aria-label="What this means" title="What this means"
             aria-expanded={infoOpen}
             onClick={() => setInfoOpen(o => !o)}
             style={{
@@ -724,7 +733,7 @@ export default function TeacherTopBar() {
                     <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                       <FontAwesomeIcon
                         icon={faCircleInfo}
-                        style={{ fontSize: 13, color: '#94a3b8', flexShrink: 0, marginTop: 3 }}
+                        style={{ fontSize: 13, color: '#64748b', flexShrink: 0, marginTop: 3 }}
                       />
                       <span style={{ fontSize: 13, fontWeight: 600, color: '#475569', lineHeight: 1.55 }}>
                         {line}
@@ -741,7 +750,7 @@ export default function TeacherTopBar() {
                   borderTop: '1px solid #eceef2',
                 }}>
                   <div style={{
-                    fontSize: 10.5, fontWeight: 800, color: '#64748b',
+                    fontSize: 11, fontWeight: 800, color: '#64748b',
                     textTransform: 'uppercase', letterSpacing: '0.08em',
                     marginBottom: 10,
                   }}>

@@ -52,6 +52,8 @@ import SettingsHrPage from './pages/settings/SettingsHrPage.js';
 import PositionEditPage from './pages/settings/PositionEditPage.js';
 import CareerMissionSettingsPage from './pages/settings/CareerMissionSettingsPage.js';
 import MissionCategoriesPage from './pages/settings/MissionCategoriesPage.js';
+import AppraisalFormsPage from './pages/settings/appraisalForms/AppraisalFormsPage.js';
+import AppraisalFormEditPage from './pages/settings/appraisalForms/AppraisalFormEditPage.js';
 import MarketingCampaignsPage from './pages/marketing/MarketingCampaignsPage.js';
 import SopLibraryPage from './pages/operations/SopLibraryPage.js';
 import SopProposePage from './pages/operations/SopProposePage.js';
@@ -73,6 +75,12 @@ import TeacherReportBugPage from './pages/TeacherReportBugPage.js';
 import TeacherIncidentsPage from './pages/TeacherIncidentsPage.js';
 import TeacherReportIncidentPage from './pages/TeacherReportIncidentPage.js';
 import IncidentsPage from './pages/IncidentsPage.js';
+import FacilityIssuesPage from './pages/facilities/FacilityIssuesPage.js';
+import TeacherFacilitiesPage from './pages/facilities/TeacherFacilitiesPage.js';
+import TeacherReportFacilityPage from './pages/facilities/TeacherReportFacilityPage.js';
+import ShoppingListPage from './pages/purchases/ShoppingListPage.js';
+import TeacherPurchasesPage from './pages/purchases/TeacherPurchasesPage.js';
+import TeacherRequestItemPage from './pages/purchases/TeacherRequestItemPage.js';
 import IncidentFormPage from './pages/IncidentFormPage.js';
 import IncidentDetailPage from './pages/IncidentDetailPage.js';
 import ChildIncidentsPage from './pages/ChildIncidentsPage.js';
@@ -119,7 +127,11 @@ import StaffJoinPage from './pages/StaffJoinPage.js';
 import NewStaffPage from './pages/NewStaffPage.js';
 import GuideShareRedirect from './pages/operations/GuideShareRedirect.js';
 import StaffOnboardingPage from './pages/staffOnboarding/StaffOnboardingPage.js';
+import AppraisalsPage from './pages/appraisals/AppraisalsPage.js';
 import { loginUrlReturningTo } from './utils/loginReturn.js';
+import { isSignedIn } from './api/client.js';
+import IdleSignOut from './components/common/IdleSignOut.js';
+import AccessLogPage from './pages/admin/AccessLogPage.js';
 import CandidatesPage from './pages/CandidatesPage.js';
 import ImportCandidatesPage from './pages/candidates/ImportCandidatesPage.js';
 import RecruitmentSettingsPage from './pages/settings/RecruitmentSettingsPage.js';
@@ -150,7 +162,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 // they read as a focused phone-first app, not a back-office screen.
 // Single source of truth so navbar + footer suppression never drift
 // apart from what TeacherMobileNav itself treats as a teacher route.
-const TEACHER_SURFACE = /\/teachers\/[^/]+\/(home|my-career|my-compensation|rewards|leaderboard|career\/missions|settings|incidents)/;
+const TEACHER_SURFACE = /\/teachers\/[^/]+\/(home|my-career|my-compensation|rewards|leaderboard|career\/missions|settings|incidents|facilities|purchases)/;
 // Mission Board is shared: the gamified teacher app links here with the
 // phone chrome, but the HR Career Path page (TeacherCareerPage.tsx) also
 // links into this exact same route to let a supervisor browse a teacher's
@@ -180,7 +192,7 @@ function isTeacherSurface(pathname: string, search: string): boolean {
 }
 
 function ProtectedLayout() {
-  const token = localStorage.getItem('token');
+  const signedIn = isSignedIn();
   // The page content scrolls inside this div (the shell is
   // height:100vh / overflow:hidden), so a route change must reset
   // *this* element's scroll — window.scrollTo would do nothing.
@@ -192,7 +204,7 @@ function ProtectedLayout() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, left: 0 });
   }, [pathname]);
-  if (!token) return <Navigate to={loginUrlReturningTo(pathname + search)} replace />;
+  if (!signedIn) return <Navigate to={loginUrlReturningTo(pathname + search)} replace />;
   const teacherSurface = isTeacherSurface(pathname, search);
   // The floating teacher chrome (top bar + bottom tab capsule) is a
   // phone-first pattern — on desktop these routes fall back to the
@@ -221,6 +233,8 @@ function ProtectedLayout() {
         <AppFooter />
       </div>
       {showTeacherChrome && <TeacherMobileNav />}
+      {/* Admin screens sign out after a while unused (office computers); the teacher app doesn't. */}
+      {!teacherSurface && <IdleSignOut />}
     </div>
   );
 }
@@ -240,7 +254,7 @@ function AppFooter() {
       padding: '12px 24px', borderTop: '1px solid #e2e8f0',
       display: 'flex', flexDirection: window.innerWidth < 768 ? 'column' as const : 'row' as const,
       justifyContent: 'space-between', alignItems: 'center', gap: 2,
-      fontSize: 11, color: '#94a3b8', background: '#f8fafc', flexShrink: 0,
+      fontSize: 11, color: '#64748b', background: '#f8fafc', flexShrink: 0,
     }}>
       <span>&copy; {new Date().getFullYear()} KinderTech. All rights reserved.</span>
       <span>v{APP_VERSION} &middot; Updated {LAST_UPDATED}</span>
@@ -298,6 +312,7 @@ export default function App() {
           <Route path="/hr/candidates" element={<RequireModule module={MODULES.HR}><ErrorBoundary><CandidatesPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/new-staff" element={<RequireModule module={MODULES.HR}><ErrorBoundary><NewStaffPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/onboarding" element={<RequireModule module={MODULES.HR}><ErrorBoundary><StaffOnboardingPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/hr/appraisals" element={<RequireModule module={MODULES.HR}><ErrorBoundary><AppraisalsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/candidates/import" element={<RequireModule module={MODULES.HR}><ErrorBoundary><ImportCandidatesPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/sop-observations" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/sop-observations/new" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationNewPage /></ErrorBoundary></RequireModule>} />
@@ -338,6 +353,11 @@ export default function App() {
           <Route path="/teachers/:id/settings/report-bug" element={<ErrorBoundary><TeacherReportBugPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/incidents" element={<ErrorBoundary><TeacherIncidentsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/incidents/new" element={<ErrorBoundary><TeacherReportIncidentPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/facilities" element={<ErrorBoundary><TeacherFacilitiesPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/facilities/new" element={<ErrorBoundary><TeacherReportFacilityPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/purchases" element={<ErrorBoundary><TeacherPurchasesPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/purchases/new" element={<ErrorBoundary><TeacherRequestItemPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/purchases/:requestId/edit" element={<ErrorBoundary><TeacherRequestItemPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/leaderboard" element={<ErrorBoundary><TeacherLeaderboardPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-career" element={<ErrorBoundary><TeacherMyCareerPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-career/journey" element={<ErrorBoundary><TeacherMyJourneyPage /></ErrorBoundary>} />
@@ -364,6 +384,8 @@ export default function App() {
           <Route path="/settings/career-missions" element={<ErrorBoundary><CareerMissionSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/mission-categories" element={<ErrorBoundary><MissionCategoriesPage /></ErrorBoundary>} />
           <Route path="/settings/hr" element={<ErrorBoundary><SettingsHrPage /></ErrorBoundary>} />
+          <Route path="/settings/appraisal-forms" element={<ErrorBoundary><AppraisalFormsPage /></ErrorBoundary>} />
+          <Route path="/settings/appraisal-forms/:id" element={<ErrorBoundary><AppraisalFormEditPage /></ErrorBoundary>} />
           <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />
           <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage key="reset-leads" tool="reset-leads" /></ErrorBoundary>} />
           <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
@@ -383,12 +405,15 @@ export default function App() {
           <Route path="/admin/test-catalog" element={<ErrorBoundary><TestCatalogPage /></ErrorBoundary>} />
           <Route path="/admin/database-design" element={<ErrorBoundary><DatabaseDesignPage /></ErrorBoundary>} />
           <Route path="/admin/architecture" element={<ErrorBoundary><BackendArchitecturePage /></ErrorBoundary>} />
+          <Route path="/admin/access-log" element={<ErrorBoundary><AccessLogPage /></ErrorBoundary>} />
           <Route path="/tools/operations-planner" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><OperationsPlannerPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/incidents" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><IncidentsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/incidents/new" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><IncidentFormPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/incidents/child/:studentId" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_INCIDENT_MANAGE"><ErrorBoundary><ChildIncidentsPage /></ErrorBoundary></RequireView></RequireModule>} />
           <Route path="/operations/incidents/:id" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><IncidentDetailPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/incidents/:id/edit" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_INCIDENT_MANAGE"><ErrorBoundary><IncidentFormPage /></ErrorBoundary></RequireView></RequireModule>} />
+          <Route path="/operations/shopping-list" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_PURCHASE_MANAGE"><ErrorBoundary><ShoppingListPage /></ErrorBoundary></RequireView></RequireModule>} />
+          <Route path="/operations/facilities" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><FacilityIssuesPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/bug-reports"element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><OperatingCostsPage /></ErrorBoundary></RequireModule>} />

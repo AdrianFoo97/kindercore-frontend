@@ -357,7 +357,7 @@ export default function ImportStudentsPage({ embedded = false }: { embedded?: bo
             </div>
 
             <div style={s.helpBox}>
-              <FontAwesomeIcon icon={faCircleQuestion} style={{ color: '#94a3b8', marginRight: 8, flexShrink: 0, marginTop: 2 }} />
+              <FontAwesomeIcon icon={faCircleQuestion} style={{ color: '#64748b', marginRight: 8, flexShrink: 0, marginTop: 2 }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Expected columns</div>
                 <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
@@ -377,7 +377,7 @@ export default function ImportStudentsPage({ embedded = false }: { embedded?: bo
             <div style={s.fileSummary}>
               <FontAwesomeIcon icon={faFile} style={{ color: '#64748b', marginRight: 8 }} />
               <span style={{ fontWeight: 600, color: '#1e293b' }}>{fileName}</span>
-              <span style={{ color: '#94a3b8', marginLeft: 8 }}>{rows.length} rows</span>
+              <span style={{ color: '#64748b', marginLeft: 8 }}>{rows.length} rows</span>
               <button onClick={resetToUpload} style={s.changFileBtn}>← Change file</button>
             </div>
 
@@ -477,7 +477,7 @@ export default function ImportStudentsPage({ embedded = false }: { embedded?: bo
             <p style={{ fontSize: 14, color: '#475569', marginTop: 12 }}>
               Importing student {Math.min(importDone + 1, importTotal)} of {importTotal}…
             </p>
-            <p style={{ fontSize: 12, color: '#94a3b8' }}>Please do not close this tab.</p>
+            <p style={{ fontSize: 12, color: '#64748b' }}>Please do not close this tab.</p>
           </div>
         )}
 
@@ -577,7 +577,7 @@ const s: Record<string, React.CSSProperties> = {
   stepCircle: { width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 },
   stepCircleActive: { background: '#5a79c8', color: '#fff' },
   stepCircleDone: { background: '#5b9a6f', color: '#fff' },
-  stepCircleInactive: { background: '#e2e8f0', color: '#a0aec0' },
+  stepCircleInactive: { background: '#e2e8f0', color: '#64748b' },
   stepLabel: { fontSize: 13, whiteSpace: 'nowrap' as const },
   stepConnector: { height: 2, width: 32, margin: '0 8px', borderRadius: 1, flexShrink: 0 },
 
@@ -587,7 +587,7 @@ const s: Record<string, React.CSSProperties> = {
     textAlign: 'center' as const, cursor: 'pointer', transition: 'all 0.15s',
   },
   dropText: { margin: 0, fontSize: 14, color: '#475569' },
-  dropHint: { margin: '8px 0 0', fontSize: 12, color: '#94a3b8' },
+  dropHint: { margin: '8px 0 0', fontSize: 12, color: '#64748b' },
 
   // Help box
   helpBox: {

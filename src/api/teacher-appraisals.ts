@@ -42,6 +42,30 @@ export function upsertTeacherAppraisal(teacherId: string, payload: UpsertApprais
   });
 }
 
+/** HR → Appraisals: one month's status for every current staff member. */
+export interface AppraisalOverviewRow {
+  teacherId: string;
+  name: string;
+  color: string;
+  positionName: string | null;
+  /** Their appraisal for the month, or null when it's still pending. */
+  appraisal: TeacherAppraisal | null;
+  /** Their latest appraisal before that month — the "previous mark". */
+  previous: { year: number; month: number; score: number } | null;
+  /** Average over the 12 months up to that month. */
+  twelveMonth: AppraisalSummary;
+}
+
+export interface AppraisalOverview {
+  year: number;
+  month: number; // 0–11
+  staff: AppraisalOverviewRow[];
+}
+
+export function fetchAppraisalOverview(year: number, month: number) {
+  return apiFetch<AppraisalOverview>(`/api/appraisals/overview?year=${year}&month=${month}`);
+}
+
 export function deleteTeacherAppraisal(id: string) {
   return apiFetch<void>(`/api/appraisals/${id}`, { method: 'DELETE' });
 }

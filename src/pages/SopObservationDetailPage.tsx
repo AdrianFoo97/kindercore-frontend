@@ -18,7 +18,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -90,7 +90,7 @@ export default function SopObservationDetailPage() {
   return (
     <div className="m-pad" style={s.page}>
       <div style={s.inner}>
-        <button onClick={() => navigate('/hr/sop-observations')} style={s.backBtn}>
+        <button className="back-btn" onClick={() => navigate('/hr/sop-observations')} style={s.backBtn}>
           <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
           Practice Observations
         </button>
@@ -176,7 +176,7 @@ function TrainerStage({ obs, onDone, showToast }: {
     setSaving(true);
     try {
       await advanceStage(obs.id, { trainerName, trainerAt: today() });
-      showToast('Training confirmed — sent to assessor');
+      showToast('Sent to assessor');
       onDone();
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to save', 'error');

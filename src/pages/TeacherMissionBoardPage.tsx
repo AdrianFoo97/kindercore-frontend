@@ -27,7 +27,7 @@ const C = {
   text: '#475569',
   textSub: '#64748b',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primaryDeep: '#4338ca',
   primarySoft: '#eef2ff',
@@ -333,10 +333,10 @@ export default function TeacherMissionBoardPage() {
             pattern and reclaims valuable vertical space. */}
         {isHrView && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isMobile ? 18 : SP.lg, minWidth: 0 }}>
-            <button
+            <button className="back-btn"
               onClick={goBack}
               style={isMobile ? s.backBtnMobile : s.backBtn}
-              aria-label="Back"
+              aria-label="Back" title="Back"
             >
               <FontAwesomeIcon icon={isMobile ? faChevronLeft : faArrowLeft} />
             </button>
@@ -504,7 +504,7 @@ export default function TeacherMissionBoardPage() {
                             width: 16, height: 16, borderRadius: '50%',
                             background: GOLD, color: '#fff',
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 8, fontWeight: 900,
+                            fontSize: 11, fontWeight: 900,
                             border: '2px solid #fff',
                             boxShadow: `0 1px 3px ${GOLD}66`,
                           }}>
@@ -519,7 +519,7 @@ export default function TeacherMissionBoardPage() {
                       <div style={{
                         height: 12,
                         lineHeight: '12px',
-                        fontSize: 9, fontWeight: 700,
+                        fontSize: 11, fontWeight: 700,
                         color: active ? accent : C.mutedSoft,
                         letterSpacing: '0.02em',
                         textTransform: 'uppercase' as const,
@@ -575,7 +575,7 @@ export default function TeacherMissionBoardPage() {
                           <span style={{
                             padding: '0 8px', height: 18,
                             display: 'inline-flex', alignItems: 'center', borderRadius: 999,
-                            fontSize: 10, fontWeight: 700,
+                            fontSize: 11, fontWeight: 700,
                             background: C.divider, color: C.muted,
                             fontVariantNumeric: 'tabular-nums',
                             flexShrink: 0,
@@ -863,7 +863,7 @@ function TeacherMissionDetailView({
             display: 'inline-flex', alignItems: 'center', gap: 5,
             padding: '3px 10px', borderRadius: 999,
             background: cat.bg, color: cat.color,
-            fontSize: 10, fontWeight: 700,
+            fontSize: 11, fontWeight: 700,
             letterSpacing: '0.02em',
             minWidth: 0,
           }}>
@@ -877,7 +877,7 @@ function TeacherMissionDetailView({
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '3px 10px', borderRadius: 999,
               background: sm.bg, color: sm.color,
-              fontSize: 10, fontWeight: 700,
+              fontSize: 11, fontWeight: 700,
               textTransform: 'uppercase' as const, letterSpacing: '0.06em',
             }}>
               <FontAwesomeIcon icon={sm.icon} style={{ fontSize: 9 }} />
@@ -893,7 +893,7 @@ function TeacherMissionDetailView({
                 border: `1px solid ${C.divider}`,
                 cursor: 'pointer', flexShrink: 0,
               }}
-              aria-label="Close"
+              aria-label="Close" title="Close"
             >
               <span style={{ fontSize: 16, lineHeight: 1, fontWeight: 600 }}>×</span>
             </button>
@@ -931,7 +931,7 @@ function TeacherMissionDetailView({
           }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 10, fontWeight: 800,
+              fontSize: 11, fontWeight: 800,
               color: cat.color,
               textTransform: 'uppercase' as const, letterSpacing: '0.1em',
               marginBottom: 6,
@@ -964,7 +964,7 @@ function TeacherMissionDetailView({
               gap: 10, marginBottom: 6,
             }}>
               <span style={{
-                fontSize: 10, fontWeight: 800,
+                fontSize: 11, fontWeight: 800,
                 color: isCompleted ? C.success : C.muted,
                 textTransform: 'uppercase' as const, letterSpacing: '0.1em',
               }}>
@@ -1435,7 +1435,7 @@ function Pagination({
     width: 30, height: 30, borderRadius: 8,
     background: '#fff', border: `1px solid ${C.cardBorder}`,
     color: disabled ? C.mutedSoft : C.textSub,
-    cursor: disabled ? 'not-allowed' : 'pointer',
+    cursor: disabled ? 'default' : 'pointer',
     fontFamily: 'inherit', fontSize: 11,
     transition: 'background 160ms ease, border-color 160ms ease',
   });
@@ -1454,7 +1454,7 @@ function Pagination({
           disabled={!canPrev}
           onClick={() => canPrev && onChange(page - 1)}
           style={navBtn(!canPrev)}
-          aria-label="Previous page"
+          aria-label="Previous page" title="Previous page"
         >
           <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 10 }} />
         </button>
@@ -1469,7 +1469,7 @@ function Pagination({
           disabled={!canNext}
           onClick={() => canNext && onChange(page + 1)}
           style={navBtn(!canNext)}
-          aria-label="Next page"
+          aria-label="Next page" title="Next page"
         >
           <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 10 }} />
         </button>
@@ -1607,7 +1607,7 @@ function BoardMissionCard({
               <div style={{
                 position: 'absolute', inset: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 10, fontWeight: 600, lineHeight: 1,
+                fontSize: 11, fontWeight: 600, lineHeight: 1,
                 // Greyed out when the fill hasn't reached the centred
                 // text yet — reads as "no progress here yet" instead
                 // of competing with the bar. Switches to crisp white
@@ -1722,7 +1722,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   main: { minWidth: 0 },
   filterEyebrow: {
-    fontSize: 10, fontWeight: 700, color: C.muted,
+    fontSize: 11, fontWeight: 700, color: C.muted,
     textTransform: 'uppercase' as const, letterSpacing: '0.08em',
     padding: '4px 8px 8px',
   },

@@ -41,7 +41,7 @@ const C = {
   textSub: '#475569',
   textBody: '#52525b',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   danger: '#dc2626',
@@ -269,7 +269,7 @@ export default function HrSopRevisionReviewPage() {
       });
       await approveRevision(revision.id);
       invalidate();
-      showToast('Improvement approved — now live');
+      showToast('Approved and live');
       goBack();
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to approve', 'error');
@@ -325,7 +325,7 @@ export default function HrSopRevisionReviewPage() {
         .rev-grip:active { cursor: grabbing !important; }
       `}</style>
       <div style={s.inner}>
-        <button onClick={goBack} style={s.backBtn}>
+        <button className="back-btn" onClick={goBack} style={s.backBtn}>
           <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
           Improvement Inbox
         </button>
@@ -471,10 +471,10 @@ export default function HrSopRevisionReviewPage() {
                     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                       {isPending && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 1 }}>
-                          <button type="button" onClick={() => moveStep(st.key, -1)} disabled={isFirst} aria-label="Move step up" style={{ ...s.stepIconBtn, width: 20, height: 16, fontSize: 9, opacity: isFirst ? 0.35 : 1, cursor: isFirst ? 'default' : 'pointer' }}>
+                          <button type="button" onClick={() => moveStep(st.key, -1)} disabled={isFirst} aria-label="Move step up" title="Move step up" style={{ ...s.stepIconBtn, width: 20, height: 16, fontSize: 10, opacity: isFirst ? 0.35 : 1, cursor: isFirst ? 'default' : 'pointer' }}>
                             <FontAwesomeIcon icon={faArrowUp} />
                           </button>
-                          <button type="button" onClick={() => moveStep(st.key, 1)} disabled={isLast} aria-label="Move step down" style={{ ...s.stepIconBtn, width: 20, height: 16, fontSize: 9, opacity: isLast ? 0.35 : 1, cursor: isLast ? 'default' : 'pointer' }}>
+                          <button type="button" onClick={() => moveStep(st.key, 1)} disabled={isLast} aria-label="Move step down" title="Move step down" style={{ ...s.stepIconBtn, width: 20, height: 16, fontSize: 10, opacity: isLast ? 0.35 : 1, cursor: isLast ? 'default' : 'pointer' }}>
                             <FontAwesomeIcon icon={faArrowDown} />
                           </button>
                         </div>
@@ -485,9 +485,9 @@ export default function HrSopRevisionReviewPage() {
                     {detailLines.length > 0 && <div style={sMobile.stepCardDetail}>{renderDetailLines(detailLines)}</div>}
                     {isPending && (
                       <div style={sMobile.stepCardActions}>
-                        <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one"><FontAwesomeIcon icon={faPlus} /></button>
-                        <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step"><FontAwesomeIcon icon={faPen} /></button>
-                        <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step"><FontAwesomeIcon icon={faTrash} /></button>
+                        <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one" title="Insert step after this one"><FontAwesomeIcon icon={faPlus} /></button>
+                        <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step" title="Edit step"><FontAwesomeIcon icon={faPen} /></button>
+                        <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step" title="Remove step"><FontAwesomeIcon icon={faTrash} /></button>
                       </div>
                     )}
                   </div>
@@ -534,9 +534,9 @@ export default function HrSopRevisionReviewPage() {
                         {isPending && (
                           <td style={s.tdActions}>
                             <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                              <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one"><FontAwesomeIcon icon={faPlus} /></button>
-                              <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step"><FontAwesomeIcon icon={faPen} /></button>
-                              <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step"><FontAwesomeIcon icon={faTrash} /></button>
+                              <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one" title="Insert step after this one"><FontAwesomeIcon icon={faPlus} /></button>
+                              <button onClick={() => setDrawer({ mode: 'edit', key: st.key })} style={s.stepIconBtn} aria-label="Edit step" title="Edit step"><FontAwesomeIcon icon={faPen} /></button>
+                              <button onClick={() => removeStep(st.key)} style={{ ...s.stepIconBtn, color: C.danger }} aria-label="Remove step" title="Remove step"><FontAwesomeIcon icon={faTrash} /></button>
                             </div>
                           </td>
                         )}
@@ -618,7 +618,7 @@ function StepDrawer({
             <div style={drawerS.title}>{mode === 'edit' ? 'Edit step' : 'Add step'}</div>
             <div style={drawerS.context}><FontAwesomeIcon icon={faLayerGroup} style={{ marginRight: 5, fontSize: 10 }} />{contextText}</div>
           </div>
-          <button onClick={onCancel} style={drawerS.closeBtn} aria-label="Close"><FontAwesomeIcon icon={faXmark} /></button>
+          <button onClick={onCancel} style={drawerS.closeBtn} aria-label="Close" title="Close"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
         <div style={drawerS.body}>
           <div style={s.field}>

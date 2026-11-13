@@ -15,6 +15,21 @@ export function nextPathFrom(search: string): string | null {
   return safeNextPath(new URLSearchParams(search).get(NEXT_PARAM));
 }
 
+// Why a session was just ended (e.g. past their last working day), carried
+// across the redirect to /login so the login page can say so. Session-only;
+// storage can be blocked, in which case the login page simply shows nothing.
+const NOTICE_KEY = 'kc-login-notice';
+
+export function saveLoginNotice(message: string): void {
+  try { sessionStorage.setItem(NOTICE_KEY, message); } catch { /* storage blocked */ }
+}
+export function readLoginNotice(): string {
+  try { return sessionStorage.getItem(NOTICE_KEY) ?? ''; } catch { return ''; }
+}
+export function clearLoginNotice(): void {
+  try { sessionStorage.removeItem(NOTICE_KEY); } catch { /* storage blocked */ }
+}
+
 /** In-app paths only: starts with one "/", isn't the login page itself. */
 export function safeNextPath(raw: string | null | undefined): string | null {
   if (!raw || !raw.startsWith('/')) return null;

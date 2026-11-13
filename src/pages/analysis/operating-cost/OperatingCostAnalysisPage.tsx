@@ -27,7 +27,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
 
   over: '#dc2626',        // over budget / cost rising
   overBg: '#fef2f2',

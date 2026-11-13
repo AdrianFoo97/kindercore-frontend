@@ -24,7 +24,7 @@ const C = {
   text: '#475569',
   textStrong: '#334155',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -151,7 +151,7 @@ const s: Record<string, React.CSSProperties> = {
     background: C.primarySoft, color: C.primaryDeep, fontSize: 19,
   },
   summaryLabel: {
-    fontSize: 10.5, fontWeight: 800, color: C.primary,
+    fontSize: 11, fontWeight: 800, color: C.primary,
     textTransform: 'uppercase' as const, letterSpacing: '0.06em',
   },
   summaryValue: {
@@ -161,7 +161,7 @@ const s: Record<string, React.CSSProperties> = {
   summarySub: { fontSize: 12, color: C.muted, marginTop: 2 },
 
   sectionLabel: {
-    fontSize: 10.5, fontWeight: 800, color: C.muted,
+    fontSize: 11, fontWeight: 800, color: C.muted,
     textTransform: 'uppercase' as const, letterSpacing: '0.09em', margin: '0 2px 8px',
   },
   emptyCard: {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import { useIsMobile } from '../../hooks/useIsMobile.js';
 
 // The "⋯" menu on an onboarding card. Items come in groups, separated by a
 // thin line — each page supplies its own (View Tasks, WhatsApp Parent, …).
@@ -14,6 +15,7 @@ export interface ActionMenuItem {
 
 export function ActionMenu({ groups }: { groups: ActionMenuItem[][] }) {
   const [open, setOpen] = useState(false);
+  const { isMobile } = useIsMobile();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,8 +29,12 @@ export function ActionMenu({ groups }: { groups: ActionMenuItem[][] }) {
   const visibleGroups = groups.filter(g => g.length > 0);
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} style={{ position: 'relative' }}
+      onKeyDown={e => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); } }}>
+      {/* 32px visually; .tap grows the touch area to 44 on touch screens. Tooltip for the icon-only button. */}
       <button
+        type="button"
+        className="tap"
         onClick={() => setOpen(v => !v)}
         style={{
           width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -38,14 +44,17 @@ export function ActionMenu({ groups }: { groups: ActionMenuItem[][] }) {
           lineHeight: 1,
         }}
         aria-label="More actions"
+        title="More actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         ⋯
       </button>
       {open && (
-        <div style={{
+        <div role="menu" style={{
           position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 100,
           background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-          boxShadow: '0 4px 24px rgba(0,0,0,0.12)', minWidth: 190, padding: '4px 0',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.12)', minWidth: 200, padding: '4px 0',
         }}>
           {visibleGroups.map((group, gi) => (
             <div key={gi}>
@@ -54,11 +63,13 @@ export function ActionMenu({ groups }: { groups: ActionMenuItem[][] }) {
                 {group.map(item => (
                   <button
                     key={item.label}
+                    type="button"
+                    role="menuitem"
                     onClick={() => { item.onClick(); setOpen(false); }}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 12px',
-                      textAlign: 'left' as const, background: 'none', border: 'none',
-                      fontSize: 13, fontWeight: 400, cursor: 'pointer', color: '#374151', borderRadius: 6,
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: isMobile ? 44 : 32, padding: '0 12px',
+                      textAlign: 'left' as const, background: 'none', border: 'none', fontFamily: 'inherit',
+                      fontSize: isMobile ? 15 : 13, fontWeight: 400, cursor: 'pointer', color: '#334155', borderRadius: 6,
                       transition: 'background 0.1s',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = '#eef1f5')}

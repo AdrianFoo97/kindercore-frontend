@@ -19,7 +19,7 @@ import type { CommuteTime } from '../../types/index.js';
 
 const C = {
   bg: '#f8fafc', surface: '#ffffff', text: '#0f172a', textSub: '#3f4b5c',
-  muted: '#64748b', mutedSoft: '#94a3b8',
+  muted: '#64748b', mutedSoft: '#64748b',
   border: '#e2e8f0', borderSoft: '#eef0f3',
   primary: '#5a67d8', primaryDeep: '#3c339a', primarySoft: '#eef2ff',
   success: '#059669', successSoft: '#ecfdf5',
@@ -756,7 +756,7 @@ export default function ImportCandidatesPage({ embedded = false }: { embedded?: 
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
         {!embedded && (
           <>
-            <button
+            <button className="back-btn"
               onClick={() => navigate('/hr/candidates')}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -825,7 +825,7 @@ export default function ImportCandidatesPage({ embedded = false }: { embedded?: 
               {dropError ? (
                 <>
                   <p style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 500, color: '#c47272' }}>{dropError}</p>
-                  <p style={{ margin: 0, fontSize: 12, color: '#a0aec0' }}>Click to try again with a .csv or .xlsx file</p>
+                  <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Click to try again with a .csv or .xlsx file</p>
                 </>
               ) : isDragOver ? (
                 <p style={{ margin: 0, fontSize: 15, fontWeight: 500, color: '#2b6cb0' }}>Release to upload</p>
@@ -835,7 +835,7 @@ export default function ImportCandidatesPage({ embedded = false }: { embedded?: 
                     Drop your CSV or Excel file here, or{' '}
                     <span style={{ color: '#2b6cb0', textDecoration: 'underline', cursor: 'pointer' }}>click to browse</span>
                   </p>
-                  <p style={{ margin: 0, fontSize: 12, color: '#a0aec0' }}>Accepts .csv and .xlsx files</p>
+                  <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Accepts .csv and .xlsx files</p>
                 </>
               )}
             </div>

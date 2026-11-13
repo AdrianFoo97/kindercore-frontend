@@ -435,7 +435,7 @@ export default function EditStudentPage() {
       <div className="m-pad" style={s.page}>
         <div style={s.inner}>
           <div style={s.breadcrumb}>
-            <button onClick={() => navigate('/students')} className="es-back-btn" style={s.backBtn} title="Back">
+            <button onClick={() => navigate('/students')} className="es-back-btn back-btn" style={s.backBtn} title="Back">
               <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
             </button>
             <span onClick={() => navigate('/students')} style={s.breadcrumbLink}>Students</span>
@@ -483,7 +483,7 @@ export default function EditStudentPage() {
         <div style={s.inner}>
           {/* Back + breadcrumb. Create-sibling: back goes to source sibling. */}
           <div style={s.breadcrumb}>
-            <button type="button" onClick={() => navigate(isCreateSibling && sourceSibling ? `/students/${sourceSibling.id}` : '/students')} className="es-back-btn" style={s.backBtn} title="Back">
+            <button type="button" onClick={() => navigate(isCreateSibling && sourceSibling ? `/students/${sourceSibling.id}` : '/students')} className="es-back-btn back-btn" style={s.backBtn} title="Back">
               <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
             </button>
             <span onClick={() => navigate('/students')} style={s.breadcrumbLink}>Students</span>
@@ -835,7 +835,7 @@ export default function EditStudentPage() {
                             type="button"
                             onClick={() => handleSave(undefined, { inline: true })}
                             disabled={saving}
-                            style={{ ...s.solidBtn, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}
+                            style={{ ...s.solidBtn, opacity: saving ? 0.6 : 1, cursor: saving ? 'default' : 'pointer' }}
                           >
                             {saving ? 'Saving…' : 'Save'}
                           </button>
@@ -947,7 +947,7 @@ export default function EditStudentPage() {
                   <button type="button" onClick={() => navigate(isCreateSibling && sourceSibling ? `/students/${sourceSibling.id}` : '/students')} style={s.cancelBtn}>
                     Cancel
                   </button>
-                  <button type="submit" disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                  <button type="submit" disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.6 : 1, cursor: saving ? 'default' : 'pointer' }}>
                     {saving ? 'Saving…' : (isCreateSibling ? 'Create sibling' : 'Save')}
                   </button>
                 </div>
@@ -1086,7 +1086,7 @@ function ChangePackageModal({
       <div style={modal.card} onClick={e => e.stopPropagation()}>
         <div style={modal.header}>
           <h2 style={modal.title}>Change Package</h2>
-          <button type="button" onClick={onClose} style={modal.closeBtn} aria-label="Close">
+          <button type="button" onClick={onClose} style={modal.closeBtn} aria-label="Close" title="Close">
             <FontAwesomeIcon icon={faXmark} />
           </button>
         </div>
@@ -1189,7 +1189,7 @@ function ChangePackageModal({
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={s.cancelBtn}>Cancel</button>
           <button type="button" disabled={!canSubmit} onClick={submit}
-            style={{ ...s.saveBtn, opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}>
+            style={{ ...s.saveBtn, opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'default' }}>
             {submitting ? 'Saving…' : 'Change package'}
           </button>
         </div>
@@ -1265,7 +1265,7 @@ function EditEnrollmentModal({ enrollment, studentDob, onClose, onSaved }: EditE
       <div style={modal.card} onClick={e => e.stopPropagation()}>
         <div style={modal.header}>
           <h2 style={modal.title}>Edit Enrolment Period</h2>
-          <button type="button" onClick={onClose} style={modal.closeBtn} aria-label="Close">
+          <button type="button" onClick={onClose} style={modal.closeBtn} aria-label="Close" title="Close">
             <FontAwesomeIcon icon={faXmark} />
           </button>
         </div>
@@ -1351,7 +1351,7 @@ function EditEnrollmentModal({ enrollment, studentDob, onClose, onSaved }: EditE
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={s.cancelBtn}>Cancel</button>
           <button type="button" disabled={!datesValid || submitting} onClick={submit}
-            style={{ ...s.saveBtn, opacity: !datesValid || submitting ? 0.5 : 1, cursor: !datesValid || submitting ? 'not-allowed' : 'pointer' }}>
+            style={{ ...s.saveBtn, opacity: !datesValid || submitting ? 0.5 : 1, cursor: !datesValid || submitting ? 'default' : 'pointer' }}>
             {submitting ? 'Saving…' : 'Save changes'}
           </button>
         </div>
@@ -1365,7 +1365,7 @@ const modal: Record<string, React.CSSProperties> = {
   card: { background: '#fff', borderRadius: 14, padding: '24px 28px', width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.18)', maxHeight: '92vh', overflowY: 'auto' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   title: { margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' },
-  closeBtn: { background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: '#94a3b8', lineHeight: 1, padding: 4 },
+  closeBtn: { background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: '#64748b', lineHeight: 1, padding: 4 },
 };
 
 // ── Attendance tab ───────────────────────────────────────────────────────
@@ -1478,7 +1478,7 @@ function AttendanceTab({ student }: { student: Student }) {
             padding: '8px 14px', borderRadius: 8,
             background: noRfid ? '#e2e8f0' : '#5a67d8',
             color: noRfid ? '#94a3b8' : '#fff',
-            border: 'none', cursor: noRfid || marking ? 'not-allowed' : 'pointer',
+            border: 'none', cursor: noRfid || marking ? 'default' : 'pointer',
             fontFamily: 'inherit', fontSize: 13, fontWeight: 600,
             opacity: marking ? 0.7 : 1,
           }}
@@ -1574,13 +1574,13 @@ function AttendanceTab({ student }: { student: Student }) {
 
       {/* Records list — grouped by day. */}
       {isLoading ? (
-        <div style={{ padding: 24, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>Loading…</div>
+        <div style={{ padding: 24, color: '#64748b', fontSize: 13, textAlign: 'center' }}>Loading…</div>
       ) : records.length === 0 ? (
         <div style={{
           padding: 32, textAlign: 'center', color: '#64748b',
           background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 12,
         }}>
-          <FontAwesomeIcon icon={faCalendarCheck} style={{ fontSize: 22, color: '#cbd5e1', marginBottom: 8, display: 'block' }} />
+          <FontAwesomeIcon icon={faCalendarCheck} style={{ fontSize: 22, color: '#64748b', marginBottom: 8, display: 'block' }} />
           <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', marginBottom: 4 }}>No attendance yet</div>
           <div style={{ fontSize: 12 }}>
             Records will appear here when the student taps their card.
@@ -1595,7 +1595,7 @@ function AttendanceTab({ student }: { student: Student }) {
                 textTransform: 'uppercase', letterSpacing: '0.06em',
                 marginBottom: 8,
               }}>
-                {formatDayLabel(day)}<span style={{ color: '#cbd5e1', fontWeight: 500, marginLeft: 6 }}>· {rows.length} scan{rows.length === 1 ? '' : 's'}</span>
+                {formatDayLabel(day)}<span style={{ color: '#64748b', fontWeight: 500, marginLeft: 6 }}>· {rows.length} scan{rows.length === 1 ? '' : 's'}</span>
               </div>
               <div style={{
                 background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10,
@@ -1640,7 +1640,7 @@ function AttendanceTab({ student }: { student: Student }) {
                       title="Delete this entry"
                       style={{
                         background: 'transparent', border: 'none', cursor: 'pointer',
-                        color: '#cbd5e1', padding: 6, borderRadius: 6,
+                        color: '#64748b', padding: 6, borderRadius: 6,
                       }}
                     >
                       <FontAwesomeIcon icon={faTrash} style={{ fontSize: 11 }} />

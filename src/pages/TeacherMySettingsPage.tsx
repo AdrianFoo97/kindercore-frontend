@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
+import { signOut } from '../utils/signOut.js';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
@@ -70,11 +71,8 @@ export default function TeacherMySettingsPage() {
     ...(positionName ? [{ icon: faBriefcase, label: 'Position', value: positionName }] : []),
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login', { replace: true });
-  };
+  // Full reload (not an in-app navigate) so nothing loaded stays in memory for the next person.
+  const handleLogout = () => signOut();
 
   const pageStyle: React.CSSProperties = {
     paddingTop: isMobile ? TEACHER_CONTENT_TOP : 28,
@@ -151,7 +149,7 @@ export default function TeacherMySettingsPage() {
               }}>
                 <FontAwesomeIcon icon={row.icon} style={{ width: 16, color: C.muted }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10.5, fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                     {row.label}
                   </div>
                   <div style={{
@@ -172,7 +170,7 @@ export default function TeacherMySettingsPage() {
           borderRadius: 14, marginBottom: 24, overflow: 'hidden',
           boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
         }}>
-          <button
+          <button aria-label="Report a bug" title="Report a bug"
             type="button"
             onClick={() => navigate(`/teachers/${id}/settings/report-bug`)}
             style={{

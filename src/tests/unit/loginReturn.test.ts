@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { loginUrlReturningTo, nextPathFrom, safeNextPath } from '../../utils/loginReturn';
+import {
+  clearLoginNotice, loginUrlReturningTo, nextPathFrom, readLoginNotice, safeNextPath, saveLoginNotice,
+} from '../../utils/loginReturn';
 
 // After signing in from a shared link, people land back on the page they
 // were opening — but only ever a page inside this app.
@@ -28,5 +30,12 @@ describe('Signing in — returning to the page you were opening', () => {
     expect(safeNextPath('/login?next=%2Fx')).toBeNull();
     expect(nextPathFrom('')).toBeNull();
     expect(loginUrlReturningTo('/login')).toBe('/login');
+  });
+
+  it('carries the reason a session ended over to the login page, once', () => {
+    saveLoginNotice('Your last working day was 10 Nov 2026');
+    expect(readLoginNotice()).toBe('Your last working day was 10 Nov 2026');
+    clearLoginNotice();
+    expect(readLoginNotice()).toBe('');
   });
 });

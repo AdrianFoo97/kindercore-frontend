@@ -17,7 +17,7 @@ const C = {
   text: '#0f172a',
   textSub: '#475569',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   primary: '#5a67d8',
   primarySoft: '#eef2ff',
   primaryBorder: '#c7d2fe',
@@ -214,10 +214,10 @@ export default function SopCategoriesPage({ embedded = false }: { embedded?: boo
                     <span style={{ ...s.colorDot, background: cat.color }} />
                     <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: C.text }}>{cat.name}</span>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => startEdit(cat)} style={s.iconBtn} aria-label="Edit category">
+                      <button onClick={() => startEdit(cat)} style={s.iconBtn} aria-label="Edit category" title="Edit category">
                         <FontAwesomeIcon icon={faPen} />
                       </button>
-                      <button onClick={() => onDelete(cat)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete category">
+                      <button onClick={() => onDelete(cat)} style={{ ...s.iconBtn, color: C.danger }} aria-label="Delete category" title="Delete category">
                         <FontAwesomeIcon icon={faTrash} />
                       </button>
                     </div>
@@ -270,7 +270,7 @@ function CategoryForm({ isEdit, name, color, usedColors, saving, onNameChange, o
                 key={c}
                 type="button"
                 onClick={() => { onColorChange(c); setHexDraft(c); }}
-                aria-label={c}
+                aria-label={c} title={c}
                 style={{
                   width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer',
                   border: color === c ? '2px solid #fff' : `2px solid ${C.cardBorder}`,

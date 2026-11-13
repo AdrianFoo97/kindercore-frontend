@@ -1122,7 +1122,7 @@ function CompareRolesModal(props: { onClose: () => void; isMobile: boolean }) {
           <button
             type="button"
             onClick={props.onClose}
-            aria-label="Close"
+            aria-label="Close" title="Close"
             style={{
               background: 'transparent', border: 'none', cursor: 'pointer',
               color: C.muted, fontSize: 18, padding: 4, lineHeight: 1,
@@ -1279,7 +1279,7 @@ function ResumePicker(props: {
           type="button"
           onClick={() => props.onPick(null)}
           style={resumeStyles.removeBtn}
-          aria-label="Remove file"
+          aria-label="Remove file" title="Remove file"
         >
           <FontAwesomeIcon icon={faXmark} />
         </button>

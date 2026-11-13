@@ -134,13 +134,13 @@ export default function StaffOnboardingPage() {
           </div>
         )}
 
-        {isPending && <p style={{ color: '#94a3b8', fontSize: 14, textAlign: 'center', padding: 24 }}>Loading…</p>}
+        {isPending && <p style={{ color: '#64748b', fontSize: 14, textAlign: 'center', padding: 24 }}>Loading…</p>}
 
         {isError && (
           <div style={{ padding: '40px 20px', textAlign: 'center', background: '#fff', borderRadius: 12, border: '1px solid #fecaca' }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}><FontAwesomeIcon icon={faTriangleExclamation} /></div>
             <div style={{ fontSize: 14, color: '#dc2626', fontWeight: 600 }}>Failed to load new staff</div>
-            <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Please refresh the page.</div>
+            <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>Please refresh the page.</div>
           </div>
         )}
 
@@ -150,7 +150,7 @@ export default function StaffOnboardingPage() {
             <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>
               {entries.length === 0 ? 'All caught up!' : 'Nobody in this group'}
             </div>
-            <div style={{ fontSize: 13, color: '#94a3b8' }}>
+            <div style={{ fontSize: 13, color: '#64748b' }}>
               {entries.length === 0
                 ? 'Every staff member has finished onboarding. New joiners appear here when they\'re hired, approved, or added on the Staff page.'
                 : 'Try another filter.'}
@@ -235,20 +235,24 @@ function StaffOnboardingCard({ entry, isMobile, busy, onHrTasks, onOwnTasks, onC
       !ready ? [{ icon: faCheck, label: 'Complete All Tasks', onClick: onCompleteAll, iconColor: '#10b981' }] : [],
     ]} />
   );
-  // Mark as Completed only once BOTH lists are done; until then, point HR
-  // at whichever list still has work on it.
+  // Mark as Completed only once BOTH lists are done. Until then both lists
+  // have a button: HR's (solid blue — HR's own work; greyed out once done)
+  // and theirs (soft amber, matching "Waiting on them").
   const primary = ready ? (
     <button onClick={onComplete} disabled={busy} style={primaryBtn('#10b981', busy, isMobile)}>
       <FontAwesomeIcon icon={faCheck} /> Mark as Completed
     </button>
-  ) : hrDone ? (
-    <button onClick={onOwnTasks} style={primaryBtn('#7c3aed', false, isMobile)}>
-      View Their Tasks
-    </button>
   ) : (
-    <button onClick={onHrTasks} style={primaryBtn('#3b82f6', false, isMobile)}>
-      {hr.total === 0 ? 'Set Up HR Tasks' : 'Continue HR Tasks'}
-    </button>
+    <>
+      <button onClick={onHrTasks} disabled={hrDone} style={hrDone ? doneBtn(isMobile) : primaryBtn('#3b82f6', false, isMobile)}>
+        {hrDone ? <><FontAwesomeIcon icon={faCheck} /> HR Tasks Done</> : hr.total === 0 ? 'Set Up HR Tasks' : 'Continue HR Tasks'}
+      </button>
+      {own.total > 0 && (
+        <button onClick={onOwnTasks} style={theirTasksBtn(isMobile)}>
+          View Their Tasks
+        </button>
+      )}
+    </>
   );
   // HR's next step first; once HR is done, what the new joiner still has to do.
   const upNext = hr.nextTask ?? own.nextTask;
@@ -281,7 +285,7 @@ function StaffOnboardingCard({ entry, isMobile, busy, onHrTasks, onOwnTasks, onC
             {entry.name}
           </div>
           <div style={{ fontSize: 12, color: '#64748b', marginBottom: 2 }}>{entry.positionName ?? 'No position'}</div>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>
+          <div style={{ fontSize: 12, color: '#64748b' }}>
             Started {fmtDate(entry.joinDate)} · {joinedAgo(entry.joinDate)}
           </div>
         </div>
@@ -297,7 +301,7 @@ function StaffOnboardingCard({ entry, isMobile, busy, onHrTasks, onOwnTasks, onC
       {/* Progress — HR's list (drives completion), then their own */}
       <div style={{ paddingLeft: isMobile ? 0 : 54, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {hr.total === 0 ? (
-          <span style={{ fontSize: 12, color: '#94a3b8' }}>No HR tasks set up — set up tasks to begin onboarding</span>
+          <span style={{ fontSize: 12, color: '#64748b' }}>No HR tasks set up — set up tasks to begin onboarding</span>
         ) : (
           <ProgressBar done={hr.done} total={hr.total} label="HR tasks" />
         )}
@@ -312,6 +316,26 @@ function StaffOnboardingCard({ entry, isMobile, busy, onHrTasks, onOwnTasks, onC
       {isMobile && <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>{primary}</div>}
     </div>
   );
+}
+
+/** HR's list once it's all ticked — still visible, but nothing left to do there. */
+function doneBtn(fullWidth: boolean): React.CSSProperties {
+  return {
+    ...(fullWidth ? { flex: 1, padding: '10px 16px' } : { padding: '8px 16px' }),
+    borderRadius: 8, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b',
+    cursor: 'default', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+  };
+}
+
+/** The new joiner's own list — amber, like the "Waiting on them" note, so it reads as theirs, not HR's. */
+function theirTasksBtn(fullWidth: boolean): React.CSSProperties {
+  return {
+    ...(fullWidth ? { flex: 1, padding: '10px 16px' } : { padding: '8px 16px' }),
+    borderRadius: 8, border: '1px solid #fcd34d', background: '#fffbeb', color: '#b45309',
+    cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+  };
 }
 
 function primaryBtn(bg: string, busy: boolean, fullWidth: boolean): React.CSSProperties {

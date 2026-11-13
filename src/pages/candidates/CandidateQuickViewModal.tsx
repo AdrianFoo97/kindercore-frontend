@@ -90,7 +90,7 @@ export function CandidateQuickViewModal(props: Props) {
   const body = (
     <div style={S.backdrop} onClick={e => { if (e.target === e.currentTarget) props.onClose(); }}>
       <div style={S.modal} role="dialog" aria-modal="true">
-        <button style={S.closeBtn} onClick={props.onClose} aria-label="Close">
+        <button style={S.closeBtn} onClick={props.onClose} aria-label="Close" title="Close">
           <FontAwesomeIcon icon={faXmark} />
         </button>
 

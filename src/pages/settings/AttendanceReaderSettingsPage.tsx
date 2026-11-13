@@ -17,7 +17,7 @@ import { useToast } from '../../components/common/Toast.js';
 
 const C = {
   bg: '#f8fafc', card: '#fff', border: '#e8ebf0', borderSoft: '#f1f3f6',
-  text: '#0f172a', textSub: '#475569', muted: '#64748b', mutedSoft: '#94a3b8',
+  text: '#0f172a', textSub: '#475569', muted: '#64748b', mutedSoft: '#64748b',
   primary: '#5a67d8', primarySoft: '#eef0fa',
   ok: '#15803d', okSoft: '#f0fdf4', okBorder: '#bbf7d0',
   warn: '#b45309', warnSoft: '#fffbeb', warnBorder: '#fde68a',

@@ -69,7 +69,7 @@ function RailButton({ label, icon, accent, count, selected, onClick }: {
     }}>
       <StageIcon icon={icon} accent={accent} selected={selected} />
       {count > 0 && (
-        <span style={{ position: 'absolute', top: 2, right: 2, fontSize: 8, fontWeight: 700, color: accent, lineHeight: 1 }}>{count}</span>
+        <span style={{ position: 'absolute', top: 2, right: 2, fontSize: 10, fontWeight: 700, color: accent, lineHeight: 1 }}>{count}</span>
       )}
     </button>
   );
@@ -119,7 +119,7 @@ export function PipelineNav({ selected, onChange, stats, compact, collapsed, onT
     return (
       <div className="kc-no-scrollbar" style={{ width: 48, flexShrink: 0, background: '#fff', borderRight: '1px solid #e2e8f0', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 12, gap: 2 }}>
         <button onClick={onToggle} title="Show pipeline" aria-label="Show pipeline" style={{
-          width: 32, height: 28, border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 11, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6,
+          width: 32, height: 28, border: 'none', background: 'none', cursor: 'pointer', color: '#64748b', fontSize: 11, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6,
         }}>
           <FontAwesomeIcon icon={faChevronRight} />
         </button>
@@ -155,7 +155,7 @@ export function PipelineNav({ selected, onChange, stats, compact, collapsed, onT
       {onToggle && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 8px 8px' }}>
           <button onClick={onToggle} title="Collapse sidebar" aria-label="Collapse sidebar" style={{
-            color: '#cbd5e1', fontSize: 10, padding: '4px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: 4, border: 'none', background: 'transparent',
+            color: '#64748b', fontSize: 10, padding: '4px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: 4, border: 'none', background: 'transparent',
           }}
           onMouseEnter={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.background = '#f1f5f9'; }}
           onMouseLeave={e => { e.currentTarget.style.color = '#cbd5e1'; e.currentTarget.style.background = 'transparent'; }}

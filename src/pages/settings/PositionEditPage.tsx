@@ -24,7 +24,7 @@ import { useToast } from '../../components/common/Toast.js';
 const C = {
   primary: '#5a67d8', primarySoft: '#eef2ff', primaryBorder: '#c7d2fe',
   bg: '#f8fafc', card: '#ffffff',
-  text: '#0f172a', muted: '#64748b', mutedSoft: '#94a3b8',
+  text: '#0f172a', muted: '#64748b', mutedSoft: '#64748b',
   border: '#e2e8f0', divider: '#eceef2',
   danger: '#ef4444',
 };
@@ -205,7 +205,7 @@ export default function PositionEditPage() {
       <div style={s.inner}>
         {/* Breadcrumb */}
         <div style={s.breadcrumb}>
-          <button onClick={() => navigate('/settings/employee-salary')} style={s.backBtn} title="Back">
+          <button className="back-btn" onClick={() => navigate('/settings/employee-salary')} style={s.backBtn} title="Back">
             <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
           </button>
           <Link to="/settings/employee-salary" style={s.crumbLink}>Employee Salary</Link>
@@ -489,7 +489,7 @@ export default function PositionEditPage() {
             style={{
               ...s.saveBtn,
               opacity: !canSave || saving ? 0.55 : 1,
-              cursor: !canSave || saving ? 'not-allowed' : 'pointer',
+              cursor: !canSave || saving ? 'default' : 'pointer',
             }}
           >
             {saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Add position')}

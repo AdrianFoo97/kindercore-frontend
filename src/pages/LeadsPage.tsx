@@ -136,7 +136,7 @@ function LabelPickerPopover({
       >
         <div style={{ maxHeight: 220, overflowY: 'auto' }}>
           {labelCatalog.length === 0 && (
-            <p style={{ margin: 0, padding: '6px 8px', fontSize: 12, color: '#94a3b8' }}>No labels yet.</p>
+            <p style={{ margin: 0, padding: '6px 8px', fontSize: 12, color: '#64748b' }}>No labels yet.</p>
           )}
           {labelCatalog.map(l => {
             const active = assignedIds.has(l.id);
@@ -236,7 +236,7 @@ function CampaignFilterSelect({
         <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {selected ? `${selected.name} (${selected.leadCount})` : 'All Campaigns'}
         </span>
-        <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }} />
+        <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 10, color: '#64748b', flexShrink: 0 }} />
       </button>
       {open && (
         <>
@@ -270,7 +270,7 @@ function CampaignFilterSelect({
                 All Campaigns
               </button>
               {filtered.length === 0 && (
-                <p style={{ margin: 0, padding: '6px 8px', fontSize: 12, color: '#94a3b8' }}>No matches.</p>
+                <p style={{ margin: 0, padding: '6px 8px', fontSize: 12, color: '#64748b' }}>No matches.</p>
               )}
               {filtered.map(c => (
                 <button
@@ -284,7 +284,7 @@ function CampaignFilterSelect({
                   }}
                 >
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                  <span style={{ color: '#94a3b8', fontSize: 11, flexShrink: 0 }}>{c.leadCount}</span>
+                  <span style={{ color: '#64748b', fontSize: 11, flexShrink: 0 }}>{c.leadCount}</span>
                 </button>
               ))}
             </div>
@@ -411,7 +411,7 @@ function ManageLabelsModal({ onClose }: { onClose: () => void }) {
 
         <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {labels.length === 0 && (
-            <p style={{ margin: 0, padding: '12px 0', fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>No labels yet.</p>
+            <p style={{ margin: 0, padding: '12px 0', fontSize: 13, color: '#64748b', textAlign: 'center' }}>No labels yet.</p>
           )}
           {labels.map(l => (
             <div key={l.id} style={{ padding: '6px 4px' }}>
@@ -438,7 +438,7 @@ function ManageLabelsModal({ onClose }: { onClose: () => void }) {
                     {l.name}
                   </button>
                 )}
-                <span style={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>{l.leadCount} lead{l.leadCount === 1 ? '' : 's'}</span>
+                <span style={{ fontSize: 11, color: '#64748b', flexShrink: 0 }}>{l.leadCount} lead{l.leadCount === 1 ? '' : 's'}</span>
                 <button onClick={() => handleDelete(l)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '2px 4px', fontSize: 12, flexShrink: 0 }}>
                   <FontAwesomeIcon icon={faTrash} />
                 </button>
@@ -827,7 +827,7 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
             <FontAwesomeIcon icon={t.icon} />
             {t.count > 0 && (
               <span style={{
-                position: 'absolute', top: 2, right: 2, fontSize: 9, fontWeight: 700,
+                position: 'absolute', top: 2, right: 2, fontSize: 10, fontWeight: 700,
                 background: t.alert ? t.color : '#94a3b8', color: '#fff',
                 borderRadius: 10, padding: '0 4px', lineHeight: '15px', minWidth: 15, textAlign: 'center',
               }}>{t.count}</span>
@@ -843,8 +843,8 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
     <div className="kc-no-scrollbar" style={{ width: 260, flexShrink: 0, background: '#fff', borderLeft: '1px solid #e2e8f0', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
       {/* Header with toggle */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px 8px' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Context</span>
-        <button onClick={onToggle} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 4 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Context</span>
+        <button onClick={onToggle} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 12, padding: 4 }}>
           <FontAwesomeIcon icon={faChevronRight} />
         </button>
       </div>
@@ -891,12 +891,12 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
             else groups.push({ label, isToday, items: [a] });
           }
           return groups.length === 0 ? (
-            <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No upcoming appointments</div>
+            <div style={{ padding: '12px 14px', fontSize: 12, color: '#64748b' }}>No upcoming appointments</div>
           ) : groups.map((group, gi) => (
             <div key={group.label}>
               <div style={{ padding: '6px 14px', fontSize: 10, fontWeight: 700, color: group.isToday ? '#1d4ed8' : '#64748b', letterSpacing: '0.05em', textTransform: 'uppercase', background: group.isToday ? '#eff6ff' : '#f8fafc', borderTop: gi > 0 ? '1px solid #e2e8f0' : 'none', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>{group.label}</span>
-                <span style={{ fontSize: 9, fontWeight: 600, color: group.isToday ? '#3b82f6' : '#94a3b8', background: group.isToday ? '#dbeafe' : '#e2e8f0', borderRadius: 8, padding: '1px 6px' }}>{group.items.length}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: group.isToday ? '#3b82f6' : '#94a3b8', background: group.isToday ? '#dbeafe' : '#e2e8f0', borderRadius: 8, padding: '1px 6px' }}>{group.items.length}</span>
               </div>
               {group.items.map(a => {
                 const s = new Date(a.appointmentStart);
@@ -910,7 +910,7 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
                     <div style={{ width: 3, height: 28, borderRadius: 2, background: group.isToday ? '#3b82f6' : '#e2e8f0', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{a.childName}</div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>
                         {fmtT(s)}{e ? ` – ${fmtT(e)}` : ''}
                       </div>
                     </div>
@@ -929,7 +929,7 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
         {activeTab === 'overdue' && (
           <>
             {overdueApptLeads.length === 0 ? (
-              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#64748b' }}>
                 <FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 5, color: '#22c55e' }} /> All clear
               </div>
             ) : (
@@ -942,7 +942,7 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
                     onMouseLeave={e => (e.currentTarget.style.background = '')}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{lead.childName}</div>
-                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{lead.parentPhone}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{lead.parentPhone}</div>
                     </div>
                     <FontAwesomeIcon icon={faArrowRight} style={{ color: '#d97706', fontSize: 11 }} />
                   </div>
@@ -955,16 +955,16 @@ function ContextPanel({ expanded, activeTab, onToggle, onTabChange, upcomingAppt
         {activeTab === 'followups' && (
           <>
             {followUpLeads.length === 0 ? (
-              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#64748b' }}>
                 <FontAwesomeIcon icon={faCircleCheck} style={{ marginRight: 5, color: '#22c55e' }} /> All clear
               </div>
             ) : followUpLeads.map(lead => (
               <div key={lead.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f8fafc' }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{lead.childName}</div>
-                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{lead.parentPhone}</div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}>{lead.parentPhone}</div>
                 </div>
-                <button onClick={() => onFollowUp(lead)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
+                <button aria-label="Follow up on WhatsApp" title="Follow up on WhatsApp" onClick={() => onFollowUp(lead)} style={sp.waBtn}><FontAwesomeIcon icon={faWhatsapp} /></button>
               </div>
             ))}
           </>
@@ -1115,13 +1115,13 @@ function AppointmentModal({
                 />
               </div>
               {lead.preferredAppointmentTime && (
-                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
                   Preferred: <span style={{ color: '#64748b', fontWeight: 500 }}>{lead.preferredAppointmentTime}</span>
                 </div>
               )}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#cbd5e1', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
+          <button aria-label="Close" title="Close" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#64748b', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
         </div>
 
         {/* ── Scrollable body ── */}
@@ -1139,7 +1139,7 @@ function AppointmentModal({
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#fff', borderRadius: 8, padding: '6px 12px', border: '1px solid #e0f2fe', lineHeight: 1, minWidth: 48 }}>
                 <span style={{ fontSize: 10, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' }}>{selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}</span>
                 <span style={{ fontSize: 20, fontWeight: 800, color: '#0c4a6e', lineHeight: 1.2 }}>{selectedDate.getDate()}</span>
-                <span style={{ fontSize: 9, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' }}>{selectedDate.toLocaleDateString('en-US', { month: 'short' })}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#0284c7', textTransform: 'uppercase' }}>{selectedDate.toLocaleDateString('en-US', { month: 'short' })}</span>
               </div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#0c4a6e' }}>{fmtTime(selectedDate)} – {fmtTime(selectedEnd!)}</div>
@@ -1157,7 +1157,7 @@ function AppointmentModal({
                 ))}
               </div>
             </>) : (
-              <span style={{ fontSize: 13, color: '#9ca3af' }}>Select a date and time below</span>
+              <span style={{ fontSize: 13, color: '#64748b' }}>Select a date and time below</span>
             )}
           </div>
         </div>
@@ -1214,7 +1214,7 @@ function AppointmentModal({
               };
 
               const groupLabel = (label: string) => (
-                <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
               );
 
               return (
@@ -1277,7 +1277,7 @@ function AppointmentModal({
                 fontSize: 13, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap',
                 overflowY: 'auto', maxHeight: 240, border: '1px solid #e5e7eb',
               }}>
-                {currentMsg || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No message template set</span>}
+                {currentMsg || <span style={{ color: '#64748b', fontStyle: 'italic' }}>No message template set</span>}
               </div>
             )}
           </div>
@@ -1478,7 +1478,7 @@ function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, 
               </div>
               <p style={{ margin: '3px 0 0', fontSize: 13, color: '#78849b', fontVariantNumeric: 'tabular-nums' }}>{contact.parentPhone}</p>
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#b0b8c9', padding: '2px 4px', lineHeight: 1, borderRadius: 4 }}><FontAwesomeIcon icon={faXmark} /></button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#64748b', padding: '2px 4px', lineHeight: 1, borderRadius: 4 }}><FontAwesomeIcon icon={faXmark} /></button>
           </div>
         </div>
 
@@ -1550,7 +1550,7 @@ function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, 
             onChange={e => { setMessages(m => ({ ...m, [key]: e.target.value })); setEdited(ed => ({ ...ed, [key]: true })); }}
           />
           {edited[key] && templateId !== 'none' && (
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, fontStyle: 'italic' as const }}>Modified from template</div>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, fontStyle: 'italic' as const }}>Modified from template</div>
           )}
         </div>
 
@@ -1558,7 +1558,7 @@ function WhatsAppModal({ contact, defaultTemplate = 'none', templates, address, 
         <div style={{ padding: '16px 24px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={onClose} style={{
             padding: '8px 16px', background: 'none', border: 'none', borderRadius: 8,
-            cursor: 'pointer', fontSize: 13, color: '#94a3b8', fontWeight: 500,
+            cursor: 'pointer', fontSize: 13, color: '#64748b', fontWeight: 500,
           }}>Cancel</button>
           <div style={{ flex: 1 }} />
           <button
@@ -1623,7 +1623,7 @@ function DeclineModal({ lead, lostReasons, onClose, onDeclined }: {
         <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Not Enrolling</h3>
         <p style={{ margin: '0 0 10px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
         <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 12 }}>
-          <span>Closed Date {lead.appointmentStart && <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(defaults to visit date)</span>}</span>
+          <span>Closed Date {lead.appointmentStart && <span style={{ fontSize: 11, fontWeight: 400, color: '#64748b' }}>(defaults to visit date)</span>}</span>
           <input
             type="date"
             value={closedDate}
@@ -1633,7 +1633,7 @@ function DeclineModal({ lead, lostReasons, onClose, onDeclined }: {
           />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 12 }}>
-          <span>Notes <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(optional)</span></span>
+          <span>Notes <span style={{ fontSize: 11, fontWeight: 400, color: '#64748b' }}>(optional)</span></span>
           <textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
@@ -1704,7 +1704,7 @@ function RejectModal({ lead, lostReasons, onClose, onRejected }: {
         <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#1a202c' }}>Reject Lead</h3>
         <p style={{ margin: '0 0 10px', fontSize: 13, color: '#718096' }}>{lead.childName} · {lead.parentPhone}</p>
         <label style={{ display: 'flex', flexDirection: 'column' as const, gap: 5, fontSize: 13, fontWeight: 600, color: '#4a5568', marginBottom: 12 }}>
-          <span>Notes <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(optional)</span></span>
+          <span>Notes <span style={{ fontSize: 11, fontWeight: 400, color: '#64748b' }}>(optional)</span></span>
           <textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
@@ -1735,7 +1735,7 @@ function RejectModal({ lead, lostReasons, onClose, onRejected }: {
             const canReject = !!finalReason && !saving;
             return (
               <button onClick={handleConfirm} disabled={!canReject}
-                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#92400e', color: '#fff', cursor: canReject ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: 14, opacity: canReject ? 1 : 0.5 }}>
+                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#92400e', color: '#fff', cursor: canReject ? 'pointer' : 'default', fontWeight: 600, fontSize: 14, opacity: canReject ? 1 : 0.5 }}>
                 {saving ? 'Saving…' : 'Reject'}
               </button>
             );
@@ -1772,7 +1772,7 @@ function NotesModal({ lead, onClose, onSaved }: {
     <div style={mo.backdrop}>
       <div style={{ ...mo.card, maxWidth: 440 }} onClick={e => e.stopPropagation()}>
         <div style={mo.header}>
-          <h2 style={mo.title}><FontAwesomeIcon icon={faNoteSticky} style={{ marginRight: 8, color: '#94a3b8' }} />Notes — {lead.childName}</h2>
+          <h2 style={mo.title}><FontAwesomeIcon icon={faNoteSticky} style={{ marginRight: 8, color: '#64748b' }} />Notes — {lead.childName}</h2>
           <button onClick={onClose} style={mo.closeBtn}><FontAwesomeIcon icon={faXmark} /></button>
         </div>
         <textarea
@@ -1926,7 +1926,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
 
   const ViewRow = ({ label, value }: { label: string; value: string }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-      <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>{label}</span>
       <span style={{ fontSize: 13, color: value && value !== '—' ? '#1e293b' : '#cbd5e1', fontWeight: 500 }}>{value || '—'}</span>
     </div>
   );
@@ -1957,7 +1957,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                 </span>
                 <span
                   title={new Date(statusDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
-                  style={{ fontSize: 11, color: '#94a3b8', cursor: 'default' }}
+                  style={{ fontSize: 11, color: '#64748b', cursor: 'default' }}
                 >
                   {lead.relationship && `${lead.relationship} · `}{statusTimeLabel}
                 </span>
@@ -2064,7 +2064,7 @@ function EditModal({ lead, lostReasons, onClose, onSaved }: {
                   {(lead.status === 'LOST' || lead.status === 'REJECTED') && <ViewRow label={lead.status === 'REJECTED' ? 'Reject Reason' : 'Lost Reason'} value={lead.lostReason || '—'} />}
                   {cleanNotes && (
                     <div style={{ marginTop: 12, background: '#f8fafc', borderRadius: 8, padding: '10px 14px' }}>
-                      <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Notes</span>
+                      <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>Notes</span>
                       <p style={{ fontSize: 13, color: '#475569', margin: '4px 0 0', lineHeight: 1.6 }}>{cleanNotes}</p>
                     </div>
                   )}
@@ -2206,9 +2206,9 @@ function EnrollmentModal({ lead, onClose, onEnrolled }: { lead: Lead; onClose: (
             Enrolment Year
             <input type="text" style={{ ...mo.input, background: '#f8fafc', color: '#64748b' }} value={enrolmentYear} disabled />
           </label>
-          {loadingPkgs ? <span style={{ fontSize: 13, color: '#a0aec0' }}>Loading packages…</span>
+          {loadingPkgs ? <span style={{ fontSize: 13, color: '#64748b' }}>Loading packages…</span>
             : packages.length === 0
-              ? <span style={{ fontSize: 13, color: '#a0aec0' }}>No packages for {enrolmentYear}</span>
+              ? <span style={{ fontSize: 13, color: '#64748b' }}>No packages for {enrolmentYear}</span>
             : (
               <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <label style={mo.label}>
@@ -2340,7 +2340,8 @@ export default function LeadsPage() {
   // SSE: real-time lead updates
   useEffect(() => {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-    const es = new EventSource(`${baseUrl}/api/events`);
+    // withCredentials sends the session cookie — the stream needs a sign-in.
+    const es = new EventSource(`${baseUrl}/api/events`, { withCredentials: true });
     es.addEventListener('new-lead', () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       queryClient.invalidateQueries({ queryKey: ['leads-follow-up'] });
@@ -2860,9 +2861,9 @@ export default function LeadsPage() {
               <div style={{ padding: '14px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Confirm Booking</h3>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{lead.childName} · {lead.parentPhone}</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{lead.childName} · {lead.parentPhone}</div>
                 </div>
-                <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: '#cbd5e1', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
+                <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: '#64748b', padding: '4px 2px', lineHeight: 1 }}><FontAwesomeIcon icon={faXmark} /></button>
               </div>
 
               {/* Body */}
@@ -2887,7 +2888,7 @@ export default function LeadsPage() {
                 {/* WhatsApp message section — secondary */}
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Message</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Message</span>
                     <div style={{ display: 'inline-flex', borderRadius: 5, background: '#f1f5f9', padding: 2 }}>
                       {(['en', 'zh'] as const).map(t => (
                         <button key={t} onClick={() => { setConfirmBookingLang(t); setCbMsgEdited(''); }} style={{
@@ -2935,7 +2936,7 @@ export default function LeadsPage() {
 
               {/* Footer — always the same 3 buttons */}
               <div style={{ padding: '12px 24px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                <button onClick={closeModal} disabled={cbStatus === 'confirming'} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#94a3b8', fontWeight: 500, padding: '8px 4px' }}>Cancel</button>
+                <button onClick={closeModal} disabled={cbStatus === 'confirming'} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#64748b', fontWeight: 500, padding: '8px 4px' }}>Cancel</button>
                 <div style={{ flex: 1 }} />
                 <button onClick={() => handleConfirmBooking(false)} disabled={cbStatus === 'confirming'}
                   style={{ padding: '8px 14px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 7, cursor: 'pointer', fontSize: 12, color: '#475569', fontWeight: 600, opacity: cbStatus === 'confirming' ? 0.5 : 1 }}>
@@ -3006,21 +3007,21 @@ export default function LeadsPage() {
             {selectedStage === 'all_active' && (
               <>
                 <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1a202c' }}>All Active Leads</h1>
-                {data && <span style={{ fontSize: 13, color: '#a0aec0', fontWeight: 400 }}>{data.total} leads</span>}
+                {data && <span style={{ fontSize: 13, color: '#64748b', fontWeight: 400 }}>{data.total} leads</span>}
               </>
             )}
             {selectedStage !== 'all_active' && !isTrash && (
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 14, color: '#9ca3af', fontWeight: 400 }}>Leads</span>
+                <span style={{ fontSize: 14, color: '#64748b', fontWeight: 400 }}>Leads</span>
                 <span style={{ fontSize: 14, color: '#d1d5db' }}>›</span>
                 <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: stageAccentColor }}>{STAGE_TITLES[selectedStage]}</h1>
-                {data && <span style={{ fontSize: 13, color: '#a0aec0', fontWeight: 400, marginLeft: 4 }}>{data.total} leads</span>}
+                {data && <span style={{ fontSize: 13, color: '#64748b', fontWeight: 400, marginLeft: 4 }}>{data.total} leads</span>}
               </div>
             )}
             {isTrash && (
               <>
                 <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#c53030' }}>Trash</h1>
-                <span style={{ fontSize: 13, color: '#a0aec0', fontWeight: 400 }}>{trashedLeads.length} leads</span>
+                <span style={{ fontSize: 13, color: '#64748b', fontWeight: 400 }}>{trashedLeads.length} leads</span>
               </>
             )}
           </div>
@@ -3030,7 +3031,7 @@ export default function LeadsPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
               {/* Search — full width on mobile */}
               <div style={{ position: 'relative', flexGrow: 1, flexShrink: 1, flexBasis: isMobile ? '100%' : 0, ...(isMobile ? { width: '100%' } : {}) }}>
-                <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#b0b8c9', fontSize: 12 }} />
+                <FontAwesomeIcon icon={faMagnifyingGlass} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: 12 }} />
                 <input
                   placeholder="Search by name or phone..."
                   value={searchInput}
@@ -3038,7 +3039,7 @@ export default function LeadsPage() {
                   style={{ width: '100%', padding: '7px 30px 7px 32px', border: '1px solid #e8ecf1', borderRadius: 7, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', color: '#1e293b', background: '#f8fafc', outline: 'none' }}
                 />
                 {searchInput && (
-                  <button onClick={() => setSearchInput('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 11, padding: 2 }}>
+                  <button onClick={() => setSearchInput('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 11, padding: 2 }}>
                     <FontAwesomeIcon icon={faXmark} />
                   </button>
                 )}
@@ -3090,8 +3091,8 @@ export default function LeadsPage() {
               {/* Year filter — closed stages only */}
               {isClosed && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: '#f8fafc', border: '1px solid #e8ecf1', borderRadius: 7, flexShrink: 0 }}>
-                  <FontAwesomeIcon icon={faFilter} style={{ fontSize: 10, color: '#94a3b8' }} />
-                  <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>Year</span>
+                  <FontAwesomeIcon icon={faFilter} style={{ fontSize: 10, color: '#64748b' }} />
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>Year</span>
                   <select
                     value={closedYear}
                     onChange={e => { const v = e.target.value; setClosedYear(v === 'all' ? 'all' : Number(v)); setPage(1); }}
@@ -3122,7 +3123,7 @@ export default function LeadsPage() {
             <div style={{ padding: '60px 20px', textAlign: 'center', background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: 36, marginBottom: 10 }}><FontAwesomeIcon icon={faTrash} /></div>
               <div style={{ fontWeight: 600, color: '#4a5568', marginBottom: 6 }}>Trash is empty</div>
-              <div style={{ fontSize: 13, color: '#a0aec0' }}>Deleted leads will appear here.</div>
+              <div style={{ fontSize: 13, color: '#64748b' }}>Deleted leads will appear here.</div>
             </div>
           )}
 
@@ -3168,7 +3169,7 @@ export default function LeadsPage() {
                   }} style={{ padding: '6px 14px', background: '#fff', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                     Delete Forever
                   </button>
-                  <button onClick={() => setSelectedTrashIds(new Set())} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#94a3b8', fontWeight: 500, padding: '6px 4px' }}>
+                  <button onClick={() => setSelectedTrashIds(new Set())} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#64748b', fontWeight: 500, padding: '6px 4px' }}>
                     Clear
                   </button>
                 </div>
@@ -3208,7 +3209,7 @@ export default function LeadsPage() {
                           </td>
                           <td style={tD}>
                             <div style={{ fontWeight: 600, fontSize: 14, color: '#1a202c' }}>{lead.childName}</div>
-                            <div style={{ fontSize: 11, color: '#a0aec0', marginTop: 2 }}>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
                               Submitted {new Date(lead.submittedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </div>
                           </td>
@@ -3291,7 +3292,7 @@ export default function LeadsPage() {
             <div style={{ padding: '60px 20px', textAlign: 'center', background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: 36, marginBottom: 10 }}><FontAwesomeIcon icon={faCalendarDays} /></div>
               <div style={{ fontWeight: 600, color: '#4a5568', marginBottom: 6 }}>No leads here</div>
-              <div style={{ fontSize: 13, color: '#a0aec0' }}>Leads appear here as they progress through the pipeline.</div>
+              <div style={{ fontSize: 13, color: '#64748b' }}>Leads appear here as they progress through the pipeline.</div>
             </div>
           )}
 
@@ -3349,7 +3350,7 @@ export default function LeadsPage() {
                                 <span title={lead.howDidYouKnow ? `Lead Source: ${lead.howDidYouKnow}` : 'Lead Source: Unknown'} style={{
                                   display: 'inline-flex', alignItems: 'center', cursor: 'default',
                                 }}>
-                                  <FontAwesomeIcon icon={faQuestion} fixedWidth style={{ fontSize: 11, color: '#94a3b8' }} />
+                                  <FontAwesomeIcon icon={faQuestion} fixedWidth style={{ fontSize: 11, color: '#64748b' }} />
                                 </span>
                               );
                             }
@@ -3380,7 +3381,7 @@ export default function LeadsPage() {
                                     fixedWidth
                                     style={{
                                       fontSize: 11,
-                                      color: '#94a3b8',
+                                      color: '#64748b',
                                     }}
                                   />
                                 )}
@@ -3416,7 +3417,7 @@ export default function LeadsPage() {
                           return (
                             <div style={{
                               marginTop: 2,
-                              fontSize: 11, color: '#94a3b8',
+                              fontSize: 11, color: '#64748b',
                             }}>
                               <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
                                 {STATUS_VERB[lead.status]} {rt.text}
@@ -3475,7 +3476,7 @@ export default function LeadsPage() {
                       <a href={whatsappUrl(lead.parentPhone, '')} target="_blank" rel="noopener noreferrer"
                         onClick={e => e.stopPropagation()} className="kc-phone-link"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'inherit', textDecoration: 'none' }}>
-                        <FontAwesomeIcon icon={faPhone} style={{ fontSize: 9, color: '#94a3b8' }} />{lead.parentPhone}
+                        <FontAwesomeIcon icon={faPhone} style={{ fontSize: 9, color: '#64748b' }} />{lead.parentPhone}
                       </a>
                     </div>
                     {/* Primary action */}
@@ -3498,26 +3499,26 @@ export default function LeadsPage() {
                       const hasScheduleActions = lead.status === 'CONTACTED' || lead.status === 'APPOINTMENT_BOOKED';
                       const hasEnroll = lead.status !== 'ENROLLED' && lead.status !== 'LOST' && lead.status !== 'REJECTED';
                       const sep = <div style={{ height: 1, background: '#f0f2f5', margin: '3px 10px' }} />;
-                      const secLabel = (label: string, icon?: any) => <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: 6 }}>{icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}{label}</div>;
+                      const secLabel = (label: string, icon?: any) => <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: 6 }}>{icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}{label}</div>;
                       return (
                         <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', ...(menuPos.top > window.innerHeight * 0.6 ? { bottom: menuPos.bottom } : { top: menuPos.top }), right: menuPos.right, zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}>
                           {secLabel('Actions', faBolt)}
                           <div style={{ padding: '0 2px' }}>
                             {hasScheduleActions && (
-                              <button onClick={() => { setBookingIntent('reschedule'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
+                              <button onClick={() => { setBookingIntent('reschedule'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} /> Reschedule Appt</button>
                             )}
                             {/* Follow-up leads have already attended one
                                 visit; let staff book another (re-visit,
                                 follow-up tour) without going through
                                 Reschedule semantics. */}
                             {lead.status === 'FOLLOW_UP' && (
-                              <button onClick={() => { setBookingIntent('book'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Schedule Appointment</button>
+                              <button onClick={() => { setBookingIntent('book'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} /> Schedule Appointment</button>
                             )}
                             <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
-                            <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
-                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Add Label</button>
+                            <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} /> Edit Notes</button>
+                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} /> Add Label</button>
                             {isMobile && (
-                              <button onClick={() => { window.location.href = `tel:${lead.parentPhone}`; setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPhone} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Call</button>
+                              <button onClick={() => { window.location.href = `tel:${lead.parentPhone}`; setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faPhone} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} /> Call</button>
                             )}
                           </div>
                           {hasEnroll && (<>
@@ -3558,11 +3559,11 @@ export default function LeadsPage() {
                                 className={mI}
                                 style={{ color: '#64748b' }}
                               >
-                                <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+                                <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} />
                                 Revert to New
                               </button>
                             )}
-                            <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#64748b' }}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#b0b8c9', fontSize: 11 }} /> View Lead Details</button>
+                            <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#64748b' }}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 11 }} /> View Lead Details</button>
                           </div>
                           {sep}
                           <div style={{ padding: '0 2px' }}>
@@ -3582,7 +3583,7 @@ export default function LeadsPage() {
                   <span style={{ fontWeight: 600, color: '#2b6cb0', padding: '4px 10px', background: '#ebf4ff', borderRadius: 5 }}>{page}/{totalPages}</span>
                   <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={pB}>›</button>
                 </div>
-                <span style={{ color: '#94a3b8', fontSize: 11 }}>{data.total} leads</span>
+                <span style={{ color: '#64748b', fontSize: 11 }}>{data.total} leads</span>
               </div>
             </div>
           )}
@@ -3684,7 +3685,7 @@ export default function LeadsPage() {
                             return (
                               <div style={{
                                 marginTop: 2,
-                                fontSize: 11, color: '#b0b8c9',
+                                fontSize: 11, color: '#64748b',
                               }}>
                                 <span title={`${STATUS_VERB[lead.status]} ${new Date(lead.status === 'NEW' || !lead.statusChangedAt ? lead.submittedAt : lead.statusChangedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`} style={{ cursor: 'default' }}>
                                   {STATUS_VERB[lead.status]} {rt.text}
@@ -3745,7 +3746,7 @@ export default function LeadsPage() {
                                 <span title={lead.howDidYouKnow ? `Lead Source: ${lead.howDidYouKnow}` : 'Lead Source: Unknown'} style={{
                                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'default',
                                 }}>
-                                  <FontAwesomeIcon icon={faQuestion} fixedWidth style={{ fontSize: 11, color: '#94a3b8' }} />
+                                  <FontAwesomeIcon icon={faQuestion} fixedWidth style={{ fontSize: 11, color: '#64748b' }} />
                                 </span>
                               );
                             }
@@ -3786,7 +3787,7 @@ export default function LeadsPage() {
                                     fixedWidth
                                     style={{
                                       fontSize: 14,
-                                      color: '#94a3b8',
+                                      color: '#64748b',
                                     }}
                                   />
                                 )}
@@ -3810,7 +3811,7 @@ export default function LeadsPage() {
                             onClick={e => e.stopPropagation()} className="kc-phone-link"
                             title="Open WhatsApp chat"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none', fontVariantNumeric: 'tabular-nums' }}>
-                            <FontAwesomeIcon icon={faPhone} style={{ color: '#94a3b8', fontSize: 10 }} />
+                            <FontAwesomeIcon icon={faPhone} style={{ color: '#64748b', fontSize: 10 }} />
                             {lead.parentPhone}
                           </a>
                         </td>
@@ -3846,12 +3847,12 @@ export default function LeadsPage() {
                                   </span>
                                   <span>{displayDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} ({displayDate.toLocaleDateString('en-GB', { weekday: 'short' })})</span>
                                   {!isFollowUp && (
-                                    <span style={{ color: '#b0b8c9', fontWeight: 400, fontSize: 12 }}>
+                                    <span style={{ color: '#64748b', fontWeight: 400, fontSize: 12 }}>
                                       {apptDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true })}
                                     </span>
                                   )}
                                   {calendarNotSynced && (
-                                    <span title="Google Calendar not synced" style={{ fontSize: 9, color: '#f59e0b', cursor: 'default' }}>
+                                    <span title="Google Calendar not synced" style={{ fontSize: 10, color: '#f59e0b', cursor: 'default' }}>
                                       <FontAwesomeIcon icon={faTriangleExclamation} />
                                     </span>
                                   )}
@@ -3936,19 +3937,19 @@ export default function LeadsPage() {
                                 style={{ position: 'fixed' as const, ...(menuPos.top > window.innerHeight * 0.6 ? { bottom: menuPos.bottom } : { top: menuPos.top }), right: menuPos.right, zIndex: 200, background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04)', minWidth: 200, padding: '5px' }}
                               >
                                 {(() => {
-                                  const secLabel = (label: string, icon?: any) => <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: 6 }}>{icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}{label}</div>;
+                                  const secLabel = (label: string, icon?: any) => <div style={{ padding: '8px 12px 4px', fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '0.06em', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: 6 }}>{icon && <FontAwesomeIcon icon={icon} style={{ fontSize: 10, color: '#c0c7d1' }} />}{label}</div>;
                                   return <>
                                     {secLabel('Actions', faBolt)}
                                     <div style={{ padding: '0 2px' }}>
                                       {hasScheduleActions && (
-                                        <button onClick={() => { setBookingIntent('reschedule'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Reschedule Appt</button>
+                                        <button onClick={() => { setBookingIntent('reschedule'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} /> Reschedule Appt</button>
                                       )}
                                       {lead.status === 'FOLLOW_UP' && (
-                                        <button onClick={() => { setBookingIntent('book'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Schedule Appointment</button>
+                                        <button onClick={() => { setBookingIntent('book'); setBookingLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} /> Schedule Appointment</button>
                                       )}
                                       <button onClick={() => { openWhatsApp(lead, lead.status === 'FOLLOW_UP' ? 'follow_up' : 'none'); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faWhatsapp} fixedWidth style={{ marginRight: 8, color: '#25D366', fontSize: 13 }} /> Send WhatsApp</button>
-                                      <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Edit Notes</button>
-                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} /> Add Label</button>
+                                      <button onClick={() => { setNotesLead(lead); setMenuOpenId(null); }} className={mI}><FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} /> Edit Notes</button>
+                            <button onClick={() => openLabelPickerFromMenu(lead)} className={mI}><FontAwesomeIcon icon={faTags} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} /> Add Label</button>
                                     </div>
                                     {hasEnroll && (<>
                                       {sep}
@@ -3982,11 +3983,11 @@ export default function LeadsPage() {
                                           className={mI}
                                           style={{ color: '#64748b' }}
                                         >
-                                          <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+                                          <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} />
                                           Revert to New
                                         </button>
                                       )}
-                                      <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#64748b' }}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#b0b8c9', fontSize: 11 }} /> View Lead Details</button>
+                                      <button onClick={() => { setEditingLead(lead); setMenuOpenId(null); }} className={mI} style={{ color: '#64748b' }}><FontAwesomeIcon icon={faPen} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 11 }} /> View Lead Details</button>
                                     </div>
                                     {sep}
                                     <div style={{ padding: '0 2px' }}>
@@ -4069,11 +4070,11 @@ const sp = {
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid #f1f5f9', background: '#fafafa' } as React.CSSProperties,
   title: { fontSize: 13, fontWeight: 700, color: '#374151' } as React.CSSProperties,
   badge: { background: '#f59e0b', color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 700 } as React.CSSProperties,
-  sectionLabel: { padding: '5px 14px', fontSize: 10, fontWeight: 800, color: '#a0aec0', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: '#f8fafc' } as React.CSSProperties,
+  sectionLabel: { padding: '5px 14px', fontSize: 10, fontWeight: 800, color: '#64748b', letterSpacing: '0.08em', textTransform: 'uppercase' as const, background: '#f8fafc' } as React.CSSProperties,
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 14px', borderBottom: '1px solid #f8fafc', gap: 8 } as React.CSSProperties,
-  empty: { padding: '24px 14px', textAlign: 'center' as const, fontSize: 13, color: '#a0aec0' } as React.CSSProperties,
+  empty: { padding: '24px 14px', textAlign: 'center' as const, fontSize: 13, color: '#64748b' } as React.CSSProperties,
   waBtn: { background: 'none', border: 'none', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', fontSize: 18, lineHeight: 1, flexShrink: 0, color: '#25d366' } as React.CSSProperties,
-  ph: { display: 'inline-block', padding: '0 4px', background: '#7c3aed', color: '#fff', borderRadius: 3, fontSize: 9, fontWeight: 800, marginRight: 4, verticalAlign: 'middle' } as React.CSSProperties,
+  ph: { display: 'inline-block', padding: '0 4px', background: '#7c3aed', color: '#fff', borderRadius: 3, fontSize: 10, fontWeight: 800, marginRight: 4, verticalAlign: 'middle' } as React.CSSProperties,
   followUpBtn: { background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600, flexShrink: 0 } as React.CSSProperties,
 };
 
@@ -4099,7 +4100,7 @@ const am: Record<string, React.CSSProperties> = {
   title: { margin: 0, fontSize: 18, fontWeight: 700, color: '#1a202c' },
   subtitle: { margin: '4px 0 0', fontSize: 13, color: '#718096' },
   closeBtn: { background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#718096', lineHeight: 1, marginLeft: 8 },
-  sectionLabel: { fontSize: 11, fontWeight: 700, color: '#a0aec0', letterSpacing: '0.07em', textTransform: 'uppercase' },
+  sectionLabel: { fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.07em', textTransform: 'uppercase' },
   label: { fontSize: 13, fontWeight: 600, color: '#2d3748' },
   input: { display: 'block', width: '100%', marginTop: 0, padding: '9px 11px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fafafa' },
   divider: { borderTop: '1px solid #f1f5f9', margin: '18px 0' },

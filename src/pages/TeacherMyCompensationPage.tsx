@@ -30,7 +30,7 @@ const C = {
   text: '#0f172a',
   textSub: '#3f4b5c',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
   success: '#059669',
   successSoft: '#ecfdf5',
   successBorder: '#a7f3d0',
@@ -73,7 +73,7 @@ export default function TeacherMyCompensationPage() {
 
       <div style={s.inner}>
         <div style={s.breadcrumb}>
-          <button onClick={() => navigate(`/teachers/${id}`)} className="tmc-back-btn" style={s.backBtn} title="Back">
+          <button onClick={() => navigate(`/teachers/${id}`)} className="tmc-back-btn back-btn" style={s.backBtn} title="Back">
             <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
           </button>
           <Link to="/teachers" style={s.crumbLink}>Teachers</Link>
@@ -91,7 +91,7 @@ export default function TeacherMyCompensationPage() {
           }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              fontSize: 10, fontWeight: 700, color: C.muted,
+              fontSize: 11, fontWeight: 700, color: C.muted,
               textTransform: 'uppercase', letterSpacing: '0.1em',
             }}>
               {teacher?.color && (
@@ -105,7 +105,7 @@ export default function TeacherMyCompensationPage() {
               background: eligibilityVisuals.bg,
               border: `1px solid ${eligibilityVisuals.border}`,
               color: eligibilityVisuals.color,
-              fontSize: 10, fontWeight: 700,
+              fontSize: 11, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: '0.05em',
             }}>
               <FontAwesomeIcon icon={eligibilityVisuals.icon} style={{ fontSize: 10 }} />
@@ -154,7 +154,7 @@ export default function TeacherMyCompensationPage() {
                   padding: '2px 8px', borderRadius: 999,
                   background: C.primarySoft, color: C.primary,
                   border: `1px solid ${C.primaryBorder}`,
-                  fontSize: 10, fontWeight: 700,
+                  fontSize: 11, fontWeight: 700,
                   textTransform: 'uppercase', letterSpacing: '0.04em',
                 }}>
                   <FontAwesomeIcon icon={faAward} style={{ fontSize: 9 }} />
@@ -170,7 +170,7 @@ export default function TeacherMyCompensationPage() {
             borderTop: `1px solid ${C.divider}`,
           }}>
             <div style={{
-              fontSize: 10, fontWeight: 700, color: C.muted,
+              fontSize: 11, fontWeight: 700, color: C.muted,
               textTransform: 'uppercase', letterSpacing: '0.08em',
               marginBottom: 6,
             }}>

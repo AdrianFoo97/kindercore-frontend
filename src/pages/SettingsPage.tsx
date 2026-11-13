@@ -218,10 +218,10 @@ const reasonStyles: Record<string, React.CSSProperties> = {
     padding: '6px 10px', background: '#f7fafc',
     borderRadius: 4, border: '1px solid #e2e8f0',
   },
-  handle: { color: '#a0aec0', fontSize: 14, cursor: 'grab', userSelect: 'none', flexShrink: 0 },
+  handle: { color: '#64748b', fontSize: 14, cursor: 'grab', userSelect: 'none', flexShrink: 0 },
   text: { flex: 1, fontSize: 13, color: '#2d3748' },
-  editBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#a0aec0', fontSize: 15, padding: '0 2px', lineHeight: 1 },
-  removeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#a0aec0', fontSize: 14, padding: '0 2px', lineHeight: 1 },
+  editBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 15, padding: '0 2px', lineHeight: 1 },
+  removeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 14, padding: '0 2px', lineHeight: 1 },
   addBtn: {
     padding: '8px 16px', background: '#edf2f7', border: '1px solid #e2e8f0',
     borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#4a5568',

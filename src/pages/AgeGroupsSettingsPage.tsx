@@ -294,7 +294,7 @@ export default function AgeGroupsSettingsPage({ embedded = false }: { embedded?:
       {error && (
         <div style={s.errorBanner} role="alert">
           <span><strong>⚠</strong> {error}</span>
-          <button onClick={() => setError('')} style={s.errorClose} aria-label="Dismiss"><FontAwesomeIcon icon={faXmark} /></button>
+          <button onClick={() => setError('')} style={s.errorClose} aria-label="Dismiss" title="Dismiss"><FontAwesomeIcon icon={faXmark} /></button>
         </div>
       )}
 
@@ -545,7 +545,7 @@ export default function AgeGroupsSettingsPage({ embedded = false }: { embedded?:
 function SaveIndicator({ type }: { type: 'saving' | 'saved' }) {
   if (type === 'saving') {
     return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#64748b', fontWeight: 500 }}>
         <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 10 }} />
         Saving…
       </span>
@@ -581,7 +581,7 @@ function PackageModal({ age, packages: pkgs, onClose }: { age: number; packages:
         <div style={s.modalHeader}>
           <span style={s.modalTitle}>Age {age} Packages</span>
           <span style={s.modalCount}>{pkgs.length}</span>
-          <button type="button" onClick={onClose} style={s.modalClose} aria-label="Close">
+          <button type="button" onClick={onClose} style={s.modalClose} aria-label="Close" title="Close">
             <FontAwesomeIcon icon={faXmark} />
           </button>
         </div>
@@ -694,7 +694,7 @@ const s: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontVariantNumeric: 'tabular-nums' as any,
   },
-  muted: { color: '#94a3b8', fontSize: 12 },
+  muted: { color: '#64748b', fontSize: 12 },
 
   errorBanner: {
     display: 'flex',
@@ -718,7 +718,7 @@ const s: Record<string, React.CSSProperties> = {
     background: '#fafbfc',
   },
   emptyTitle: { fontSize: 15, fontWeight: 600, color: '#334155', marginBottom: 4 },
-  emptySub: { fontSize: 13, color: '#94a3b8' },
+  emptySub: { fontSize: 13, color: '#64748b' },
 
   tableWrap: {
     border: '1px solid #eef0f4',
@@ -768,7 +768,7 @@ const s: Record<string, React.CSSProperties> = {
   },
 
   numStrong: { fontSize: 13, fontWeight: 600, color: '#0f172a', fontVariantNumeric: 'tabular-nums' as any },
-  numMuted: { fontSize: 13, color: '#cbd5e1', fontVariantNumeric: 'tabular-nums' as any },
+  numMuted: { fontSize: 13, color: '#64748b', fontVariantNumeric: 'tabular-nums' as any },
 
   badge: {
     display: 'inline-block',
@@ -816,9 +816,9 @@ const s: Record<string, React.CSSProperties> = {
     background: '#fff',
   },
   iconBtnBlocked: {
-    color: '#cbd5e1',
+    color: '#64748b',
     background: '#f8fafc',
-    cursor: 'not-allowed',
+    cursor: 'default',
     borderColor: '#e2e8f0',
   },
 
@@ -928,7 +928,7 @@ const s: Record<string, React.CSSProperties> = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    color: '#94a3b8',
+    color: '#64748b',
     fontSize: 16,
     padding: 4,
     display: 'inline-flex',
@@ -974,7 +974,7 @@ const s: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap' as const,
   },
   detailStudents: {
-    color: '#94a3b8',
+    color: '#64748b',
     fontSize: 11,
     whiteSpace: 'nowrap' as const,
     fontVariantNumeric: 'tabular-nums' as any,

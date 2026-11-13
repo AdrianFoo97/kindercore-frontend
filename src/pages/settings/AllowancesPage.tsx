@@ -71,7 +71,7 @@ export default function AllowancesPage() {
         /* Allowance row action buttons — muted by default, color-shift
            on hover/focus. Edit picks up a neutral grey, Delete stays
            contained (only goes red on its own hover). */
-        .allowance-action { color: #94a3b8; transition: color 120ms ease, background 120ms ease; }
+        .allowance-action { color: #64748b; transition: color 120ms ease, background 120ms ease; }
         .allowance-action:hover { color: #475569; background: #f1f5f9; }
         .allowance-action.danger:hover { color: #dc2626; background: #fef2f2; }
       `}</style>

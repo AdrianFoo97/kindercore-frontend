@@ -15,7 +15,7 @@ import { fetchTestRunner, startTestRun, TestRun, TestRunnerInfo, TestRunScope, T
 
 const C = {
   bg: '#f8fafc', card: '#fff', border: '#e8ebf0', borderSoft: '#f1f3f6',
-  text: '#0f172a', textSub: '#475569', muted: '#64748b', mutedSoft: '#94a3b8',
+  text: '#0f172a', textSub: '#475569', muted: '#64748b', mutedSoft: '#64748b',
   primary: '#5a67d8', primarySoft: '#eef0fa',
   warn: '#b45309', warnSoft: '#fffbeb', warnBorder: '#fde68a',
 };
@@ -172,7 +172,7 @@ export default function TestCatalogPage() {
             <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: C.mutedSoft }} />
             <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search tests — e.g. budget, WhatsApp, honeypot…" style={st.search} />
             {query && (
-              <button onClick={() => setQuery('')} aria-label="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>
+              <button onClick={() => setQuery('')} aria-label="Clear search" title="Clear search" style={st.clearBtn}><FontAwesomeIcon icon={faXmark} /></button>
             )}
           </div>
         </div>
@@ -258,11 +258,11 @@ function fileStatus(run: TestRun | null, s: TestSuite): TestRunStatus | null {
 }
 
 const STATUS_LOOK: Record<TestRunStatus, { icon: typeof faCheck; color: string; label: string; spin?: boolean }> = {
-  pending: { icon: faClock, color: '#94a3b8', label: 'Pending' },
+  pending: { icon: faClock, color: '#64748b', label: 'Pending' },
   running: { icon: faSpinner, color: '#5a67d8', label: 'Running', spin: true },
   passed: { icon: faCircleCheck, color: '#16a34a', label: 'Passed' },
   failed: { icon: faCircleXmark, color: '#dc2626', label: 'Failed' },
-  skipped: { icon: faForward, color: '#94a3b8', label: 'Not run' },
+  skipped: { icon: faForward, color: '#64748b', label: 'Not run' },
 };
 
 /** 3 ms · 1.2 s */
@@ -317,7 +317,7 @@ function SuiteList({ suites, selectedId, onSelect, runCtx }: {
         const n = items.reduce((t, s) => t + s.cases.length, 0);
         return (
           <div key={g}>
-            <div style={st.groupLabel}><span>{g}</span><span style={{ color: '#cbd5e1' }}>{n}</span></div>
+            <div style={st.groupLabel}><span>{g}</span><span style={{ color: '#64748b' }}>{n}</span></div>
             {items.map(s => {
               const on = s.id === selectedId;
               const fs = fileStatus(runCtx?.run ?? null, s);
@@ -515,7 +515,7 @@ const st = {
   groupLabel: { display: 'flex', justifyContent: 'space-between', fontSize: 10.5, fontWeight: 700, color: C.mutedSoft, textTransform: 'uppercase', letterSpacing: '0.07em', padding: '12px 8px 4px' } as React.CSSProperties,
   listRow: (on: boolean): React.CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 8px', borderRadius: 7, border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', fontSize: 13, fontWeight: on ? 700 : 500, background: on ? C.primarySoft : 'transparent', color: on ? '#3c339a' : C.textSub }),
   dot: (p: Project): React.CSSProperties => ({ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: p === 'Frontend' ? '#818cf8' : '#34d399' }),
-  projTag: (p: Project): React.CSSProperties => ({ fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 4, flexShrink: 0, background: p === 'Frontend' ? '#eef0fa' : '#ecfdf5', color: p === 'Frontend' ? '#4c51bf' : '#047857' }),
+  projTag: (p: Project): React.CSSProperties => ({ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 4, flexShrink: 0, background: p === 'Frontend' ? '#eef0fa' : '#ecfdf5', color: p === 'Frontend' ? '#4c51bf' : '#047857' }),
   listCount: { fontSize: 11, color: C.mutedSoft, fontVariantNumeric: 'tabular-nums', minWidth: 18, textAlign: 'right' } as React.CSSProperties,
   backBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 12, padding: '5px 10px', borderRadius: 7, border: `1px solid ${C.border}`, background: '#fff', color: C.textSub, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' } as React.CSSProperties,
   caseRow: { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 2px', borderBottom: `1px solid ${C.borderSoft}` } as React.CSSProperties,

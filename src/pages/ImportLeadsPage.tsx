@@ -1139,7 +1139,7 @@ export default function ImportLeadsPage({ embedded = false }: { embedded?: boole
                         <div style={{ borderTop: '1px solid #fed7aa', padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
                           {dbDuplicateRows.map(r => (
                             <div key={r.rowNum} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                              <span style={{ color: '#a0aec0', fontSize: 12, width: 48, flexShrink: 0 }}>Row {r.rowNum}</span>
+                              <span style={{ color: '#64748b', fontSize: 12, width: 48, flexShrink: 0 }}>Row {r.rowNum}</span>
                               <span style={{ fontWeight: 600, color: '#2d3748' }}>{r.childName}</span>
                               <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#4a5568' }}>{r.parentPhone}</span>
                             </div>
@@ -1169,7 +1169,7 @@ export default function ImportLeadsPage({ embedded = false }: { embedded?: boole
                         <div style={{ borderTop: '1px solid #fbd38d', padding: '8px 16px', display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
                           {fileDuplicateRows.map(r => (
                             <div key={r.rowNum} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                              <span style={{ color: '#a0aec0', fontSize: 12, width: 48, flexShrink: 0 }}>Row {r.rowNum}</span>
+                              <span style={{ color: '#64748b', fontSize: 12, width: 48, flexShrink: 0 }}>Row {r.rowNum}</span>
                               <span style={{ fontWeight: 600, color: '#2d3748' }}>{r.childName}</span>
                               <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#4a5568' }}>{r.parentPhone}</span>
                               <span style={{ fontSize: 11, color: '#b7791f' }}>occurrence {r.fileOccurrenceIndex} of {r.fileOccurrenceTotal}</span>
@@ -1252,18 +1252,18 @@ export default function ImportLeadsPage({ embedded = false }: { embedded?: boole
                               transition: 'background 0.1s',
                             }}
                           >
-                            <td style={{ ...styles.td, color: '#a0aec0', fontSize: 12, width: 48 }}>{row.rowNum}</td>
+                            <td style={{ ...styles.td, color: '#64748b', fontSize: 12, width: 48 }}>{row.rowNum}</td>
                             <td style={{ ...styles.td, fontWeight: 600 }}>
-                              {row.childName || <em style={{ color: '#a0aec0', fontWeight: 400 }}>—</em>}
+                              {row.childName || <em style={{ color: '#64748b', fontWeight: 400 }}>—</em>}
                             </td>
                             <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 12 }}>
-                              {row.parentPhone || <em style={{ color: '#a0aec0' }}>—</em>}
+                              {row.parentPhone || <em style={{ color: '#64748b' }}>—</em>}
                             </td>
                             <td style={{ ...styles.td, fontFamily: 'monospace', fontSize: 12, color: '#4a5568' }}>
-                              {row.childDob || <em style={{ color: '#a0aec0' }}>—</em>}
+                              {row.childDob || <em style={{ color: '#64748b' }}>—</em>}
                             </td>
                             <td style={{ ...styles.td, textAlign: 'center' }}>
-                              {row.enrolmentYear ?? <em style={{ color: '#a0aec0' }}>—</em>}
+                              {row.enrolmentYear ?? <em style={{ color: '#64748b' }}>—</em>}
                             </td>
                             <td style={styles.td}>
                               <span style={{ ...styles.statusPill, ...statusStyle(row.status ?? 'NEW') }}>
@@ -1405,7 +1405,7 @@ export default function ImportLeadsPage({ embedded = false }: { embedded?: boole
                   </button>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     {rowsToImport.length === 0 && (
-                      <span style={{ fontSize: 12, color: '#a0aec0' }}>
+                      <span style={{ fontSize: 12, color: '#64748b' }}>
                         {validRows.length === 0 ? 'Fix all errors above to continue' : 'All valid rows are duplicates — choose "Update" or "Import as new" above'}
                       </span>
                     )}
@@ -1458,7 +1458,7 @@ export default function ImportLeadsPage({ embedded = false }: { embedded?: boole
               </p>
 
               {importTotal > 0 && (
-                <p style={{ fontSize: 12, color: '#a0aec0', marginTop: 4 }}>
+                <p style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
                   {Math.round((importDone / importTotal) * 100)}% complete
                 </p>
               )}
@@ -1549,7 +1549,7 @@ export default function ImportLeadsPage({ embedded = false }: { embedded?: boole
                         {importFailed.map(f => (
                           <tr key={f.rowNum} style={{ background: '#fff5f5' }}>
                             <td style={styles.td}>{f.rowNum}</td>
-                            <td style={styles.td}>{f.childName || <em style={{ color: '#a0aec0' }}>—</em>}</td>
+                            <td style={styles.td}>{f.childName || <em style={{ color: '#64748b' }}>—</em>}</td>
                             <td style={{ ...styles.td, color: '#c53030', fontSize: 12 }}>{f.error}</td>
                           </tr>
                         ))}
@@ -1650,7 +1650,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   stepCircleInactive: {
     background: '#e2e8f0',
-    color: '#a0aec0',
+    color: '#64748b',
   },
   stepLabel: {
     fontSize: 13,
@@ -1710,7 +1710,7 @@ const styles: Record<string, React.CSSProperties> = {
   dropSecondary: {
     margin: 0,
     fontSize: 12,
-    color: '#a0aec0',
+    color: '#64748b',
   },
 
   // Upload actions
@@ -1747,7 +1747,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   btnDisabled: {
     opacity: 0.45,
-    cursor: 'not-allowed',
+    cursor: 'default',
   },
 
   // Column reference
@@ -2152,7 +2152,7 @@ const styles: Record<string, React.CSSProperties> = {
   importingSubtext: {
     margin: 0,
     fontSize: 13,
-    color: '#a0aec0',
+    color: '#64748b',
   },
 
   // Done step

@@ -143,7 +143,7 @@ function OnboardingEditor({
     <div style={styles.card}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {items.length === 0 && (
-          <p style={{ color: '#a0aec0', fontSize: 13, margin: 0 }}>No tasks yet. Add one below.</p>
+          <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>No tasks yet. Add one below.</p>
         )}
         {items.map((item, idx) => (
           <div
@@ -246,11 +246,11 @@ const rowStyles: Record<string, React.CSSProperties> = {
     padding: '8px 10px', background: '#f7fafc',
     borderRadius: 4, border: '1px solid #e2e8f0',
   },
-  handle: { color: '#a0aec0', fontSize: 14, cursor: 'grab', userSelect: 'none', flexShrink: 0 },
-  num: { fontSize: 12, color: '#a0aec0', fontWeight: 700, width: 22, flexShrink: 0, textAlign: 'right' },
+  handle: { color: '#64748b', fontSize: 14, cursor: 'grab', userSelect: 'none', flexShrink: 0 },
+  num: { fontSize: 12, color: '#64748b', fontWeight: 700, width: 22, flexShrink: 0, textAlign: 'right' },
   text: { flex: 1, fontSize: 13, color: '#2d3748' },
   iconBtn: {
     background: 'none', border: 'none', cursor: 'pointer',
-    color: '#a0aec0', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0,
+    color: '#64748b', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0,
   },
 };

@@ -76,6 +76,17 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   TeacherMissionProgress: { domain: 'Career & appraisals', about: 'A teacher\'s progress on one mission (kept even if the mission is later removed).' },
   TeacherMissionFocus: { domain: 'Career & appraisals', about: 'Not used by the app — no code reads or writes it (not even in schema.ts). Likely left over from a removed feature; candidate for clean-up.' },
   TeacherAppraisal: { domain: 'Career & appraisals', about: 'Monthly appraisal score per teacher; the recent average feeds the promotion gate.' },
+  AppraisalTemplate: { domain: 'Career & appraisals', about: 'An appraisal form (e.g. 50% core values, 50% KPI): how often, draft/active/retired, versioned per family.' },
+  AppraisalSection: { domain: 'Career & appraisals', about: 'A weighted part of an appraisal template, such as "Core values" or "KPI".' },
+  AppraisalCriterion: { domain: 'Career & appraisals', about: 'One thing scored inside a section (e.g. Love, SOP compliance): its weight, input type and scale.' },
+  SensitiveAccessLog: { domain: 'Accounts & access', about: 'Who opened pay, finance, appraisal or job-applicant records, and when (Admin → Access Log). Kept for a year.' },
+  AppraisalCriterionPoint: { domain: 'Career & appraisals', about: 'Optional points a criterion is judged on (e.g. Love and patience → Speaks calmly); its score is their average.' },
+  AppraisalStage: { domain: 'Career & appraisals', about: 'A step in a template\'s approval chain — assess, sign off or acknowledge — in order.' },
+  AppraisalStagePosition: { domain: 'Career & appraisals', about: 'Which positions may act on each appraisal step (so new positions can be given the job).' },
+  AppraisalAssignment: { domain: 'Career & appraisals', about: 'Which template applies to which position or individual staff member.' },
+  Appraisal: { domain: 'Career & appraisals', about: 'One staff member\'s appraisal for one period on a template: its step, status and total.' },
+  AppraisalScore: { domain: 'Career & appraisals', about: 'The score given (or calculated) for one criterion on one appraisal, with any override reason.' },
+  AppraisalLog: { domain: 'Career & appraisals', about: 'History of an appraisal — who scored, signed off, sent back or acknowledged it, and when.' },
 
   // Points & rewards
   PointsEarningRule: { domain: 'Points & rewards', about: 'A grant template ("Perfect attendance month = 50 pts") supervisors pick from.' },
@@ -103,6 +114,8 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   Classroom: { domain: 'Planner & timetable', about: 'A classroom timetable blocks can be placed in.' },
   Subject: { domain: 'Planner & timetable', about: 'A subject that can be scheduled.' },
   SavedTimetable: { domain: 'Planner & timetable', about: 'A saved snapshot of a timetable.' },
+  PurchaseRequest: { domain: 'Planner & timetable', about: 'Something staff asked to be bought (item, how many, what for). Sits on the weekly Shopping List until ticked Bought (optional cost + receipt photo) or Not buying (with a reason the requester sees).' },
+  FacilityIssue: { domain: 'Planner & timetable', about: 'Something broken or unsafe in the building (door, leak, aircon…) reported by staff, moved Open → In progress → Resolved in Operation → Facilities, with a note the reporter sees.' },
 
   // System
   SystemSetting: { domain: 'System', about: 'App-wide settings as key/value pairs — thresholds, finance ratios, message templates, etc.' },

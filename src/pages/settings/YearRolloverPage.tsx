@@ -8,7 +8,7 @@ import { useToast } from '../../components/common/Toast.js';
 
 const C = {
   bg: '#f8fafc', card: '#fff', border: '#e2e8f0', text: '#1e293b',
-  muted: '#64748b', faint: '#94a3b8', primary: '#5a67d8', primaryLight: '#eef0fa',
+  muted: '#64748b', faint: '#64748b', primary: '#5a67d8', primaryLight: '#eef0fa',
   green: '#059669', greenBg: '#ecfdf5',
   amber: '#b45309', amberBg: '#fffbeb',
   red: '#dc2626', redBg: '#fef2f2',
@@ -131,7 +131,7 @@ export default function YearRolloverPage() {
     <div className="m-pad" style={s.page}>
       <div style={s.inner}>
         <div style={s.breadcrumb}>
-          <button onClick={() => navigate(-1)} style={s.backBtn} title="Back">
+          <button className="back-btn" onClick={() => navigate(-1)} style={s.backBtn} title="Back">
             <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
           </button>
           <span style={s.breadcrumbLink}>Admin</span>
@@ -172,7 +172,7 @@ export default function YearRolloverPage() {
               type="button"
               onClick={() => setConfirmOpen(true)}
               disabled={previewing || submitting}
-              style={{ ...s.solidBtn, opacity: previewing || submitting ? 0.6 : 1, cursor: previewing || submitting ? 'not-allowed' : 'pointer' }}
+              style={{ ...s.solidBtn, opacity: previewing || submitting ? 0.6 : 1, cursor: previewing || submitting ? 'default' : 'pointer' }}
             >
               Run rollover
             </button>
@@ -245,7 +245,7 @@ export default function YearRolloverPage() {
               type="button"
               onClick={() => setRepairConfirmOpen(true)}
               disabled={repairing}
-              style={{ ...s.solidBtn, opacity: repairing ? 0.6 : 1, cursor: repairing ? 'not-allowed' : 'pointer' }}
+              style={{ ...s.solidBtn, opacity: repairing ? 0.6 : 1, cursor: repairing ? 'default' : 'pointer' }}
             >
               Run repair
             </button>
@@ -413,7 +413,7 @@ export default function YearRolloverPage() {
               <button type="button" onClick={() => setConfirmOpen(false)} disabled={submitting} style={s.outlineBtn}>
                 Cancel
               </button>
-              <button type="button" onClick={handleRun} disabled={submitting} style={{ ...s.solidBtn, opacity: submitting ? 0.6 : 1, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+              <button type="button" onClick={handleRun} disabled={submitting} style={{ ...s.solidBtn, opacity: submitting ? 0.6 : 1, cursor: submitting ? 'default' : 'pointer' }}>
                 {submitting ? 'Running…' : `Run rollover to ${year}`}
               </button>
             </div>
@@ -443,7 +443,7 @@ export default function YearRolloverPage() {
                 type="button"
                 onClick={handleRepair}
                 disabled={repairing}
-                style={{ ...s.solidBtn, opacity: repairing ? 0.6 : 1, cursor: repairing ? 'not-allowed' : 'pointer' }}
+                style={{ ...s.solidBtn, opacity: repairing ? 0.6 : 1, cursor: repairing ? 'default' : 'pointer' }}
               >
                 {repairing ? 'Repairing…' : 'Run repair'}
               </button>
@@ -476,7 +476,7 @@ export default function YearRolloverPage() {
                 type="button"
                 onClick={handleUndo}
                 disabled={undoing}
-                style={{ ...s.solidBtn, background: C.amber, opacity: undoing ? 0.6 : 1, cursor: undoing ? 'not-allowed' : 'pointer' }}
+                style={{ ...s.solidBtn, background: C.amber, opacity: undoing ? 0.6 : 1, cursor: undoing ? 'default' : 'pointer' }}
               >
                 {undoing ? 'Undoing…' : `Undo rollover for ${targetUndoYear}`}
               </button>

@@ -23,7 +23,7 @@ const C = {
   divider: '#eef0f3',
   text: '#0f172a',
   muted: '#64748b',
-  mutedSoft: '#94a3b8',
+  mutedSoft: '#64748b',
 };
 
 const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };
@@ -163,7 +163,7 @@ const s: Record<string, React.CSSProperties> = {
     marginTop: SP.xl, marginBottom: SP.lg,
   },
   eyebrow: {
-    fontSize: 10, fontWeight: 700, color: C.muted,
+    fontSize: 11, fontWeight: 700, color: C.muted,
     textTransform: 'uppercase' as const, letterSpacing: '0.1em',
   },
   heading: {

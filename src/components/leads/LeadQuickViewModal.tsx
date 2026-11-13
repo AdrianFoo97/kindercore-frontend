@@ -134,8 +134,8 @@ export default function LeadQuickViewModal({ lead, pill, onClose }: { lead: Lead
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
-            style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: 16, padding: 4, lineHeight: 1 }}
+            aria-label="Close" title="Close"
+            style={{ border: 'none', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: 16, padding: 4, lineHeight: 1 }}
           >
             <FontAwesomeIcon icon={faXmark} />
           </button>
@@ -224,7 +224,7 @@ function QuickRow({ icon, label, value, multiline, valueColor }: { icon: any; la
         <FontAwesomeIcon icon={icon} />
       </span>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{label}</div>
         <div style={{
           fontSize: 13, fontWeight: valueColor ? 600 : 500, color: empty ? '#cbd5e1' : (valueColor ?? '#0f172a'),
           whiteSpace: multiline ? 'pre-wrap' : 'normal', lineHeight: 1.45,

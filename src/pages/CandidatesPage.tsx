@@ -2332,7 +2332,7 @@ function CandidateContextPanel(props: {
             <FontAwesomeIcon icon={t.icon} />
             {t.count > 0 && (
               <span style={{
-                position: 'absolute', top: -2, right: -2, fontSize: 9, fontWeight: 700,
+                position: 'absolute', top: -2, right: -2, fontSize: 10, fontWeight: 700,
                 background: t.alert ? t.color : '#64748b', color: '#fff',
                 borderRadius: 10, padding: '0 4px', lineHeight: '14px', minWidth: 14, textAlign: 'center' as const,
               }}>{t.count}</span>
@@ -2346,10 +2346,10 @@ function CandidateContextPanel(props: {
   return (
     <div style={{ ...wrapperStyle, width: 280 }} className="kc-no-scrollbar">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px 8px' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Context</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>Context</span>
         <button onClick={onToggle}
           title="Collapse"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 4 }}>
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: 12, padding: 4 }}>
           <FontAwesomeIcon icon={faChevronRight} />
         </button>
       </div>
@@ -2392,7 +2392,7 @@ function CandidateContextPanel(props: {
             else groups.push({ label, isToday, items: [iv] });
           }
           return groups.length === 0 ? (
-            <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>No upcoming interviews</div>
+            <div style={{ padding: '12px 14px', fontSize: 12, color: '#64748b' }}>No upcoming interviews</div>
           ) : groups.map((group, gi) => (
             <div key={group.label}>
               <div style={{
@@ -2406,7 +2406,7 @@ function CandidateContextPanel(props: {
               }}>
                 <span>{group.label}</span>
                 <span style={{
-                  fontSize: 9, fontWeight: 600,
+                  fontSize: 10, fontWeight: 600,
                   color: group.isToday ? '#3b82f6' : '#94a3b8',
                   background: group.isToday ? '#dbeafe' : '#e2e8f0',
                   borderRadius: 8, padding: '1px 6px',
@@ -2427,7 +2427,7 @@ function CandidateContextPanel(props: {
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                         {displayName(iv.fullName)}
                       </div>
-                      <div style={{ fontSize: 11, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                      <div style={{ fontSize: 11, color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
                         {fmtT(s)}{e ? ` – ${fmtT(e)}` : ''}
                       </div>
                     </div>
@@ -2441,7 +2441,7 @@ function CandidateContextPanel(props: {
         {activeTab === 'deciding' && (
           <>
             {decidingCandidates.length === 0 ? (
-              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#64748b' }}>
                 <FontAwesomeIcon icon={faCheck} style={{ marginRight: 5, color: '#22c55e' }} /> No candidates awaiting a decision
               </div>
             ) : (
@@ -2457,7 +2457,7 @@ function CandidateContextPanel(props: {
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                         {displayName(c.fullName)}
                       </div>
-                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{c.desiredPosition ?? 'No role'}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{c.desiredPosition ?? 'No role'}</div>
                     </div>
                     <FontAwesomeIcon icon={faArrowRight} style={{ color: '#d97706', fontSize: 11, flexShrink: 0 }} />
                   </div>
@@ -2470,7 +2470,7 @@ function CandidateContextPanel(props: {
         {activeTab === 'offered' && (
           <>
             {offerSentCandidates.length === 0 ? (
-              <div style={{ padding: '12px 14px', fontSize: 12, color: '#cbd5e1' }}>
+              <div style={{ padding: '12px 14px', fontSize: 12, color: '#64748b' }}>
                 <FontAwesomeIcon icon={faCheck} style={{ marginRight: 5, color: '#22c55e' }} /> No open offers
               </div>
             ) : (
@@ -2486,7 +2486,7 @@ function CandidateContextPanel(props: {
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
                         {displayName(c.fullName)}
                       </div>
-                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{c.desiredPosition ?? 'No role'}</div>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>{c.desiredPosition ?? 'No role'}</div>
                     </div>
                     <FontAwesomeIcon icon={faArrowRight} style={{ color: '#16a34a', fontSize: 11, flexShrink: 0 }} />
                   </div>
@@ -2636,7 +2636,7 @@ function ReviewSidebar(props: {
             onClick={() => setPage(p => Math.max(0, p - 1))}
             disabled={pageClamped === 0}
             style={S.reviewSidebarPagerBtn(pageClamped === 0)}
-            aria-label="Previous page"
+            aria-label="Previous page" title="Previous page"
           >
             <FontAwesomeIcon icon={faChevronLeft} />
           </button>
@@ -2648,7 +2648,7 @@ function ReviewSidebar(props: {
             onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
             disabled={pageClamped === totalPages - 1}
             style={S.reviewSidebarPagerBtn(pageClamped === totalPages - 1)}
-            aria-label="Next page"
+            aria-label="Next page" title="Next page"
           >
             <FontAwesomeIcon icon={faChevronRight} />
           </button>
@@ -2706,7 +2706,7 @@ function ReviewSidebarItem(props: {
         onClick={onSelect}
         role="option"
         aria-selected={isCurrent}
-        aria-label={ariaLabel}
+        aria-label={ariaLabel} title={ariaLabel}
         style={S.reviewSidebarItem(isCurrent, isRejected)}
         onMouseEnter={e => {
           if (isCurrent) return;
@@ -2900,7 +2900,7 @@ function CandidateActionsMenu(props: {
           style={S.menuItemBtn}
           onClick={() => { props.onNote(); onClose(); }}
         >
-          <FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+          <FontAwesomeIcon icon={faNoteSticky} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} />
           {c.adminNotes ? 'Edit note' : 'Add note'}
         </button>
         <button
@@ -2929,7 +2929,7 @@ function CandidateActionsMenu(props: {
             }
           }}
         >
-          <FontAwesomeIcon icon={faFileLines} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+          <FontAwesomeIcon icon={faFileLines} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} />
           View resume
         </button>
         {/* Schedule / Reschedule interview — only on active-pipeline
@@ -2942,7 +2942,7 @@ function CandidateActionsMenu(props: {
             style={S.menuItemBtn}
             onClick={() => { props.onSchedule(); onClose(); }}
           >
-            <FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+            <FontAwesomeIcon icon={faCalendarDays} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} />
             {c.interviewStart ? 'Reschedule interview' : 'Schedule interview'}
           </button>
         )}
@@ -2985,7 +2985,7 @@ function CandidateActionsMenu(props: {
               style={S.menuItemBtn}
               onClick={() => { props.onReopen(); onClose(); }}
             >
-              <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#94a3b8', fontSize: 12 }} />
+              <FontAwesomeIcon icon={faArrowRotateLeft} fixedWidth style={{ marginRight: 8, color: '#64748b', fontSize: 12 }} />
               Reopen candidate
             </button>
             <button
@@ -3193,7 +3193,7 @@ function InboxReviewCard(props: {
               type="button"
               onClick={() => setHeaderMenuOpen(o => !o)}
               style={S.kebabBtn}
-              aria-label="More actions"
+              aria-label="More actions" title="More actions"
             >
               <FontAwesomeIcon icon={faEllipsisVertical} />
             </button>
@@ -4727,7 +4727,7 @@ function ClosedTabMenu<K extends string>(props: {
         {activeOpt && activeOpt.key !== options[0].key ? `Closed · ${activeOpt.label}` : 'Closed'}
         {typeof shown.count === 'number' && <span style={S.tabCount(!!activeOpt)}>{shown.count}</span>}
       </button>
-      <button onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label="Choose closed view"
+      <button onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label="Choose closed view" title="Choose closed view"
         style={{ ...S.tabBtn(!!activeOpt), background: 'transparent', padding: '6px 10px 6px 4px' }}>
         <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 10, opacity: 0.8 }} />
       </button>
@@ -4892,7 +4892,7 @@ const S = {
   } as React.CSSProperties,
   th: {
     textAlign: 'left', padding: '10px 18px',
-    fontSize: 11, fontWeight: 600, color: '#94a3b8',
+    fontSize: 11, fontWeight: 600, color: '#64748b',
     textTransform: 'uppercase', letterSpacing: 0.6,
     borderBottom: `1px solid ${C.border}`, background: '#f8fafc',
   } as React.CSSProperties,
@@ -4904,7 +4904,7 @@ const S = {
     textAlign: 'left' as const, // override <th>'s default centered text
   } as React.CSSProperties,
   thLabel: {
-    fontSize: 10.5, fontWeight: 600, color: '#94a3b8',
+    fontSize: 10.5, fontWeight: 600, color: '#64748b',
     textTransform: 'uppercase' as const, letterSpacing: 0.7,
     textAlign: 'left' as const,
   } as React.CSSProperties,
@@ -5031,7 +5031,7 @@ const S = {
   } as React.CSSProperties,
   colLastActionTime: { fontSize: 11, color: C.mutedSoft, fontWeight: 500 } as React.CSSProperties,
   rowNumCell: {
-    fontSize: 12, fontWeight: 700, color: '#94a3b8',
+    fontSize: 12, fontWeight: 700, color: '#64748b',
     fontVariantNumeric: 'tabular-nums' as const,
     textAlign: 'center' as const,
     justifySelf: 'center',
@@ -5090,7 +5090,7 @@ const S = {
   // attribute as a self-contained cell so the eye doesn't have to
   // decode which number means what.
   colLabel: {
-    fontSize: 10, fontWeight: 700, color: '#94a3b8',
+    fontSize: 10, fontWeight: 700, color: '#64748b',
     textTransform: 'uppercase', letterSpacing: 0.7,
     marginBottom: 2,
   } as React.CSSProperties,
@@ -5111,7 +5111,7 @@ const S = {
   // they named that number. Small and muted so it doesn't compete with
   // the salary figure.
   salaryInfoIcon: {
-    color: '#94a3b8', fontSize: 12, cursor: 'default',
+    color: '#64748b', fontSize: 12, cursor: 'default',
   } as React.CSSProperties,
   colLocation: {
     display: 'flex', flexDirection: 'column', minWidth: 0,
@@ -5193,7 +5193,7 @@ const S = {
   } as React.CSSProperties,
   // Retained for the applied date under the identity column.
   appliedFoot: {
-    fontSize: 11, color: '#94a3b8', marginTop: 2,
+    fontSize: 11, color: '#64748b', marginTop: 2,
   } as React.CSSProperties,
   // Experience pill — "1 – 2 years experience" so the meaning is
   // explicit rather than a floating "1-2 years" that could mean
@@ -5424,7 +5424,7 @@ const S = {
   // ── Leads-style menu primitives ──────────────────────────────────
   menuSectionLabel: {
     padding: '8px 12px 4px',
-    fontSize: 10, fontWeight: 700, color: '#9ca3af',
+    fontSize: 10, fontWeight: 700, color: '#64748b',
     letterSpacing: 0.6, textTransform: 'uppercase' as const,
     display: 'flex', alignItems: 'center', gap: 6,
   } as React.CSSProperties,
