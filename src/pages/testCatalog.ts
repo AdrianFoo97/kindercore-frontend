@@ -1421,6 +1421,18 @@ export const TEST_SUITES: TestSuite[] = [
     ],
   },
   {
+    id: 'be-json-column',
+    project: 'Backend',
+    kind: 'Unit',
+    category: 'Admin',
+    file: 'src/tests/unit/jsonColumn.test.ts',
+    area: 'Database — JSON columns on every server',
+    summary: 'Lists and settings stored as JSON (rating scale levels, scoring forms, work days…) read the same on MySQL and on MariaDB, which hands JSON back as text.',
+    cases: [
+      { name: 'turns JSON text back into its value, and leaves values and non-JSON text alone', explains: 'Production’s database returns JSON as text; without this, Settings → Rating scales crashed (“levels.map is not a function”). Values already read as lists or objects are left as they are.' },
+    ],
+  },
+  {
     id: 'fe-my-training',
     project: 'Frontend',
     kind: 'Unit',
