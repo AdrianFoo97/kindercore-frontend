@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import type { Position } from '../../types/index.js';
-import { headsFrom, isDepartmentHead, managementFrom, reportingIssue, reportingProblem, reportsToOptions } from './orgStructure.js';
+import { blockedHeadChoices, headsFrom, isDepartmentHead, managementFrom, reportingIssue, reportingProblem, reportsToOptions } from './orgStructure.js';
 import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 const C = { text: '#0f172a', sub: '#334155', muted: '#64748b', border: '#e2e8f0', borderStrong: '#cbd5e1', bg: '#f8fafc', accent: '#5a67d8' };
@@ -97,6 +97,8 @@ export default function PositionsPage({ embedded = false }: { embedded?: boolean
   const management = managementFrom(depts);
   const reportsTo = (p: Position) => {
     const options = reportsToOptions(all, heads, p, management);
+    // A head's other-department choices it can't pick — greyed out with the reason, never just missing.
+    const blocked = blockedHeadChoices(all, heads, p, management);
     const nobodyOk = !reportingProblem(all, heads, p, null, management);
     const current = all.find(o => o.positionId === p.reportsToPositionId);
     const issue = reportingIssue(all, heads, p, management);
@@ -108,6 +110,7 @@ export default function PositionsPage({ embedded = false }: { embedded?: boolean
           {(nobodyOk || !p.reportsToPositionId) && <option value="">{nobodyOk ? 'Nobody — top of its line' : 'Pick who it reports to…'}</option>}
           {current && !options.some(o => o.positionId === current.positionId) && <option value={current.positionId}>{current.name} (needs changing)</option>}
           {options.map(o => <option key={o.positionId} value={o.positionId}>{o.name}{o.departmentId !== p.departmentId ? ` — ${deptName(o.departmentId)}` : ''}</option>)}
+          {blocked.map(b => <option key={b.position.positionId} value={b.position.positionId} disabled>{b.position.name} — {deptName(b.position.departmentId)} ({b.why})</option>)}
         </select>
         {/* A line set before the rules (or a head change) can break them — shown, never changed for you. */}
         {issue && (

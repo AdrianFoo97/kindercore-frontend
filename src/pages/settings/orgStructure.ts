@@ -98,6 +98,20 @@ export function reportingProblem(
   return null;
 }
 
+/**
+ * For a department's head: the positions in other departments it can't report to, and
+ * why in a few words — shown greyed out, so a missing choice (e.g. the Principal) explains itself.
+ */
+export function blockedHeadChoices<P extends OrgPosition>(all: P[], heads: DepartmentHeads, self: Pick<OrgPosition, 'positionId' | 'departmentId' | 'titleWeight'>, management: Set<string> = new Set()): { position: P; why: string }[] {
+  if (!isDepartmentHead(heads, self)) return [];
+  return all
+    .filter(p => p.positionId !== self.positionId && p.departmentId !== self.departmentId)
+    .map(p => ({ position: p, problem: reportingProblem(all, heads, self, p.positionId, management) }))
+    .filter((x): x is { position: P; problem: string } => !!x.problem)
+    .map(x => ({ position: x.position, why: x.problem.includes('management') ? 'not in a Management department' : x.problem.includes('loop') ? 'it already reports to this line' : 'not allowed' }))
+    .sort((a, b) => byRank(a.position, b.position));
+}
+
 /** The positions `self` may report to under the rules — highest rank first. */
 export function reportsToOptions<P extends OrgPosition>(all: P[], heads: DepartmentHeads, self: Pick<OrgPosition, 'positionId' | 'departmentId' | 'titleWeight'>, management: Set<string> = new Set()): P[] {
   return all.filter(p => p.positionId !== self.positionId && !reportingProblem(all, heads, self, p.positionId, management)).sort(byRank);

@@ -1447,6 +1447,7 @@ export const TEST_SUITES: TestSuite[] = [
       { name: 'draws positions under the one they report to, highest rank first, with their staff A–Z', explains: 'The chart puts each position beneath the one it reports to (Junior EI under Supervisor under Principal), highest rank first, with the people holding it in A–Z order; positions reporting to nobody sit at the top.' },
       { name: 'suggests the manager from the position it reports to — only when one person holds it', explains: 'A new staff member\'s manager is suggested from their position\'s line — but when two people hold that position, both are offered and neither is assumed.' },
       { name: 'offers only lines the rules allow: within the department and upwards, or — for its head — another department', explains: 'The "Reports to" list only offers a higher position in the same department — or, for the department’s head, a position in another department (Management). A line saved before the rules is flagged on the Positions tab, never changed for you.' },
+      { name: 'shows a head the positions it can’t pick, and why — e.g. the Principal outside a Management department', explains: 'In Settings → Positions a department head’s “Reports to” list shows positions it can’t pick greyed out with the reason (e.g. “not in a Management department”), so a missing Principal explains itself.' },
     ],
   },
   {

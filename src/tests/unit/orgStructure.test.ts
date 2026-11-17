@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { branchHeadcount, headsFrom, linkedCount, orgTree, reportingIssue, reportsToOptions, suggestedManagers } from '../../pages/settings/orgStructure';
+import { blockedHeadChoices, branchHeadcount, headsFrom, linkedCount, orgTree, reportingIssue, reportsToOptions, suggestedManagers } from '../../pages/settings/orgStructure';
 
 // Settings → HR Planning → Organisational structure.
 
@@ -44,5 +44,15 @@ describe('Organisational structure', () => {
     // A line set before the rules is flagged, not changed.
     expect(reportingIssue(all, heads, self('STAFF'))).toBe('It reports within its own department — only the department’s head reports outside it.');
     expect(reportingIssue(all, heads, self('EI'))).toBeNull();
+  });
+
+  it('shows a head the positions it can’t pick, and why — e.g. the Principal outside a Management department', () => {
+    const p = (positionId: string, departmentId: string, titleWeight: number) => ({ positionId, name: positionId, departmentId, titleWeight, sortOrder: 0, reportsToPositionId: null });
+    const all = [p('EP', 'OFFICE', 6), p('OM', 'SUP', 3), p('SV', 'ACAD', 4), p('EI', 'ACAD', 2)];
+    const heads = headsFrom([{ departmentId: 'ACAD', headPositionId: 'SV' }]);
+    const self = all.find(x => x.positionId === 'SV')!;
+    // Only SUP is marked Management, so the Principal (in OFFICE) can’t be picked — it’s shown with the reason.
+    expect(blockedHeadChoices(all, heads, self, new Set(['SUP'])).map(b => [b.position.positionId, b.why])).toEqual([['EP', 'not in a Management department']]);
+    expect(blockedHeadChoices(all, heads, all.find(x => x.positionId === 'EI')!, new Set(['SUP']))).toEqual([]); // not a head
   });
 });
