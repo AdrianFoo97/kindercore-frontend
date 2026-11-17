@@ -21,6 +21,7 @@ import { useIsMobile } from '../hooks/useIsMobile.js';
 import { uploadUrl } from '../api/upload.js';
 import { useToast } from '../components/common/Toast.js';
 import { AchievementStrip } from '../components/career/AchievementStrip.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 // Slate-based neutral scale + a single primary accent. Lighter borders and
@@ -162,7 +163,7 @@ export default function TeacherCareerPage() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['teacher-career', id] });
 
   const pageStyle = { ...s.page, ...(isMobile ? sMobile.page : null) };
-  if (isLoading) return <div style={pageStyle}><p style={{ padding: 40, color: C.mutedSoft }}>Loading…</p></div>;
+  if (isLoading) return <div style={pageStyle}><p style={{ padding: 40, color: C.mutedSoft }}><LoadingSpinner /></p></div>;
   if (isError || !data) return <div style={pageStyle}><p style={{ padding: 40, color: C.danger }}>Failed to load.</p></div>;
 
   const { teacher, currentPosition, nextPosition, missions, missionPct } = data;

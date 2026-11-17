@@ -43,12 +43,30 @@ describe('Appraisal forms — editing a form', () => {
   it('keeps a criterion\'s own points in order, leaving out blank ones, and none for criteria scored directly', () => {
     const d = draftFromTemplate({
       ...template,
-      sections: [{ ...template.sections[0], criteria: [{ ...template.sections[0].criteria[0], points: [{ id: 'p1', name: 'Speaks calmly' }] }, template.sections[0].criteria[1]] }],
+      sections: [{ ...template.sections[0], criteria: [{ ...template.sections[0].criteria[0], points: [{ id: 'p1', name: 'Speaks calmly', inputType: 'RATING' as const, scaleConfig: { max: 5 } }] }, template.sections[0].criteria[1]] }],
     });
     d.sections[0].criteria[0].points.push(newPoint('  Comforts upset children '), newPoint('   '));
     const [love, late] = payloadFromDraft(d).sections[0].criteria;
-    expect(love.points).toEqual([{ name: 'Speaks calmly' }, { name: 'Comforts upset children' }]);
+    expect(love.points.map(p => p.name)).toEqual(['Speaks calmly', 'Comforts upset children']);
     expect(late.points).toEqual([]);
+  });
+
+  it('keeps how each point is scored — a rating for one, yes or no for another', () => {
+    const d = draftFromTemplate({
+      ...template,
+      sections: [{ ...template.sections[0], criteria: [{ ...template.sections[0].criteria[0], points: [
+        { id: 'p1', name: 'Cares about the student', inputType: 'RATING' as const, scaleConfig: { max: 4, levels: [{ value: 4, label: 'Always' }] } },
+        { id: 'p2', name: "Doesn't scold", inputType: 'YES_NO' as const, scaleConfig: null },
+      ] }] }],
+    });
+    const added = newPoint('Raised voice', d.sections[0].criteria[0].points[1]);
+    added.inputType = 'NUMBER'; added.target = 1;
+    d.sections[0].criteria[0].points.push(added);
+    expect(payloadFromDraft(d).sections[0].criteria[0].points).toEqual([
+      { name: 'Cares about the student', inputType: 'RATING', scaleConfig: { max: 4, levels: [{ value: 4, label: 'Always' }] } },
+      { name: "Doesn't scold", inputType: 'YES_NO', scaleConfig: null },
+      { name: 'Raised voice', inputType: 'NUMBER', scaleConfig: { target: 1, higherIsBetter: false } },
+    ]);
   });
 
   it('drops level names above a smaller rating scale', () => {

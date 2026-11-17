@@ -4,6 +4,7 @@ import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faXmark, faCheck, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // Lost reasons pinned as SYSTEM — they drive the Lead Quality / Appointment
 // Rate KPIs, so users can't delete or rename them. Any change to this list
@@ -327,7 +328,7 @@ export default function LeadStatusSettingsPage() {
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
-  if (isLoading) return <p style={{ padding: 32, fontSize: 16, color: '#4a5568' }}>Loading settings…</p>;
+  if (isLoading) return <p style={{ padding: 32, fontSize: 16, color: '#4a5568' }}><LoadingSpinner label="Loading settings" /></p>;
   if (isError) return <p style={{ padding: 32, fontSize: 16, color: '#c47272' }}>Failed to load settings.</p>;
 
   const lostReasons: string[] = Array.isArray(data?.lost_reasons) ? data.lost_reasons as string[] : [];

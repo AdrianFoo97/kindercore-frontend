@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark } from '@fortawesome/free-solid-svg-icons';
 import { fetchAppraisalOverview, upsertTeacherAppraisal, type TeacherAppraisal } from '../../api/teacher-appraisals.js';
-import { MONTH_LABELS, appraisalYearOptions, scoreColors, selectableMonths } from './appraisalDisplay.js';
+import { MONTH_LABELS, appraisalYearOptions, selectableMonths } from './appraisalDisplay.js';
+import { useScoreBand } from './useScoreBand.js';
 
 // Record or edit one staff member's appraisal — the one pop-up used by
 // HR → Appraisals and the staff record's Appraisals tab. Shows their previous
@@ -40,6 +41,7 @@ export function AppraisalFormModal({
   onSaved: () => void;
 }) {
   const qc = useQueryClient();
+  const bandOf = useScoreBand();
   const now = thisMonth();
   const [period, setPeriod] = useState({ year, month });
   const [score, setScore] = useState(existing ? String(existing.score) : '');
@@ -123,13 +125,13 @@ export function AppraisalFormModal({
             label="Previous mark"
             value={shownPrevious ? `${Math.round(shownPrevious.score)}%` : '—'}
             note={shownPrevious ? `${MONTH_LABELS[shownPrevious.month]} ${shownPrevious.year}` : 'None recorded'}
-            color={shownPrevious ? scoreColors(shownPrevious.score).color : undefined}
+            color={shownPrevious ? bandOf(shownPrevious.score).color : undefined}
           />
           <Stat
             label="12-month average"
             value={shownAverage != null ? `${shownAverage}%` : '—'}
             note={shownAverage != null ? 'Up to this month' : 'No appraisals yet'}
-            color={shownAverage != null ? scoreColors(shownAverage).color : undefined}
+            color={shownAverage != null ? bandOf(shownAverage).color : undefined}
           />
         </div>
 

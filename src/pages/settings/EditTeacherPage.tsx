@@ -8,6 +8,7 @@ import {
   fetchClassrooms, fetchSubjects,
 } from '../../api/planner.js';
 import { fetchPositions, fetchLevelIncentives, fetchDepartments } from '../../api/salary.js';
+import { suggestedManagers } from './orgStructure.js';
 import { fetchCareerRecords, createCareerRecord, updateCareerRecord, deleteCareerRecord } from '../../api/career.js';
 import { fetchAllowanceTypes, fetchTeacherAllowances, upsertTeacherAllowances } from '../../api/allowance.js';
 import { useToast } from '../../components/common/Toast.js';
@@ -724,6 +725,22 @@ export default function EditTeacherPage() {
                       <option value="">Nobody</option>
                       {reportsToOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
+                    {/* Suggested from the organisational structure (their position's reporting line) — picked by a click, never set for you. */}
+                    {(() => {
+                      const { position, people } = suggestedManagers(positionId || null, allPositions, reportsToOptions.map(t => ({ ...t, positionId: (t as { positionId?: string | null }).positionId ?? null })), id);
+                      if (!position || people.length === 0 || people.some(x => x.id === reportsToTeacherId)) return null;
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8, fontSize: 13, color: C.text }}>
+                          <span>Their position reports to {position.name}:</span>
+                          {people.map(x => (
+                            <button key={x.id} type="button" onClick={() => setReportsToTeacherId(x.id)}
+                              style={{ minHeight: 32, padding: '0 10px', borderRadius: 8, border: '1px solid #c7d2fe', background: '#eef2ff', color: '#5a67d8', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Use {x.name}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <div style={{ fontSize: 12, color: C.muted, marginTop: 6, lineHeight: 1.5 }}>
                       Appraisal steps set to “their own team” go to the people they report to.
                     </div>
@@ -1021,7 +1038,7 @@ export default function EditTeacherPage() {
                 <div style={s.card}>
                   <h2 style={s.sectionTitle}>Allowances</h2>
                   {visibleAllowTypes.length === 0 ? (
-                    <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>No allowance types configured. Add them in Settings &gt; Employee Salary.</p>
+                    <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>No allowance types configured. Add them in Settings &gt; Payroll.</p>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {visibleAllowTypes

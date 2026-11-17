@@ -4,6 +4,7 @@ import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faPen, faPlus, faTrash, faXmark, faArrowLeft, faLock, faMessage, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -299,7 +300,7 @@ export default function WhatsAppTemplatesPage() {
 
   // ── Loading / Error ──
 
-  if (isLoading) return <p style={s.state}>Loading...</p>;
+  if (isLoading) return <p style={s.state}><LoadingSpinner /></p>;
   if (isError) return <p style={{ ...s.state, color: '#e53e3e' }}>Failed to load settings.</p>;
 
   // ── Editor View ──

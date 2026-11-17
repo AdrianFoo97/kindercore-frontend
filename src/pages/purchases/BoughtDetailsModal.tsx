@@ -57,7 +57,7 @@ export default function BoughtDetailsModal({ request: r, onClose, save: saveTo =
   };
 
   return (
-    <FormModal title={title} subtitle={`${r.item} × ${r.quantity}`} onClose={onClose} width={440} dirty={!!photo || cost !== (r.cost ?? '')}
+    <FormModal title={title} subtitle={`${r.item} × ${r.quantity}`} onClose={onClose} width={440}
       primary={{ label: busy ? 'Saving…' : 'Save', onClick: save, busy, tone: '#047857' }}>
       <label htmlFor="pr-cost" style={labelStyle}>What did it cost?</label>
       <div style={{ position: 'relative', marginBottom: 18 }}>

@@ -8,6 +8,7 @@ import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
 import { DEFAULT_EXPENSE_RATIO_TARGET } from '../FinanceSettingsPage.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────
 // Semantic palette, kept small and disciplined.
@@ -231,7 +232,7 @@ export default function FinanceAnalysisPage() {
     if (!entry || entry.isForecast) setPeriod('all');
   }, [data, entries, period]);
 
-  if (isLoading || !data) return <div style={s.centered}>Loading…</div>;
+  if (isLoading || !data) return <div style={s.centered}><LoadingSpinner /></div>;
 
   const selectedEntry = entries.find(e => e.key === period);
 

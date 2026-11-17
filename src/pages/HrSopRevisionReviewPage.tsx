@@ -21,6 +21,7 @@ import { useDeleteDialog } from '../components/common/DeleteDialog.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { compareSteps } from './operations/sopStepCompare.js';
 import StepCompareTable from './operations/StepCompareTable.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // A supervisor must land HERE before Approve/Reject exist at all — the
@@ -347,7 +348,7 @@ export default function HrSopRevisionReviewPage() {
     return (
       <div style={s.page}>
         <div style={s.inner}>
-          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>{isLoading ? 'Loading…' : 'Revision not found.'}</p>
+          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>{isLoading ? <LoadingSpinner /> : 'Revision not found.'}</p>
         </div>
       </div>
     );

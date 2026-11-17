@@ -24,6 +24,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { useScrolledPast } from '../../hooks/useScrolledPast.js';
 import { useScrollSpySection } from '../../hooks/useScrollSpySection.js';
 import { TEACHER_CONTENT_TOP } from '../../components/common/TeacherTopBar.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc',
@@ -1142,7 +1143,7 @@ export default function SopTemplateStepsPage() {
           )}
 
           {stepsLoading ? (
-            <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
+            <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
           ) : displaySteps.length === 0 ? (
             <div style={{ padding: '48px 20px', textAlign: 'center' }}>
               <p style={{ margin: '0 0 12px', fontSize: 13, color: C.muted }}>

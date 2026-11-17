@@ -4,6 +4,7 @@ import { fetchSettings, patchSetting } from '../api/settings.js';
 import { Settings } from '../types/index.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck } from '@fortawesome/free-solid-svg-icons';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 interface FieldConfig {
   key: keyof Settings;
@@ -102,7 +103,7 @@ export default function WhatsAppFollowUpPage() {
     }
   };
 
-  if (isLoading) return <p style={styles.state}>Loading settings…</p>;
+  if (isLoading) return <p style={styles.state}><LoadingSpinner label="Loading settings" /></p>;
   if (isError) return <p style={{ ...styles.state, color: '#e53e3e' }}>Failed to load settings.</p>;
 
   return (

@@ -9,6 +9,7 @@ import { DEFAULT_EXPENSE_RATIO_TARGET, DEFAULT_PROFIT_SHARE_PERCENT } from './Fi
 import { monthPool, settingNum, splitPool } from '../utils/poolMath.js';
 import { FilterPillStyles, PillSelect } from '../components/common/FilterPill.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ── Design tokens ───────────────────────────────────────────────────────
 const C = {
@@ -359,7 +360,7 @@ export default function ProfitSharingPage() {
             )}
           </div>
 
-          {isLoading && <p style={centerEmpty}>Loading…</p>}
+          {isLoading && <p style={centerEmpty}><LoadingSpinner /></p>}
           {isError && <p style={{ ...centerEmpty, color: C.danger }}>Failed to load teacher weights.</p>}
           {!isLoading && !isError && distribution.rows.length === 0 && (
             <p style={centerEmpty}>

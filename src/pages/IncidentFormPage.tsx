@@ -10,6 +10,7 @@ import IncidentFormFields, {
 import { useToast } from '../components/common/Toast.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useGoBack } from '../hooks/useGoBack.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // Operation → Incidents: filing a report (/operations/incidents/new — office
 // staff; teachers use the mobile app's own page) and correcting one
@@ -62,7 +63,7 @@ export default function IncidentFormPage() {
         </p>
 
         {id && isLoading ? (
-          <div style={st.empty}>Loading the report…</div>
+          <div style={st.empty}><LoadingSpinner label="Loading the report" /></div>
         ) : id && !existing ? (
           <div style={st.empty}>This report doesn’t exist, or you can’t edit it.</div>
         ) : (

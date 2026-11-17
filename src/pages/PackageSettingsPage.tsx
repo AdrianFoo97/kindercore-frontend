@@ -12,6 +12,7 @@ import { Package } from '../types/index.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faTrash, faCheck, faPlus, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -352,7 +353,7 @@ export default function PackageSettingsPage() {
     queryClient.invalidateQueries({ queryKey: ['package-years'] });
   };
 
-  if (configLoading || pkgsLoading) return <p style={{ padding: 32, fontSize: 16, color: '#4a5568' }}>Loading...</p>;
+  if (configLoading || pkgsLoading) return <p style={{ padding: 32, fontSize: 16, color: '#4a5568' }}><LoadingSpinner /></p>;
   if (isError) return <p style={{ padding: 32, fontSize: 16, color: '#e53e3e' }}>Failed to load packages config.</p>;
 
   const programmes: string[] = Array.isArray(config?.programmes) ? config!.programmes : [];

@@ -17,6 +17,7 @@ import { useToast } from '../components/common/Toast.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { usePermissions } from '../hooks/usePermissions.js';
 import { useGoBack } from '../hooks/useGoBack.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // Operation → Incidents → one report, as its own page.
 //
@@ -65,7 +66,7 @@ export default function IncidentDetailPage() {
         </button>
 
         {permsLoading || isLoading ? (
-          <div style={st.empty}>Loading the report…</div>
+          <div style={st.empty}><LoadingSpinner label="Loading the report" /></div>
         ) : error ? (
           <div style={st.empty}>Couldn’t load the report. {(error as Error).message}</div>
         ) : !report ? (

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ALL_POSITIONS, NO_POSITION, appraisalYearOptions, matchesName, matchesPosition, positionOptions, scoreColors, selectableMonths,
+  ALL_POSITIONS, NO_POSITION, appraisalYearOptions, matchesName, matchesPosition, positionOptions, selectableMonths,
 } from '../../pages/appraisals/appraisalDisplay';
 
 // HR → Appraisals: the month / year dropdowns, and the colour each score is shown in.
@@ -39,10 +39,4 @@ describe('Appraisals — month and year dropdowns, score colours', () => {
     expect(matchesName(row, 'aisyah tan')).toBe(false);
   });
 
-  it('colours 80 and above green, 60 to 79 amber, and below 60 red', () => {
-    expect(scoreColors(80).color).toBe('#15803d');
-    expect(scoreColors(79).color).toBe('#b45309');
-    expect(scoreColors(60).color).toBe('#b45309');
-    expect(scoreColors(59).color).toBe('#991b1b');
-  });
 });

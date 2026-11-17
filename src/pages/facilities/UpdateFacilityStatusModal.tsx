@@ -62,7 +62,6 @@ export default function UpdateFacilityStatusModal({ issue, to, onClose }: Props)
       subtitle={`${issue.title} · ${issue.location}`}
       onClose={onClose}
       width={460}
-      dirty={!!note.trim()}
       primary={{ label: busy ? 'Saving…' : ACTION_LABEL[to], onClick: save, busy, tone: STATUS_LOOK[to].fg }}
     >
       {issue.statusNote && (

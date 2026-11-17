@@ -3,12 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faArrowLeft, faCheck, faCircleCheck, faTriangleExclamation, faFloppyDisk,
-} from '@fortawesome/free-solid-svg-icons';
+  faArrowLeft, faCheck, faCircleCheck, faTriangleExclamation, faFloppyDisk, faRotateLeft } from '@fortawesome/free-solid-svg-icons';
 import {
-  fetchObservation, advanceStage, saveStepResultsDraft, SopObservationDetail, SopObservationStatus, StepResultValue,
+  fetchObservation, advanceStage, saveStepResultsDraft, sendBackForTraining, SopObservationDetail, SopObservationStatus, StepResultValue,
 } from '../api/sop-observations.js';
 import { useToast } from '../components/common/Toast.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import { certifyProblem } from './teacherHome/myTraining.js';
 
 const C = {
   bg: '#f8fafc',
@@ -79,7 +80,7 @@ export default function SopObservationDetailPage() {
     return (
       <div className="m-pad" style={s.page}>
         <div style={s.inner}>
-          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
+          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
         </div>
       </div>
     );
@@ -204,6 +205,12 @@ function TrainerStage({ obs, onDone, showToast }: {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 600, color: C.text }}>{r.title}</div>
                   {r.detail && <div style={s.stepDetailText}>{r.detail}</div>}
+                  {r.passed === 'FAIL' && (
+                    <div style={{ marginTop: 6, fontSize: 12.5, color: C.danger }}>
+                      <FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 6 }} />
+                      Failed at the last assessment{r.note ? ` — ${r.note}` : ''}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -240,6 +247,8 @@ function AssessorStage({ obs, onDone, showToast }: {
   };
 
   const allDecided = obs.stepResults.every(r => results[r.sopStepId]?.passed !== 'NA');
+  const blocker = certifyProblem(obs.stepResults.map(r => results[r.sopStepId]?.passed ?? 'NA'));
+  const anyFailed = obs.stepResults.some(r => results[r.sopStepId]?.passed === 'FAIL');
   const liveScore = computeScore(obs.stepResults.map(r => ({ passed: results[r.sopStepId]?.passed ?? 'NA' })));
 
   const currentStepResults = () => obs.stepResults.map(r => ({
@@ -270,6 +279,19 @@ function AssessorStage({ obs, onDone, showToast }: {
         stepResults: currentStepResults(),
       });
       showToast('Observation certified');
+      onDone();
+    } catch (e: any) {
+      showToast(e?.message ?? 'Failed to save', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendBack = async () => {
+    setSaving(true);
+    try {
+      await sendBackForTraining(obs.id, currentStepResults(), notes.trim() || null);
+      showToast('Sent back to the trainer');
       onDone();
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to save', 'error');
@@ -358,12 +380,20 @@ function AssessorStage({ obs, onDone, showToast }: {
       <div style={s.autoRow}>
         Certifying as <strong>{assessorName}</strong> on {fmtDate(new Date().toISOString())}.
       </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 14, justifyContent: 'flex-end' }}>
+      {blocker && <p role="status" style={{ fontSize: 12.5, color: anyFailed ? C.danger : C.muted, margin: '10px 0 0', textAlign: 'right' }}>{blocker}</p>}
+      <div style={{ display: 'flex', gap: 10, marginTop: 14, justifyContent: 'flex-end', flexWrap: 'wrap' as const }}>
         <button onClick={saveDraft} disabled={saving || savingDraft} style={{ ...s.secondaryBtn, opacity: saving || savingDraft ? 0.5 : 1 }}>
           <FontAwesomeIcon icon={faFloppyDisk} style={{ marginRight: 6 }} />
           {savingDraft ? 'Saving…' : 'Save draft'}
         </button>
-        <button onClick={submit} disabled={saving || savingDraft} style={{ ...s.primaryBtn, opacity: saving || savingDraft ? 0.5 : 1 }}>
+        {anyFailed && (
+          <button onClick={sendBack} disabled={saving || savingDraft} style={{ ...s.secondaryBtn, color: C.danger, borderColor: C.danger, opacity: saving || savingDraft ? 0.5 : 1 }}>
+            <FontAwesomeIcon icon={faRotateLeft} style={{ marginRight: 6 }} />
+            Needs more training
+          </button>
+        )}
+        <button onClick={submit} disabled={saving || savingDraft || !!blocker} title={blocker ?? undefined}
+          style={{ ...s.primaryBtn, opacity: saving || savingDraft || blocker ? 0.5 : 1, cursor: saving || savingDraft || blocker ? 'default' : 'pointer' }}>
           <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
           {saving ? 'Saving…' : 'Certify'}
         </button>

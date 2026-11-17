@@ -6,6 +6,7 @@ import { faChevronLeft, faChevronRight, faCheck } from '@fortawesome/free-solid-
 import { fetchAuthViews, createAuthView, updateAuthView } from '../../api/auth-views.js';
 import { ALL_MODULE_KEYS, MODULE_LABELS, ModuleKey } from '../../constants/authModules.js';
 import { useToast } from '../../components/common/Toast.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Same shape as AuthRoleEditPage.tsx — a dedicated add/edit surface, not a
 // modal.
@@ -89,7 +90,7 @@ export default function AuthViewEditPage() {
 
   if (isLoading || !hydrated) {
     return (
-      <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>
+      <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted }}><LoadingSpinner /></p></div></div>
     );
   }
   if (isEdit && !existing) {

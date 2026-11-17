@@ -7,6 +7,7 @@ import {
   faArrowLeft, faTimes, faMagnifyingGlass, faClipboardCheck, faCheck, faChevronDown,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers } from '../api/planner.js';
+import { PERFORMANCE_STAFF_KEY, fetchPerformanceStaff } from '../api/appraisal-schedules.js';
 import { fetchPositions } from '../api/salary.js';
 import { fetchTemplates } from '../api/sop-templates.js';
 import { fetchCategories } from '../api/sop-categories.js';
@@ -48,6 +49,8 @@ export default function SopObservationNewPage() {
   const { showToast } = useToast();
   const qc = useQueryClient();
   const { data: teachers = [] } = useQuery({ queryKey: ['planner-teachers'], queryFn: fetchTeachers });
+  // Who can be observed: your team (or everyone, if your access role allows). Trainers can be any colleague.
+  const { data: observable = [] } = useQuery({ queryKey: PERFORMANCE_STAFF_KEY, queryFn: fetchPerformanceStaff });
   const { data: positions = [] } = useQuery({ queryKey: ['salary-positions'], queryFn: fetchPositions });
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -59,10 +62,10 @@ export default function SopObservationNewPage() {
   const [trainerId, setTrainerId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const activeTeachers = teachers.filter((t: any) => !t.resignedAt);
+  const activeTeachers = teachers.filter((t: any) => t.isActive !== false && !t.resignedAt);
   const filteredTeachers = search.trim()
-    ? activeTeachers.filter((t: any) => t.name.toLowerCase().includes(search.trim().toLowerCase()))
-    : activeTeachers;
+    ? observable.filter(t => t.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : observable;
 
   const selectedTeacher = teachers.find((t: any) => t.id === teacherId) ?? null;
   const positionName = selectedTeacher?.positionId
@@ -272,6 +275,9 @@ export default function SopObservationNewPage() {
                           key={t.id}
                           type="button"
                           onClick={() => { setSopTemplateId(t.id); setStep(3); }}
+                          // A guide with no steps has nothing to train or assess.
+                          disabled={t.stepCount === 0}
+                          title={t.stepCount === 0 ? 'No steps yet — add its steps first' : undefined}
                           className="sop-obs-pick-row"
                           style={{
                             ...s.pickRow,
@@ -285,6 +291,7 @@ export default function SopObservationNewPage() {
                           <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, marginTop: 2, color: sopTemplateId === t.id ? C.primary : C.mutedSoft, flexShrink: 0 }} />
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: 'block' }}>{t.title}</span>
+                            {t.stepCount === 0 && <span style={{ display: 'block', fontSize: 12, fontWeight: 500, color: C.mutedSoft, marginTop: 2 }}>No steps yet — add its steps first</span>}
                             {(t.categories ?? []).length > 0 && (
                               <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' as const, marginTop: 5 }}>
                                 {t.categories!.map(c => (

@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faXmark, faCheck, faPlus, faLocationDot, faBuilding, faSitemap, faArrowUpRightFromSquare, faMapLocationDot } from '@fortawesome/free-solid-svg-icons';
 import { CompanyBranch } from '../types/index.js';
 import { mapsLinkFor, withMapsLink } from '../utils/mapsLink.js';
-import DepartmentsPage from './settings/DepartmentsPage.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 const C = {
   primary: '#5a67d8', card: '#fff', text: '#1e293b',
@@ -404,13 +404,12 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 
-type TabKey = 'info' | 'branches' | 'departments';
+type TabKey = 'info' | 'branches';
 
 // Settings pages have no description under the title (see SettingsNote for the rare must-know note).
 const TABS: { key: TabKey; label: string; icon: any }[] = [
   { key: 'info', label: 'Company', icon: faBuilding },
   { key: 'branches', label: 'Branches', icon: faLocationDot },
-  { key: 'departments', label: 'Departments', icon: faSitemap },
 ];
 
 export default function CompanySettingsPage() {
@@ -427,7 +426,7 @@ export default function CompanySettingsPage() {
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
-  if (isLoading) return <p style={{ padding: 32, fontSize: 16, color: '#4a5568' }}>Loading settings…</p>;
+  if (isLoading) return <p style={{ padding: 32, fontSize: 16, color: '#4a5568' }}><LoadingSpinner label="Loading settings" /></p>;
   if (isError) return <p style={{ padding: 32, fontSize: 16, color: '#c47272' }}>Failed to load settings.</p>;
 
   const vision = typeof data?.company_vision === 'string' ? data.company_vision : '';
@@ -479,7 +478,6 @@ export default function CompanySettingsPage() {
           <BranchListEditor items={branches} isAdmin={isAdmin} onSaved={onSaved} />
         )}
 
-        {tab === 'departments' && <DepartmentsPage />}
       </div>
     </div>
   );

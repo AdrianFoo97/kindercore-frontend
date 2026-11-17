@@ -12,6 +12,7 @@ import { useToast } from '../components/common/Toast.js';
 import { useDeleteDialog } from '../components/common/DeleteDialog.js';
 import { Student, Enrollment, Package } from '../types/index.js';
 import WithdrawDialog from '../components/students/WithdrawDialog.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ── Design tokens (mirrors EditTeacherPage) ─────────────────────────────
 const C = {
@@ -420,7 +421,7 @@ export default function EditStudentPage() {
     return (
       <div className="m-pad" style={s.page}>
         <div style={s.inner}>
-          <p style={{ color: C.muted, textAlign: 'center', marginTop: 80 }}>Loading…</p>
+          <p style={{ color: C.muted, textAlign: 'center', marginTop: 80 }}><LoadingSpinner /></p>
         </div>
       </div>
     );
@@ -671,7 +672,7 @@ export default function EditStudentPage() {
                     <div style={{ flex: 1, minWidth: 240 }}>
                       <label style={s.label}>Package</label>
                       {packages.length === 0 ? (
-                        <div style={{ ...s.input, color: C.muted }}>Loading packages…</div>
+                        <div style={{ ...s.input, color: C.muted }}><LoadingSpinner label="Loading packages" inline /></div>
                       ) : (
                         <select style={s.input} value={packageId} onChange={e => {
                           setPackageId(e.target.value);
@@ -785,7 +786,7 @@ export default function EditStudentPage() {
                           <div style={{ flex: 1, minWidth: 240 }}>
                             <label style={s.label}>Package</label>
                             {packages.length === 0 ? (
-                              <div style={{ ...s.input, color: C.muted }}>Loading packages…</div>
+                              <div style={{ ...s.input, color: C.muted }}><LoadingSpinner label="Loading packages" inline /></div>
                             ) : (
                               <select style={s.input} value={packageId} onChange={e => {
                                 setPackageId(e.target.value);
@@ -1114,7 +1115,7 @@ function ChangePackageModal({
         <div style={{ marginBottom: 12 }}>
           <label style={s.label}>New Package</label>
           {packages.length === 0 ? (
-            <div style={{ ...s.input, color: C.muted }}>Loading packages…</div>
+            <div style={{ ...s.input, color: C.muted }}><LoadingSpinner label="Loading packages" inline /></div>
           ) : (
             <select style={s.input} value={packageId} onChange={e => {
               setPackageId(e.target.value);
@@ -1307,7 +1308,7 @@ function EditEnrollmentModal({ enrollment, studentDob, onClose, onSaved }: EditE
           <div>
             <label style={s.label}>Package</label>
             {packages.length === 0 ? (
-              <div style={{ ...s.input, color: C.muted }}>Loading packages…</div>
+              <div style={{ ...s.input, color: C.muted }}><LoadingSpinner label="Loading packages" inline /></div>
             ) : (
               <select style={s.input} value={packageId} onChange={e => {
                 setPackageId(e.target.value);
@@ -1574,7 +1575,7 @@ function AttendanceTab({ student }: { student: Student }) {
 
       {/* Records list — grouped by day. */}
       {isLoading ? (
-        <div style={{ padding: 24, color: '#64748b', fontSize: 13, textAlign: 'center' }}>Loading…</div>
+        <div style={{ padding: 24, color: '#64748b', fontSize: 13, textAlign: 'center' }}><LoadingSpinner inline /></div>
       ) : records.length === 0 ? (
         <div style={{
           padding: 32, textAlign: 'center', color: '#64748b',

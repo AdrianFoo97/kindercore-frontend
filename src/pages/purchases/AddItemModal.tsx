@@ -35,7 +35,6 @@ export default function AddItemModal({ onClose }: { onClose: () => void }) {
 
   return (
     <FormModal title="Add to the shopping list" onClose={onClose}
-      dirty={!!(draft.item || draft.quantity || draft.purpose || draft.note || draft.link)}
       primary={{ label: busy ? 'Adding…' : 'Add', onClick: save, busy }}>
       <PurchaseRequestFields value={draft} onChange={d => { setDraft(d); if (problem) setProblem(null); }} theme={ADMIN_PURCHASE_THEME} disabled={busy} />
       {problem && <div role="alert" style={{ marginTop: 14, fontSize: 13, fontWeight: 600, color: '#b91c1c' }}>{problem}</div>}

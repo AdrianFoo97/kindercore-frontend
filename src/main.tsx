@@ -108,8 +108,8 @@ globalStyle.textContent = `
   }
   /* Settings frame — every page inside the Settings area (SettingsLayout tags
      the content column .settings-frame) gets the same spacing whatever its own
-     wrapper says: content starts beside the sidebar instead of centring, with
-     one padding and one content width. The page wrapper is the column's child;
+     wrapper says: one padding and one content width, centred in the grey area
+     beside the sidebar (so wide screens don't leave all the space on one side). The page wrapper is the column's child;
      its children are the page's container(s). Full-screen dialogs are left
      alone. Phones keep .m-pad's 16px (this only applies from 768px up). */
   @media (min-width: 768px) {
@@ -118,7 +118,7 @@ globalStyle.textContent = `
       justify-content: flex-start !important; /* pages that centre their container with flexbox */
     }
     .settings-frame > * > :not([style*="position: fixed"]) {
-      max-width: 1040px !important; margin-left: 0 !important; margin-right: 0 !important;
+      max-width: 1040px !important; margin-left: auto !important; margin-right: auto !important;
     }
     /* One title style on every settings page, starting at the same height. */
     .settings-frame h1 {

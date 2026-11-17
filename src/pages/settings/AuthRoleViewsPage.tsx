@@ -8,6 +8,7 @@ import { fetchAuthViews } from '../../api/auth-views.js';
 import { MODULE_LABELS, ViewKey } from '../../constants/authModules.js';
 import { useToast } from '../../components/common/Toast.js';
 import RoleEditTabs from './RoleEditTabs.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Step 2 of 2 for an AuthRole — see AuthRoleEditPage.tsx for step 1
 // (name/description/Modules). Only views belonging to at least one of this
@@ -69,7 +70,7 @@ export default function AuthRoleViewsPage() {
 
   if (isLoading || !hydrated) {
     return (
-      <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>
+      <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted }}><LoadingSpinner /></p></div></div>
     );
   }
   if (!existing) {

@@ -14,6 +14,7 @@ import ParentReactionPill from '../components/incidents/ParentReactionPill.js';
 import { useToast } from '../components/common/Toast.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { usePermissions } from '../hooks/usePermissions.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // Operation → Incidents. Two levels: incident managers ("Manage incident
 // reports" view; Admins always) see every report and act on it from the
@@ -135,7 +136,7 @@ export default function IncidentsPage() {
         </div>
 
         {permsLoading || isLoading ? (
-          <div style={st.empty}>Loading incident reports…</div>
+          <div style={st.empty}><LoadingSpinner label="Loading incident reports" /></div>
         ) : error ? (
           <div style={st.empty}>Couldn’t load incident reports. {(error as Error).message}</div>
         ) : shown.length === 0 ? (

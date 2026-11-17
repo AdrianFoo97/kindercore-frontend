@@ -6,12 +6,12 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faXmark, faPhone, faLocationDot, faRoute, faCakeCandles,
   faGraduationCap, faSackDollar, faCalendarDay, faClock,
-  faNoteSticky, faChalkboardUser, faUserCheck, faUserXmark,
-  faCircleNotch, faPenToSquare,
+  faNoteSticky, faChalkboardUser, faUserCheck, faUserXmark, faPenToSquare,
   faFileLines, faDownload,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchCandidate, downloadCandidateResume } from '../../api/candidates.js';
 import { Candidate, CandidateStatus, CommuteTime } from '../../types/index.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 const COMMUTE_LABEL: Record<CommuteTime, string> = {
   UNDER_15:  'Less than 15 minutes',
@@ -96,7 +96,7 @@ export function CandidateQuickViewModal(props: Props) {
 
         {isLoading || !candidate ? (
           <div style={S.loading}>
-            <FontAwesomeIcon icon={faCircleNotch} spin /> Loading…
+            <LoadingSpinner inline />
           </div>
         ) : (
           <>

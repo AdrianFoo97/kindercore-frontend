@@ -17,6 +17,7 @@ import {
   RULE_CATEGORY_META, RuleCategory,
 } from '../../constants/pointsMeta.js';
 import { useToast } from '../../components/common/Toast.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // One page, four modes — picked from the route params. Same form
 // chrome, icon picker, and validation for add vs edit; rule vs reward
@@ -155,7 +156,7 @@ export default function PointsRewardsAddPage() {
     return (
       <div className="m-pad" style={{ padding: '28px 32px', background: C.bg, minHeight: '100vh', color: C.text }}>
         <div style={{ maxWidth: 680, margin: '0 auto', padding: '48px 0', textAlign: 'center', color: C.muted, fontSize: 13 }}>
-          Loading…
+          <LoadingSpinner />
         </div>
       </div>
     );

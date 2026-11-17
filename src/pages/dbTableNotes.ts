@@ -80,12 +80,15 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   AppraisalSection: { domain: 'Career & appraisals', about: 'A weighted part of an appraisal template, such as "Core values" or "KPI".' },
   AppraisalCriterion: { domain: 'Career & appraisals', about: 'One thing scored inside a section (e.g. Love, SOP compliance): its weight, input type and scale.' },
   SensitiveAccessLog: { domain: 'Accounts & access', about: 'Who opened pay, finance, appraisal or job-applicant records, and when (Admin → Access Log). Kept for a year.' },
+  AppraisalScoringForm: { domain: 'Career & appraisals', about: 'Reusable sets of points (each scored its own way) that an appraisal criterion can copy, e.g. "Classroom care".' },
+  AppraisalRatingScale: { domain: 'Career & appraisals', about: 'Named rating scales (a word and "what it looks like" per level) that a criterion copies when it is scored on a rating; one is the default.' },
   AppraisalCriterionPoint: { domain: 'Career & appraisals', about: 'Optional points a criterion is judged on (e.g. Love and patience → Speaks calmly); its score is their average.' },
   AppraisalStage: { domain: 'Career & appraisals', about: 'A step in a template\'s approval chain — assess, sign off or acknowledge — in order.' },
   AppraisalStagePosition: { domain: 'Career & appraisals', about: 'Which positions may act on each appraisal step (so new positions can be given the job).' },
   AppraisalAssignment: { domain: 'Career & appraisals', about: 'Which template applies to which position or individual staff member.' },
   Appraisal: { domain: 'Career & appraisals', about: 'One staff member\'s appraisal for one period on a template: its step, status and total.' },
   AppraisalScore: { domain: 'Career & appraisals', about: 'The score given (or calculated) for one criterion on one appraisal, with any override reason.' },
+  AppraisalSchedule: { domain: 'Career & appraisals', about: 'Who is appraised on which form and when — every month / quarter / year on a day, or once; the scheduler creates each appraisal on its day.' },
   AppraisalLog: { domain: 'Career & appraisals', about: 'History of an appraisal — who scored, signed off, sent back or acknowledged it, and when.' },
 
   // Points & rewards

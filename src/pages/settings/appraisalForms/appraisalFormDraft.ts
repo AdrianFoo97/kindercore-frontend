@@ -1,5 +1,5 @@
 import type {
-  AppraisalTemplate, Frequency, InputType, MissingPolicy, NumberScale, RatingLevel, RatingScale, StageKind, StageScope, TemplateSavePayload, TemplateStatus,
+  AppraisalTemplate, Frequency, InputType, SavedSection, SectionsPayload, MissingPolicy, NumberScale, RatingLevel, RatingScale, StageKind, StageScope, TemplateSavePayload, TemplateStatus,
 } from '../../../api/appraisal-templates.js';
 
 // The appraisal-form editor's working copy and the plain rules around it.
@@ -7,22 +7,17 @@ import type {
 // `problems`); this module only shapes the draft and the words on screen.
 
 export const FULL_WEIGHT = 100;
-export const RATING_SCALES = [3, 4, 5, 10] as const;
 export const DEFAULT_RATING_MAX = 5;
 
-/** Kinds of input the editor offers (automatic ones come later). */
-export type ManualInput = Exclude<InputType, 'AUTO'>;
+/** Kinds of input a criterion or point can be scored by (automatic ones come later). */
+export type ManualInput = Exclude<InputType, 'AUTO' | 'POINTS' | 'FORM'>;
 export const INPUT_LABEL: Record<ManualInput, string> = {
-  RATING: 'Rating scale', PERCENT: 'Percentage', YES_NO: 'Yes or no', NUMBER: 'Number against a target',
+  RATING: 'Rating scale', PERCENT: 'Percentage', YES_NO: 'Yes or no', PASS_FAIL: 'Pass, fail or N/A', NUMBER: 'Number against a target',
 };
-export const FREQUENCY_LABEL: Record<Frequency, string> = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', YEARLY: 'Yearly' };
 export const STATUS_LABEL: Record<TemplateStatus, string> = { DRAFT: 'Draft', ACTIVE: 'Live', RETIRED: 'Retired' };
 
-export interface DraftCriterion {
-  key: string;
-  name: string;
-  description: string;
-  weight: number;
+/** How one thing is scored — a criterion with no points, or one of its points. */
+export interface DraftScale {
   inputType: InputType;
   ratingMax: number;
   /** Optional word for each level, index 0 = level 1. */
@@ -31,13 +26,32 @@ export interface DraftCriterion {
   ratingDescriptions: string[];
   target: number | '';
   higherIsBetter: boolean;
-  /** Settings of a kind the editor doesn't offer (AUTO) — kept as they were. */
+  /** The rating scale its levels were copied from — kept so that scale can't be deleted once a live form used it. */
+  scaleId?: string | null;
+}
+export interface DraftCriterion extends DraftScale {
+  key: string;
+  name: string;
+  description: string;
+  weight: number;
+  /** AUTO's settings (kept as they were), or FORM's copy of a scoring form: { scoringFormId, name, sections }. */
   otherConfig: unknown;
-  /** Optional points it's judged on — each scored on its scale, the criterion = their average. */
+  /** Optional points it's judged on — each scored its own way, the criterion = their average. */
   points: DraftPoint[];
 }
-export interface DraftPoint { key: string; name: string }
-export const newPoint = (name = ''): DraftPoint => ({ key: newKey('p'), name });
+export interface DraftPoint extends DraftScale { key: string; name: string; inputType: ManualInput; /** What it means (e.g. an SOP step's detail). */ description?: string | null }
+
+export const defaultScale = (): DraftScale & { inputType: ManualInput } => ({
+  inputType: 'RATING', ratingMax: DEFAULT_RATING_MAX, ratingLabels: [], ratingDescriptions: [], target: '', higherIsBetter: false,
+});
+/** Only the scoring fields of a criterion or point (copied, so editing one never changes the other). */
+const copyScale = <T extends DraftScale>(s: T) => ({
+  inputType: s.inputType, ratingMax: s.ratingMax, ratingLabels: [...s.ratingLabels], ratingDescriptions: [...s.ratingDescriptions],
+  target: s.target, higherIsBetter: s.higherIsBetter, scaleId: s.scaleId ?? null,
+});
+/** A new point, scored like `like` (the point above it) or a 1–5 rating. */
+export const newPoint = (name = '', like?: DraftScale & { inputType: ManualInput }): DraftPoint =>
+  ({ key: newKey('p'), name, ...(like ? { ...copyScale(like), inputType: like.inputType } : defaultScale()) });
 /** Points with a name (blank rows that were never filled in are left out). */
 export const namedPoints = (points: DraftPoint[]) => points.map(p => ({ ...p, name: p.name.trim() })).filter(p => p.name);
 export interface DraftSection { key: string; name: string; weight: number; criteria: DraftCriterion[] }
@@ -45,6 +59,7 @@ export interface DraftStage { key: string; name: string; kind: StageKind; scope:
 export interface FormDraft {
   name: string;
   description: string;
+  /** Kept as saved — not edited any more: the appraisal schedule says when staff are appraised. */
   frequency: Frequency;
   missingPolicy: MissingPolicy;
   sections: DraftSection[];
@@ -56,9 +71,22 @@ let seq = 0;
 export const newKey = (prefix: string) => `${prefix}-${++seq}`;
 
 export function newCriterion(name = ''): DraftCriterion {
+  return { key: newKey('c'), name, description: '', weight: 0, ...defaultScale(), otherConfig: null, points: [] };
+}
+
+/** A saved kind of input + its settings → the editor's scoring fields. */
+function scaleFromSaved(inputType: InputType, scaleConfig: unknown): DraftScale {
+  const rating = inputType === 'RATING' ? (scaleConfig as (RatingScale & { scaleId?: string }) | null) : null;
+  const num = inputType === 'NUMBER' ? (scaleConfig as NumberScale | null) : null;
+  const max = rating?.max ?? DEFAULT_RATING_MAX;
+  const level = (i: number) => rating?.levels?.find(l => l.value === i + 1);
   return {
-    key: newKey('c'), name, description: '', weight: 0, inputType: 'RATING', ratingMax: DEFAULT_RATING_MAX,
-    ratingLabels: [], ratingDescriptions: [], target: '', higherIsBetter: false, otherConfig: null, points: [],
+    inputType,
+    ratingMax: max,
+    ratingLabels: Array.from({ length: max }, (_, i) => level(i)?.label ?? ''),
+    ratingDescriptions: Array.from({ length: max }, (_, i) => level(i)?.description ?? ''),
+    target: num?.target ?? '', higherIsBetter: num?.higherIsBetter ?? false,
+    scaleId: rating?.scaleId ?? null,
   };
 }
 export const newSection = (name = ''): DraftSection => ({ key: newKey('s'), name, weight: 0, criteria: [] });
@@ -71,27 +99,44 @@ export function draftFromTemplate(t: AppraisalTemplate): FormDraft {
     description: t.description ?? '',
     frequency: t.frequency,
     missingPolicy: t.missingPolicy,
-    sections: t.sections.map(s => ({
-      key: newKey('s'), name: s.name, weight: s.weight,
-      criteria: s.criteria.map(c => {
-        const rating = c.inputType === 'RATING' ? (c.scaleConfig as RatingScale | null) : null;
-        const num = c.inputType === 'NUMBER' ? (c.scaleConfig as NumberScale | null) : null;
-        const max = rating?.max ?? DEFAULT_RATING_MAX;
-        const level = (i: number) => rating?.levels?.find(l => l.value === i + 1);
-        return {
-          key: newKey('c'), name: c.name, description: c.description ?? '', weight: c.weight, inputType: c.inputType,
-          ratingMax: max,
-          ratingLabels: Array.from({ length: max }, (_, i) => level(i)?.label ?? ''),
-          ratingDescriptions: Array.from({ length: max }, (_, i) => level(i)?.description ?? ''),
-          target: num?.target ?? '', higherIsBetter: num?.higherIsBetter ?? false,
-          otherConfig: c.inputType === 'AUTO' ? c.scaleConfig : null,
-          points: (c.points ?? []).map(p => newPoint(p.name)),
-        };
-      }),
-    })),
+    sections: sectionsFromSaved(t.sections),
     stages: t.stages.map(s => ({ key: newKey('st'), name: s.name, kind: s.kind, scope: s.scope, positionIds: [...s.positionIds] })),
   };
 }
+
+/** Saved sections (an appraisal form's, or a scoring form's) → the editor's copy. */
+export function sectionsFromSaved(sections: SavedSection[]): DraftSection[] {
+  return sections.map(s => ({
+    key: newKey('s'), name: s.name, weight: s.weight,
+    criteria: s.criteria.map(c => ({
+      key: newKey('c'), name: c.name, description: c.description ?? '', weight: c.weight,
+      ...scaleFromSaved(c.inputType, c.scaleConfig),
+      // Criteria saved with points before "on several points" was its own kind count as one.
+      ...(c.points?.length && c.inputType !== 'AUTO' && c.inputType !== 'FORM' ? { inputType: 'POINTS' as const } : {}),
+      otherConfig: c.inputType === 'AUTO' || c.inputType === 'FORM' ? c.scaleConfig : null,
+      points: (c.points ?? []).map(pointFromSaved),
+    })),
+  }));
+}
+
+/** The editor's sections → what's saved. */
+export function sectionsPayload(sections: DraftSection[]): SectionsPayload {
+  return sections.map(s => ({
+    name: s.name.trim(), weight: s.weight,
+    criteria: s.criteria.map(c => ({
+      name: c.name.trim(), description: c.description.trim() || null, weight: c.weight, inputType: c.inputType, scaleConfig: scaleOf(c),
+      // Only a criterion scored on points keeps them.
+      points: c.inputType === 'POINTS' ? namedPoints(c.points).map(pointPayload) : [],
+    })),
+  }));
+}
+
+/** A saved point (on a form, or in a scoring form) → the editor's copy. */
+export const pointFromSaved = (p: { name: string; description?: string | null; inputType: ManualInput; scaleConfig: unknown }): DraftPoint =>
+  ({ key: newKey('p'), name: p.name, ...(p.description ? { description: p.description } : {}), ...scaleFromSaved(p.inputType, p.scaleConfig), inputType: p.inputType });
+
+/** The editor's point → what's saved. */
+export const pointPayload = (p: DraftPoint) => ({ name: p.name.trim(), ...(p.description ? { description: p.description } : {}), inputType: p.inputType, scaleConfig: scaleOf(p) });
 
 /** The levels that have a name or a description, within the current scale (1…max). */
 export function ratingLevels(c: Pick<DraftCriterion, 'ratingMax' | 'ratingLabels' | 'ratingDescriptions'>): RatingLevel[] {
@@ -102,14 +147,17 @@ export function ratingLevels(c: Pick<DraftCriterion, 'ratingMax' | 'ratingLabels
   }).filter(l => l.label || l.description);
 }
 
-function scaleOf(c: DraftCriterion): unknown {
+function scaleOf(c: DraftScale & { otherConfig?: unknown }): unknown {
   switch (c.inputType) {
     case 'RATING':
-      return { max: c.ratingMax, levels: ratingLevels(c) };
+      return { ...(c.scaleId ? { scaleId: c.scaleId } : {}), max: c.ratingMax, levels: ratingLevels(c) };
     case 'NUMBER':
       return { target: c.target === '' ? 0 : c.target, higherIsBetter: c.higherIsBetter };
     case 'AUTO':
+    case 'FORM':
       return c.otherConfig;
+    case 'POINTS':
+      return null;
     default:
       return null;
   }
@@ -121,13 +169,7 @@ export function payloadFromDraft(d: FormDraft): TemplateSavePayload {
     description: d.description.trim() || null,
     frequency: d.frequency,
     missingPolicy: d.missingPolicy,
-    sections: d.sections.map(s => ({
-      name: s.name.trim(), weight: s.weight,
-      criteria: s.criteria.map(c => ({
-        name: c.name.trim(), description: c.description.trim() || null, weight: c.weight, inputType: c.inputType, scaleConfig: scaleOf(c),
-        points: namedPoints(c.points).map(p => ({ name: p.name })),
-      })),
-    })),
+    sections: sectionsPayload(d.sections),
     stages: d.stages.map(s => ({ name: s.name.trim(), kind: s.kind, scope: s.scope, positionIds: s.kind === 'ACKNOWLEDGE' ? [] : s.positionIds })),
   };
 }
@@ -169,7 +211,7 @@ export function overWeightProblems(sections: Pick<DraftSection, 'name' | 'weight
 }
 
 /** "Rating 1–5", "Number · target 2, lower is better" — how a criterion is scored, in a few words. */
-export function inputSummary(c: Pick<DraftCriterion, 'inputType' | 'ratingMax' | 'target' | 'higherIsBetter'> & { ratingLabels?: string[] }): string {
+export function inputSummary(c: Pick<DraftCriterion, 'inputType' | 'ratingMax' | 'target' | 'higherIsBetter'> & { ratingLabels?: string[]; points?: unknown[]; otherConfig?: unknown }): string {
   switch (c.inputType) {
     case 'RATING': {
       // Show the named ends of the scale, so it's clear the rating has its own wording.
@@ -179,8 +221,14 @@ export function inputSummary(c: Pick<DraftCriterion, 'inputType' | 'ratingMax' |
     }
     case 'PERCENT': return 'Percentage';
     case 'YES_NO': return 'Yes or no';
+    case 'PASS_FAIL': return 'Pass, fail or N/A';
     case 'NUMBER': return c.target === '' ? 'Number · no target yet' : `Number · target ${c.target}, ${c.higherIsBetter ? 'higher' : 'lower'} is better`;
     case 'AUTO': return 'Automatic';
+    case 'FORM': return `From scoring form “${(c.otherConfig as { name?: string } | null)?.name ?? '—'}”`;
+    case 'POINTS': {
+      const n = c.points?.length ?? 0;
+      return n ? `On ${n} ${n === 1 ? 'point' : 'points'} (no longer offered)` : 'On several points (no longer offered)';
+    }
   }
 }
 

@@ -7,6 +7,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchStandings, StandingsRow } from '../api/points.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Leaderboard — monthly standings for points earned. Points-only, no
@@ -173,7 +174,7 @@ export default function TeacherLeaderboardPage() {
 
         {isLoading && (
           <div style={{ padding: 40, textAlign: 'center', color: C.mutedSoft, fontSize: 13 }}>
-            Loading standings…
+            <LoadingSpinner label="Loading standings" />
           </div>
         )}
 

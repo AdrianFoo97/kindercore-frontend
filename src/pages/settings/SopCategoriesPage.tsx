@@ -8,6 +8,7 @@ import {
 } from '../../api/sop-categories.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc',
@@ -181,7 +182,7 @@ export default function SopCategoriesPage({ embedded = false }: { embedded?: boo
           )}
 
           {isLoading ? (
-            <p style={{ padding: 24, color: C.mutedSoft, fontSize: 13 }}>Loading…</p>
+            <p style={{ padding: 24, color: C.mutedSoft, fontSize: 13 }}><LoadingSpinner /></p>
           ) : sorted.length === 0 && !formOpen ? (
             <div style={{ padding: '40px 20px', textAlign: 'center' }}>
               <FontAwesomeIcon icon={faTag} style={{ fontSize: 20, color: C.mutedSoft, marginBottom: 10 }} />

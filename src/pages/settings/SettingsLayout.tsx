@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faSliders } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faSliders, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { useIsTestServer } from '../../hooks/useIsTestServer.js';
-import { SETTINGS_HOME, itemForPath, visibleGroups, type SettingsGroup, type SettingsItem } from './settingsNav.js';
+import { SETTINGS_HOME, groupSections, itemForPath, visibleGroups, type SettingsGroup, type SettingsItem } from './settingsNav.js';
 import { C, isAdminRole, storedRole } from './settingsTheme.js';
 
 const SIDEBAR_WIDTH = 240;
@@ -98,29 +98,57 @@ function SettingsSidebar({ groups, current }: { groups: SettingsGroup[]; current
       <Link to={SETTINGS_HOME} className="st-side" style={{ ...row, fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 8 }}>
         <FontAwesomeIcon icon={faSliders} style={{ width: 16, color: C.muted }} /> Settings
       </Link>
-      {groups.map(g => (
-        <div key={g.key} style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 12px 4px' }}>{g.label}</div>
-          {g.items.map(item => {
-            const active = current?.key === item.key;
-            return (
-              <Link key={item.key} to={item.to} className={active ? undefined : 'st-side'} aria-current={active ? 'page' : undefined}
-                style={{
-                  ...row, fontWeight: active ? 600 : 500,
-                  color: item.danger ? C.danger : active ? C.primaryDeep : C.sub,
-                  background: active ? C.primarySoft : undefined,
-                }}>
-                <FontAwesomeIcon icon={item.icon} style={{ width: 16, fontSize: 13, color: item.danger ? C.danger : active ? C.primary : C.muted }} />
-                {item.label}
-              </Link>
-            );
-          })}
+      {groupSections(groups).map(sec => sec.section ? (
+        // A section (HRMS): one tinted, bordered panel with its own header, so everything in it plainly belongs
+        // to HRMS and its edge shows where HRMS ends. Its modules are sub-labels inside.
+        <div key={sec.section} role="group" aria-labelledby={`side-sec-${sec.section}`} style={sectionPanel}>
+          <div id={`side-sec-${sec.section}`} style={sectionHeader}>
+            <FontAwesomeIcon icon={faUsers} style={{ width: 16, fontSize: 13, color: C.primary }} /> {sec.section}
+          </div>
+          {sec.groups.map(g => <SidebarGroup key={g.key} group={g} current={current} nested />)}
         </div>
-      ))}
+      ) : sec.groups.map(g => <SidebarGroup key={g.key} group={g} current={current} />))}
     </nav>
     </div>
   );
 }
+
+/** One group's heading and its settings. Nested = a module under a section: a smaller, normal-case sub-label. */
+function SidebarGroup({ group: g, current, nested = false }: { group: SettingsGroup; current: SettingsItem | null; nested?: boolean }) {
+  return (
+    <div style={{ marginTop: nested ? GROUP_GAP.nested : GROUP_GAP.top }}>
+      <div style={nested ? moduleHeading : groupHeading}>{g.label}</div>
+      {g.items.map(item => {
+        const active = current?.key === item.key;
+        return (
+          <Link key={item.key} to={item.to} className={active ? undefined : 'st-side'} aria-current={active ? 'page' : undefined}
+            style={{
+              ...row, fontWeight: active ? 600 : 500,
+              color: item.danger ? C.danger : active ? C.primaryDeep : C.sub,
+              background: active ? C.primarySoft : undefined,
+            }}>
+            <FontAwesomeIcon icon={item.icon} style={{ width: 16, fontSize: 13, color: item.danger ? C.danger : active ? C.primary : C.muted }} />
+            {item.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Space above each group (Money, Operations…) and each HRMS module inside a group — enough to read them as separate blocks. */
+const GROUP_GAP = { top: 32, nested: 16 };
+const groupHeading: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 12px 8px' };
+const moduleHeading: React.CSSProperties = {
+  fontSize: 12, fontWeight: 600, color: C.muted, padding: '4px 12px 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+};
+const sectionPanel: React.CSSProperties = {
+  marginTop: 16, padding: '8px 4px 8px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
+};
+const sectionHeader: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px 4px 8px', fontSize: 13.5, fontWeight: 700, color: C.text,
+  borderBottom: `1px solid ${C.border}`, margin: '0 4px 4px', paddingBottom: 8,
+};
 
 const row: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, minHeight: 32, padding: '6px 12px', borderRadius: 8,

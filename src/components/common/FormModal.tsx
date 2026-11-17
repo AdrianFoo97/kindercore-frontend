@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
-import ConfirmDialog from './ConfirmDialog.js';
 
 // A small form pop-up, laid out per the design guide:
 //  - Phone (iOS): a bottom sheet — grabber, Cancel top-leading, the main
-//    action top-trailing, swipe down / tap outside to dismiss, safe-area aware.
+//    action top-trailing, swipe down on the grabber to dismiss, safe-area aware.
 //  - Desktop (macOS): a centred dialog — Cancel leading, main action trailing
 //    in the footer; Return = main action, Escape = Cancel.
-// With unsaved changes (`dirty`), dismissing asks before discarding.
+// Clicking / tapping the dimmed background does nothing — a stray click must
+// never close a half-filled form. Closing is always deliberate (Cancel,
+// Escape, swipe down on the grabber), so it closes straight away — no
+// "Discard changes?" pop-up on top of the pop-up.
 
 export interface FormModalPrimary {
   label: string;
   onClick: () => void;
   busy?: boolean;
+  /** Off until the form is valid (app rule: never press-then-error). */
   disabled?: boolean;
+  /** When disabled: what's still missing, shown as the button's tooltip. */
+  hint?: string;
   /** Button colour — defaults to the admin indigo. */
   tone?: string;
 }
@@ -28,47 +33,44 @@ interface Props {
   primary?: FormModalPrimary;
   /** Defaults to "Cancel" (or "Close" when there's no main action). */
   cancelLabel?: string;
-  /** True while there are unsaved changes — dismissing then asks first. */
-  dirty?: boolean;
+  /**
+   * A step back in a multi-step pop-up (e.g. "Back"). Desktop: beside the main
+   * action. Phone: takes the top-leading spot (swipe down still dismisses).
+   */
+  secondary?: { label: string; onClick: () => void };
   width?: number;
 }
 
 const SWIPE_CLOSE_PX = 90;
 const INDIGO = '#5a67d8';
 
-export default function FormModal({ title, subtitle, onClose, children, primary, cancelLabel, dirty, width = 520 }: Props) {
+export default function FormModal({ title, subtitle, onClose, children, primary, cancelLabel, secondary, width = 520 }: Props) {
   const { isMobile } = useIsMobile();
-  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [dragY, setDragY] = useState(0);
   const dragStart = useRef<number | null>(null);
   const cancelText = cancelLabel ?? (primary ? 'Cancel' : 'Close');
   const canSubmit = !!primary && !primary.busy && !primary.disabled;
 
-  const requestClose = () => { if (dirty) setConfirmingDiscard(true); else onClose(); };
+  const requestClose = onClose;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (confirmingDiscard) return;
       if (e.key === 'Escape') { e.preventDefault(); requestClose(); }
-      // Return = the main action, except inside a multi-line field or on a focused button.
+      // Return = the main action, except inside a multi-line field, on a focused button,
+      // or in a field that already used Return itself (e.g. "add the next point").
       const tag = (e.target as HTMLElement | null)?.tagName;
-      if (e.key === 'Enter' && !e.shiftKey && tag !== 'TEXTAREA' && tag !== 'BUTTON' && canSubmit) { e.preventDefault(); primary!.onClick(); }
+      if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && tag !== 'TEXTAREA' && tag !== 'BUTTON' && canSubmit) { e.preventDefault(); primary!.onClick(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
 
   const primaryButton = primary && (
-    <button type="button" onClick={primary.onClick} disabled={!canSubmit} style={isMobile
+    <button type="button" onClick={primary.onClick} disabled={!canSubmit} title={primary.disabled ? primary.hint : undefined} style={isMobile
       ? { ...sheetTextBtn, fontWeight: 700, color: canSubmit ? (primary.tone ?? INDIGO) : '#94a3b8', cursor: canSubmit ? 'pointer' : 'default' }
       : modalBtn.primary(!canSubmit, primary.tone)}>
       {primary.label}
     </button>
-  );
-
-  const discardDialog = confirmingDiscard && (
-    <ConfirmDialog title="Discard changes?" message="What you’ve entered here will be lost." confirmLabel="Discard" destructive
-      onConfirm={() => { setConfirmingDiscard(false); onClose(); }} onCancel={() => setConfirmingDiscard(false)} />
   );
 
   if (isMobile) {
@@ -85,7 +87,7 @@ export default function FormModal({ title, subtitle, onClose, children, primary,
     };
     return createPortal(
       <>
-        <div role="presentation" onClick={requestClose} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 1000, animation: 'kcFade 180ms ease-out' }} />
+        <div role="presentation" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', zIndex: 1000, animation: 'kcFade 180ms ease-out' }} />
         <div role="dialog" aria-modal="true" aria-label={title} style={{
           position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 1001, background: '#fff',
           borderRadius: '16px 16px 0 0', maxHeight: 'calc(100dvh - 40px)', display: 'flex', flexDirection: 'column',
@@ -99,7 +101,9 @@ export default function FormModal({ title, subtitle, onClose, children, primary,
               <span aria-hidden style={{ width: 36, height: 5, borderRadius: 999, background: '#cbd5e1' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 8, padding: '2px 8px 8px', borderBottom: '1px solid #f1f5f9' }}>
-              <div><button type="button" onClick={requestClose} style={sheetTextBtn}>{cancelText}</button></div>
+              <div>{secondary
+                ? <button type="button" onClick={secondary.onClick} style={sheetTextBtn}>{secondary.label}</button>
+                : <button type="button" onClick={requestClose} style={sheetTextBtn}>{cancelText}</button>}</div>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55vw' }}>{title}</h2>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{primaryButton}</div>
             </div>
@@ -109,14 +113,13 @@ export default function FormModal({ title, subtitle, onClose, children, primary,
             {children}
           </div>
         </div>
-        {discardDialog}
       </>,
       document.body,
     );
   }
 
   return (
-    <div role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) requestClose(); }} style={{
+    <div role="presentation" style={{
       position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     }}>
@@ -132,10 +135,10 @@ export default function FormModal({ title, subtitle, onClose, children, primary,
         {/* macOS: Cancel leading, main action trailing (the Return-key default). */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 24px', borderTop: '1px solid #e2e8f0', background: '#fafbfc' }}>
           <button type="button" onClick={requestClose} style={modalBtn.cancel}>{cancelText}</button>
+          {secondary && <button type="button" onClick={secondary.onClick} style={{ ...modalBtn.cancel, marginLeft: 'auto' }}>{secondary.label}</button>}
           {primaryButton}
         </div>
       </div>
-      {discardDialog}
     </div>
   );
 }

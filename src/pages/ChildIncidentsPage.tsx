@@ -9,6 +9,7 @@ import IncidentStatusPill from '../components/incidents/IncidentStatusPill.js';
 import ParentReactionPill, { PARENT_REACTION_LOOK } from '../components/incidents/ParentReactionPill.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useGoBack } from '../hooks/useGoBack.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // Operation → Incidents → one child's whole incident history (managers).
 // Reached from "Incident history" on an incident page. Shows how often the
@@ -55,7 +56,7 @@ export default function ChildIncidentsPage() {
         </button>
 
         {isLoading ? (
-          <div style={st.empty}>Loading…</div>
+          <div style={st.empty}><LoadingSpinner /></div>
         ) : error ? (
           <div style={st.empty}>Couldn’t load incidents. {(error as Error).message}</div>
         ) : theirs.length === 0 ? (

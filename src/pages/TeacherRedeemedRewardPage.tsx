@@ -8,6 +8,7 @@ import {
 import { fetchMyRewards, RedemptionStatus } from '../api/points.js';
 import { resolveRewardIcon } from '../constants/pointsMeta.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mobile-friendly details surface for a single redeemed reward. Reached
@@ -86,7 +87,7 @@ export default function TeacherRedeemedRewardPage() {
       <div style={s.page}>
         <div style={s.inner}>
           <div style={{ marginTop: SP.xl, padding: '48px 24px', textAlign: 'center', color: C.muted, fontSize: 13 }}>
-            Loading…
+            <LoadingSpinner />
           </div>
         </div>
       </div>

@@ -2,17 +2,8 @@
 
 export const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const GOOD_SCORE = 80;
-const OK_SCORE = 60;
 /** How far back the HR → Appraisals year dropdown goes. */
 const YEARS_BACK = 5;
-
-/** Score banding: 80+ green, 60–79 amber, under 60 red — same everywhere a score is shown. */
-export function scoreColors(score: number): { bg: string; color: string } {
-  if (score >= GOOD_SCORE) return { bg: '#dcfce7', color: '#15803d' };
-  if (score >= OK_SCORE) return { bg: '#fef3c7', color: '#b45309' };
-  return { bg: '#fee2e2', color: '#991b1b' };
-}
 
 /** Position filter value: '' = everyone; NO_POSITION = staff without a position. */
 export const ALL_POSITIONS = '';

@@ -11,6 +11,7 @@ import {
   useBadgeViews,
 } from '../components/career/AchievementStrip.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher-facing Skill Badges gallery — a focused page that shows every
@@ -95,7 +96,7 @@ export default function TeacherSkillBadgesPage() {
         )}
 
         {isLoading && (
-          <div style={s.state}>Loading skill badges…</div>
+          <div style={s.state}><LoadingSpinner label="Loading skill badges" /></div>
         )}
         {isError && (
           <div style={{ ...s.state, color: '#b91c1c' }}>

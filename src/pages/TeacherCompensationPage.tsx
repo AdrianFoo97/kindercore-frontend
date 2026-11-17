@@ -13,7 +13,7 @@ import {
   faMedal,
   faChartLine, } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeachers } from '../api/planner.js';
-import { fetchTeachersWithSalary, fetchLevelIncentives } from '../api/salary.js';
+import { fetchTeacherSalary, fetchLevelIncentives } from '../api/salary.js';
 import { fetchTeacherAppraisals } from '../api/teacher-appraisals.js';
 import { fetchSettings } from '../api/settings.js';
 import { fetchAllowanceTypes } from '../api/allowance.js';
@@ -344,9 +344,11 @@ export function useCompensationData(id: string | undefined) {
   const [searchParams] = useSearchParams();
 
   const { data: teachers = [] } = useQuery({ queryKey: ['planner-teachers'], queryFn: fetchTeachers });
-  const { data: teachersWithSalary = [] } = useQuery({
-    queryKey: ['teachers-with-salary'],
-    queryFn: fetchTeachersWithSalary,
+  // Just this person's pay — the whole staff list is for HR / Finance / Analysis, so a teacher's own Pay tab can't use it.
+  const { data: teacherSalary } = useQuery({
+    queryKey: ['teacher-salary', id],
+    queryFn: () => fetchTeacherSalary(id!),
+    enabled: !!id,
   });
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
   const { data: allowanceTypes = [] } = useQuery({ queryKey: ['allowance-types'], queryFn: fetchAllowanceTypes });
@@ -366,7 +368,6 @@ export function useCompensationData(id: string | undefined) {
   });
 
   const teacher = (teachers as any[]).find(t => t.id === id);
-  const teacherSalary = teachersWithSalary.find(t => t.id === id);
 
   benefitRules.minimumAppraisalForEligibility =
     readScore(settings, PERFORMER_THRESHOLD_KEY, DEFAULT_PERFORMER_THRESHOLD);

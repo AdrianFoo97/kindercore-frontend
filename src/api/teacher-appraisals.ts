@@ -1,4 +1,5 @@
 import { apiFetch } from './client.js';
+import type { PeriodType, RunStatus } from './appraisal-runs.js';
 
 export interface TeacherAppraisal {
   id: string;
@@ -8,6 +9,8 @@ export interface TeacherAppraisal {
   score: number; // 0–100
   notes: string | null;
   evaluatedBy: string | null;
+  /** Scored with an appraisal form: that appraisal (open it to see the form and every score). It can't be edited by hand. */
+  engineAppraisalId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +24,10 @@ export interface AppraisalSummary {
 export interface AppraisalListResponse {
   items: TeacherAppraisal[];
   summary: AppraisalSummary;
+  /** This year's months so far (Malaysia time), averaged. */
+  yearToDate?: { year: number; average: number | null };
+  /** Each quarter with appraisals, newest first, with its average (quarter 1–4). */
+  quarters?: { year: number; quarter: number; average: number | null }[];
 }
 
 export function fetchTeacherAppraisals(teacherId: string) {
@@ -54,6 +61,25 @@ export interface AppraisalOverviewRow {
   previous: { year: number; month: number; score: number } | null;
   /** Average over the 12 months up to that month. */
   twelveMonth: AppraisalSummary;
+  /** This quarter and this year so far, up to that month (null = none yet). */
+  averages: { quarter: number | null; year: number | null };
+  /** Each month's score this year, up to that month (0–11, oldest first) — what the averages are made of. */
+  yearScores: { month: number; score: number }[];
+  /** Appraisals the schedule created whose period includes that month. */
+  runs: ScheduledAppraisal[];
+}
+
+/** Where a scheduled appraisal stands, step by step: not started → being scored (a draft) → waiting for sign-off → waiting for the staff member to confirm → done. */
+export type AppraisalStage = 'PENDING' | 'IN_PROGRESS' | 'SIGN_OFF' | 'CONFIRM' | 'DONE';
+
+export interface ScheduledAppraisal {
+  id: string;
+  formName: string;
+  period: { year: number; month: number };
+  periodType: PeriodType;
+  status: RunStatus;
+  stage: AppraisalStage;
+  totalScore: number | null;
 }
 
 export interface AppraisalOverview {

@@ -14,6 +14,7 @@ import {
 import { useCategoryMeta } from '../../utils/missionCategoryIcons.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -316,7 +317,7 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
           </div>
 
           {missionsLoading ? (
-            <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
+            <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
           ) : filteredMissions.length === 0 ? (
             <div style={{ padding: '48px 20px', textAlign: 'center' }}>
               <p style={{ margin: '0 0 12px', fontSize: 13, color: C.muted }}>

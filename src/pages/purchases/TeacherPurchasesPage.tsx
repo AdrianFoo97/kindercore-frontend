@@ -18,6 +18,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import BoughtDetailsModal from './BoughtDetailsModal.js';
 import PurchaseHistory from './PurchaseHistory.js';
 import { PURCHASE_STATUS_LABEL, PURCHASE_STATUS_LOOK, fmtMoment, fmtRM, isOpen } from './purchaseDisplay.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Teacher app → Requests: ask for something to be bought, and see where each
 // request stands — waiting for approval, approved, bought, or not buying
@@ -117,7 +118,7 @@ export default function TeacherPurchasesPage() {
 
         {/* States in order: loading → error (retry) → empty → content. */}
         {isLoading ? (
-          <div style={{ fontSize: 14, color: C.muted, padding: '12px 2px' }}>Loading…</div>
+          <div style={{ fontSize: 14, color: C.muted, padding: '12px 2px' }}><LoadingSpinner /></div>
         ) : isError ? (
           <div style={emptyCard}>
             <div style={emptyTitle}>Couldn’t load your requests.</div>

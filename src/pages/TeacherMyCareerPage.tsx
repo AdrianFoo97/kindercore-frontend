@@ -14,6 +14,7 @@ import { useMissionTargets } from '../hooks/useMissionTargets.js';
 import { AchievementStrip } from '../components/career/AchievementStrip.js';
 import { useCategoryMeta } from '../utils/missionCategoryIcons.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher-facing career hub — mobile-first.
@@ -95,7 +96,7 @@ export default function TeacherMyCareerPage() {
   }, [data?.missions, isTargeted]);
 
   if (isLoading) {
-    return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: C.mutedSoft }}>Loading…</p></div></div>;
+    return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: C.mutedSoft }}><LoadingSpinner /></p></div></div>;
   }
   if (isError || !data) {
     return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: C.danger }}>Failed to load.</p></div></div>;

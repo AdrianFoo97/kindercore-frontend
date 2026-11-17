@@ -8,6 +8,7 @@ import { fetchAuthViews } from '../../api/auth-views.js';
 import { MODULE_LABELS } from '../../constants/authModules.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc',
@@ -82,7 +83,7 @@ export default function AuthRolesPage() {
           </div>
 
           {isLoading ? (
-            <p style={{ padding: 24, color: C.mutedSoft, fontSize: 13 }}>Loading…</p>
+            <p style={{ padding: 24, color: C.mutedSoft, fontSize: 13 }}><LoadingSpinner /></p>
           ) : roles.length === 0 ? (
             <p style={{ padding: 24, textAlign: 'center', color: C.muted, fontSize: 13 }}>
               No access roles configured yet.

@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faCopy, faCheck, faPen, faFileLines, faSearch, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
+import LoadingSpinner from './LoadingSpinner.js';
 
 // Tools → Messaging → Message Templates. Read-only quick-copy of every
 // WhatsApp template, for pasting outside the system (personal WhatsApp,
@@ -148,7 +149,7 @@ export default function MessageTemplatesModal({ onClose, canEdit }: { onClose: (
               </div>
               <div style={st.list}>
                 {isLoading ? (
-                  <p style={st.hint}>Loading…</p>
+                  <p style={st.hint}><LoadingSpinner inline /></p>
                 ) : filtered.length === 0 ? (
                   <p style={st.hint}>No templates match “{query}”.</p>
                 ) : groups.map(g => (

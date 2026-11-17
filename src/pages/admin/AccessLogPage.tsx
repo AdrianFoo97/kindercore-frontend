@@ -5,6 +5,7 @@ import { faClockRotateLeft, faMagnifyingGlass } from '@fortawesome/free-solid-sv
 import { fetchAccessLog, type AccessArea, type AccessLogEntry } from '../../api/accessLog.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { DEFAULT_PERIOD_DAYS, PERIODS, actionLabel, rangeLabel, whenLabel } from './accessLogDisplay.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc', card: '#ffffff', border: '#e2e8f0', text: '#0f172a', sub: '#334155', muted: '#64748b',
@@ -61,7 +62,7 @@ export default function AccessLogPage() {
           </label>
         </div>
 
-        {isLoading && <p style={{ fontSize: 14, color: C.muted }}>Loading…</p>}
+        {isLoading && <p style={{ fontSize: 14, color: C.muted }}><LoadingSpinner /></p>}
         {isError && <p role="alert" style={{ fontSize: 14, color: C.red }}>{(error as Error).message}</p>}
 
         {data && data.rows.length === 0 && (

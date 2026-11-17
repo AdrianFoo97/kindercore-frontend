@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faXmark, faTrophy } from '@fortawesome/free-solid-svg-icons';
 import { useAnnualBonusSummary } from '../hooks/useAnnualBonusSummary.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Annual Bonus — a teacher's own, honest view of this year's bonus
@@ -78,7 +79,7 @@ export default function TeacherMyAnnualBonusPage() {
 
         {isLoading && (
           <div style={{ padding: 40, textAlign: 'center', color: C.mutedSoft, fontSize: 13 }}>
-            Loading annual bonus…
+            <LoadingSpinner label="Loading annual bonus" />
           </div>
         )}
 

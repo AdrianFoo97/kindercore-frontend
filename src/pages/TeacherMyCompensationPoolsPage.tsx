@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faXmark, faHandHoldingDollar } from '@fortawesome/free-solid-svg-icons';
 import { useTeamPoolSummary } from '../hooks/useTeamPoolSummary.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Team Pool — a teacher's own, honest view of this quarter's profit-
@@ -76,7 +77,7 @@ export default function TeacherMyCompensationPoolsPage() {
 
         {isLoading && (
           <div style={{ padding: 40, textAlign: 'center', color: C.mutedSoft, fontSize: 13 }}>
-            Loading profit sharing pool…
+            <LoadingSpinner label="Loading profit sharing pool" />
           </div>
         )}
 

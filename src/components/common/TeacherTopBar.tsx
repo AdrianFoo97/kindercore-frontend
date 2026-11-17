@@ -72,6 +72,7 @@ const TEACHER_PATH = /^\/teachers\/([^/]+)\/(.+?)\/?$/;
 // closed set; a section fallback covers anything unmapped.
 const TITLES: Record<string, string> = {
   'home': 'Home',
+  'my-training': 'My Training',
   'my-career': 'My Career',
   'my-career/journey': 'Career Journey',
   'my-career/skill-badges': 'Skill Badges',
@@ -201,6 +202,8 @@ function signedInTeacherId(): string | null {
 
 export function teacherTopBar(pathname: string, search: string = ''): TopBarState | null {
   if (pathname.startsWith('/operations/sops')) return teacherSopTopBar(pathname, search);
+  // One appraisal, opened from Home or My Appraisal (tagged ?app=teacher) — back to whichever it was.
+  if (pathname.startsWith('/appraisals/')) return { title: 'Appraisal', showBack: true, backTo: GO_BACK };
   const m = pathname.match(TEACHER_PATH);
   if (!m) return null;
   const [, teacherId, rawTail] = m;
@@ -228,6 +231,10 @@ export function teacherTopBar(pathname: string, search: string = ''): TopBarStat
       showBack: true,
       backTo: GO_BACK,
     };
+  }
+  if (tail === 'my-training') {
+    // Opened from Home's quick actions — real history back.
+    return { title: 'My Training', showBack: true, backTo: GO_BACK };
   }
   if (tail === 'incidents' || tail === 'incidents/new') {
     // Opened from Home (and the list opens the form) — real history back.
@@ -345,28 +352,10 @@ export default function TeacherTopBar() {
     return () => window.removeEventListener('keydown', h);
   }, [infoOpen]);
 
-  // Routes long enough to scroll a real way down (a multi-section step
-  // list, a whole career map) — losing the title/back chevron/"⋯" menu
-  // off the top defeats them right when they're most useful. Only those
-  // three individually go `position: fixed` once scrolled — the row
-  // itself (its background/layout) stays exactly the in-flow, scroll-
-  // away, transparent element it always was; it's never the thing
-  // that's actually fixed or tinted. Opt-in per route (not every teacher
-  // page needs this — most are short), extend this list as more come up.
-  const collapsesOnScroll = pathname.startsWith('/operations/sops')
-    || pathname.endsWith('/my-career/journey')
-    // Home/Career/Pay tab roots — same collapse-to-pill title treatment
-    // Guides already has, so scrolling down on any of the 4 main tabs
-    // now behaves consistently instead of only Guides doing it.
-    || /^\/teachers\/[^/]+\/(home|my-career)\/?$/.test(pathname)
-    // My Pay hub + its spokes — Pay Breakdown and Benefits & Perks in
-    // particular grew long enough (hero total + full itemized table;
-    // three benefit tiers) to lose the title off the top on scroll,
-    // same problem the tab roots above already solved for.
-    || /^\/teachers\/[^/]+\/my-compensation(\/(breakdown|earn-more|benefits|appraisal|pools|annual-bonus))?\/?$/.test(pathname)
-    // Mission Board — can run long (many missions across categories);
-    // same reasoning as the routes above.
-    || /^\/teachers\/[^/]+\/career\/missions\/?$/.test(pathname);
+  // Every teacher-app page: once scrolled, the back chevron / "⋯" and a
+  // small centred title pin to the top on a blurred glass bar (iOS
+  // large-title → compact bar), so navigation never scrolls away.
+  const collapsesOnScroll = true;
   const { ref: headerRef, scrolled } = useScrolledPast(4, collapsesOnScroll);
   const collapsed = collapsesOnScroll && scrolled;
 

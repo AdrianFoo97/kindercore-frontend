@@ -10,6 +10,7 @@ import {
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 import TeacherFab, { TEACHER_FAB_CLEARANCE } from '../components/common/TeacherFab.js';
 import SegmentedControl from '../components/common/SegmentedControl.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // Teacher app → My Incident Reports: what this teacher has filed and where
 // each one stands (status only — the office's follow-up notes, comments and
@@ -96,7 +97,7 @@ export default function TeacherIncidentsPage() {
 
         {/* States in order: loading → error (retry) → empty → content. */}
         {isLoading ? (
-          <div style={{ fontSize: 14, color: C.muted, padding: '12px 2px' }}>Loading…</div>
+          <div style={{ fontSize: 14, color: C.muted, padding: '12px 2px' }}><LoadingSpinner /></div>
         ) : isError ? (
           <div style={emptyCard}>
             <div style={emptyTitle}>Couldn’t load your reports.</div>

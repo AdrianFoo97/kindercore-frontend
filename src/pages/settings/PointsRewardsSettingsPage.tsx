@@ -136,7 +136,7 @@ export default function PointsRewardsSettingsPage({ embedded = false }: { embedd
         .prs-empty-cta:hover { background: ${POINTS_C.deep}; }
       `}</style>
 
-      <div style={s.inner}>
+      <div style={embedded ? undefined : s.inner}>
         {!embedded && (
           <>
             {/* ── Breadcrumb ───────────────────────────────────────────── */}

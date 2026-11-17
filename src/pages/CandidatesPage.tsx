@@ -110,6 +110,7 @@ import { useToast } from '../components/common/Toast.js';
 import DeleteDialog from '../components/common/DeleteDialog.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.js';
 import { CandidateQuickViewModal } from './candidates/CandidateQuickViewModal.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 
 /** Builds a WhatsApp send URL from any phone shape. Strips non-digits and,
@@ -209,6 +210,8 @@ const STATUS_META: Record<CandidateStatus, { label: string; bg: string; fg: stri
 // comparisons. Every reason variant needs a matching branch in
 // `terminalStatusMeta` below.
 const DECLINED_OFFER_REASON = 'Candidate declined the offer.';
+/** Space above and below the sticky review sidebar. */
+const REVIEW_SIDEBAR_GAP = 12;
 const NO_SHOW_REASON = 'Candidate did not attend the interview.';
 // Pre-offer withdrawal — candidate said no before we made a formal
 // offer (e.g. accepted another job, changed mind about applying).
@@ -517,6 +520,8 @@ export default function CandidatesPage() {
   const [sessionActioned, setSessionActioned] = useState<Set<string>>(new Set());
   const [sessionShortlisted, setSessionShortlisted] = useState<Set<string>>(new Set());
   const [sessionRejected, setSessionRejected] = useState<Set<string>>(new Set());
+  // Moved on to the next stage this session (e.g. Mark interviewed) — gone from this stage's review list, but not a rejection.
+  const [sessionMovedOn, setSessionMovedOn] = useState<Set<string>>(new Set());
 
   // Same public list candidates see on the apply form — keeps the admin
   // filter aligned with the dropdown that produced the data.
@@ -805,6 +810,7 @@ export default function CandidatesPage() {
     onSuccess: (_data, vars) => {
       showToast(STAGE_LABEL[vars.status] ?? 'Stage updated');
       invalidateCandidateFeeds();
+      movedOnInReview(vars.id);
     },
     onError: (e: any) => showToast(e?.message ?? 'Update failed', 'error'),
   });
@@ -834,9 +840,10 @@ export default function CandidatesPage() {
       status: 'REJECTED',
       rejectionReason: DECLINED_OFFER_REASON,
     }),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       showToast('Recorded as declined offer');
       invalidateCandidateFeeds();
+      closedInReview(id);
     },
     onError: (e: any) => showToast(e?.message ?? 'Update failed', 'error'),
   });
@@ -849,9 +856,10 @@ export default function CandidatesPage() {
       status: 'REJECTED',
       rejectionReason: WITHDREW_REASON,
     }),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       showToast('Recorded as withdrew');
       invalidateCandidateFeeds();
+      closedInReview(id);
     },
     onError: (e: any) => showToast(e?.message ?? 'Update failed', 'error'),
   });
@@ -865,9 +873,10 @@ export default function CandidatesPage() {
       status: 'REJECTED',
       rejectionReason: NO_SHOW_REASON,
     }),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       showToast('Marked as no-show');
       invalidateCandidateFeeds();
+      closedInReview(id);
     },
     onError: (e: any) => showToast(e?.message ?? 'Update failed', 'error'),
   });
@@ -897,6 +906,23 @@ export default function CandidatesPage() {
 
   const markActioned = (id: string) =>
     setSessionActioned(prev => { const n = new Set(prev); n.add(id); return n; });
+  // A candidate closed from the review card (no-show, declined offer, withdrew)
+  // leaves the review list straight away and the next one opens — the same as
+  // a rejection. The list is a frozen snapshot, so it has to be told.
+  // Moved to the next stage from the review card — it leaves this stage's list and the next one opens.
+  function movedOnInReview(id: string) {
+    if (!reviewOpen || !queueSnapshot.some(x => x.id === id)) return;
+    markActioned(id);
+    setSessionMovedOn(prev => { const n = new Set(prev); n.add(id); return n; });
+    goForward();
+  }
+  function closedInReview(id: string) {
+    if (!reviewOpen || !queueSnapshot.some(x => x.id === id)) return;
+    markActioned(id);
+    setSessionRejected(prev => { const n = new Set(prev); n.add(id); return n; });
+    setSessionShortlisted(prev => { const n = new Set(prev); n.delete(id); return n; });
+    goForward();
+  }
 
   const onReject = () => {
     if (!currentCandidate) return;
@@ -926,12 +952,14 @@ export default function CandidatesPage() {
     setSessionActioned(new Set());
     setSessionShortlisted(new Set());
     setSessionRejected(new Set());
+    setSessionMovedOn(new Set());
   };
   const restartReview = () => {
     setCurrentIdx(0);
     setSessionActioned(new Set());
     setSessionShortlisted(new Set());
     setSessionRejected(new Set());
+    setSessionMovedOn(new Set());
     setQueueSnapshot([]);   // will re-snapshot from items via the effect below
   };
 
@@ -978,6 +1006,7 @@ export default function CandidatesPage() {
       setSessionActioned(new Set());
       setSessionShortlisted(new Set());
       setSessionRejected(new Set());
+      setSessionMovedOn(new Set());
       setSnapshottedFor(sessionKey);
       return;
     }
@@ -1050,18 +1079,6 @@ export default function CandidatesPage() {
   const { isMobile } = useIsMobile();
   const showCtxPanel = !isMobile;
 
-  // Height of the sticky tabs + toolbar block — re-measured when it wraps
-  // (narrow window) so the sticky review sidebar always parks just below it.
-  const stickyHeadRef = useRef<HTMLDivElement>(null);
-  const [stickyHeadH, setStickyHeadH] = useState(0);
-  useEffect(() => {
-    const el = stickyHeadRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setStickyHeadH(Math.round(el.offsetHeight)));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   // The context panel is position:fixed over the right edge, so reserve
   // its width here — the shell then centres in what's left, keeping the
   // gap to the panel equal to the gap from the screen's left edge.
@@ -1070,7 +1087,7 @@ export default function CandidatesPage() {
   return (
     <>
     <div style={{ paddingRight: ctxPanelWidth }}>
-    <div className="m-pad" style={{ ...S.shell, ['--kc-sticky-h' as string]: `${stickyHeadH}px` }}>
+    <div className="m-pad" style={S.shell}>
       {/* Row-menu hover feedback — CSS-in-JS is inline everywhere else in
           this page, but for :hover state on the dropdown items a single
           scoped stylesheet is much lighter than wiring mouseEnter/Leave
@@ -1101,9 +1118,7 @@ export default function CandidatesPage() {
         </div>
       </div>
 
-      {/* Tabs + toolbar stay pinned while the list / review card scrolls.
-          Its measured height is exposed as --kc-sticky-h so the review
-          sidebar (also sticky) parks below it instead of sliding under. */}
+      {/* The stage tabs and toolbar scroll with the page — nothing up here is pinned. */}
       <AttentionStrip
         {...attention}
         onOpen={key => {
@@ -1116,7 +1131,7 @@ export default function CandidatesPage() {
           setCtxPanelExpanded(true);
         }}
       />
-      <div ref={stickyHeadRef} style={S.stickyHead}>
+      <div style={S.stageHead}>
       {/* Pipeline stage tabs — the five live stages stay flat (daily
           work); the archive (Hired / Rejected / Talent Bank / All closed)
           folds into one "Closed" dropdown, since you only look back at it. */}
@@ -1138,6 +1153,8 @@ export default function CandidatesPage() {
           onSelect={selectTab}
         />
       </div>
+      </div>
+      {/* Only the stage tabs stay pinned; the search / filter toolbar scrolls away with the page. */}
 
       {/* Toolbar — search + position + filter button + sort + density */}
       <div style={S.toolbar}>
@@ -1215,7 +1232,6 @@ export default function CandidatesPage() {
           </button>
         </div>
 
-      </div>
       </div>
 
       {/* Filter drawer — chips + quick toggles. Collapses to save vertical
@@ -1331,6 +1347,7 @@ export default function CandidatesPage() {
                 sessionActioned={sessionActioned}
                 sessionShortlisted={sessionShortlisted}
                 sessionRejected={sessionRejected}
+                sessionMovedOn={sessionMovedOn}
                 isRepeat={c => repeatCountFor(c) > 1}
                 groupByInterviewBucket={tab === 'INTERVIEWING'}
                 hideScheduled={tab === 'NEW'}
@@ -1490,8 +1507,7 @@ export default function CandidatesPage() {
       <div style={{ ...S.tableWrap, display: reviewOpen ? 'none' : undefined }}>
         {isLoading ? (
           <div style={S.empty}>
-            <FontAwesomeIcon icon={faCircleNotch} spin style={{ marginRight: 8 }} />
-            Loading…
+            <LoadingSpinner />
           </div>
         ) : items.length === 0 ? (
           <div style={S.empty}>
@@ -2507,6 +2523,7 @@ function ReviewSidebar(props: {
   sessionActioned: Set<string>;
   sessionShortlisted: Set<string>;
   sessionRejected: Set<string>;
+  sessionMovedOn: Set<string>;
   isRepeat: (c: Candidate) => boolean;
   groupByInterviewBucket: boolean;
   /** Drop rows scheduled during THIS session. Only true on the NEW-tab
@@ -2518,7 +2535,7 @@ function ReviewSidebar(props: {
   hideScheduled: boolean;
   onJump: (idx: number) => void;
 }) {
-  const { items, currentIdx, sessionActioned, sessionShortlisted, sessionRejected, isRepeat, groupByInterviewBucket, hideScheduled, onJump } = props;
+  const { items, currentIdx, sessionActioned, sessionShortlisted, sessionRejected, sessionMovedOn, isRepeat, groupByInterviewBucket, hideScheduled, onJump } = props;
   const listRef = useRef<HTMLUListElement | null>(null);
 
   // Filter out rejected candidates so the sidebar clears them out
@@ -2530,12 +2547,13 @@ function ReviewSidebar(props: {
       .map((c, origIdx) => ({ c, origIdx }))
       .filter(({ c }) =>
         !sessionRejected.has(c.id)
+        && !sessionMovedOn.has(c.id)
         // On NEW-tab triage, a candidate scheduled in this session drops
         // out of the sidebar the moment the Schedule modal saves — same
         // rhythm as rejected rows. Ones already scheduled before the page
         // loaded stay, so they can be triaged.
         && (!hideScheduled || !c.interviewStart || !sessionActioned.has(c.id))),
-    [items, sessionRejected, sessionActioned, hideScheduled],
+    [items, sessionRejected, sessionMovedOn, sessionActioned, hideScheduled],
   );
 
   // Client-side paging for long queues (bulk imports easily produce
@@ -4795,10 +4813,8 @@ const S = {
   // negative margin) is breathing room under the navbar once stuck.
   // flow-root keeps the toolbar's bottom margin inside the box, so that
   // gap is covered too and counts toward the measured height.
-  stickyHead: {
-    position: 'sticky', top: 0, zIndex: 20,
-    background: C.bg, display: 'flow-root',
-    paddingTop: 12, marginTop: -12,
+  stageHead: {
+    display: 'flow-root',
   } as React.CSSProperties,
   tabBar: {
     display: 'flex', alignItems: 'center', gap: 4,
@@ -5482,12 +5498,12 @@ const S = {
   reviewSidebar: {
     background: C.surface, border: `1px solid ${C.border}`,
     borderRadius: 14, padding: '14px 10px',
-    // Parks directly under the sticky tabs + toolbar (--kc-sticky-h, set
-    // on the shell) and fills the rest of the visible scroll area
-    // (viewport − 50px navbar − that header − 12px bottom gap) — a short
-    // queue no longer leaves a stubby card; a long one scrolls inside.
-    position: 'sticky', top: 'var(--kc-sticky-h, 12px)',
-    height: 'calc(100vh - 62px - var(--kc-sticky-h, 12px))', overflowY: 'auto',
+    // Sticks to the top of the scroll area (nothing above it is pinned) and
+    // fills the rest of the visible area (viewport − 50px navbar − 12px top
+    // and bottom gaps) — a short queue doesn't leave a stubby card; a long
+    // one scrolls inside.
+    position: 'sticky', top: REVIEW_SIDEBAR_GAP,
+    height: `calc(100vh - 50px - ${REVIEW_SIDEBAR_GAP * 2}px)`, overflowY: 'auto',
     boxShadow: SHADOW.sm,
   } as React.CSSProperties,
   reviewSidebarHeader: {

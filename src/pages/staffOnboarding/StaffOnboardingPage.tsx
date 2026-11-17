@@ -18,6 +18,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { whatsappSendUrl } from '../../utils/whatsapp.js';
 import { StaffChecklistModal, type StaffList } from './StaffChecklistModal.js';
 import { checklistFor, checklistProgress, onboardingStage, type OnboardingStage } from './progress.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // HR → Onboarding — the staff version of Students → Onboarding, same look.
 // Each new joiner has two checklists: HR's (ticked here) and their own
@@ -134,7 +135,7 @@ export default function StaffOnboardingPage() {
           </div>
         )}
 
-        {isPending && <p style={{ color: '#64748b', fontSize: 14, textAlign: 'center', padding: 24 }}>Loading…</p>}
+        {isPending && <p style={{ color: '#64748b', fontSize: 14, textAlign: 'center', padding: 24 }}><LoadingSpinner /></p>}
 
         {isError && (
           <div style={{ padding: '40px 20px', textAlign: 'center', background: '#fff', borderRadius: 12, border: '1px solid #fecaca' }}>

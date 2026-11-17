@@ -61,7 +61,7 @@ describe('LeadsPage', () => {
   it('shows loading state while fetch is pending', () => {
     mockedFetchLeads.mockReturnValue(new Promise(() => {}));
     renderPage();
-    expect(screen.getByText('Loading…')).toBeDefined();
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeDefined();
   });
 
   it('shows error message when fetch fails', async () => {

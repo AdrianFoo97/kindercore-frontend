@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
+import { faChevronDown,
   faArrowDown, faArrowUp, faCircleCheck, faCircleExclamation, faPen, faPlus, faScaleBalanced, faTrash, faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 import ConfirmDialog from '../../../components/common/ConfirmDialog.js';
@@ -9,15 +9,22 @@ import {
   FULL_WEIGHT, inputSummary, isFullWeight, isOverWeight, moveItem, newCriterion, newSection, remainingWeight, spreadEvenly, typedWeight, weightTotal,
   type DraftCriterion, type DraftSection,
 } from './appraisalFormDraft.js';
-import { C, btn, card, cardHint, cardTitle, iconBtn, input, weightInput } from './formTheme.js';
+import { C, btn, card, iconBtn, input, weightInput } from './formTheme.js';
+import StepHeading from './StepHeading.js';
 
 interface Props {
   sections: DraftSection[];
   onChange?: (sections: DraftSection[]) => void;
+  /** What this step still needs before the form can go live (undefined on read-only versions). */
+  issues?: string[];
+  /** This is a scoring form's body: its criteria are scored directly — no "on several points", no scoring form. */
+  inScoringForm?: boolean;
+  /** The appraisal form's "who it's for" — narrows the scoring forms offered. */
+  positionIds?: string[];
 }
 
 /** "What's scored": weighted sections, each holding weighted criteria. Read-only when onChange is omitted. */
-export default function SectionsCard({ sections, onChange }: Props) {
+export default function SectionsCard({ sections, onChange, issues, inScoringForm = false, positionIds = [] }: Props) {
   const [editing, setEditing] = useState<{ sectionKey: string; criterion: DraftCriterion; isNew: boolean } | null>(null);
   const [removing, setRemoving] = useState<DraftSection | null>(null);
   const readOnly = !onChange;
@@ -38,12 +45,9 @@ export default function SectionsCard({ sections, onChange }: Props) {
 
   return (
     <section style={card} aria-labelledby="af-scored">
-      <style>{`.af-crit-name:hover { color: ${C.primary}; text-decoration: underline; }`}</style>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <h2 id="af-scored" style={cardTitle}>What’s scored</h2>
-        {sections.length > 0 && <WeightTotal label="Sections" weights={sections.map(s => s.weight)} />}
-      </div>
-      <p style={cardHint}>Each section is a share of the total. Each criterion is a share of its section. Both need to make 100%.</p>
+      <StepHeading id="af-scored" title="What’s scored" issues={issues}
+        hint="Sections share the total; criteria share their section. Each group makes 100%."
+        right={sections.length > 0 ? <WeightTotal label="Sections" weights={sections.map(s => s.weight)} /> : undefined} />
 
       {sections.length === 0 && (
         <div style={{ padding: '24px 16px', textAlign: 'center', border: `1px dashed ${C.borderStrong}`, borderRadius: 8, color: C.muted, fontSize: 14 }}>
@@ -82,7 +86,7 @@ export default function SectionsCard({ sections, onChange }: Props) {
       )}
 
       {editing && (
-        <CriterionModal criterion={editing.criterion} isNew={editing.isNew} onSave={saveCriterion} onClose={() => setEditing(null)} />
+        <CriterionModal criterion={editing.criterion} isNew={editing.isNew} onSave={saveCriterion} onClose={() => setEditing(null)} inScoringForm={inScoringForm} positionIds={positionIds} />
       )}
       {removing && (
         <ConfirmDialog
@@ -142,15 +146,12 @@ function WeightField({ value, invalid, onChange, ariaLabel }: WeightFieldProps) 
   );
 }
 
-/** The criterion's name opens its editor (same as the pencil) — looks like text until hovered. */
-const criterionNameBtn: React.CSSProperties = {
-  display: 'block', padding: 0, border: 'none', background: 'none', textAlign: 'left', fontFamily: 'inherit',
-  fontSize: 14, fontWeight: 600, color: C.text, cursor: 'pointer',
+const sectionNumber: React.CSSProperties = {
+  width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  fontSize: 13, fontWeight: 700, color: C.primary, background: C.primarySoft,
 };
-/** Points sit indented under their criterion with a left rule — the visible third level. */
-const pointList: React.CSSProperties = {
-  margin: '8px 0 0', padding: '0 0 0 24px', borderLeft: `2px solid ${C.border}`, listStyle: 'disc',
-};
+const criterionNumber: React.CSSProperties = { minWidth: 28, flexShrink: 0, fontSize: 14, fontWeight: 600, color: C.muted, lineHeight: '20px', fontVariantNumeric: 'tabular-nums' };
+
 
 interface MoveButtonsProps { index: number; count: number; what: string; onMove: (by: -1 | 1) => void; onRemove: () => void }
 
@@ -197,6 +198,8 @@ function SectionBlock({ section: s, sectionWeights, index, count, readOnly, onPa
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '12px 16px', background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+        {/* Numbered for easy counting: sections 1, 2…; criteria 1.1, 1.2… */}
+        <span aria-hidden style={sectionNumber}>{index + 1}</span>
         {readOnly
           ? <span style={{ flex: '1 1 200px', fontSize: 15, fontWeight: 700, color: C.text }}>{s.name}</span>
           : <input aria-label={`Name of section ${index + 1}`} style={{ ...input, flex: '1 1 200px', fontWeight: 600 }} value={s.name} maxLength={191}
@@ -212,25 +215,21 @@ function SectionBlock({ section: s, sectionWeights, index, count, readOnly, onPa
       )}
       {s.criteria.map((c, i) => (
         <div key={c.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', padding: '12px 16px', borderTop: i ? `1px solid ${C.border}` : 'none' }}>
+          <span aria-hidden style={criterionNumber}>{index + 1}.{i + 1}</span>
           <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-            {readOnly
-              ? <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{c.name}</div>
-              : (
-                <button type="button" className="af-crit-name" onClick={() => onEditCriterion(c, false)} title={`Edit ${c.name}`} style={criterionNameBtn}>
-                  {c.name}
-                </button>
-              )}
+            {/* Plain text — the pencil on the right edits it. */}
+            <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{c.name}</div>
             <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>
-              {[
-                c.points.length ? `${c.points.length} ${c.points.length === 1 ? 'point' : 'points'}` : '',
-                inputSummary(c),
-                c.description,
-              ].filter(Boolean).join(' · ')}
+              {[inputSummary(c), c.description].filter(Boolean).join(' · ')}
             </div>
-            {c.points.length > 0 && (
-              <ul aria-label={`Points for ${c.name}`} style={pointList}>
-                {c.points.map(p => <li key={p.key} style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}>{p.name}</li>)}
-              </ul>
+            {/* Scored from a copied scoring form: what's in it, a tap away. */}
+            {c.inputType === 'FORM' && <ScoringFormItems copy={c.otherConfig} />}
+            {/* "On several points" is no longer offered: an old one says so until it's changed (it can't go live like this). */}
+            {c.inputType === 'POINTS' && !readOnly && (
+              <p role="status" style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '6px 0 0', fontSize: 13, fontWeight: 600, color: C.amber }}>
+                <FontAwesomeIcon icon={faCircleExclamation} aria-hidden />
+                No longer offered — edit it to pick how it’s scored
+              </p>
             )}
           </div>
           {readOnly
@@ -262,6 +261,49 @@ function SectionBlock({ section: s, sectionWeights, index, count, readOnly, onPa
             </button>
           )}
           {s.criteria.length > 0 && <span style={{ marginLeft: 'auto' }}><WeightTotal label="Criteria" weights={s.criteria.map(c => c.weight)} /></span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface CopiedSection { name: string; weight: number; criteria: { name: string; weight: number; description?: string | null }[] }
+
+/**
+ * Under a criterion scored from a scoring form: "Show items" opens a read-only
+ * list of the copy it uses — each section and item with its weight — so you can
+ * see what will be scored without leaving the form.
+ */
+function ScoringFormItems({ copy }: { copy: unknown }) {
+  const [open, setOpen] = useState(false);
+  const sections = ((copy as { sections?: CopiedSection[] } | null)?.sections ?? []);
+  const count = sections.reduce((a, s) => a + s.criteria.length, 0);
+  if (count === 0) return null;
+  return (
+    <div style={{ marginTop: 4 }}>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 28, padding: 0, border: 'none', background: 'none', color: C.primary, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+        <FontAwesomeIcon icon={faChevronDown} style={{ fontSize: 11, transform: open ? 'rotate(180deg)' : 'none' }} />
+        {open ? 'Hide items' : `Show ${count} item${count === 1 ? '' : 's'}`}
+      </button>
+      {open && (
+        <div style={{ marginTop: 6, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+          {sections.map((s, si) => (
+            <div key={si}>
+              {(sections.length > 1 || s.name) && (
+                <div style={{ display: 'flex', gap: 8, padding: '6px 12px', background: C.bg, fontSize: 12, fontWeight: 700, color: C.muted, borderTop: si ? `1px solid ${C.border}` : 'none' }}>
+                  <span style={{ flex: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.name}</span><span>{s.weight}%</span>
+                </div>
+              )}
+              <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {s.criteria.map((c, ci) => (
+                  <li key={ci} style={{ display: 'flex', gap: 8, padding: '6px 12px', fontSize: 13, color: C.sub, borderTop: `1px solid ${C.border}` }}>
+                    <span style={{ flex: 1, minWidth: 0 }}>{c.name}</span><span style={{ color: C.muted }}>{c.weight}%</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
         </div>
       )}
     </div>

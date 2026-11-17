@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faClipboardCheck } from '@fortawesome/free-solid-svg-icons';
 import { fetchObservations, SopObservation, SopObservationStatus } from '../api/sop-observations.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc',
@@ -92,7 +93,7 @@ export default function SopObservationsPage() {
 
         <div style={s.card}>
           {isLoading ? (
-            <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
+            <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
           ) : observations.length === 0 ? (
             <div style={{ padding: '48px 20px', textAlign: 'center' }}>
               <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 24, color: C.mutedSoft, marginBottom: 10 }} />

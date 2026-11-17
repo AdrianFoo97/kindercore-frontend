@@ -10,6 +10,7 @@ import { fetchOperatingCostCategories, fetchOperatingCostEntries, fetchOperating
 import { Teacher } from '../../types/index.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc', card: '#fff', text: '#1e293b', muted: '#64748b', border: '#e2e8f0',
@@ -249,7 +250,7 @@ export default function EmployeeCostPage() {
     return { data, totalWeight };
   }, [weightsData]);
 
-  if (isLoading) return <div style={s.centered}>Loading...</div>;
+  if (isLoading) return <div style={s.centered}><LoadingSpinner /></div>;
 
   return (
     <div style={{ ...s.page, ...(isMobile ? { padding: '20px 12px' } : {}) }}>

@@ -9,6 +9,7 @@ import { STATUS_TEXT, fmtDate, kindLabel, parseSuggestionTab, sentSuggestions, s
 import SegmentedControl from '../../components/common/SegmentedControl.js';
 import { C, TONE, card, pageStyle, theme } from './mySuggestionsTheme.js';
 import { feedbackSummary } from './reviewComments.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 const SUGGEST_NEW_PATH = '/operations/sops/propose';
 
@@ -56,7 +57,7 @@ export default function MySuggestionsPage() {
           </button>
         )}
 
-        {isLoading && <p style={{ color: C.muted, fontSize: 14 }}>Loading…</p>}
+        {isLoading && <p style={{ color: C.muted, fontSize: 14 }}><LoadingSpinner /></p>}
         {isError && (
           <p role="alert" style={{ color: C.no, fontSize: 14 }}>
             Couldn’t load your guide ideas.{' '}

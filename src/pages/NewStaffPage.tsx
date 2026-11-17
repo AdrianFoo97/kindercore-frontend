@@ -7,6 +7,7 @@ import { approveStaffJoin, fetchStaffJoins, joinFormUrl, rejectStaffJoin, type S
 import { HireDetailsModal } from './candidates/HireDetailsModal.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.js';
 import { useToast } from '../components/common/Toast.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // HR → New Staff: people who joined without going through Recruitment fill
 // in the public /join form; HR approves them onto the staff list (same
@@ -87,7 +88,7 @@ export default function NewStaffPage() {
       </div>
 
       {isLoading ? (
-        <p style={s.empty}>Loading…</p>
+        <p style={s.empty}><LoadingSpinner /></p>
       ) : shown.length === 0 ? (
         <div style={s.emptyCard}>
           <FontAwesomeIcon icon={faIdCard} style={{ fontSize: 22, color: C.soft, marginBottom: 8 }} />

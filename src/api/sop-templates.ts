@@ -22,6 +22,8 @@ export interface SopTemplate {
   // updateTemplate return the bare row, so this is absent there. Consumers
   // should default to [] rather than assume it's always populated.
   categories?: SopTemplateCategoryRef[];
+  /** How many live steps it has — only on listTemplates. */
+  stepCount?: number;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;

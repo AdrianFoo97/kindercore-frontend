@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -12,6 +12,8 @@ import { Position } from '../../types/index.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
 import { SettingsBreadcrumb } from '../../components/common/SettingsBreadcrumb.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import { payRangeLabel, readPay } from './payRange.js';
 
 const C = {
   primary: '#5a67d8', primaryLight: '#eef0fa', card: '#fff', text: '#1e293b',
@@ -50,50 +52,35 @@ export default function EmployeeSalaryPage({ embedded = false }: { embedded?: bo
   //   /settings/employee-salary/positions/:id/edit
   // The list page now just renders the table + dispatches navigation.
   const [menuOpenPosId, setMenuOpenPosId] = useState<string | null>(null);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dropIdx, setDropIdx] = useState<number | null>(null);
-
-  const onDragStart = (idx: number) => (e: React.DragEvent) => {
-    setDragIdx(idx);
-    e.dataTransfer.effectAllowed = 'move';
+  // Basic salary, edited in place: the position being edited and what's typed (kept as typed).
+  const [editingPos, setEditingPos] = useState<string | null>(null);
+  const [salaryText, setSalaryText] = useState('');
+  // Total pay range (basic + allowances + incentives), edited with the basic salary.
+  const [minText, setMinText] = useState('');
+  const [maxText, setMaxText] = useState('');
+  const [savingSalary, setSavingSalary] = useState(false);
+  const read = readPay(salaryText, minText, maxText);
+  const salaryProblem = 'problem' in read ? read.problem : null;
+  const startEditing = (pos: Position) => {
+    setEditingPos(pos.positionId);
+    setSalaryText(String(pos.basicSalary));
+    setMinText(pos.payRangeMin == null ? '' : String(pos.payRangeMin));
+    setMaxText(pos.payRangeMax == null ? '' : String(pos.payRangeMax));
   };
-  const onDragOver = (idx: number) => (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dropIdx !== idx) setDropIdx(idx);
-  };
-  const onDragEnd = () => { setDragIdx(null); setDropIdx(null); };
-  const onDrop = (idx: number) => async (e: React.DragEvent) => {
-    e.preventDefault();
-    if (dragIdx === null || dragIdx === idx) { onDragEnd(); return; }
-    // Reorder within the currently-filtered department only — reuse that
-    // department's own existing sortOrder values so other departments'
-    // positions (outside this filtered view) are never touched.
-    const currentList = filteredPositions;
-    const reordered = [...currentList];
-    const [moved] = reordered.splice(dragIdx, 1);
-    reordered.splice(idx, 0, moved);
-    onDragEnd();
-    const sortOrders = currentList.map(p => p.sortOrder).slice().sort((a, b) => a - b);
-    for (let i = 0; i < reordered.length; i++) {
-      const pos = reordered[i];
-      const newSortOrder = sortOrders[i];
-      if (pos.sortOrder === newSortOrder) continue;
-      await upsertPosition(pos.positionId, {
-        name: pos.name, titleWeight: pos.titleWeight, basicSalary: pos.basicSalary,
-        maxLevel: pos.maxLevel, sortOrder: newSortOrder, inCareerProgression: pos.inCareerProgression,
-        badgeUrl: pos.badgeUrl, starColor: pos.starColor,
-      });
+  const saveSalary = async (pos: Position) => {
+    if (!('pay' in read)) return;
+    setSavingSalary(true);
+    try {
+      await upsertPosition(pos.positionId, { name: pos.name, titleWeight: pos.titleWeight, maxLevel: pos.maxLevel, ...read.pay });
+      qc.invalidateQueries({ queryKey: ['salary-positions'] });
+      showToast(`${pos.name}: pay saved`);
+      setEditingPos(null);
+    } catch (e: any) {
+      showToast(e?.message ?? 'Couldn’t save', 'error');
     }
-    qc.invalidateQueries({ queryKey: ['salary-positions'] });
-    showToast('Order updated');
+    setSavingSalary(false);
   };
 
-  // Edit / Add navigate to the dedicated page instead of inline-
-  // editing the row. Keeps the list clean and gives the form room
-  // for fields like description and richer help text.
-  const openEditPos = (p: Position) => navigate(`/settings/employee-salary/positions/${p.positionId}/edit`);
-  const openAddPos = () => navigate('/settings/employee-salary/positions/new');
 
   const removePos = async (pos: Position) => {
     const ok = await confirmDelete({
@@ -171,15 +158,15 @@ export default function EmployeeSalaryPage({ embedded = false }: { embedded?: bo
     return m;
   }, [teachersSalary]);
 
-  if (posLoading) return <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>;
+  if (posLoading) return <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}><div style={s.inner}><p style={{ color: C.muted }}><LoadingSpinner /></p></div></div>;
 
   return (
     <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : s.page}>
-      <div style={s.inner}>
+      <div style={embedded ? undefined : s.inner}>
         {!embedded && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
-            <h1 style={{ ...s.heading, margin: 0 }}>Employee Salary</h1>
-            <SettingsBreadcrumb label="Employee Salary" inline />
+            <h1 style={{ ...s.heading, margin: 0 }}>Payroll</h1>
+            <SettingsBreadcrumb label="Payroll" inline />
           </div>
         )}
 
@@ -196,19 +183,20 @@ export default function EmployeeSalaryPage({ embedded = false }: { embedded?: bo
         {/* ── Positions table ── */}
         <div style={s.card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={s.sectionTitle}>Positions</h2>
-            <button onClick={openAddPos} style={s.addBtn}>
-              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Add Position
-            </button>
+            <div>
+              <h2 style={s.sectionTitle}>Salary by position</h2>
+              <p style={{ fontSize: 12, color: C.muted, margin: '4px 0 0' }}>Basic salary has no allowances. Total pay range is basic plus every allowance and incentive.</p>
+            </div>
+
           </div>
 
           <div className="m-scroll-x">
             <table className="m-minw" style={{ ...s.table, tableLayout: 'fixed' }}>
               <colgroup>
-                <col style={{ width: 32 }} />
                 <col style={{ width: 56 }} />
                 <col />
                 <col style={{ width: 100 }} />
+                <col style={{ width: 190 }} />
                 <col style={{ width: 80 }} />
                 <col style={{ width: 76 }} />
                 <col style={{ width: 96 }} />
@@ -216,8 +204,7 @@ export default function EmployeeSalaryPage({ embedded = false }: { embedded?: bo
               </colgroup>
               <thead>
                 <tr>
-                  <th style={s.th} />
-                  {['ID', 'Position', 'Basic Salary', 'Has Levels', 'Max Level', 'Title Weight', ''].map(h => (
+                  {['ID', 'Position', 'Basic Salary', 'Total Pay Range', 'Has Levels', 'Max Level', 'Title Weight', ''].map(h => (
                     <th key={h} style={s.th}>{h}</th>
                   ))}
                 </tr>
@@ -225,22 +212,11 @@ export default function EmployeeSalaryPage({ embedded = false }: { embedded?: bo
               <tbody>
                 {filteredPositions.map((pos, idx) => {
                   const tCount = teacherCountByPos.get(pos.positionId) ?? 0;
-                  const isDragging = dragIdx === idx;
-                  const isDropTarget = dropIdx === idx && dragIdx !== null && dragIdx !== idx;
                   return (
                     <tr
                       key={pos.positionId}
-                      style={{ ...s.tr, cursor: 'default', opacity: isDragging ? 0.4 : 1, borderTop: isDropTarget ? '2px solid #5a67d8' : undefined }}
-                      onDragOver={onDragOver(idx)}
-                      onDrop={onDrop(idx)}
+                      style={{ ...s.tr, cursor: 'default' }}
                     >
-                      <td style={{ ...s.td, padding: '6px 4px 6px 10px' }}>
-                        <span draggable onDragStart={onDragStart(idx)} onDragEnd={onDragEnd}
-                          title="Drag to reorder"
-                          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, color: C.muted, cursor: 'grab', fontSize: 12 }}>
-                          <FontAwesomeIcon icon={faGripVertical} />
-                        </span>
-                      </td>
                       <td style={s.td}><span style={s.posId}>{pos.positionId}</span></td>
                       <td style={s.td}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -258,7 +234,32 @@ export default function EmployeeSalaryPage({ embedded = false }: { embedded?: bo
                           )}
                         </div>
                       </td>
-                      <td style={s.td}><span style={{ fontWeight: 600 }}>{fmtRM(pos.basicSalary)}</span></td>
+                      <td style={s.td}>
+                        {editingPos === pos.positionId ? (
+                          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                            <input type="number" inputMode="decimal" min={0} autoFocus aria-label={`${pos.name} basic salary`} value={salaryText}
+                              aria-invalid={!!salaryProblem} onChange={e => setSalaryText(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') saveSalary(pos); if (e.key === 'Escape') setEditingPos(null); }}
+                              style={{ width: 92, padding: '4px 8px', fontSize: 14, fontFamily: 'inherit', borderRadius: 6, border: `1px solid ${salaryProblem ? '#b91c1c' : '#cbd5e1'}` }} />
+                          </span>
+                        ) : <span style={{ fontWeight: 600 }}>{fmtRM(pos.basicSalary)}</span>}
+                      </td>
+                      <td style={s.td}>
+                        {editingPos === pos.positionId ? (
+                          <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <input type="number" inputMode="decimal" min={0} placeholder="Min" aria-label={`${pos.name} pay range from`} value={minText}
+                                onChange={e => setMinText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveSalary(pos); if (e.key === 'Escape') setEditingPos(null); }}
+                                style={{ width: 76, padding: '4px 8px', fontSize: 14, fontFamily: 'inherit', borderRadius: 6, border: '1px solid #cbd5e1' }} />
+                              <span aria-hidden style={{ color: C.muted }}>–</span>
+                              <input type="number" inputMode="decimal" min={0} placeholder="Max" aria-label={`${pos.name} pay range to`} value={maxText}
+                                onChange={e => setMaxText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveSalary(pos); if (e.key === 'Escape') setEditingPos(null); }}
+                                style={{ width: 76, padding: '4px 8px', fontSize: 14, fontFamily: 'inherit', borderRadius: 6, border: '1px solid #cbd5e1' }} />
+                            </span>
+                            {salaryProblem && <span role="alert" style={{ fontSize: 11, color: '#b91c1c', whiteSpace: 'normal', lineHeight: 1.4, maxWidth: 176 }}>{salaryProblem}</span>}
+                          </span>
+                        ) : <span style={{ color: payRangeLabel(pos.payRangeMin, pos.payRangeMax) ? C.text : C.muted }}>{payRangeLabel(pos.payRangeMin, pos.payRangeMax) ?? 'Not set'}</span>}
+                      </td>
                       <td style={{ ...s.td, textAlign: 'center' }}>
                         {pos.maxLevel > 0
                           ? <span style={{ fontSize: 11, fontWeight: 600, color: C.green }}>Yes</span>
@@ -269,17 +270,19 @@ export default function EmployeeSalaryPage({ embedded = false }: { embedded?: bo
                       <td style={{ ...s.td, textAlign: 'center', color: C.muted }}>{pos.titleWeight}</td>
                       <td style={{ ...s.td, textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', alignItems: 'center' }}>
-                          <button onClick={() => openEditPos(pos)} style={s.actionBtn} title="Edit">
-                            <FontAwesomeIcon icon={faPen} style={{ fontSize: 11 }} />
-                          </button>
-                          <MoreMenuTrigger
-                            isOpen={menuOpenPosId === pos.positionId}
-                            onToggle={() => setMenuOpenPosId(menuOpenPosId === pos.positionId ? null : pos.positionId)}
-                            onDelete={() => { setMenuOpenPosId(null); removePos(pos); }}
-                            onClose={() => setMenuOpenPosId(null)}
-                            disabled={tCount > 0}
-                            disabledReason={tCount > 0 ? `Cannot delete — ${tCount} teacher(s) assigned` : undefined}
-                          />
+                          {editingPos === pos.positionId ? (
+                            <>
+                              <button onClick={() => setEditingPos(null)} style={{ ...s.actionBtn, width: 'auto', padding: '0 8px', fontSize: 12 }}>Cancel</button>
+                              <button onClick={() => saveSalary(pos)} disabled={!!salaryProblem || savingSalary} title={salaryProblem ?? undefined}
+                                style={{ ...s.actionBtn, width: 'auto', padding: '0 10px', fontSize: 12, fontWeight: 600, color: '#fff', background: salaryProblem || savingSalary ? '#a5b4fc' : C.primary, cursor: salaryProblem || savingSalary ? 'default' : 'pointer' }}>
+                                {savingSalary ? 'Saving…' : 'Save'}
+                              </button>
+                            </>
+                          ) : (
+                            <button onClick={() => startEditing(pos)} style={s.actionBtn} title="Edit pay" aria-label={`Edit ${pos.name} basic salary and pay range`}>
+                              <FontAwesomeIcon icon={faPen} style={{ fontSize: 11 }} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

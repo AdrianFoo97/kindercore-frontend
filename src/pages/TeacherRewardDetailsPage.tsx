@@ -14,6 +14,7 @@ import { resolveRewardIcon } from '../constants/pointsMeta.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.js';
 import { useToast } from '../components/common/Toast.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Catalog item details — reached when a teacher taps a card on the
@@ -82,7 +83,7 @@ export default function TeacherRewardDetailsPage() {
       <div style={s.page}>
         <div style={s.inner}>
           <div style={{ marginTop: SP.xl, padding: '48px 24px', textAlign: 'center', color: C.muted, fontSize: 13 }}>
-            Loading…
+            <LoadingSpinner />
           </div>
         </div>
       </div>

@@ -24,6 +24,7 @@ import { MARKETING_CHANNELS } from '../constants/marketingChannels.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCalendarDays, faCircleCheck, faClock, faEnvelope, faGraduationCap, faXmark, faTrash, faPen, faTriangleExclamation, faArrowUpRightFromSquare, faCircleXmark, faMagnifyingGlass, faPhone, faNoteSticky, faChevronLeft, faChevronRight, faFire, faSun, faSnowflake, faBolt, faScaleBalanced, faFilter, faArrowRight, faPerson, faPersonDress, faUser, faVideo, faUsers, faQuestion, faGlobe, faQrcode, faPenToSquare, faArrowRotateLeft, faPersonWalking, faCar, faComments, faSeedling, faChildren, faRectangleAd, faArrowsRotate, faTags, faBullhorn, faPlus, faCheck, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faFacebook, faGoogle, faTiktok, faInstagram } from '@fortawesome/free-brands-svg-icons';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 const STATUSES: LeadStatus[] = ['NEW', 'CONTACTED', 'APPOINTMENT_BOOKED', 'FOLLOW_UP', 'ENROLLED', 'LOST', 'REJECTED'];
 
@@ -2206,7 +2207,7 @@ function EnrollmentModal({ lead, onClose, onEnrolled }: { lead: Lead; onClose: (
             Enrolment Year
             <input type="text" style={{ ...mo.input, background: '#f8fafc', color: '#64748b' }} value={enrolmentYear} disabled />
           </label>
-          {loadingPkgs ? <span style={{ fontSize: 13, color: '#64748b' }}>Loading packages…</span>
+          {loadingPkgs ? <span style={{ fontSize: 13, color: '#64748b' }}><LoadingSpinner label="Loading packages" inline /></span>
             : packages.length === 0
               ? <span style={{ fontSize: 13, color: '#64748b' }}>No packages for {enrolmentYear}</span>
             : (
@@ -3116,7 +3117,7 @@ export default function LeadsPage() {
           )}
 
 
-          {!isTrash && isLoading && <div style={{ padding: 40, textAlign: 'center', color: '#718096', fontSize: 14 }}>Loading…</div>}
+          {!isTrash && isLoading && <div style={{ padding: 40, textAlign: 'center', color: '#718096', fontSize: 14 }}><LoadingSpinner /></div>}
           {!isTrash && isError && <div style={{ padding: 20, color: '#e53e3e', fontSize: 14 }}>Error: {(error as Error).message}</div>}
 
           {isTrash && trashedLeads.length === 0 && (

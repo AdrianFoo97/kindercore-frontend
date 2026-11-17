@@ -7,6 +7,7 @@ import { fetchTeachers } from '../../api/planner.js';
 import { fetchAuthRoles } from '../../api/auth-roles.js';
 import { useToast } from '../../components/common/Toast.js';
 import { memberActivity } from './memberActivity.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 interface UserRecord {
   id: string;
@@ -350,7 +351,7 @@ export default function ManageUsersPage() {
           </h3>
         </div>
         {isLoading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: '#64748b', fontSize: 14 }}>Loading...</div>
+          <div style={{ padding: 32, textAlign: 'center', color: '#64748b', fontSize: 14 }}><LoadingSpinner /></div>
         ) : activeUsers.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: '#64748b', fontSize: 14 }}>No active members.</div>
         ) : (

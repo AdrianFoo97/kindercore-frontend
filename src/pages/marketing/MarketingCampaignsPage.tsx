@@ -9,6 +9,7 @@ import {
 } from '../../api/marketing-campaigns.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Marketing campaigns — each has a promo code parents can enter on the
 // public enquiry form, valid only while today falls within
@@ -217,7 +218,7 @@ export default function MarketingCampaignsPage() {
           )}
 
           {isLoading ? (
-            <p style={{ padding: 24, color: C.mutedSoft, fontSize: 13 }}>Loading…</p>
+            <p style={{ padding: 24, color: C.mutedSoft, fontSize: 13 }}><LoadingSpinner /></p>
           ) : campaigns.length === 0 ? (
             <p style={{ padding: 24, textAlign: 'center', color: C.muted, fontSize: 13 }}>
               No campaigns configured yet.

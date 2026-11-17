@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 /** One checklist template on the page — e.g. HR's list and the new joiner's own list. */
 export interface ChecklistSection {
@@ -30,7 +31,7 @@ export default function OnboardingSettingsPage({
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
-  if (isLoading) return <p style={styles.state}>Loading…</p>;
+  if (isLoading) return <p style={styles.state}><LoadingSpinner /></p>;
   if (isError) return <p style={{ ...styles.state, color: '#e53e3e' }}>Failed to load settings.</p>;
 
   return (

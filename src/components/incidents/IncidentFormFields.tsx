@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMagnifyingGlass, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { fetchIncidentStudentOptions, todayInMalaysia, IncidentInput } from '../../api/incidents.js';
+import LoadingSpinner from '../common/LoadingSpinner.js';
 
 // The incident report fields — shared by the teacher app's "Report an
 // incident" page and the admin Operation → Incidents form, because the two
@@ -270,7 +271,7 @@ function StudentPicker({ value, onChange, theme, disabled }: Props) {
           <div style={st.menu} role="listbox" aria-multiselectable>
             {groups.length === 0 ? (
               <div style={{ padding: '10px 12px', fontSize: 13, color: theme.muted }}>
-                {isLoading ? 'Loading…' : 'No student matches — type the name in the box below instead.'}
+                {isLoading ? <LoadingSpinner inline /> : 'No student matches — type the name in the box below instead.'}
               </div>
             ) : groups.map(g => (
               <div key={g.label} role="group" aria-label={g.label}>

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 const PINNED_REASON = "Didn't attend the enquiry";
 
@@ -158,7 +159,7 @@ export default function SettingsPage() {
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
-  if (isLoading) return <p style={styles.state}>Loading settings…</p>;
+  if (isLoading) return <p style={styles.state}><LoadingSpinner label="Loading settings" /></p>;
   if (isError) return <p style={{ ...styles.state, color: '#e53e3e' }}>Failed to load settings.</p>;
 
   const lostReasons: string[] = Array.isArray(data?.lost_reasons) ? data.lost_reasons as string[] : [];

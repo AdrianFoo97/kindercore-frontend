@@ -14,6 +14,7 @@ import { computeOutcomeCounts, OutcomeKey } from '../../components/analysis/Outc
 import LeadsFilterStrip from '../../components/analysis/LeadsFilterStrip.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect } from '../../components/common/FilterPill.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // ── Palette ───────────────────────────────────────────────────────
 const C = {
@@ -255,7 +256,7 @@ export default function SalesMarketingPage() {
     queryFn: () => fetchAnalytics(selectedYear),
   });
 
-  if (isLoading) return <div style={s.centered}>Loading…</div>;
+  if (isLoading) return <div style={s.centered}><LoadingSpinner /></div>;
   if (isError || !data) return <div style={s.centered}>Failed to load analytics.</div>;
 
   const ageKeys = Array.from(

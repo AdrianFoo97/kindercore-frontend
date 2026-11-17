@@ -10,6 +10,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FACILITY_STATUS_LABEL, ageLabel, sortForQueue } from './facilityDisplay.js';
 import { CATEGORY_ICON, STATUS_LOOK } from './facilityLook.js';
 import FacilityAttachments from './FacilityAttachments.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Teacher app → Facilities: report something broken (door, leaking pipe…)
 // and see where each of your reports stands, with the office's latest note.
@@ -66,7 +67,7 @@ export default function TeacherFacilitiesPage() {
 
         {/* States in order: loading → error (retry) → empty → content. */}
         {isLoading ? (
-          <div style={{ fontSize: 14, color: C.muted, padding: '12px 2px' }}>Loading…</div>
+          <div style={{ fontSize: 14, color: C.muted, padding: '12px 2px' }}><LoadingSpinner /></div>
         ) : isError ? (
           <div style={emptyCard}>
             <div style={emptyTitle}>Couldn’t load your reports.</div>

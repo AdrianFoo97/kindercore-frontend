@@ -9,6 +9,7 @@ import { useToast } from '../../components/common/Toast.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import PurchaseRequestFields, { TEACHER_PURCHASE_THEME } from './PurchaseRequestFields.js';
 import { emptyPurchaseDraft, purchaseDraftProblem, purchaseDraftToInput, type PurchaseDraft } from './purchaseDisplay.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Teacher app → Request an Item (/teachers/:id/purchases/new), or edit one
 // still waiting for approval (/teachers/:id/purchases/:requestId/edit). New
@@ -87,7 +88,7 @@ export default function TeacherRequestItemPage() {
         </p>
 
         {editing && !original ? (
-          <div style={{ fontSize: 13.5, color: C.muted }}>{mine ? 'This request isn’t available any more.' : 'Loading…'}</div>
+          <div style={{ fontSize: 13.5, color: C.muted }}>{mine ? 'This request isn’t available any more.' : <LoadingSpinner inline />}</div>
         ) : locked ? (
           <div role="alert" style={{ padding: 14, borderRadius: 12, background: '#eef2ff', color: '#4338ca', fontSize: 13.5, fontWeight: 600, lineHeight: 1.5 }}>
             It’s already been approved, so it can’t be changed. Ask your supervisor if something needs to change.

@@ -7,6 +7,7 @@ import { fetchPackages, fetchPackageYears } from '../../api/packages.js';
 import { fetchSettings } from '../../api/settings.js';
 import { Student } from '../../types/index.js';
 import { MARKETING_CHANNELS } from '../../constants/marketingChannels.js';
+import LoadingSpinner from '../common/LoadingSpinner.js';
 
 const OTHERS_VALUE = '__other__';
 
@@ -273,7 +274,7 @@ export default function AddStudentModal({
                 </div>
 
                 {packages.length === 0 ? (
-                  <span style={{ fontSize: 13, color: '#64748b' }}>Loading packages…</span>
+                  <span style={{ fontSize: 13, color: '#64748b' }}><LoadingSpinner label="Loading packages" inline /></span>
                 ) : (
                   <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <label style={modal.label}>

@@ -7,6 +7,7 @@ import { fetchRevisions, SopRevisionStatus } from '../api/sop-revisions.js';
 import { decisionWord } from './operations/mySuggestions.js';
 import { commentCountLabel } from './operations/reviewComments.js';
 import { fetchTemplates } from '../api/sop-templates.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc',
@@ -92,7 +93,7 @@ export default function HrSopRevisionsPage() {
         </div>
 
         {isLoading ? (
-          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
+          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
         ) : revisions.length === 0 ? (
           <div style={{ ...s.card, textAlign: 'center', padding: '48px 20px' }}>
             <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 22, color: C.mutedSoft, marginBottom: 10 }} />

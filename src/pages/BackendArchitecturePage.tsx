@@ -5,6 +5,7 @@ import { faSitemap, faSearch, faXmark, faLockOpen, faArrowLeft } from '@fortawes
 import { fetchBackendArchitecture, BackendArchitecture, ArchEndpoint } from '../api/admin.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import BackendArchitectureGraph, { nodeId, overviewRows, OverviewRow, Layer, LAYER_TITLE, LAYER_COLOR } from './BackendArchitectureGraph.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // Admin → Backend Architecture (Admin + Superadmin). The Express backend's
 // layered design — Routes → Controllers → Services → Tables — generated
@@ -86,7 +87,7 @@ export default function BackendArchitecturePage() {
         </div>
 
         {isLoading ? (
-          <div style={st.empty}>Loading the architecture…</div>
+          <div style={st.empty}><LoadingSpinner label="Loading the architecture" /></div>
         ) : error || !data ? (
           <div style={st.empty}>Couldn’t load the architecture. {(error as Error | null)?.message}</div>
         ) : (

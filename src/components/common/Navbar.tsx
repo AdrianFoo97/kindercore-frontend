@@ -11,7 +11,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faCartShopping, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBars, faClipboardList, faClipboardCheck, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faChalkboardUser, faSliders, faScrewdriverWrench, faChildren, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faListCheck } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCalendarCheck, faCartShopping, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBars, faClipboardList, faClipboardCheck, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faChalkboardUser, faSliders, faScrewdriverWrench, faChildren, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faListCheck } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
@@ -153,6 +153,8 @@ export default function Navbar() {
   const plannerMatch = useMatch('/tools/operations-planner');
   const facilitiesMatch = useMatch('/operations/facilities');
   const shoppingMatch = useMatch('/operations/shopping-list');
+  // One appraisal being scored / read — it belongs to HRMS → Appraisals.
+  const appraisalsMatch = useMatch('/appraisals/*');
   const onOperationRoute = (!!useMatch('/operations/sops/*') && !onGuidesRoute) || !!sopRevisionsMatch || !!incidentsMatch || !!plannerMatch || !!facilitiesMatch || !!shoppingMatch;
   const onToolsRoute = !!useMatch('/tools/*') && !plannerMatch;
   // Both useMatch calls must run every render, unconditionally — `||`
@@ -185,7 +187,7 @@ export default function Navbar() {
   const onMarketingRoute = !!(leadsRouteMatch || leadsWildcardMatch || marketingWildcardMatch);
   const teachersRouteMatch = useMatch('/teachers/*');
   const hrRouteMatch = useMatch('/hr/*');
-  const onHrRoute = !!(teachersRouteMatch || hrRouteMatch) && !sopRevisionsMatch;
+  const onHrRoute = !!(teachersRouteMatch || hrRouteMatch || appraisalsMatch) && !sopRevisionsMatch;
 
   // Templates for WhatsApp modal
   const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
@@ -389,20 +391,18 @@ export default function Navbar() {
         </div>
         )}
 
-        {/* HR dropdown — Teachers + Candidates grouped under one people-ops
-            umbrella (matches the app's documented IA: HR = people-ops
-            workflows, already the route prefix for /hr/candidates). Used
-            to be two flat top-level items with no shared home. */}
+        {/* HRMS dropdown — the people-ops workflows (routes under /hr and
+            /teachers), grouped like the classic HR modules and in their usual
+            order, matching the HR groups in Settings: the team itself,
+            Recruitment & Hiring, then Performance Management. */}
         {allowModule(MODULES.HR) && (
         <div ref={mobile ? undefined : hrRef} style={mobile ? {} : { position: 'relative' }}>
           <button onClick={() => setHrOpen(o => !o)} className={mobile ? '' : 'nav-link'}
             style={{ ...mDropBtn, ...(onHrRoute && !mobile ? styles.activeLink : {}), ...(onHrRoute && mobile ? mLinkActive : {}) }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faUsers)}HR</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{navIcon(faUsers)}HRMS</span>
             {mobile ? (hrOpen ? '−' : '+') : '▾'}
           </button>
           {hrOpen && (() => {
-            // Grouped by job: looking after the current team, and
-            // bringing new people in.
             const linkStyle = ({ isActive }: { isActive: boolean }) => ({ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, ...(isActive ? (mobile ? mLinkActive : styles.panelItemActive) : {}) });
             const itemClass = mobile ? '' : 'nav-drop-item';
             return (
@@ -412,18 +412,9 @@ export default function Navbar() {
                   <FontAwesomeIcon icon={faChalkboardUser} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Staff
                 </NavLink>
-                {/* Monthly appraisals for every staff member — who's done, who's due. */}
-                <NavLink to="/hr/appraisals" onClick={closeAll} className={itemClass} style={linkStyle}>
-                  <FontAwesomeIcon icon={faStar} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
-                  Appraisals
-                </NavLink>
-                <NavLink to="/hr/sop-observations" onClick={closeAll} className={itemClass} style={linkStyle}>
-                  <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
-                  Practice Observations
-                </NavLink>
 
                 <NavSectionDivider />
-                <NavSectionLabel label="Hiring" mobile={mobile} />
+                <NavSectionLabel label="Recruitment & Hiring" mobile={mobile} />
                 <NavLink to="/hr/candidates" onClick={closeAll} className={itemClass} style={linkStyle}>
                   <FontAwesomeIcon icon={faUserPlus} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Recruitment
@@ -437,6 +428,24 @@ export default function Navbar() {
                 <NavLink to="/hr/onboarding" onClick={closeAll} className={itemClass} style={linkStyle}>
                   <FontAwesomeIcon icon={faListCheck} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Onboarding
+                </NavLink>
+
+                {/* Performance management — same name as its Settings group (the forms, scoring forms, rating scales). */}
+                <NavSectionDivider />
+                <NavSectionLabel label="Performance Management" mobile={mobile} />
+                {/* Monthly appraisals for every staff member — who's done, who's due. */}
+                <NavLink to="/hr/appraisals" onClick={closeAll} className={itemClass} style={linkStyle}>
+                  <FontAwesomeIcon icon={faStar} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
+                  Appraisals
+                </NavLink>
+                {/* Appraisals done with a form: who's due, start them, give someone their own form. */}
+                <NavLink to="/hr/appraisal-schedule" onClick={closeAll} className={itemClass} style={linkStyle}>
+                  <FontAwesomeIcon icon={faCalendarCheck} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
+                  Appraisal schedule
+                </NavLink>
+                <NavLink to="/hr/sop-observations" onClick={closeAll} className={itemClass} style={linkStyle}>
+                  <FontAwesomeIcon icon={faClipboardCheck} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
+                  Practice Observations
                 </NavLink>
               </div>
             );

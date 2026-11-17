@@ -5,7 +5,7 @@ export function fetchDepartments() {
   return apiFetch<Department[]>('/api/salary/departments');
 }
 
-export function upsertDepartment(departmentId: string, data: { name: string; sortOrder?: number; hasCareerPath?: boolean }) {
+export function upsertDepartment(departmentId: string, data: { name: string; sortOrder?: number; hasCareerPath?: boolean; headPositionId?: string | null; isManagement?: boolean }) {
   return apiFetch<Department>(`/api/salary/departments/${departmentId}`, { method: 'PUT', body: JSON.stringify(data) });
 }
 
@@ -17,8 +17,13 @@ export function fetchPositions() {
   return apiFetch<Position[]>('/api/salary/positions');
 }
 
-export function upsertPosition(positionId: string, data: { name: string; titleWeight: number; basicSalary: number; maxLevel: number; sortOrder?: number; inCareerProgression?: boolean; badgeUrl?: string | null; starColor?: string | null; description?: string | null; roleFocus?: string | null; departmentId?: string | null; authRoleId?: string | null }) {
+export function upsertPosition(positionId: string, data: { name: string; titleWeight: number; basicSalary: number; payRangeMin?: number | null; payRangeMax?: number | null; maxLevel: number; sortOrder?: number; inCareerProgression?: boolean; badgeUrl?: string | null; starColor?: string | null; description?: string | null; roleFocus?: string | null; departmentId?: string | null; authRoleId?: string | null; reportsToPositionId?: string | null }) {
   return apiFetch<Position>(`/api/salary/positions/${positionId}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+/** Settings → HR Planning: set only who a position reports to (admins). */
+export function setPositionReportsTo(positionId: string, reportsToPositionId: string | null) {
+  return apiFetch<Position>(`/api/salary/positions/${positionId}/reports-to`, { method: 'PUT', body: JSON.stringify({ reportsToPositionId }) });
 }
 
 export function deletePosition(positionId: string) {
@@ -128,4 +133,9 @@ export interface EmployerContributions {
 
 export function fetchEmployerContributions() {
   return apiFetch<EmployerContributions>('/api/salary/employer-contributions');
+}
+
+/** One staff member's own pay record (their Pay tab; HR may read anyone's). */
+export function fetchTeacherSalary(teacherId: string) {
+  return apiFetch<TeacherWithSalary>(`/api/salary/teachers/${teacherId}`);
 }

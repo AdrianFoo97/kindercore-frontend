@@ -16,6 +16,7 @@ import { copyLink } from '../utils/shareLink.js';
 import { joinFormUrl } from '../api/staffJoins.js';
 import { startStaffOnboarding } from '../api/staffOnboarding.js';
 import { TP_C, TP_MOTION, TP_RADIUS } from './teachers/tokens.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 interface SalaryEntry {
   calculatedSalary: number;
@@ -226,7 +227,7 @@ export default function TeachersPage() {
     return (
       <div style={s.page}>
         <div style={s.inner}>
-          <p style={{ color: TP_C.muted, textAlign: 'center', marginTop: 80 }}>Loading...</p>
+          <p style={{ color: TP_C.muted, textAlign: 'center', marginTop: 80 }}><LoadingSpinner /></p>
         </div>
       </div>
     );

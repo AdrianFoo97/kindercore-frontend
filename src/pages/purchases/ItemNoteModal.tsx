@@ -34,7 +34,7 @@ export default function ItemNoteModal({ request: r, onClose }: { request: Purcha
 
   return (
     <FormModal title={`${r.item} × ${r.quantity}`} subtitle={`Asked by ${r.requestedByName} · ${r.purpose}`} onClose={onClose} width={480}
-      cancelLabel={unchanged ? 'Close' : 'Cancel'} dirty={!unchanged}
+      cancelLabel={unchanged ? 'Close' : 'Cancel'}
       primary={{ label: busy ? 'Saving…' : 'Save', onClick: save, busy, disabled: unchanged }}>
       <label htmlFor="pr-sup-note" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>
         Your note <span style={{ fontWeight: 500, color: '#64748b' }}>— {r.requestedByName} sees it too</span>

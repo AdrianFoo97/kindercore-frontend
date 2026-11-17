@@ -23,6 +23,7 @@ import {
 import {
   Teacher, Classroom, PlannerSubject, PlannerTask, ScheduleBlock,
 } from '../types/index.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ── Color palette ────────────────────────────────────────────────────────────
 
@@ -2614,8 +2615,7 @@ export default function OperationsPlannerPage() {
         {/* Content */}
         {blocksLoading ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: 14 }}>
-            <FontAwesomeIcon icon={faClock} spin style={{ marginRight: 8 }} />
-            Loading schedule...
+                        <LoadingSpinner label="Loading schedule" />
           </div>
         ) : blocksError ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.danger, fontSize: 14 }}>

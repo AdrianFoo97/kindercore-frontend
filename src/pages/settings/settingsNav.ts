@@ -1,8 +1,8 @@
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faBoxesStacked, faBuilding, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins, faEye,
-  faFileImport, faGears, faGraduationCap, faIdBadge, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
-  faUserCheck, faUserPlus, faUserShield, faUsers,
+  faBoxesStacked, faBuilding, faBullseye, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins, faEye,
+  faFileImport, faGears, faGraduationCap, faIdBadge, faLayerGroup, faUserTie, faListCheck, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
+  faStarHalfStroke, faRankingStar, faSitemap, faUserCheck, faUserPlus, faUserShield, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 
 // Settings navigation — the ONE list behind the Settings home page, the
@@ -28,7 +28,28 @@ export interface SettingsItem {
   danger?: boolean;
 }
 
-export interface SettingsGroup { key: string; label: string; items: SettingsItem[] }
+export interface SettingsGroup {
+  key: string;
+  label: string;
+  items: SettingsItem[];
+  /** A heading the group sits under with its neighbours — e.g. the HR modules under "HRMS". */
+  section?: string;
+}
+
+/** The HR modules' groups sit together under this heading (same name as the HRMS menu). */
+export const HRMS = 'HRMS';
+
+/** Groups in order, with neighbours that share a section kept together under it (no section = on their own). */
+export function groupSections(groups: SettingsGroup[]): { section: string | null; groups: SettingsGroup[] }[] {
+  const out: { section: string | null; groups: SettingsGroup[] }[] = [];
+  for (const g of groups) {
+    const section = g.section ?? null;
+    const last = out[out.length - 1];
+    if (last && last.section === section) last.groups.push(g);
+    else out.push({ section, groups: [g] });
+  }
+  return out;
+}
 
 export const SETTINGS_HOME = '/settings';
 
@@ -36,24 +57,63 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     key: 'organisation', label: 'Organisation', items: [
       { key: 'company', label: 'Company', to: '/settings/company', icon: faBuilding,
-        description: 'Vision, mission, core values, branches and departments.', keywords: ['school', 'branch', 'department', 'values'] },
+        description: 'Vision, mission, core values and branches.', keywords: ['school', 'branch', 'values'] },
       { key: 'integrations', label: 'Integrations', to: '/settings/calendar', icon: faPlug,
         description: 'Connect Google Calendar.', keywords: ['google', 'calendar'] },
       { key: 'data', label: 'Data import', to: '/settings/data', icon: faFileImport,
         description: 'Import leads, students and candidates from a spreadsheet.', keywords: ['import', 'excel', 'csv', 'upload'] },
     ],
   },
+  // HR settings follow the classic HR modules, in their usual order — the same sections as the HRMS menu:
+  // HR Planning → Compensation & Benefits → Recruitment & Hiring → Training & Development → Performance Management.
+  // (Employee Relations has no settings yet.)
   {
-    key: 'people', label: 'People', items: [
+    // HR Planning: how the organisation is shaped — departments, positions and who reports to whom.
+    key: 'hr-planning', label: 'HR Planning', section: HRMS, items: [
+      { key: 'departments', label: 'Departments', to: '/settings/departments', icon: faLayerGroup,
+        description: 'The departments positions belong to, each with its head.', keywords: ['hr', 'department', 'team', 'management', 'head', 'organisation', 'organization'] },
+      { key: 'positions', label: 'Positions', to: '/settings/positions', icon: faUserTie, alsoAt: ['/settings/employee-salary/positions'],
+        description: 'Job titles, their department and who each reports to.', keywords: ['hr', 'position', 'job', 'title', 'rank', 'reports to', 'access role', 'career'] },
+      { key: 'org-chart', label: 'Org chart', to: '/settings/org-chart', icon: faSitemap, alsoAt: ['/settings/org-structure'],
+        description: 'Who reports to whom, with the people in each position.', keywords: ['hr', 'org chart', 'organisation', 'organization', 'hierarchy', 'reports to', 'structure', 'people'] },
+    ],
+  },
+  {
+    key: 'compensation', label: 'Compensation & Benefits', section: HRMS, items: [
+      { key: 'payroll', label: 'Payroll', to: '/settings/hr', icon: faCoins, alsoAt: ['/settings/employee-salary'],
+        description: 'Salary bands by position, and allowances.', keywords: ['hr', 'salary', 'allowance', 'position', 'pay', 'people'] },
+      { key: 'points-rewards', label: 'Points & rewards', to: '/settings/points-rewards', icon: faGift,
+        description: 'Earning rules for granting points, and the reward catalog.', keywords: ['hr', 'points', 'rewards', 'redeem', 'benefits'] },
+    ],
+  },
+  {
+    key: 'recruitment', label: 'Recruitment & Hiring', section: HRMS, items: [
       { key: 'recruitment', label: 'Recruitment', to: '/settings/recruitment', icon: faUserPlus,
-        description: 'Job application form and hiring pipeline.', keywords: ['hiring', 'candidates', 'interview', 'apply'] },
+        description: 'Job application form and hiring pipeline.', keywords: ['hr', 'hiring', 'candidates', 'interview', 'apply', 'people'] },
       { key: 'staff-onboarding', label: 'Staff onboarding', to: '/settings/staff-onboarding', icon: faUserCheck,
-        description: 'Checklists every new staff member gets.', keywords: ['new staff', 'joiner', 'checklist'] },
+        description: 'Checklists every new staff member gets.', keywords: ['hr', 'new staff', 'joiner', 'checklist', 'people'] },
+    ],
+  },
+  {
+    key: 'training', label: 'Training & Development', section: HRMS, items: [
+      { key: 'career-missions', label: 'Career missions', to: '/settings/career-missions', icon: faBullseye,
+        description: 'Missions staff complete to grow towards their next role.', keywords: ['hr', 'career', 'missions', 'promotion', 'quests', 'people'] },
+      { key: 'mission-categories', label: 'Mission categories', to: '/settings/mission-categories', icon: faTags,
+        description: 'The categories career missions are grouped into.', keywords: ['hr', 'career', 'missions', 'category'] },
+    ],
+  },
+  {
+    // Performance management: everything that builds an appraisal — the forms, and the scoring forms and
+    // rating scales they use. (HRMS → Performance Management is where appraisals are then run.)
+    key: 'performance', label: 'Performance Management', section: HRMS, items: [
       { key: 'appraisal-forms', label: 'Appraisal forms', to: '/settings/appraisal-forms', icon: faClipboardCheck,
-        description: 'What staff are appraised on, and who assesses and signs off.', keywords: ['appraisal', 'kpi', 'core values', 'review'] },
-      { key: 'payroll', label: 'Payroll', to: '/settings/hr', icon: faCoins,
-        alsoAt: ['/settings/employee-salary', '/settings/points-rewards', '/settings/career-missions', '/settings/mission-categories'],
-        description: 'Salary bands, allowances, points and rewards, career missions.', keywords: ['salary', 'allowance', 'points', 'rewards', 'missions', 'position'] },
+        description: 'What staff are appraised on, and who assesses and signs off.', keywords: ['appraisals', 'kpi', 'core values', 'review', 'people'] },
+      { key: 'scoring-forms', label: 'Scoring forms', to: '/settings/scoring-forms', icon: faListCheck,
+        description: 'Reusable sections and criteria a criterion can be scored from.', keywords: ['appraisals', 'points', 'template', 'checklist', 'criteria'] },
+      { key: 'rating-scales', label: 'Rating scales', to: '/settings/rating-scales', icon: faStarHalfStroke,
+        description: 'Named rating levels that appraisal criteria pick from.', keywords: ['appraisals', 'rating', 'scale', 'levels', 'rubric'] },
+      { key: 'score-bands', label: 'Score bands', to: '/settings/score-bands', icon: faRankingStar,
+        description: 'What appraisal scores are called and their colours — e.g. 80+ Outstanding.', keywords: ['appraisals', 'score', 'band', 'grade', 'outstanding', 'satisfactory', 'threshold'] },
     ],
   },
   {
@@ -129,13 +189,13 @@ export function itemForPath(pathname: string, groups: SettingsGroup[] = SETTINGS
   return best?.item ?? null;
 }
 
-/** Items whose label, description, group or keywords contain every word typed (any order, any case). */
+/** Items whose label, description, group (or its section) or keywords contain every word typed (any order, any case). */
 export function searchSettings(query: string, groups: SettingsGroup[] = SETTINGS_GROUPS): { group: SettingsGroup; item: SettingsItem }[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return [];
   return groups.flatMap(group => group.items
     .filter(item => {
-      const text = [item.label, item.description, group.label, ...(item.keywords ?? [])].join(' ').toLowerCase();
+      const text = [item.label, item.description, group.label, group.section ?? '', ...(item.keywords ?? [])].join(' ').toLowerCase();
       return words.every(w => text.includes(w));
     })
     .map(item => ({ group, item })));

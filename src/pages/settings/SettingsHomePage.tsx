@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronRight, faMagnifyingGlass, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faChevronRight, faMagnifyingGlass, faUsers, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { useIsTestServer } from '../../hooks/useIsTestServer.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
-import { searchSettings, visibleGroups, type SettingsItem } from './settingsNav.js';
+import { groupSections, searchSettings, visibleGroups, type SettingsGroup, type SettingsItem } from './settingsNav.js';
 import { C, isAdminRole, storedRole } from './settingsTheme.js';
 
 /** /settings — every setting, grouped, with search. */
@@ -47,22 +47,44 @@ export default function SettingsHomePage() {
           <section aria-label="Search results" style={card}>
             {results.length === 0
               ? <p style={{ margin: 0, padding: 16, fontSize: 14, color: C.muted }}>No settings match “{query.trim()}”.</p>
-              : results.map(({ group, item }) => <ItemRow key={item.key} item={item} context={group.label} />)}
+              : results.map(({ group, item }) => <ItemRow key={item.key} item={item} context={group.section ? `${group.section} · ${group.label}` : group.label} />)}
           </section>
         ) : (
-          // Every card the same height: each stretches to its row, and every row matches the tallest (1fr).
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gridAutoRows: '1fr', gap: 16, alignItems: 'stretch' }}>
-            {groups.map(g => (
-              <section key={g.key} aria-labelledby={`st-${g.key}`} style={card}>
-                <h2 id={`st-${g.key}`} style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, padding: '12px 16px 4px' }}>
-                  {g.label}
-                </h2>
-                {g.items.map(item => <ItemRow key={item.key} item={item} />)}
-              </section>
-            ))}
-          </div>
+          // A section (HRMS) gets its own heading, with one card per module under it.
+          groupSections(groups).map((sec, i) => sec.section ? (
+            // One tinted, bordered panel round the whole section (same as the sidebar), so its cards plainly belong to it.
+            <section key={sec.section} aria-labelledby={`st-sec-${i}`} style={{ margin: '0 0 16px', padding: 16, background: C.hover, border: `1px solid ${C.border}`, borderRadius: 14 }}>
+              <h2 id={`st-sec-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 700, color: C.text, margin: '0 0 12px' }}>
+                <FontAwesomeIcon icon={faUsers} style={{ fontSize: 14, color: C.primary }} /> {sec.section}
+              </h2>
+              <GroupCards groups={sec.groups} level={3} />
+            </section>
+          ) : (
+            <div key={`plain-${i}`} style={{ margin: '0 0 16px' }}><GroupCards groups={sec.groups} level={2} /></div>
+          ))
         )}
       </div>
+    </div>
+  );
+}
+
+/** One card per group, each only as tall as its items, stacked in columns (no empty space under short ones). Groups are never merged. */
+/** Narrowest a column of group cards gets before there's one fewer column. */
+const GROUP_COLUMN_MIN = 300;
+const GROUP_GAP = 16;
+
+function GroupCards({ groups, level }: { groups: SettingsGroup[]; level: 2 | 3 }) {
+  const Heading = level === 2 ? 'h2' : 'h3';
+  return (
+    <div style={{ columnWidth: GROUP_COLUMN_MIN, columnGap: GROUP_GAP }}>
+      {groups.map(g => (
+        <section key={g.key} aria-labelledby={`st-${g.key}`} style={{ ...card, breakInside: 'avoid', marginBottom: GROUP_GAP, display: 'inline-block', width: '100%', boxSizing: 'border-box' }}>
+          <Heading id={`st-${g.key}`} style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, padding: '12px 16px 4px' }}>
+            {g.label}
+          </Heading>
+          {g.items.map(item => <ItemRow key={item.key} item={item} />)}
+        </section>
+      ))}
     </div>
   );
 }

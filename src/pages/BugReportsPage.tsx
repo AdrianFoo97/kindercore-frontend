@@ -7,6 +7,7 @@ import {
 import { fetchBugReports, resolveBugReport, BugReport, BugReportStatus } from '../api/bug-reports.js';
 import { uploadUrl } from '../api/upload.js';
 import { useToast } from '../components/common/Toast.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc',
@@ -87,7 +88,7 @@ export default function BugReportsPage() {
         </div>
 
         {isLoading ? (
-          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
+          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
         ) : filtered.length === 0 ? (
           <div style={{ ...s.card, textAlign: 'center', padding: '48px 20px' }}>
             <FontAwesomeIcon icon={faBug} style={{ fontSize: 22, color: C.mutedSoft, marginBottom: 10 }} />

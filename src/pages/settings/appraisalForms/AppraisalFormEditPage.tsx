@@ -1,51 +1,138 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useGoBack } from '../../../hooks/useGoBack.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faCircleExclamation, faCircleInfo, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faCircleCheck, faCircleExclamation, faCircleInfo, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import {
-  activateAppraisalTemplate, deleteAppraisalTemplate, fetchAppraisalTemplate, newAppraisalTemplateVersion,
-  retireAppraisalTemplate, saveAppraisalTemplate, type AppraisalTemplate,
+  activateAppraisalTemplate, createAppraisalTemplate, deleteAppraisalTemplate, fetchAppraisalTemplate, newAppraisalTemplateVersion,
+  retireAppraisalTemplate, saveAppraisalTemplate, setAppraisalTemplatePositions, type AppraisalTemplate,
 } from '../../../api/appraisal-templates.js';
 import { fetchPositions } from '../../../api/salary.js';
 import ConfirmDialog from '../../../components/common/ConfirmDialog.js';
 import { useToast } from '../../../components/common/Toast.js';
+import LoadingSpinner from '../../../components/common/LoadingSpinner.js';
 import AboutCard from './AboutCard.js';
 import ApprovalChainCard from './ApprovalChainCard.js';
+import FormTabs from './FormTabs.js';
 import SectionsCard from './SectionsCard.js';
-import UsedForCard from './UsedForCard.js';
+import UsedForField from './UsedForCard.js';
 import { STATUS_LABEL, draftFromTemplate, overWeightProblems, payloadFromDraft, type FormDraft } from './appraisalFormDraft.js';
+import { firstStepToFix, formSteps, saveBlocker, saveStatusText, type SaveState, type StepKey } from './formSteps.js';
 import { C, STATUS_TONE, btn, pill } from './formTheme.js';
+import { copyName } from './listFilters.js';
 
 const LIST_PATH = '/settings/appraisal-forms';
+/** An unsaved copy of a form opens at …/new?from=<id>; it's only created on "Save draft". */
+/** The forms list, on a filter — where Save draft, Make live and Retire lead (draft / live / retired). */
+export const listAt = (filter: 'draft' | 'live' | 'retired') => `${LIST_PATH}?filter=${filter}`;
+
+export const NEW_COPY_ID = 'new';
+
+/** A brand-new form before it's saved: no sections yet, and the usual chain — score it, sign it off, the staff member confirms. */
+const BLANK_FORM: AppraisalTemplate = {
+  id: '', familyId: '', name: '', description: null, frequency: 'MONTHLY', status: 'DRAFT', version: 1, missingPolicy: 'REQUIRE_ALL',
+  updatedAt: '', sections: [], positionIds: [], problems: [], draftId: null, activeId: null,
+  stages: [
+    { id: 'new-assess', name: 'Assessed by', kind: 'ASSESS', scope: 'OWN_TEAM', positionIds: [] },
+    { id: 'new-sign-off', name: 'Signed off by', kind: 'SIGN_OFF', scope: 'ANYONE', positionIds: [] },
+    { id: 'new-acknowledge', name: 'Acknowledged by the staff member', kind: 'ACKNOWLEDGE', scope: 'ANYONE', positionIds: [] },
+  ],
+};
+const MAX_FORM_NAME = 191;
+const TAB_KEYS: StepKey[] = ['basics', 'scoring', 'approval'];
 type Confirming = 'live' | 'retire' | 'delete' | null;
 
-/** One appraisal form: a draft is edited here; live and retired versions are shown read-only. */
+/**
+ * One appraisal form, as three tabs (1 Basics — incl. who it's for · 2 What's
+ * scored · 3 Who appraises); the open tab is kept in the address (?tab=).
+ * Changes to a draft (incl. who it's for) are kept on the page until "Save
+ * draft"; each tab says what it still needs; "Make live" is off until nothing
+ * is left, then saves and confirms. Live and retired versions are read-only,
+ * except who a live form is for (saved as soon as it's tapped).
+ */
 export default function AppraisalFormEditPage() {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const goBack = useGoBack(LIST_PATH);
   const qc = useQueryClient();
   const { showToast } = useToast();
-  const { data: template, isLoading, error } = useQuery({
-    queryKey: ['appraisal-template', id],
-    queryFn: () => fetchAppraisalTemplate(id),
+  const [params, setParams] = useSearchParams();
+  // A duplicate: the form it's copied from, shown as an unsaved draft copy until "Save draft" creates it.
+  const isCopy = id === NEW_COPY_ID;
+  const sourceId = isCopy ? params.get('from') ?? '' : id;
+  // "New form": nothing to copy — a blank draft, created when it's first saved.
+  const isBlank = isCopy && !sourceId;
+  const { data: fetched, isLoading, error } = useQuery({
+    queryKey: ['appraisal-template', sourceId],
+    queryFn: () => fetchAppraisalTemplate(sourceId),
+    enabled: !isBlank,
     // A refetch would overwrite unsaved edits.
     refetchOnWindowFocus: false,
   });
+  const loaded = isBlank ? BLANK_FORM : fetched;
+  const template = useMemo<AppraisalTemplate | undefined>(() => (isCopy && loaded
+    ? {
+      ...loaded, id: '', familyId: '', name: isBlank ? '' : copyName(loaded.name, MAX_FORM_NAME), status: 'DRAFT', version: 1,
+      positionIds: [], draftId: null, activeId: null,
+    }
+    : loaded), [isCopy, loaded]);
   const { data: positions = [] } = useQuery({ queryKey: ['salary-positions'], queryFn: fetchPositions });
 
   const [draft, setDraft] = useState<FormDraft | null>(null);
+  /** "Who it's for" as picked on the page (saved with the draft). */
+  const [picked, setPicked] = useState<string[]>([]);
   const [confirming, setConfirming] = useState<Confirming>(null);
   const [actionError, setActionError] = useState('');
+  const tabParam = params.get('tab') as StepKey | null;
+  const tab: StepKey = tabParam && TAB_KEYS.includes(tabParam) ? tabParam : 'basics';
+  const openTab = (key: StepKey) => setParams(p => { p.set('tab', key); return p; }, { replace: true });
 
-  // Start (or restart) the working copy whenever a different saved version arrives.
-  useEffect(() => { if (template) setDraft(draftFromTemplate(template)); }, [template?.id, template?.updatedAt, template?.status]);
+  // Start the working copy when a different version (or status) arrives — not
+  // after a save, which already matches what's on the page.
+  useEffect(() => {
+    if (!template) return;
+    setDraft(draftFromTemplate(template));
+    setPicked(template.positionIds);
+  }, [template?.id, template?.status]);
 
   const isDraft = template?.status === 'DRAFT';
-  const saved = useMemo(() => (template ? JSON.stringify(payloadFromDraft(draftFromTemplate(template))) : ''), [template]);
-  const dirty = !!draft && isDraft && JSON.stringify(payloadFromDraft(draft)) !== saved;
+  // An unsaved copy is all "changes" until it's saved.
+  const saved = useMemo(() => (template && !isCopy ? JSON.stringify(payloadFromDraft(draftFromTemplate(template))) : ''), [template, isCopy]);
+  const payload = draft ? payloadFromDraft(draft) : null;
+  const payloadJson = payload ? JSON.stringify(payload) : '';
+  const positionsChanged = !!template && [...picked].sort().join() !== [...template.positionIds].sort().join();
+  const dirty = !!draft && isDraft && (isCopy || payloadJson !== saved || positionsChanged);
+  // Weights over 100% are kept as typed but can't be saved; nor can a nameless form.
+  const overWeight = isDraft && draft ? overWeightProblems(draft.sections) : [];
+  const blocker = isDraft && draft ? saveBlocker(draft.name, overWeight) : null;
+
+  const refreshList = () => qc.invalidateQueries({ queryKey: ['appraisal-templates'] });
+  const show = (t: AppraisalTemplate) => { qc.setQueryData(['appraisal-template', t.id], t); refreshList(); };
+  const fail = (e: Error) => setActionError(e.message);
+
+  // "Save draft": the form, then who it's for if that changed (then reloaded, so its checks are fresh).
+  // An unsaved copy is created now — and the page moves to it.
+  const save = useMutation({
+    mutationFn: async (): Promise<AppraisalTemplate> => {
+      const targetId = isCopy ? (await createAppraisalTemplate({ name: payload!.name })).id : id;
+      const t = await saveAppraisalTemplate(targetId, payload!);
+      if (!positionsChanged) return t;
+      await setAppraisalTemplatePositions(t.familyId, picked);
+      return fetchAppraisalTemplate(targetId);
+    },
+    onSuccess: t => {
+      setActionError('');
+      show(t);
+      if (isCopy) showToast('Copy saved');
+    },
+  });
+  // A live form's "who it's for" has no draft to wait for — it's saved as soon as it's tapped.
+  const livePositions = useMutation({
+    mutationFn: (ids: string[]) => setAppraisalTemplatePositions(template!.familyId, ids),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['appraisal-template', id] }); refreshList(); },
+    onError: () => setPicked(template?.positionIds ?? []),
+  });
 
   useEffect(() => {
     if (!dirty) return;
@@ -54,18 +141,9 @@ export default function AppraisalFormEditPage() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
-  const refreshList = () => qc.invalidateQueries({ queryKey: ['appraisal-templates'] });
-  const show = (t: AppraisalTemplate) => { qc.setQueryData(['appraisal-template', t.id], t); refreshList(); };
-  const fail = (e: Error) => setActionError(e.message);
-
-  const save = useMutation({
-    mutationFn: () => saveAppraisalTemplate(id, payloadFromDraft(draft!)),
-    onSuccess: t => { setActionError(''); show(t); showToast('Draft saved'); },
-    onError: fail,
-  });
   const makeLive = useMutation({
     mutationFn: async () => {
-      const latest = dirty ? await saveAppraisalTemplate(id, payloadFromDraft(draft!)) : template!;
+      const latest = dirty ? await save.mutateAsync() : template!;
       if (latest.problems.length) return latest;
       return activateAppraisalTemplate(id);
     },
@@ -73,8 +151,7 @@ export default function AppraisalFormEditPage() {
       setConfirming(null);
       show(t);
       setActionError('');
-      if (t.status === 'ACTIVE') showToast('Form is live');
-      else window.scrollTo({ top: 0 }); // still a draft: show what's stopping it
+      if (t.status === 'ACTIVE') { showToast('Form is live'); navigate(listAt('live')); }
     },
     onError: e => { setConfirming(null); fail(e as Error); },
   });
@@ -85,7 +162,7 @@ export default function AppraisalFormEditPage() {
   });
   const retire = useMutation({
     mutationFn: () => retireAppraisalTemplate(id),
-    onSuccess: t => { setConfirming(null); show(t); showToast('Form retired'); },
+    onSuccess: t => { setConfirming(null); show(t); showToast('Form retired'); navigate(listAt('retired')); },
     onError: e => { setConfirming(null); fail(e as Error); },
   });
   const remove = useMutation({
@@ -99,7 +176,7 @@ export default function AppraisalFormEditPage() {
     onError: e => { setConfirming(null); fail(e as Error); },
   });
 
-  if (isLoading) return <Shell><p style={{ color: C.muted, fontSize: 14 }}>Loading…</p></Shell>;
+  if (isLoading) return <Shell><LoadingSpinner /></Shell>;
   if (error || !template || !draft) {
     return (
       <Shell>
@@ -112,9 +189,25 @@ export default function AppraisalFormEditPage() {
   const patch = (p: Partial<FormDraft>) => setDraft(d => (d ? { ...d, ...p } : d));
   const tone = STATUS_TONE[template.status];
   const busy = save.isPending || makeLive.isPending || editLive.isPending || retire.isPending || remove.isPending;
-  // Weights over 100% are kept as typed but can't be saved — the reason sits beside the buttons.
-  const overWeight = isDraft ? overWeightProblems(draft.sections) : [];
-  const blocked = busy || overWeight.length > 0;
+  const steps = formSteps({ name: draft.name, overWeight, positionCount: picked.length, stages: draft.stages, problemsByArea: template.problemsByArea });
+  const issuesOf = (key: StepKey) => (isDraft ? steps.find(s => s.key === key)!.issues : undefined);
+  const saveState: SaveState = save.isPending ? 'saving' : save.isError && dirty ? 'error' : dirty ? 'pending' : 'saved';
+
+  // An unsaved copy can go live too: "Make live" saves it (creating it) first, then confirms.
+  const ready = isDraft && steps.every(s => s.issues.length === 0);
+  // "Make live" is only pressable when nothing is left to fix; it saves the latest changes, then confirms.
+  const onMakeLive = async () => {
+    if (dirty && !blocker) {
+      try {
+        const latest = await save.mutateAsync();
+        const target = firstStepToFix(formSteps({ name: draft.name, overWeight, positionCount: latest.positionIds.length, stages: draft.stages, problemsByArea: latest.problemsByArea }));
+        if (target) { openTab(target.key); return; }
+      } catch (e) { fail(e as Error); return; }
+    }
+    setConfirming('live');
+  };
+  const onPick = (ids: string[]) => { setPicked(ids); if (!isDraft) livePositions.mutate(ids); };
+  const liveStatus = livePositions.isPending ? 'Saving…' : livePositions.isError ? (livePositions.error as Error).message : livePositions.isSuccess ? 'Saved' : undefined;
 
   return (
     <Shell>
@@ -125,61 +218,68 @@ export default function AppraisalFormEditPage() {
         <Link to={LIST_PATH} style={{ fontSize: 13, color: C.muted, textDecoration: 'none' }}>Appraisal Forms</Link>
       </div>
 
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
         <div style={{ minWidth: 0 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.text, margin: 0, overflowWrap: 'anywhere' }}>{draft.name || 'Untitled form'}</h1>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: C.text, margin: 0, overflowWrap: 'anywhere' }}>
+            {draft.name || 'Untitled form'}
+            {/* The version goes with the name: "Junior Teacher Appraisal V6". */}
+            {!isCopy && <span title={`Version ${template.version}`} style={{ fontSize: '0.7em', fontWeight: 700, color: C.muted, background: '#f1f5f9', borderRadius: 6, padding: '1px 6px', marginLeft: 8, verticalAlign: 'middle', whiteSpace: 'nowrap' }}>V{template.version}</span>}
+          </h1>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8, fontSize: 13, color: C.muted }}>
             <span style={pill(tone.fg, tone.bg)}>{STATUS_LABEL[template.status]}</span>
-            <span style={{ fontSize: 13, color: C.muted }}>Version {template.version}</span>
+            {isCopy && <span>Not saved yet — a copy of “{loaded?.name}”</span>}
+            {isDraft && (
+              <span role="status" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: saveState === 'error' ? C.red : C.muted }}>
+                · {saveState === 'saved' && <FontAwesomeIcon icon={faCircleCheck} style={{ color: C.green }} />}
+                {saveState === 'error' && <FontAwesomeIcon icon={faCircleExclamation} />}
+                {saveStatusText(saveState, (save.error as Error | null)?.message)}
+              </span>
+            )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {isDraft && <button type="button" style={btn('danger', false, busy)} disabled={busy} onClick={() => setConfirming('delete')}>Delete draft</button>}
-          {isDraft && (
-            <button type="button" style={btn('secondary', false, blocked || !dirty)} disabled={blocked || !dirty} onClick={() => save.mutate()}>
-              {save.isPending ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}
+        {isDraft ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {isCopy
+              ? <button type="button" style={btn('danger', false, busy)} disabled={busy} onClick={() => navigate(LIST_PATH)}>Discard copy</button>
+              : <button type="button" style={btn('danger', false, busy)} disabled={busy} onClick={() => setConfirming('delete')}>Delete draft</button>}
+            {/* Off when there's nothing new to save, or while it can't be saved (says why). */}
+            <button type="button" style={btn('secondary', false, busy || !dirty || !!blocker)} disabled={busy || !dirty || !!blocker}
+              title={blocker ? `Can’t save yet — ${blocker}` : !dirty ? 'No changes to save' : undefined} onClick={() => save.mutate(undefined, { onSuccess: () => navigate(listAt('draft')) })}>
+              {save.isPending ? 'Saving…' : 'Save draft'}
             </button>
-          )}
-          {isDraft && <button type="button" style={btn('primary', false, blocked)} disabled={blocked} onClick={() => setConfirming('live')}>Make live</button>}
-          {template.status === 'ACTIVE' && <button type="button" style={btn('secondary', false, busy)} disabled={busy} onClick={() => setConfirming('retire')}>Retire</button>}
-          {!isDraft && (
+            <button type="button" style={btn('primary', false, busy || !ready)} disabled={busy || !ready} onClick={onMakeLive}
+              title={ready ? undefined : 'Fix what the tabs show first'}>
+              {makeLive.isPending ? 'Making live…' : 'Make live'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {template.status === 'ACTIVE' && <button type="button" style={btn('secondary', false, busy)} disabled={busy} onClick={() => setConfirming('retire')}>Retire</button>}
             <button type="button" style={btn('primary', false, busy)} disabled={busy} onClick={() => editLive.mutate()}>
               {template.draftId ? 'Open draft' : editLive.isPending ? 'Opening…' : 'Edit as new version'}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </header>
 
       <StatusNote template={template} />
       {actionError && <Notice tone="error">{actionError}</Notice>}
-      {isDraft && template.problems.length > 0 && (
-        <Notice tone="warn" title={dirty ? 'Before it can go live (as last saved)' : 'Before it can go live'}>
-          <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>{template.problems.map(p => <li key={p}>{p}</li>)}</ul>
-        </Notice>
-      )}
 
-      <AboutCard draft={draft} onChange={isDraft ? patch : undefined} />
-      <SectionsCard sections={draft.sections} onChange={isDraft ? sections => patch({ sections }) : undefined} />
-      <ApprovalChainCard stages={draft.stages} positions={positions} onChange={isDraft ? stages => patch({ stages }) : undefined} />
-      <UsedForCard familyId={template.familyId} positionIds={template.positionIds} positions={positions} readOnly={template.status === 'RETIRED'} />
-
-      {(dirty || overWeight.length > 0) && (
-        <div style={stickyBar} role="region" aria-label="Unsaved changes">
-          {overWeight.length > 0 ? (
-            <div role="alert" style={{ flex: '1 1 240px', fontSize: 14, color: C.red, display: 'flex', gap: 8 }}>
-              <FontAwesomeIcon icon={faCircleExclamation} style={{ marginTop: 3 }} />
-              <div>
-                <div style={{ fontWeight: 600 }}>Lower the weights to save</div>
-                {overWeight.map(p => <div key={p} style={{ fontSize: 13 }}>{p}</div>)}
-              </div>
-            </div>
-          ) : (
-            <span style={{ fontSize: 14, color: C.sub, flex: '1 1 auto' }}>Unsaved changes</span>
-          )}
-          <button type="button" style={btn('secondary', false, busy)} disabled={busy} onClick={() => setDraft(draftFromTemplate(template))}>Discard</button>
-          <button type="button" style={btn('primary', false, blocked)} disabled={blocked} onClick={() => save.mutate()}>{save.isPending ? 'Saving…' : 'Save draft'}</button>
-        </div>
-      )}
+      <FormTabs steps={steps} current={tab} onSelect={openTab} showStatus={isDraft} />
+      <div role="tabpanel" id={`af-panel-${tab}`} aria-labelledby={`af-tab-${tab}`}>
+        {tab === 'basics' && (
+          <AboutCard draft={draft} onChange={isDraft ? patch : undefined} issues={issuesOf('basics')}>
+            <UsedForField positions={positions} selected={picked} onChange={template.status === 'RETIRED' ? undefined : onPick}
+              status={isDraft ? undefined : liveStatus} error={livePositions.isError} />
+          </AboutCard>
+        )}
+        {tab === 'scoring' && (
+          <SectionsCard sections={draft.sections} onChange={isDraft ? sections => patch({ sections }) : undefined} issues={issuesOf('scoring')} positionIds={picked} />
+        )}
+        {tab === 'approval' && (
+          <ApprovalChainCard stages={draft.stages} positions={positions} onChange={isDraft ? stages => patch({ stages }) : undefined} issues={issuesOf('approval')} />
+        )}
+      </div>
 
       {confirming === 'live' && (
         <ConfirmDialog
@@ -254,11 +354,10 @@ function StatusNote({ template: t }: { template: AppraisalTemplate }) {
 
 const NOTICE_TONE = {
   info: { fg: C.sub, bg: '#f1f5f9', border: C.border, icon: faCircleInfo },
-  warn: { fg: C.amber, bg: C.amberSoft, border: '#fde68a', icon: faTriangleExclamation },
   error: { fg: C.red, bg: C.redSoft, border: '#fecaca', icon: faTriangleExclamation },
 };
 
-function Notice({ tone, title, children }: { tone: keyof typeof NOTICE_TONE; title?: string; children: React.ReactNode }) {
+function Notice({ tone, children }: { tone: keyof typeof NOTICE_TONE; children: React.ReactNode }) {
   const t = NOTICE_TONE[tone];
   return (
     <div role={tone === 'info' ? undefined : 'alert'} style={{
@@ -266,10 +365,7 @@ function Notice({ tone, title, children }: { tone: keyof typeof NOTICE_TONE; tit
       color: t.fg, background: t.bg, border: `1px solid ${t.border}`,
     }}>
       <FontAwesomeIcon icon={t.icon} style={{ marginTop: 4 }} />
-      <div style={{ minWidth: 0 }}>
-        {title && <div style={{ fontWeight: 600 }}>{title}</div>}
-        {children}
-      </div>
+      <div style={{ minWidth: 0 }}>{children}</div>
     </div>
   );
 }
@@ -278,8 +374,4 @@ const link: React.CSSProperties = { color: C.primary, fontWeight: 600 };
 const backBtn: React.CSSProperties = {
   width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.border}`, background: '#fff', color: C.sub,
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-};
-const stickyBar: React.CSSProperties = {
-  position: 'sticky', bottom: 16, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '12px 16px',
-  background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)',
 };

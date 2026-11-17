@@ -28,11 +28,14 @@ const renderForm = () => render(
   <QueryClientProvider client={new QueryClient()}><Harness /></QueryClientProvider>,
 );
 
+/** The student list loads asynchronously — give it time when the whole suite is running in parallel. */
+const LIST_WAIT_MS = 5000;
+
 describe('Incident report form', () => {
   it('keeps a picked student when you click elsewhere in the Students field', async () => {
     renderForm();
     fireEvent.focus(screen.getByLabelText('Search students'));
-    fireEvent.click(await screen.findByRole('option', { name: 'Aiden' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Aiden' }, { timeout: LIST_WAIT_MS }));
     expect(latest.studentIds).toEqual(['s-1']);
 
     // Click the field's own caption — empty space, "outside the list".
@@ -44,7 +47,7 @@ describe('Incident report form', () => {
   it('groups the student list by age', async () => {
     renderForm();
     fireEvent.focus(screen.getByLabelText('Search students'));
-    expect(await screen.findByRole('group', { name: 'Age 4' })).toBeTruthy();
+    expect(await screen.findByRole('group', { name: 'Age 4' }, { timeout: LIST_WAIT_MS })).toBeTruthy();
     expect(screen.getByRole('group', { name: 'Age 5' })).toBeTruthy();
   });
 

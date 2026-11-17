@@ -183,6 +183,10 @@ export interface Department {
   /** Whether positions in this department can be part of a career
    *  progression ladder at all. */
   hasCareerPath: boolean;
+  /** Organisational structure: its head position — the one that reports outside the department. */
+  headPositionId?: string | null;
+  /** A management department: other departments' heads report into it. */
+  isManagement?: boolean;
 }
 
 export interface Position {
@@ -192,7 +196,11 @@ export interface Position {
   departmentId: string | null;
   name: string;
   titleWeight: number;
+  /** Basic salary — no allowances. */
   basicSalary: number;
+  /** Total pay range: basic plus every allowance and incentive (null = not set). */
+  payRangeMin: number | null;
+  payRangeMax: number | null;
   maxLevel: number;
   sortOrder: number;
   inCareerProgression: boolean;
@@ -211,6 +219,8 @@ export interface Position {
   /** References AuthRole.id — what a teacher holding this position can
    *  access. Null falls back to no access (fail closed). */
   authRoleId: string | null;
+  /** Organisational structure: the position this one reports to (null = top of its line). */
+  reportsToPositionId?: string | null;
 }
 
 // ── Recruitment / Candidates ─────────────────────────────────────────────────

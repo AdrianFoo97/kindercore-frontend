@@ -41,7 +41,6 @@ export default function ReportFacilityModal({ onClose }: { onClose: () => void }
       title="Report a facility issue"
       subtitle="Something broken or unsafe in the building. Your name is added automatically."
       onClose={onClose}
-      dirty={!!(draft.title || draft.location || draft.description || draft.category || draft.files.length)}
       primary={{ label: sendingLabel(busy, progress, 'Report'), onClick: submit, busy }}
     >
       <FacilityIssueFields value={draft} onChange={d => { setDraft(d); if (problem) setProblem(null); }} theme={ADMIN_FACILITY_THEME} disabled={busy} />

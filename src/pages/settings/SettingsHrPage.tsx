@@ -1,37 +1,31 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCoins, faSackDollar, faGift, faBullseye, faTags } from '@fortawesome/free-solid-svg-icons';
+import { faCoins, faSackDollar } from '@fortawesome/free-solid-svg-icons';
 import EmployeeSalaryPage from './EmployeeSalaryPage.js';
 import AllowancesPage from './AllowancesPage.js';
-import PointsRewardsSettingsPage from './PointsRewardsSettingsPage.js';
-import CareerMissionSettingsPage from './CareerMissionSettingsPage.js';
-import MissionCategoriesPage from './MissionCategoriesPage.js';
 
 const C = {
   primary: '#5a67d8', primaryLight: '#eef0fa', text: '#1e293b', muted: '#94a3b8', border: '#e2e8f0',
 };
 
-// Recruitment lives at its own route (/settings/recruitment) — this page
-// covers the rest of Payroll.
-type TabKey = 'salary' | 'allowances' | 'rewards' | 'missions' | 'missionCategories';
+// Settings → Compensation & Benefits → Payroll: salary bands and allowances.
+// Points & rewards and career missions have their own settings pages
+// (Compensation & Benefits, and Training & Development).
+type TabKey = 'salary' | 'allowances';
 
 const TABS: { key: TabKey; label: string; icon: any }[] = [
-  { key: 'salary', label: 'Employee Salary', icon: faCoins },
+  { key: 'salary', label: 'Salary', icon: faCoins },
   { key: 'allowances', label: 'Allowances', icon: faSackDollar },
-  { key: 'rewards', label: 'Points & Rewards', icon: faGift },
-  { key: 'missions', label: 'Career Missions', icon: faBullseye },
-  { key: 'missionCategories', label: 'Mission Categories', icon: faTags },
 ];
 
 export default function SettingsHrPage() {
   const [tab, setTab] = useState<TabKey>('salary');
-  const active = TABS.find(t => t.key === tab)!;
 
   return (
     <div className="m-pad" style={s.page}>
       <style>{`.hr-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
       <div style={s.inner}>
-        <h1 style={s.heading}>{active.label}</h1>
+        <h1 style={s.heading}>Payroll</h1>
 
         <div style={s.tabStrip}>
           {TABS.map(t => (
@@ -50,9 +44,6 @@ export default function SettingsHrPage() {
         <div style={s.content}>
           {tab === 'salary' && <EmployeeSalaryPage embedded />}
           {tab === 'allowances' && <AllowancesPage />}
-          {tab === 'rewards' && <PointsRewardsSettingsPage embedded />}
-          {tab === 'missions' && <CareerMissionSettingsPage embedded />}
-          {tab === 'missionCategories' && <MissionCategoriesPage embedded />}
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeacherCareer } from '../api/career-missions.js';
 import { CareerJourneyVertical } from './TeacherCareerPage.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher-facing Career Journey — drilldown from the My Career hub.
@@ -138,7 +139,7 @@ export default function TeacherMyJourneyPage() {
         </div>
 
         {isLoading && (
-          <div style={s.state}>Loading career journey…</div>
+          <div style={s.state}><LoadingSpinner label="Loading career journey" /></div>
         )}
         {isError && (
           <div style={{ ...s.state, color: '#b91c1c' }}>

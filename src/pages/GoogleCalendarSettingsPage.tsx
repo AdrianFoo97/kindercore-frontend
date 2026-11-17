@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGoogleStatus, getConnectToken, listGoogleCalendars, setGoogleCalendar, setInterviewCalendar } from '../api/google.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 function CheckIcon() {
   return (
@@ -194,7 +195,7 @@ export default function GoogleCalendarSettingsPage() {
                   Used for enquiry appointments and any event without a more specific setting.
                 </div>
                 {calendarsLoading ? (
-                  <div style={{ fontSize: 13, color: '#64748b' }}>Loading calendars…</div>
+                  <div style={{ fontSize: 13, color: '#64748b' }}><LoadingSpinner label="Loading calendars" inline /></div>
                 ) : calendarsError ? (
                   <div style={{ fontSize: 13, color: '#dc2626' }}>Failed to load calendars. Try reconnecting your account.</div>
                 ) : calendarList && calendarList.length > 0 ? (

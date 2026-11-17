@@ -32,7 +32,7 @@ export default function NotBuyingModal({ request: r, onClose }: { request: Purch
   };
 
   return (
-    <FormModal title="Not buying this" subtitle={`${r.item} × ${r.quantity} · asked by ${r.requestedByName}`} onClose={onClose} width={460} dirty={!empty}
+    <FormModal title="Not buying this" subtitle={`${r.item} × ${r.quantity} · asked by ${r.requestedByName}`} onClose={onClose} width={460}
       primary={{ label: busy ? 'Saving…' : 'Not buying', onClick: save, busy, disabled: empty, tone: '#475569' }}>
       <label htmlFor="pr-reason" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>
         Why not? {r.requestedByName} will see this.

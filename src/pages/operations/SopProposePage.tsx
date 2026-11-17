@@ -24,6 +24,9 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { TEACHER_CONTENT_TOP } from '../../components/common/TeacherTopBar.js';
 import { TEACHER_NAV_SPACE } from '../../components/common/TeacherMobileNav.js';
+import GuideBasicsStep from './GuideBasicsStep.js';
+import WizardProgress from './WizardProgress.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc',
@@ -475,6 +478,15 @@ export default function SopProposePage() {
 
   // Step 1's "Next": reasons listed (suggesting an edit) or title + goal (a new guide).
   const step1Ready = needsReasons ? canContinue(reasons) : (!!title.trim() && !!goal.trim());
+  // Teacher step 1: Next stays pressable; with something missing it says what and moves to it.
+  const [triedNext, setTriedNext] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const goalRef = useRef<HTMLTextAreaElement>(null);
+  const goToSteps = () => {
+    if (step1Ready) { setWizardStep(2); return; }
+    setTriedNext(true);
+    (title.trim() ? goalRef : titleRef).current?.focus();
+  };
 
   const submit = async () => {
     if (!title.trim() || !goal.trim() || cleanSteps.length === 0) return;
@@ -584,6 +596,50 @@ export default function SopProposePage() {
     ? { ...s.input, fontSize: 16, padding: '11px 14px', borderRadius: 12 }
     : s.input;
 
+  // Chosen labels + "Add label" menu — one picker, used by both the teacher and admin layouts.
+  const labelPicker = (
+    <div ref={categoryMenuRef} style={{ position: 'relative', display: 'flex', flexWrap: 'wrap' as const, alignItems: 'center', gap: 7 }}>
+      {allCategories.filter(c => categoryIds.includes(c.id)).map(c => (
+        <span key={c.id} style={{ ...s.categoryChip, background: `${c.color}1a`, color: c.color, border: `1px solid ${c.color}40` }}>{c.name}</span>
+      ))}
+      <button type="button" className="sop-propose-cat" onClick={() => setCategoryMenuOpen(o => !o)} aria-expanded={categoryMenuOpen}
+        style={{ ...s.categoryAddChip, ...(themeIsTeacher ? { minHeight: 44, padding: '0 16px', fontSize: 14, color: 'var(--sop-accent)', border: '1.5px dashed #c4b5fd', background: '#fff' } : null) }}>
+        <FontAwesomeIcon icon={faPlus} style={{ fontSize: 9, marginRight: 5 }} />
+        Add label
+      </button>
+      {categoryMenuOpen && (
+        <div style={s.categoryMenu}>
+          {allCategories.length === 0 ? (
+            <div style={{ padding: '10px 12px', fontSize: 12, color: C.mutedSoft }}>No categories yet.</div>
+          ) : (
+            allCategories.map(c => {
+              const active = categoryIds.includes(c.id);
+              return (
+                <button key={c.id} type="button" onClick={() => toggleCategory(c.id)} style={s.categoryMenuItem}>
+                  <span style={{ ...s.categoryCheckbox, ...(active ? { background: c.color, borderColor: c.color } : {}) }}>
+                    {active && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 8, color: '#fff' }} />}
+                  </span>
+                  <span style={{ ...s.categoryDot, background: c.color }} />
+                  <span>{c.name}</span>
+                </button>
+              );
+            })
+          )}
+          {/* Admin-only destination — same reasoning as
+              "Manage sections" below: a plain teacher
+              proposing a guide has no reason (or access) to
+              manage the org-wide category list. */}
+          {!themeIsTeacher && (
+            <Link to="/settings/sop-categories" style={s.categoryManageLink} onClick={() => setCategoryMenuOpen(false)}>
+              Manage categories
+              <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, marginLeft: 6 }} />
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   const pageStyle: React.CSSProperties = isMobile
     ? {
         paddingTop: fromTeacherApp ? TEACHER_CONTENT_TOP : 16,
@@ -668,8 +724,12 @@ export default function SopProposePage() {
                   : 'A supervisor reviews and approves this before it appears in How-To Guides.')}
             </p>
           )}
-          {(!isEditingExisting || needsReasons) && (
-            <p style={themeIsTeacher ? sTeacher.stepCaption : {
+          {themeIsTeacher && (!isEditingExisting || needsReasons) && (
+            <WizardProgress step={wizardStep} total={2}
+              label={wizardStep === 1 ? (needsReasons ? 'What needs improving' : 'About the guide') : 'Steps'} />
+          )}
+          {!themeIsTeacher && (!isEditingExisting || needsReasons) && (
+            <p style={{
               margin: '8px 0 0', fontSize: 11.5, fontWeight: 700, color: 'var(--sop-accent)',
               textTransform: 'uppercase' as const, letterSpacing: '0.04em',
             }}>
@@ -679,7 +739,7 @@ export default function SopProposePage() {
         </div>
 
         {(isEditingExisting || resubmitId) && (!prefilled || permissionsLoading) ? (
-          <p style={{ color: C.mutedSoft, fontSize: 13 }}>Loading current version…</p>
+          <p style={{ color: C.mutedSoft, fontSize: 13 }}><LoadingSpinner label="Loading current version" /></p>
         ) : (
           <>
             {/* Resending: step 1 shows only the overall note; step 2 shows each comment
@@ -699,7 +759,14 @@ export default function SopProposePage() {
                 inputStyle={inputStyle}
               />
             )}
-            {showBasicInfo && (
+            {showBasicInfo && themeIsTeacher && (
+              <GuideBasicsStep
+                title={title} onTitle={setTitle} goal={goal} onGoal={setGoal} videoUrl={videoUrl} onVideoUrl={setVideoUrl}
+                icon={resolveSopIcon(icon)} iconName={iconLabel(icon)} onPickIcon={() => setIconSheetOpen(true)}
+                labels={labelPicker} showErrors={triedNext} titleRef={titleRef} goalRef={goalRef}
+              />
+            )}
+            {showBasicInfo && !themeIsTeacher && (
             // Teacher mobile drops the bordered/shadowed card wrapper
             // entirely — every field inside it (input, textarea) already
             // has its own white background + border, so wrapping the
@@ -710,48 +777,7 @@ export default function SopProposePage() {
             // the original card — no topbar/nav chrome there competing
             // for the same "boxed section" visual language.
             <div style={themeIsTeacher ? undefined : { ...s.card, ...(isMobile ? sMobile.card : null) }}>
-              {themeIsTeacher ? (
-                // Redesigned: Title + Icon as one row instead of two
-                // stacked fields. The icon tile uses the exact same
-                // size/colors as a real row in the Guides list
-                // (SopLibraryPage.tsx's catIconWrap) — so this isn't
-                // just an input, it's a live preview of how the guide
-                // will actually look once it's published. The old
-                // inline icon-scroll row (7 cramped 44px squares, most
-                // of the 50 options never seen without scrolling) moves
-                // into a proper full-grid bottom sheet, tapped open via
-                // the pencil badge on the tile.
-                <div style={sTeacher.field}>
-                  <label style={s.label}>Title<span style={s.requiredMark}>*</span></label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8 }}>
-                    <button
-                      type="button"
-                      onClick={() => setIconSheetOpen(true)}
-                      aria-label={`Change icon — currently ${iconLabel(icon)}`}
-                      style={{
-                        position: 'relative', width: 52, height: 52, borderRadius: 15,
-                        border: 'none', padding: 0, flexShrink: 0, cursor: 'pointer',
-                        background: 'var(--sop-accent-soft)', color: 'var(--sop-accent)', fontSize: 20,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <FontAwesomeIcon icon={resolveSopIcon(icon)} />
-                      <span style={{
-                        position: 'absolute', bottom: -3, right: -3, width: 21, height: 21, borderRadius: '50%',
-                        background: '#fff', border: `1.5px solid ${C.cardBorder}`, color: C.muted, fontSize: 10,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 1px 2px rgba(15,23,42,0.08)',
-                      }}>
-                        <FontAwesomeIcon icon={faPen} />
-                      </span>
-                    </button>
-                    <input
-                      type="text" value={title} onChange={e => setTitle(e.target.value)}
-                      placeholder="e.g. Picking" style={{ ...inputStyle, flex: 1, minWidth: 0 }}
-                    />
-                  </div>
-                </div>
-              ) : (
+              {(
                 <>
                   <div style={s.field}>
                     <label style={s.label}>Title<span style={s.requiredMark}>*</span></label>
@@ -812,50 +838,12 @@ export default function SopProposePage() {
                 <input type="text" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=…" style={inputStyle} />
               </div>
 
-              <div style={themeIsTeacher ? sTeacher.lastField : { ...s.field, marginBottom: 0 }} ref={categoryMenuRef}>
+              <div style={themeIsTeacher ? sTeacher.lastField : { ...s.field, marginBottom: 0 }}>
                 <label style={s.label}>
                   Categories
                   <span style={s.labelHint}>Optional — helps teachers find this guide later.</span>
                 </label>
-                <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap' as const, alignItems: 'center', gap: 7 }}>
-                  {allCategories.filter(c => categoryIds.includes(c.id)).map(c => (
-                    <span key={c.id} style={{ ...s.categoryChip, background: `${c.color}1a`, color: c.color, border: `1px solid ${c.color}40` }}>{c.name}</span>
-                  ))}
-                  <button type="button" className="sop-propose-cat" onClick={() => setCategoryMenuOpen(o => !o)} style={s.categoryAddChip}>
-                    <FontAwesomeIcon icon={faPlus} style={{ fontSize: 9, marginRight: 5 }} />
-                    Label
-                  </button>
-                  {categoryMenuOpen && (
-                    <div style={s.categoryMenu}>
-                      {allCategories.length === 0 ? (
-                        <div style={{ padding: '10px 12px', fontSize: 12, color: C.mutedSoft }}>No categories yet.</div>
-                      ) : (
-                        allCategories.map(c => {
-                          const active = categoryIds.includes(c.id);
-                          return (
-                            <button key={c.id} type="button" onClick={() => toggleCategory(c.id)} style={s.categoryMenuItem}>
-                              <span style={{ ...s.categoryCheckbox, ...(active ? { background: c.color, borderColor: c.color } : {}) }}>
-                                {active && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 8, color: '#fff' }} />}
-                              </span>
-                              <span style={{ ...s.categoryDot, background: c.color }} />
-                              <span>{c.name}</span>
-                            </button>
-                          );
-                        })
-                      )}
-                      {/* Admin-only destination — same reasoning as
-                          "Manage sections" below: a plain teacher
-                          proposing a guide has no reason (or access) to
-                          manage the org-wide category list. */}
-                      {!themeIsTeacher && (
-                        <Link to="/settings/sop-categories" style={s.categoryManageLink} onClick={() => setCategoryMenuOpen(false)}>
-                          Manage categories
-                          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, marginLeft: 6 }} />
-                        </Link>
-                      )}
-                    </div>
-                  )}
-                </div>
+                {labelPicker}
               </div>
             </div>
             )}
@@ -1192,11 +1180,11 @@ export default function SopProposePage() {
                 <>
                   <button onClick={goBack} style={{ ...s.cancelBtn, ...(themeIsTeacher ? sTeacher.footerBtn : null) }}>Cancel</button>
                   <button
-                    onClick={() => setWizardStep(2)}
-                    disabled={!step1Ready}
-                    style={{ ...s.saveBtn, ...(themeIsTeacher ? sTeacher.footerBtn : null), opacity: step1Ready ? 1 : 0.5, cursor: step1Ready ? 'pointer' : 'default' }}
+                    onClick={goToSteps}
+                    disabled={!step1Ready && !(themeIsTeacher && showBasicInfo)}
+                    style={{ ...s.saveBtn, ...(themeIsTeacher ? sTeacher.footerBtn : null), opacity: step1Ready || (themeIsTeacher && showBasicInfo) ? 1 : 0.5, cursor: step1Ready || (themeIsTeacher && showBasicInfo) ? 'pointer' : 'default' }}
                   >
-                    Next
+                    {themeIsTeacher && showBasicInfo ? 'Next: add steps' : 'Next'}
                     <FontAwesomeIcon icon={faChevronRight} style={{ marginLeft: 6, fontSize: 11 }} />
                   </button>
                 </>

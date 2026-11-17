@@ -13,6 +13,7 @@ import WithdrawDialog from '../components/students/WithdrawDialog.js';
 import { faChildren } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useToast } from '../components/common/Toast.js';
+import LoadingSpinner from '../components/common/LoadingSpinner.js';
 
 const CURRENT_YEAR  = new Date().getFullYear();
 
@@ -566,7 +567,7 @@ export default function StudentsPage() {
 
         {/* States */}
         {isPending && (
-          <div style={{ padding: '80px 0', textAlign: 'center', color: '#64748b', fontSize: 13 }}>Loading…</div>
+          <div style={{ padding: '80px 0', textAlign: 'center', color: '#64748b', fontSize: 13 }}><LoadingSpinner /></div>
         )}
         {isError && (
           <div style={{ padding: '80px 0', textAlign: 'center', color: '#ef4444', fontSize: 13 }}>Failed to load students.</div>

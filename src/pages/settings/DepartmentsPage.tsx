@@ -89,6 +89,18 @@ export default function DepartmentsPage() {
     }
   }
 
+  async function toggleManagement(d: Department) {
+    setBusy(true);
+    try {
+      await upsertDepartment(d.departmentId, { name: d.name, sortOrder: d.sortOrder, isManagement: !d.isManagement });
+      invalidate();
+    } catch (err: any) {
+      showToast(err.message || 'Failed', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Turning career path OFF hides the Level Incentive Matrix for every
   // position in the department and strips inCareerProgression the next time
   // any of those positions is saved — consequential enough to confirm.
@@ -226,7 +238,7 @@ export default function DepartmentsPage() {
       `}</style>
 
       <div style={s.headerRow}>
-        <p style={s.subtitle}>Positions belong to a department — Employee Salary, Career Missions, and staff pickers can be scoped or grouped by it.</p>
+        <h1 style={{ flex: 1, minWidth: 0, margin: 0 }}>Departments</h1>
         <button
           type="button"
           onClick={startAdd}
@@ -245,6 +257,7 @@ export default function DepartmentsPage() {
             <col style={{ width: 130 }} />
             <col />
             <col style={{ width: 120 }} />
+            <col style={{ width: 120 }} />
             <col style={{ width: 88 }} />
           </colgroup>
           <thead>
@@ -253,6 +266,7 @@ export default function DepartmentsPage() {
               <th style={{ ...s.th, textAlign: 'left' }}>Code</th>
               <th style={{ ...s.th, textAlign: 'left' }}>Name</th>
               <th style={s.th}>Career Path</th>
+              <th style={s.th} title="Other departments' heads report to a position in a management department">Management</th>
               <th style={s.th}></th>
             </tr>
           </thead>
@@ -361,6 +375,15 @@ export default function DepartmentsPage() {
                       label="Career path"
                       title={d.hasCareerPath ? 'Positions here can be part of a career ladder' : 'Positions here have no career progression'}
                     />
+                  </td>
+
+                  <td style={{ ...s.td, ...dropLine, textAlign: 'center' }}>
+                    {/* Management: other departments' heads report to a position here. */}
+                    <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 32, minHeight: 32, cursor: busy ? 'default' : 'pointer' }}
+                      title={d.isManagement ? 'Management — other departments’ heads report here' : 'Mark as management'}>
+                      <input type="checkbox" checked={!!d.isManagement} disabled={busy} aria-label={`${d.name} is a management department`}
+                        onChange={() => toggleManagement(d)} style={{ width: 16, height: 16, accentColor: C.primary }} />
+                    </label>
                   </td>
 
                   <td style={{ ...s.td, ...dropLine, textAlign: 'right' }}>

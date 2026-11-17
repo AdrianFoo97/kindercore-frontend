@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPen, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { fetchTeacherAppraisals, deleteTeacherAppraisal, type TeacherAppraisal } from '../../api/teacher-appraisals.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
 import { useToast } from '../../components/common/Toast.js';
-import { MONTH_LABELS, scoreColors } from './appraisalDisplay.js';
+import { MONTH_LABELS } from './appraisalDisplay.js';
+import { useScoreBand } from './useScoreBand.js';
 import { AppraisalFormModal } from './AppraisalFormModal.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // A staff member's appraisals — the Appraisals tab on their record, and the
 // page behind Staff → ⋯ → Appraisal. One score per month (0–100), with notes
@@ -19,6 +22,7 @@ const C = {
 
 export function AppraisalTab({ teacherId }: { teacherId: string }) {
   const qc = useQueryClient();
+  const bandOf = useScoreBand();
   const { showToast } = useToast();
   const { confirm } = useDeleteDialog();
 
@@ -64,7 +68,7 @@ export function AppraisalTab({ teacherId }: { teacherId: string }) {
     return [...ys].sort((a, b) => b - a);
   }, [items, now]);
 
-  if (isLoading) return <div style={s.card}><p style={{ color: C.muted, fontSize: 13, margin: 0 }}>Loading…</p></div>;
+  if (isLoading) return <div style={s.card}><p style={{ color: C.muted, fontSize: 13, margin: 0 }}><LoadingSpinner inline /></p></div>;
 
   return (
     <>
@@ -88,7 +92,7 @@ export function AppraisalTab({ teacherId }: { teacherId: string }) {
           <div style={{ textAlign: 'right' }}>
             <div style={{
               fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1,
-              color: average != null ? scoreColors(average).color : C.muted,
+              color: average != null ? bandOf(average).color : C.muted,
             }}>
               {average != null ? `${average}%` : '—'}
             </div>
@@ -117,7 +121,7 @@ export function AppraisalTab({ teacherId }: { teacherId: string }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {yearItems.map(a => {
-              const sc = scoreColors(a.score);
+              const sc = bandOf(a.score);
               return (
                 <div key={a.id} style={{
                   display: 'flex', alignItems: 'center', gap: 14,
@@ -146,6 +150,15 @@ export function AppraisalTab({ teacherId }: { teacherId: string }) {
                       </div>
                     )}
                   </div>
+                  {/* Scored with a form: kept as the form worked it out — open it rather than edit it. */}
+                  {a.engineAppraisalId ? (
+                    <Link to={`/appraisals/${a.engineAppraisalId}`} title="Scored with an appraisal form — open it to see every score" style={{
+                      padding: '6px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, textDecoration: 'none',
+                      border: `1px solid ${C.border}`, background: '#fff', color: C.sub,
+                    }}>
+                      Open
+                    </Link>
+                  ) : (
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={() => setEditing(a)} className="et-tab" style={{
                       padding: '6px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6,
@@ -161,6 +174,7 @@ export function AppraisalTab({ teacherId }: { teacherId: string }) {
                       <FontAwesomeIcon icon={faTrash} style={{ fontSize: 10 }} />
                     </button>
                   </div>
+                  )}
                 </div>
               );
             })}

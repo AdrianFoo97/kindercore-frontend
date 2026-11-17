@@ -10,6 +10,13 @@ import { fetchAuthRoles } from '../../api/auth-roles.js';
 import { uploadBadge, uploadUrl } from '../../api/upload.js';
 import { Position } from '../../types/index.js';
 import { useToast } from '../../components/common/Toast.js';
+import { fetchTeachers } from '../../api/planner.js';
+import { useIsMobile } from '../../hooks/useIsMobile.js';
+import { headsFrom, managementFrom, reportingProblem, reportsToOptions } from './orgStructure.js';
+import PositionCareerPreview from './PositionCareerPreview.js';
+import { MODULE_LABELS } from '../../constants/authModules.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import { useGoBack } from '../../hooks/useGoBack.js';
 
 // Dedicated add/edit surface for a salary position. Replaces the old
 // inline-row editor on EmployeeSalaryPage so the form has room for a
@@ -40,6 +47,8 @@ const STAR_COLOR_PRESETS: { color: string; label: string }[] = [
   { color: '#1E293B', label: 'Onyx' },
 ];
 
+/** Title weight may have up to 2 decimals (e.g. 1.25). */
+const TITLE_WEIGHT_DECIMALS = 2;
 function numOnly(val: string): string { return val.replace(/[^\d.]/g, ''); }
 
 // Like numOnly but collapses to a single decimal point, so a field can hold
@@ -57,6 +66,7 @@ function decimalOnly(val: string, maxDecimals?: number): string {
 export default function PositionEditPage() {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
+  const goBack = useGoBack('/settings/positions');
   const qc = useQueryClient();
   const { showToast } = useToast();
   const isEdit = !!id;
@@ -88,8 +98,11 @@ export default function PositionEditPage() {
     roleFocus: '',
     description: '',
     authRoleId: '',
+    reportsToPositionId: '',
   });
   const [hydrated, setHydrated] = useState(false);
+  const { isMobile } = useIsMobile();
+  const { data: staff = [] } = useQuery({ queryKey: ['planner-teachers'], queryFn: fetchTeachers });
   const [saving, setSaving] = useState(false);
   const [badgeUploading, setBadgeUploading] = useState(false);
   const badgeFileRef = useRef<HTMLInputElement | null>(null);
@@ -111,6 +124,7 @@ export default function PositionEditPage() {
         roleFocus: existing.roleFocus ?? '',
         description: existing.description ?? '',
         authRoleId: existing.authRoleId ?? '',
+        reportsToPositionId: existing.reportsToPositionId ?? '',
       });
       setHydrated(true);
     } else if (!isEdit) {
@@ -149,11 +163,18 @@ export default function PositionEditPage() {
     setBadgeUploading(false);
   };
 
-  const canSave = (() => {
-    if (!form.name.trim()) return false;
-    if (!isEdit && !form.positionId.trim()) return false;
-    return true;
-  })();
+  // Why it can't be saved yet (shown beside the disabled Save) — or null.
+  const codeTaken = !isEdit && positions.some(p => p.positionId === form.positionId.trim().toUpperCase());
+  const titleWeightBad = form.titleWeight.trim() === '' || !Number.isFinite(Number(form.titleWeight));
+  const blocker = !form.name.trim() ? 'Give the position a name.'
+    : !isEdit && !form.positionId.trim() ? 'Give the position a code.'
+    : codeTaken ? 'That code is already used by another position.'
+    : !form.departmentId ? 'Pick a department.'
+    : titleWeightBad ? 'Give it a rank (a number).'
+    : null;
+  const canSave = !blocker;
+  const holders = isEdit ? staff.filter(s => s.isActive && s.positionId === form.positionId).length : 0;
+  const reportsChoices = reportsToOptions(positions, headsFrom(departmentList), { positionId: isEdit ? form.positionId : '__new__', departmentId: form.departmentId || null, titleWeight: Number(form.titleWeight) || 0 }, managementFrom(departmentList));
 
   const onSave = async () => {
     if (!canSave) return;
@@ -173,11 +194,13 @@ export default function PositionEditPage() {
         roleFocus: form.roleFocus.trim() || null,
         description: form.description.trim() || null,
         authRoleId: form.authRoleId || null,
+        reportsToPositionId: form.reportsToPositionId || null,
       });
       qc.invalidateQueries({ queryKey: ['salary-positions'] });
       qc.invalidateQueries({ queryKey: ['salary-incentives'] });
-      showToast(isEdit ? `${positionId} updated` : `${positionId} added`);
-      navigate('/settings/employee-salary');
+      showToast(isEdit ? `${form.name.trim()} saved` : `${form.name.trim()} added`);
+      // Back where it was opened from — Positions, or Payroll's salary table.
+      goBack();
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to save', 'error');
     }
@@ -186,7 +209,7 @@ export default function PositionEditPage() {
 
   if (isLoading || !hydrated) {
     return (
-      <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted }}>Loading...</p></div></div>
+      <div className="m-pad" style={s.page}><div style={s.inner}><p style={{ color: C.muted }}><LoadingSpinner /></p></div></div>
     );
   }
   if (isEdit && !existing) {
@@ -194,7 +217,7 @@ export default function PositionEditPage() {
       <div className="m-pad" style={s.page}>
         <div style={s.inner}>
           <p style={{ color: C.muted }}>Position not found.</p>
-          <Link to="/settings/employee-salary" style={s.crumbLink}>Back to Employee Salary</Link>
+          <Link to="/settings/positions" style={s.crumbLink}>Back to Positions</Link>
         </div>
       </div>
     );
@@ -203,295 +226,177 @@ export default function PositionEditPage() {
   return (
     <div className="m-pad" style={s.page}>
       <div style={s.inner}>
-        {/* Breadcrumb */}
-        <div style={s.breadcrumb}>
-          <button className="back-btn" onClick={() => navigate('/settings/employee-salary')} style={s.backBtn} title="Back">
-            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
-          </button>
-          <Link to="/settings/employee-salary" style={s.crumbLink}>Employee Salary</Link>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 9, color: C.mutedSoft }} />
-          <span style={s.crumbCurrent}>{isEdit ? 'Edit Position' : 'Add Position'}</span>
-        </div>
+        {/* Who it is: the name (its code beside it), and where it sits. */}
+        <header style={{ marginBottom: 24 }}>
+          <h1 style={s.heading}>
+            {form.name.trim() || (isEdit ? existing?.name : 'New position')}
+            {form.positionId.trim() && <span style={s.codeTag}>{form.positionId.trim().toUpperCase()}</span>}
+          </h1>
+          {isEdit && (
+            <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+              {selectedDepartment?.name ?? 'No department'} · {holders} {holders === 1 ? 'person' : 'people'}
+            </div>
+          )}
+        </header>
 
-        <h1 style={s.heading}>{isEdit ? `Edit Position — ${existing?.positionId}` : 'Add Position'}</h1>
-
-        {/* Form card */}
-        <div style={s.card}>
-          {/* ID + name */}
-          <div style={s.row}>
-            <label style={s.label}>
-              <span style={s.labelText}>ID <span style={s.req}>*</span></span>
-              {isEdit ? (
-                <input
-                  value={form.positionId}
-                  disabled
-                  style={{ ...s.input, background: C.bg, color: C.muted }}
-                />
-              ) : (
-                <input
-                  value={form.positionId}
-                  onChange={e => setForm(f => ({ ...f, positionId: e.target.value }))}
-                  maxLength={10}
-                  placeholder="e.g. AE"
-                  style={s.input}
-                  autoFocus
-                />
-              )}
-              <span style={s.help}>Short code, max 10 chars. Used internally.</span>
-            </label>
-            <label style={{ ...s.label, flex: 2 }}>
-              <span style={s.labelText}>Position name <span style={s.req}>*</span></span>
-              <input
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Assistant EI"
-                style={s.input}
-              />
-            </label>
-          </div>
-
-          {/* Department */}
-          <label style={{ ...s.label, marginTop: 16 }}>
-            <span style={s.labelText}>Department <span style={s.req}>*</span></span>
-            <select
-              value={form.departmentId}
-              onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))}
-              style={s.input}
-            >
-              {departmentList.length === 0 && <option value="">No departments yet</option>}
-              {departmentList.map(d => (
-                <option key={d.departmentId} value={d.departmentId}>{d.name}</option>
-              ))}
-            </select>
-          </label>
-
-          {/* Access role — controls what a teacher holding this position can see/do, separate from Department */}
-          <label style={{ ...s.label, marginTop: 16 }}>
-            <span style={s.labelText}>Access role</span>
-            <select
-              value={form.authRoleId}
-              onChange={e => setForm(f => ({ ...f, authRoleId: e.target.value }))}
-              style={s.input}
-            >
-              <option value="">No access (fails closed)</option>
-              {authRoleList.map(r => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-            <span style={s.help}>Determines which nav modules and actions teachers in this position can access. Managed under Admin → Access Roles.</span>
-          </label>
-
-          {/* Role Focus — short headline shown above the description */}
-          <label style={{ ...s.label, marginTop: 16 }}>
-            <span style={s.labelText}>Role focus</span>
-            <input
-              value={form.roleFocus}
-              onChange={e => setForm(f => ({ ...f, roleFocus: e.target.value }))}
-              placeholder="e.g. Overall School Management"
-              style={s.input}
-            />
-            <span style={s.help}>One short phrase that names this rank's main responsibility. Rendered bold above the description.</span>
-          </label>
-
-          {/* Description */}
-          <label style={{ ...s.label, marginTop: 16 }}>
-            <span style={s.labelText}>Description</span>
-            <textarea
-              value={form.description}
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              rows={4}
-              placeholder="The detail behind the role focus. What responsibilities, decisions, and outcomes does this rank own?"
-              style={{ ...s.input, resize: 'vertical', minHeight: 100, fontFamily: 'inherit' }}
-            />
-            <span style={s.help}>Plain text. Shown to teachers on their Career Journey page.</span>
-          </label>
-
-          {/* Salary + levels */}
-          <div style={{ ...s.row, marginTop: 16 }}>
-            <label style={s.label}>
-              <span style={s.labelText}>Basic salary (RM)</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.basicSalary}
-                onChange={e => setForm(f => ({ ...f, basicSalary: Number(numOnly(e.target.value)) }))}
-                style={s.input}
-              />
-            </label>
-            <label style={s.label}>
-              <span style={s.labelText}>Title weight</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.titleWeight}
-                onChange={e => setForm(f => ({ ...f, titleWeight: decimalOnly(e.target.value, 1) }))}
-                style={s.input}
-              />
-              <span style={s.help}>Profit-sharing weight multiplier.</span>
-            </label>
-          </div>
-
-          {/* Levels + career path — explicit grid columns so the three
-              controls line up cleanly without overlap on any width. */}
-          <div className="m-stack" style={{
-            display: 'grid',
-            gridTemplateColumns: form.maxLevel > 0
-              ? 'minmax(160px, 1fr) minmax(120px, 1fr) minmax(160px, 1fr)'
-              : 'minmax(160px, 1fr) minmax(160px, 1fr)',
-            gap: 16,
-            marginTop: 16,
-          }}>
-            <label style={s.label}>
-              <span style={s.labelText}>Has levels?</span>
-              <label style={s.toggleRow}>
-                <input
-                  type="checkbox"
-                  checked={form.maxLevel > 0}
-                  onChange={e => setForm(f => ({ ...f, maxLevel: e.target.checked ? 5 : 0 }))}
-                />
-                <span style={{ fontSize: 13, color: C.text }}>
-                  {form.maxLevel > 0 ? 'Yes' : 'No'}
-                </span>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 300px', gap: 24, alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+            <section aria-labelledby="pe-basics" style={s.card}>
+              <h2 id="pe-basics" style={s.cardTitle}>Basics</h2>
+              <div style={s.row}>
+                <label style={{ ...s.label, flex: 2 }}>
+                  <span style={s.labelText}>Name <span style={s.req}>*</span></span>
+                  <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Assistant EI" style={s.input} autoFocus={!isEdit} />
+                </label>
+                <label style={s.label}>
+                  <span style={s.labelText}>Code <span style={s.req}>*</span></span>
+                  <input value={form.positionId} disabled={isEdit} maxLength={10} placeholder="e.g. AEI" aria-invalid={codeTaken}
+                    onChange={e => setForm(f => ({ ...f, positionId: e.target.value }))}
+                    style={{ ...s.input, ...(isEdit ? { background: C.bg, color: C.muted } : {}), ...(codeTaken ? { borderColor: C.danger } : {}) }} />
+                  <span style={s.help}>{isEdit ? 'Can’t change once created.' : 'Short, up to 10 letters — used in reports.'}</span>
+                </label>
+              </div>
+              <label style={{ ...s.label, marginTop: 16 }}>
+                <span style={s.labelText}>Department <span style={s.req}>*</span></span>
+                <select value={form.departmentId} onChange={e => setForm(f => ({ ...f, departmentId: e.target.value }))} style={s.input}>
+                  {departmentList.length === 0 && <option value="">No departments yet</option>}
+                  {departmentList.map(d => <option key={d.departmentId} value={d.departmentId}>{d.name}</option>)}
+                </select>
               </label>
-            </label>
-            {form.maxLevel > 0 && (
+            </section>
+
+            <section aria-labelledby="pe-org" style={s.card}>
+              <h2 id="pe-org" style={s.cardTitle}>Place in the organisation</h2>
+              <div style={s.row}>
+                <label style={{ ...s.label, flex: 2 }}>
+                  <span style={s.labelText}>Reports to</span>
+                  <select value={form.reportsToPositionId} onChange={e => setForm(f => ({ ...f, reportsToPositionId: e.target.value }))} style={s.input}>
+                    {(!reportingProblem(positions, headsFrom(departmentList), { positionId: form.positionId || '__new__', departmentId: form.departmentId || null, titleWeight: Number(form.titleWeight) || 0 }, null, managementFrom(departmentList)) || !form.reportsToPositionId)
+                      && <option value="">Nobody — top of its line</option>}
+                    {reportsChoices.map(p => <option key={p.positionId} value={p.positionId}>{p.name}</option>)}
+                  </select>
+                  <span style={s.help}>A higher position in its own department — or, for the department’s head, a position in another department.</span>
+                </label>
+                <label style={s.label}>
+                  <span style={s.labelText}>Rank</span>
+                  <input type="text" inputMode="decimal" value={form.titleWeight} aria-invalid={titleWeightBad}
+                    onChange={e => setForm(f => ({ ...f, titleWeight: decimalOnly(e.target.value, TITLE_WEIGHT_DECIMALS) }))}
+                    style={{ ...s.input, ...(titleWeightBad ? { borderColor: C.danger } : {}) }} />
+                  <span style={s.help}>Higher sits higher. Also the profit-sharing weight — up to 2 decimals.</span>
+                </label>
+              </div>
+              <p style={{ ...s.help, margin: '12px 0 0' }}>
+                Pay is set in <Link to="/settings/employee-salary" style={s.link}>Payroll</Link>.
+              </p>
+            </section>
+
+            <section aria-labelledby="pe-access" style={s.card}>
+              <h2 id="pe-access" style={s.cardTitle}>Access</h2>
+              {/* What an access role is, in plain words — and what the chosen one gives, so it's clear before saving. */}
+              <p style={{ ...s.help, margin: '-8px 0 12px', fontSize: 13 }}>
+                An access role is a set of permissions: which parts of the app (menus) staff in this position can open, and which actions they can take there.
+                Several positions can share one — e.g. every teacher position uses “Teacher”.
+              </p>
               <label style={s.label}>
-                <span style={s.labelText}>Max level</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.maxLevel}
-                  onChange={e => setForm(f => ({ ...f, maxLevel: Math.max(1, Number(numOnly(e.target.value))) }))}
-                  style={s.input}
-                />
+                <span style={s.labelText}>Access role</span>
+                <select value={form.authRoleId} onChange={e => setForm(f => ({ ...f, authRoleId: e.target.value }))} style={s.input}>
+                  <option value="">No access role</option>
+                  {authRoleList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
               </label>
-            )}
-            <label style={s.label}>
-              <span style={s.labelText}>Career path</span>
-              <label style={{ ...s.toggleRow, ...(deptHasCareerPath ? {} : { opacity: 0.5, cursor: 'default' }) }}>
-                <input
-                  type="checkbox"
-                  checked={form.inCareerProgression}
-                  disabled={!deptHasCareerPath}
-                  onChange={e => setForm(f => ({ ...f, inCareerProgression: e.target.checked }))}
-                />
-                <span style={{ fontSize: 13, color: C.text }}>
-                  {form.inCareerProgression ? 'On path' : 'Off path'}
-                </span>
-              </label>
-              {!deptHasCareerPath && (
-                <span style={s.help}>This department has no career path enabled.</span>
-              )}
-            </label>
-          </div>
+              {(() => {
+                const role = authRoleList.find(r => r.id === form.authRoleId);
+                if (!role) {
+                  return <p style={{ ...s.help, marginTop: 8, color: C.danger }}>No access role: staff in this position can sign in but open nothing until one is set.</p>;
+                }
+                return (
+                  <div style={{ marginTop: 12, padding: '10px 12px', background: C.bg, borderRadius: 8, fontSize: 13, color: C.text, lineHeight: 1.6 }}>
+                    {role.description && <div style={{ color: C.muted, marginBottom: 4 }}>{role.description}</div>}
+                    <div><strong>Can open:</strong> {role.modules.length ? role.modules.map(m => MODULE_LABELS[m] ?? m).join(', ') : 'nothing yet'}</div>
+                    <div><strong>Extra permissions:</strong> {role.views.length ? `${role.views.length}` : 'none'}</div>
+                    <Link to="/settings/auth-roles" style={{ ...s.link, display: 'inline-block', marginTop: 4 }}>See or change what “{role.name}” allows</Link>
+                  </div>
+                );
+              })()}
+            </section>
 
-          {/* Badge upload */}
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.divider}` }}>
-            <span style={s.labelText}>Badge image</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: 10,
-                border: `1px solid ${C.border}`, background: '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden', flexShrink: 0,
-              }}>
-                {form.badgeUrl ? (
-                  <img
-                    src={uploadUrl(form.badgeUrl)}
-                    alt={form.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                    onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
-                  />
-                ) : (
-                  <span style={{ fontSize: 12, color: C.muted }}>—</span>
+            <section aria-labelledby="pe-career" style={s.card}>
+              <h2 id="pe-career" style={s.cardTitle}>Career</h2>
+              <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: form.maxLevel > 0 ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
+                <label style={s.label}>
+                  <span style={s.labelText}>Career path</span>
+                  <label style={{ ...s.toggleRow, ...(deptHasCareerPath ? {} : { opacity: 0.5, cursor: 'default' }) }}>
+                    <input type="checkbox" checked={form.inCareerProgression} disabled={!deptHasCareerPath}
+                      onChange={e => setForm(f => ({ ...f, inCareerProgression: e.target.checked }))} />
+                    <span style={{ fontSize: 14, color: C.text }}>On the career path</span>
+                  </label>
+                  {!deptHasCareerPath && <span style={s.help}>Its department has no career path.</span>}
+                </label>
+                <label style={s.label}>
+                  <span style={s.labelText}>Levels</span>
+                  <label style={s.toggleRow}>
+                    <input type="checkbox" checked={form.maxLevel > 0} onChange={e => setForm(f => ({ ...f, maxLevel: e.target.checked ? 5 : 0 }))} />
+                    <span style={{ fontSize: 14, color: C.text }}>Has levels</span>
+                  </label>
+                </label>
+                {form.maxLevel > 0 && (
+                  <label style={s.label}>
+                    <span style={s.labelText}>Highest level</span>
+                    <input type="text" inputMode="numeric" value={form.maxLevel}
+                      onChange={e => setForm(f => ({ ...f, maxLevel: Math.max(1, Number(numOnly(e.target.value))) }))} style={s.input} />
+                  </label>
                 )}
               </div>
-              <input
-                ref={badgeFileRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                style={{ display: 'none' }}
-                onChange={e => {
-                  const f = e.target.files?.[0];
-                  if (f) handleBadgeUpload(f);
-                  e.target.value = '';
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => badgeFileRef.current?.click()}
-                disabled={badgeUploading}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '8px 12px', fontSize: 13, fontWeight: 600,
-                  color: C.text, background: '#fff',
-                  border: `1px solid ${C.border}`, borderRadius: 7,
-                  cursor: badgeUploading ? 'wait' : 'pointer',
-                  opacity: badgeUploading ? 0.6 : 1,
-                }}
-              >
-                <FontAwesomeIcon
-                  icon={badgeUploading ? faSpinner : faUpload}
-                  spin={badgeUploading}
-                  style={{ fontSize: 12 }}
-                />
-                {form.badgeUrl ? 'Replace image' : 'Upload image'}
-              </button>
-              {form.badgeUrl && !badgeUploading && (
-                <button
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, badgeUrl: '' }))}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '8px 10px', fontSize: 12, fontWeight: 600,
-                    color: C.danger, background: 'transparent',
-                    border: 'none', borderRadius: 6, cursor: 'pointer',
-                  }}
-                >
-                  <FontAwesomeIcon icon={faXmark} style={{ fontSize: 11 }} />
-                  Remove
-                </button>
-              )}
-              <span style={{ fontSize: 11, color: C.muted, marginLeft: 'auto' }}>
-                PNG, JPG, WebP or SVG · max 5 MB
-              </span>
-            </div>
+              <label style={{ ...s.label, marginTop: 16 }}>
+                <span style={s.labelText}>Role focus</span>
+                <input value={form.roleFocus} onChange={e => setForm(f => ({ ...f, roleFocus: e.target.value }))} placeholder="e.g. Overall school management" style={s.input} />
+                <span style={s.help}>One short phrase for its main responsibility — shown in bold above the description.</span>
+              </label>
+              <label style={{ ...s.label, marginTop: 16 }}>
+                <span style={s.labelText}>Description</span>
+                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={4}
+                  placeholder="What this position is responsible for, decides and delivers."
+                  style={{ ...s.input, resize: 'vertical', minHeight: 100, fontFamily: 'inherit' }} />
+              </label>
+              <div style={{ ...s.row, marginTop: 16, alignItems: 'flex-start' }}>
+                <div style={s.label}>
+                  <span style={s.labelText}>Badge</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <input ref={badgeFileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style={{ display: 'none' }}
+                      onChange={e => { const file = e.target.files?.[0]; if (file) handleBadgeUpload(file); e.target.value = ''; }} />
+                    <button type="button" onClick={() => badgeFileRef.current?.click()} disabled={badgeUploading} style={s.secondaryBtn}>
+                      <FontAwesomeIcon icon={badgeUploading ? faSpinner : faUpload} spin={badgeUploading} style={{ fontSize: 12 }} />
+                      {form.badgeUrl ? 'Replace' : 'Upload'}
+                    </button>
+                    {form.badgeUrl && !badgeUploading && (
+                      <button type="button" onClick={() => setForm(f => ({ ...f, badgeUrl: '' }))} style={{ ...s.secondaryBtn, color: C.danger, border: 'none' }}>
+                        <FontAwesomeIcon icon={faXmark} style={{ fontSize: 11 }} /> Remove
+                      </button>
+                    )}
+                  </div>
+                  <span style={s.help}>PNG, JPG, WebP or SVG, up to 5 MB.</span>
+                </div>
+                <div style={s.label}>
+                  <span style={s.labelText}>Star colour</span>
+                  <StarColorPicker value={form.starColor} onChange={v => setForm(f => ({ ...f, starColor: v }))} />
+                  <span style={s.help}>Earned for finishing every mission category at this rank.</span>
+                </div>
+              </div>
+            </section>
           </div>
 
-          {/* Star color */}
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${C.divider}` }}>
-            <span style={s.labelText}>Star color</span>
-            <div style={{ marginTop: 8 }}>
-              <StarColorPicker
-                value={form.starColor}
-                onChange={v => setForm(f => ({ ...f, starColor: v }))}
-              />
-            </div>
-            <span style={{ ...s.help, marginTop: 8 }}>
-              Earned when a teacher completes all category missions at this rank.
-            </span>
+          {/* The result, in view while editing. */}
+          <div style={{ position: isMobile ? 'static' : 'sticky', top: 16 }}>
+            <PositionCareerPreview name={form.name} roleFocus={form.roleFocus} description={form.description}
+              badgeUrl={form.badgeUrl} starColor={form.starColor} onPath={form.inCareerProgression} />
           </div>
         </div>
 
-        {/* Footer actions */}
         <div style={s.footer}>
-          <button
-            type="button"
-            onClick={() => navigate('/settings/employee-salary')}
-            style={s.cancelBtn}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={!canSave || saving}
-            style={{
-              ...s.saveBtn,
-              opacity: !canSave || saving ? 0.55 : 1,
-              cursor: !canSave || saving ? 'default' : 'pointer',
-            }}
-          >
+          {blocker && <span role="status" style={{ fontSize: 13, color: C.muted, marginRight: 'auto', alignSelf: 'center' }}>{blocker}</span>}
+          <button type="button" onClick={goBack} style={s.cancelBtn}>Cancel</button>
+          <button type="button" onClick={onSave} disabled={!canSave || saving} title={blocker ?? undefined}
+            style={{ ...s.saveBtn, opacity: !canSave || saving ? 0.55 : 1, cursor: !canSave || saving ? 'default' : 'pointer' }}>
             {saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Add position')}
           </button>
         </div>
@@ -571,7 +476,7 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     color: C.text,
   },
-  inner: { maxWidth: 760, margin: '0 auto' },
+  inner: { maxWidth: 1040, margin: '0 auto' },
 
   breadcrumb: {
     display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
@@ -589,18 +494,12 @@ const s: Record<string, React.CSSProperties> = {
   },
 
   heading: {
-    margin: '0 0 20px',
+    margin: 0,
     fontSize: 22, fontWeight: 700, color: C.text,
     letterSpacing: '-0.02em',
   },
 
-  card: {
-    background: C.card,
-    border: '1px solid #eef0f4',
-    borderRadius: 14,
-    padding: '22px 26px',
-    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
-  },
+  card: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 20 },
 
   row: {
     display: 'flex', gap: 16, alignItems: 'flex-start',
@@ -610,10 +509,11 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex', flexDirection: 'column', gap: 6,
     flex: 1, minWidth: 0,
   },
-  labelText: {
-    fontSize: 11, fontWeight: 700, color: C.muted,
-    textTransform: 'uppercase' as const, letterSpacing: '0.06em',
-  },
+  labelText: { fontSize: 13, fontWeight: 600, color: C.text },
+  cardTitle: { margin: '0 0 16px', fontSize: 16, fontWeight: 700, color: C.text },
+  codeTag: { marginLeft: 10, padding: '2px 8px', borderRadius: 6, background: '#f1f5f9', color: C.muted, fontSize: 13, fontWeight: 700, verticalAlign: 'middle' },
+  link: { color: '#5a67d8', fontWeight: 600, textDecoration: 'none' },
+  secondaryBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 36, padding: '0 12px', fontSize: 13, fontWeight: 600, color: C.text, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' },
   req: { color: C.danger },
   input: {
     padding: '8px 12px', fontSize: 14,
@@ -622,7 +522,7 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: 'inherit',
     outline: 'none',
   },
-  help: { fontSize: 11, color: C.mutedSoft, marginTop: 2 },
+  help: { fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 1.5 },
   toggleRow: {
     display: 'inline-flex', alignItems: 'center', gap: 8,
     padding: '8px 12px', borderRadius: 7,

@@ -16,6 +16,7 @@ import { CategoryPanel, RowWithState } from './operating-costs/CategoryPanel.js'
 import { StickySaveBar } from './operating-costs/StickySaveBar.js';
 import { C, SIZE, MONTH_LABELS, cellKey, fmtRMCompact, computeRowState } from './operating-costs/shared.js';
 import ConfirmDialog from '../../components/common/ConfirmDialog.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -520,7 +521,7 @@ export default function OperatingCostsPage() {
 
       {/* Main content */}
       {entriesLoading ? (
-        <div style={loadingStyle}>Loading…</div>
+        <div style={loadingStyle}><LoadingSpinner /></div>
       ) : categories.length === 0 ? (
         <div style={loadingStyle}>
           No categories yet. Add categories under Settings → Operating Cost → Categories.

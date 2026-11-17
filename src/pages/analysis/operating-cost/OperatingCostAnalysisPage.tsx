@@ -12,6 +12,7 @@ import {
   MONTHS, byMonthTotals, monthsWithData, elapsedMonths, categoryRows, groupRollup, outliers, ratios,
   type CategoryRow, type GroupRow, type Outlier, type MonthAmounts,
 } from './model.js';
+import LoadingSpinner from '../../../components/common/LoadingSpinner.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────
 // Operating cost is an expense surface: slate is the base voice. The only
@@ -873,7 +874,7 @@ export default function OperatingCostAnalysisPage() {
             the floating bar appears exactly as the header's controls scroll away. */}
         <div ref={sentinelRef} style={{ height: 1, marginTop: -SP.lg }} />
 
-        {loadingEntries && <div style={{ color: C.muted, fontSize: 13 }}>Loading…</div>}
+        {loadingEntries && <div style={{ color: C.muted, fontSize: 13 }}><LoadingSpinner inline /></div>}
 
         {/* A failed request is NOT an empty year. Rendering "nothing recorded"
             when the API is down tells you your costs are zero — the most

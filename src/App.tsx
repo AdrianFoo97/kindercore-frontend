@@ -54,6 +54,10 @@ import CareerMissionSettingsPage from './pages/settings/CareerMissionSettingsPag
 import MissionCategoriesPage from './pages/settings/MissionCategoriesPage.js';
 import AppraisalFormsPage from './pages/settings/appraisalForms/AppraisalFormsPage.js';
 import AppraisalFormEditPage from './pages/settings/appraisalForms/AppraisalFormEditPage.js';
+import RatingScalesPage from './pages/settings/appraisalForms/RatingScalesPage.js';
+import RatingScalePage from './pages/settings/appraisalForms/RatingScalePage.js';
+import ScoringFormsPage from './pages/settings/appraisalForms/ScoringFormsPage.js';
+import ScoringFormPage from './pages/settings/appraisalForms/ScoringFormPage.js';
 import MarketingCampaignsPage from './pages/marketing/MarketingCampaignsPage.js';
 import SopLibraryPage from './pages/operations/SopLibraryPage.js';
 import SopProposePage from './pages/operations/SopProposePage.js';
@@ -128,11 +132,23 @@ import NewStaffPage from './pages/NewStaffPage.js';
 import GuideShareRedirect from './pages/operations/GuideShareRedirect.js';
 import StaffOnboardingPage from './pages/staffOnboarding/StaffOnboardingPage.js';
 import AppraisalsPage from './pages/appraisals/AppraisalsPage.js';
+import AppraisalSchedulePage from './pages/appraisals/AppraisalSchedulePage.js';
+import ScheduleNewPage from './pages/appraisals/ScheduleNewPage.js';
+import AppraisalTasksPage from './pages/appraisals/AppraisalTasksPage.js';
+import AppraisalRunPage from './pages/appraisals/AppraisalRunPage.js';
+import TeacherMyTrainingPage from './pages/TeacherMyTrainingPage.js';
+import CriterionMarksPage from './pages/appraisals/CriterionMarksPage.js';
 import { loginUrlReturningTo } from './utils/loginReturn.js';
 import { isSignedIn } from './api/client.js';
 import IdleSignOut from './components/common/IdleSignOut.js';
 import AccessLogPage from './pages/admin/AccessLogPage.js';
 import SettingsLayout from './pages/settings/SettingsLayout.js';
+import TitledSettingsPage from './pages/settings/TitledSettingsPage.js';
+import ScoreBandsPage from './pages/settings/ScoreBandsPage.js';
+import OrgChartPage from './pages/settings/OrgChartPage.js';
+import PositionsPage from './pages/settings/PositionsPage.js';
+import DepartmentsPage from './pages/settings/DepartmentsPage.js';
+import OrgStructureRedirect from './pages/settings/OrgStructureRedirect.js';
 import SettingsHomePage from './pages/settings/SettingsHomePage.js';
 import MySuggestionsPage from './pages/operations/MySuggestionsPage.js';
 import MySuggestionPage from './pages/operations/MySuggestionPage.js';
@@ -166,7 +182,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 // they read as a focused phone-first app, not a back-office screen.
 // Single source of truth so navbar + footer suppression never drift
 // apart from what TeacherMobileNav itself treats as a teacher route.
-const TEACHER_SURFACE = /\/teachers\/[^/]+\/(home|my-career|my-compensation|rewards|leaderboard|career\/missions|settings|incidents|facilities|purchases)/;
+const TEACHER_SURFACE = /\/teachers\/[^/]+\/(home|my-career|my-compensation|my-training|rewards|leaderboard|career\/missions|settings|incidents|facilities|purchases)/;
 // Mission Board is shared: the gamified teacher app links here with the
 // phone chrome, but the HR Career Path page (TeacherCareerPage.tsx) also
 // links into this exact same route to let a supervisor browse a teacher's
@@ -188,8 +204,12 @@ const STAFF_ONBOARDING_SECTIONS: ChecklistSection[] = [
   { settingKey: 'staff_onboarding_tasks', label: 'HR checklist', help: 'What HR does for a new joiner — ticked on HR → Onboarding. Finishing this list completes their onboarding.' },
   { settingKey: 'staff_self_onboarding_tasks', label: 'New staff\'s own checklist', help: 'What the new joiner does themselves — they tick it in their app under "My onboarding".' },
 ];
+// One appraisal (scoring / signing off / confirming): opened from the admin
+// site as is, and from the teacher app tagged ?app=teacher — same idea as Guides.
+// One appraisal, and one of its criteria (opened from the marks).
+const TEACHER_APPRAISAL = /^\/appraisals\/[^/]+(\/criteria\/[^/]+)?$/;
 function isTeacherSurface(pathname: string, search: string): boolean {
-  if (TEACHER_SOP.test(pathname)) return new URLSearchParams(search).get('app') === 'teacher';
+  if (TEACHER_SOP.test(pathname) || TEACHER_APPRAISAL.test(pathname)) return new URLSearchParams(search).get('app') === 'teacher';
   if (!TEACHER_SURFACE.test(pathname)) return false;
   if (HR_MISSIONS.test(pathname) && new URLSearchParams(search).get('view') === 'hr') return false;
   return true;
@@ -224,6 +244,9 @@ function ProtectedLayout() {
         style={{
           flex: 1, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column',
           paddingBottom: showBottomNavSpace ? TEACHER_NAV_SPACE : undefined,
+          // Same grey as the page, so the space kept free under the floating
+          // bottom nav doesn't show as a white strip.
+          background: '#f8fafc',
           // Collapses TEACHER_CONTENT_TOP to 0 on every teacher page when
           // the real Navbar (in-flow, not floating) is what's showing —
           // see TeacherTopBar.tsx's TEACHER_CONTENT_TOP comment.
@@ -311,17 +334,29 @@ export default function App() {
             <Route path="/settings/attendance-reader" element={<ErrorBoundary><AttendanceReaderSettingsPage /></ErrorBoundary>} />
             <Route path="/settings/data" element={<ErrorBoundary><SettingsDataPage /></ErrorBoundary>} />
             <Route path="/settings/recruitment" element={<ErrorBoundary><RecruitmentSettingsPage /></ErrorBoundary>} />
-            <Route path="/settings/points-rewards" element={<ErrorBoundary><PointsRewardsSettingsPage /></ErrorBoundary>} />
+            {/* Points & rewards, career missions and mission categories are settings pages of their own (they were
+                Payroll tabs) — shown in the settings frame, so their embedded look with the usual settings title. */}
+            <Route path="/settings/points-rewards" element={<ErrorBoundary><TitledSettingsPage title="Points & rewards"><PointsRewardsSettingsPage embedded /></TitledSettingsPage></ErrorBoundary>} />
             <Route path="/settings/points-rewards/add/:kind" element={<ErrorBoundary><PointsRewardsAddPage /></ErrorBoundary>} />
             <Route path="/settings/points-rewards/edit/:kind/:id" element={<ErrorBoundary><PointsRewardsAddPage /></ErrorBoundary>} />
             <Route path="/settings/employee-salary" element={<ErrorBoundary><EmployeeSalaryPage /></ErrorBoundary>} />
             <Route path="/settings/employee-salary/positions/new" element={<ErrorBoundary><PositionEditPage /></ErrorBoundary>} />
             <Route path="/settings/employee-salary/positions/:id/edit" element={<ErrorBoundary><PositionEditPage /></ErrorBoundary>} />
-            <Route path="/settings/career-missions" element={<ErrorBoundary><CareerMissionSettingsPage /></ErrorBoundary>} />
-            <Route path="/settings/mission-categories" element={<ErrorBoundary><MissionCategoriesPage /></ErrorBoundary>} />
+            <Route path="/settings/career-missions" element={<ErrorBoundary><TitledSettingsPage title="Career missions"><CareerMissionSettingsPage embedded /></TitledSettingsPage></ErrorBoundary>} />
+            <Route path="/settings/mission-categories" element={<ErrorBoundary><TitledSettingsPage title="Mission categories"><MissionCategoriesPage embedded /></TitledSettingsPage></ErrorBoundary>} />
             <Route path="/settings/hr" element={<ErrorBoundary><SettingsHrPage /></ErrorBoundary>} />
             <Route path="/settings/appraisal-forms" element={<ErrorBoundary><AppraisalFormsPage /></ErrorBoundary>} />
             <Route path="/settings/appraisal-forms/:id" element={<ErrorBoundary><AppraisalFormEditPage /></ErrorBoundary>} />
+            {/* HR Planning: Departments, Positions, Org chart — each its own page (the old tabbed page redirects). */}
+            <Route path="/settings/departments" element={<ErrorBoundary><DepartmentsPage /></ErrorBoundary>} />
+            <Route path="/settings/positions" element={<ErrorBoundary><PositionsPage /></ErrorBoundary>} />
+            <Route path="/settings/org-chart" element={<ErrorBoundary><OrgChartPage /></ErrorBoundary>} />
+            <Route path="/settings/org-structure" element={<OrgStructureRedirect />} />
+            <Route path="/settings/rating-scales" element={<ErrorBoundary><RatingScalesPage /></ErrorBoundary>} />
+            <Route path="/settings/score-bands" element={<ErrorBoundary><ScoreBandsPage /></ErrorBoundary>} />
+            <Route path="/settings/rating-scales/:id" element={<ErrorBoundary><RatingScalePage /></ErrorBoundary>} />
+            <Route path="/settings/scoring-forms" element={<ErrorBoundary><ScoringFormsPage /></ErrorBoundary>} />
+            <Route path="/settings/scoring-forms/:id" element={<ErrorBoundary><ScoringFormPage /></ErrorBoundary>} />
             <Route path="/settings/timetable/:type" element={<ErrorBoundary><TimetableSettingsPage /></ErrorBoundary>} />
             <Route path="/settings/test/reset-leads" element={<ErrorBoundary><TestToolsPage key="reset-leads" tool="reset-leads" /></ErrorBoundary>} />
             <Route path="/settings/test/reset-students" element={<ErrorBoundary><TestToolsPage key="reset-students" tool="reset-students" /></ErrorBoundary>} />
@@ -359,6 +394,14 @@ export default function App() {
           <Route path="/hr/new-staff" element={<RequireModule module={MODULES.HR}><ErrorBoundary><NewStaffPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/onboarding" element={<RequireModule module={MODULES.HR}><ErrorBoundary><StaffOnboardingPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/appraisals" element={<RequireModule module={MODULES.HR}><ErrorBoundary><AppraisalsPage /></ErrorBoundary></RequireModule>} />
+        <Route path="/hr/appraisal-schedule" element={<RequireModule module={MODULES.HR}><ErrorBoundary><AppraisalSchedulePage /></ErrorBoundary></RequireModule>} />
+        <Route path="/hr/appraisal-schedule/new" element={<RequireModule module={MODULES.HR}><ErrorBoundary><ScheduleNewPage /></ErrorBoundary></RequireModule>} />
+        {/* Appraisals to do, and one appraisal — no module gate here: the server lets in whoever is on its
+            steps (scorer, signer, the staff member) and HR, and refuses everyone else. */}
+        <Route path="/appraisals" element={<ErrorBoundary><AppraisalTasksPage /></ErrorBoundary>} />
+        <Route path="/appraisals/:id" element={<ErrorBoundary><AppraisalRunPage /></ErrorBoundary>} />
+        {/* One criterion scored from a form, on its own page (each item's rating and comments). */}
+        <Route path="/appraisals/:id/criteria/:criterionId" element={<ErrorBoundary><CriterionMarksPage /></ErrorBoundary>} />
           <Route path="/hr/candidates/import" element={<RequireModule module={MODULES.HR}><ErrorBoundary><ImportCandidatesPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/sop-observations" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/sop-observations/new" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationNewPage /></ErrorBoundary></RequireModule>} />
@@ -393,6 +436,7 @@ export default function App() {
               enforcement (a teacher only ever reaching their own :id) is a
               separate, still-open gap tracked in CLAUDE.md's known debt. */}
           <Route path="/teachers/:id/home" element={<ErrorBoundary><TeacherHomePage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/my-training" element={<ErrorBoundary><TeacherMyTrainingPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/settings" element={<ErrorBoundary><TeacherMySettingsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/settings/report-bug" element={<ErrorBoundary><TeacherReportBugPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/incidents" element={<ErrorBoundary><TeacherIncidentsPage /></ErrorBoundary>} />

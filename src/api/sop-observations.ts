@@ -92,3 +92,29 @@ export function saveStepResultsDraft(id: string, stepResults: { stepId: string; 
     body: JSON.stringify({ stepResults }),
   });
 }
+
+/** One SOP observation in "My training" — as trainee or as trainer. */
+export interface TrainingItem {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  /** The SOP (How-To guide) it trains — opened from the list. */
+  sopTemplateId: string;
+  sopTitle: string;
+  trainerId: string | null;
+  trainerName: string | null;
+  status: SopObservationStatus;
+  trainerAt: string | null;
+  assessorAt: string | null;
+  createdAt: string;
+}
+export interface MyTraining { asTrainee: TrainingItem[]; asTrainer: TrainingItem[] }
+export const trainingKey = (teacherId: string) => ['my-training', teacherId] as const;
+/** Teacher app → My training: their SOP observations, as trainee and as trainer. */
+export const fetchMyTraining = (teacherId: string) => apiFetch<MyTraining>(`/api/teachers/${teacherId}/training`);
+/** Teacher app → My training → Trainer: record the day they gave the training (it moves on to the assessor). */
+export const recordTrainingGiven = (teacherId: string, observationId: string, trainedOn: string) =>
+  apiFetch<{ ok: true }>(`/api/teachers/${teacherId}/training/${observationId}/trained`, { method: 'POST', body: JSON.stringify({ trainedOn }) });
+/** The assessor found a step not done right: back to the trainer for more training (marks kept). */
+export const sendBackForTraining = (id: string, stepResults: { stepId: string; passed: StepResultValue; note?: string | null }[], notes: string | null) =>
+  apiFetch<SopObservation>(`/api/sop-observations/${id}/send-back`, { method: 'POST', body: JSON.stringify({ stepResults, notes }) });

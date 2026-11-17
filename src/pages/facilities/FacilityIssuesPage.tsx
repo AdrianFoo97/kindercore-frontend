@@ -16,6 +16,7 @@ import { CATEGORY_ICON, STATUS_LOOK, URGENT_LOOK } from './facilityLook.js';
 import ReportFacilityModal from './ReportFacilityModal.js';
 import FacilityAttachments from './FacilityAttachments.js';
 import UpdateFacilityStatusModal from './UpdateFacilityStatusModal.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Operation → Facilities: things broken or unsafe in the building (door,
 // leaking pipe, aircon…). Facility managers ("Manage facility issues" view;
@@ -121,7 +122,7 @@ export default function FacilityIssuesPage() {
         </div>
 
         {permsLoading || isLoading ? (
-          <div style={empty}>Loading…</div>
+          <div style={empty}><LoadingSpinner /></div>
         ) : error ? (
           <div style={empty}>Couldn’t load facility issues. {(error as Error).message}</div>
         ) : shown.length === 0 ? (

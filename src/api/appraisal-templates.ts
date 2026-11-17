@@ -4,10 +4,14 @@ import { apiFetch } from './client.js';
 // version is never edited in place — editing opens the next version as a draft.
 
 export type TemplateStatus = 'DRAFT' | 'ACTIVE' | 'RETIRED';
-export type Frequency = 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+/** MANUAL = no schedule: an appraisal is started by hand when needed. */
+export type Frequency = 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'MANUAL';
 export type MissingPolicy = 'REQUIRE_ALL' | 'REWEIGHT';
 /** AUTO (pulled from app data) exists on the server but can't be chosen in the editor yet. */
-export type InputType = 'RATING' | 'PERCENT' | 'YES_NO' | 'NUMBER' | 'AUTO';
+/** POINTS = the average of the criterion's points, each scored its own way. FORM = a scoring form's weighted total. */
+export type InputType = 'RATING' | 'PERCENT' | 'YES_NO' | 'PASS_FAIL' | 'NUMBER' | 'AUTO' | 'POINTS' | 'FORM';
+/** How a single point can be scored. */
+export type PointInputType = Exclude<InputType, 'AUTO' | 'POINTS' | 'FORM'>;
 export type StageKind = 'ASSESS' | 'SIGN_OFF' | 'ACKNOWLEDGE';
 export type StageScope = 'ANYONE' | 'OWN_TEAM';
 
@@ -23,10 +27,12 @@ export interface TemplateCriterion {
   weight: number;
   inputType: InputType;
   scaleConfig: RatingScale | NumberScale | Record<string, unknown> | null;
-  /** Optional points it's judged on (scored on its scale, averaged). Empty = scored directly. */
-  points: { id: string; name: string }[];
+  /** Optional points it's judged on — each scored its own way, then averaged. Empty = scored directly. */
+  points: { id: string; name: string; description?: string | null; inputType: PointInputType; scaleConfig: unknown }[];
 }
 export interface TemplateSection { id: string; name: string; weight: number; criteria: TemplateCriterion[] }
+/** Sections as saved — on an appraisal form (with ids) or in a scoring form (without). */
+export type SavedSection = Omit<TemplateSection, 'id' | 'criteria'> & { criteria: (Omit<TemplateCriterion, 'id' | 'points'> & { points: Omit<TemplateCriterion['points'][number], 'id'>[] })[] };
 export interface TemplateStage { id: string; name: string; kind: StageKind; scope: StageScope; positionIds: string[] }
 
 export interface AppraisalTemplate {
@@ -45,6 +51,8 @@ export interface AppraisalTemplate {
   positionIds: string[];
   /** What stops it going live, in plain words — empty when it can. */
   problems: string[];
+  /** The same problems, by editor step: what's scored (sections, weights) and who appraises (the steps). */
+  problemsByArea?: { basics?: string[]; scoring: string[]; approval: string[] };
   /** Another version of the same form that's a draft / live, if any. */
   draftId: string | null;
   activeId: string | null;
@@ -65,12 +73,13 @@ export interface AppraisalTemplateSummary {
   positionIds: string[];
 }
 
+export type SectionsPayload = { name: string; weight: number; criteria: { name: string; description: string | null; weight: number; inputType: InputType; scaleConfig: unknown; points: { name: string; inputType: PointInputType; scaleConfig: unknown }[] }[] }[];
 export interface TemplateSavePayload {
   name: string;
   description: string | null;
   frequency: Frequency;
   missingPolicy: MissingPolicy;
-  sections: { name: string; weight: number; criteria: { name: string; description: string | null; weight: number; inputType: InputType; scaleConfig: unknown; points: { name: string }[] }[] }[];
+  sections: SectionsPayload;
   stages: { name: string; kind: StageKind; scope: StageScope; positionIds: string[] }[];
 }
 

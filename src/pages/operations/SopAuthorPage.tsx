@@ -6,6 +6,7 @@ import { faChevronRight, faFileLines, faUserPen, faClock, faPlus, faCopy, faMagn
 import { fetchRevisions } from '../../api/sop-revisions.js';
 import { fetchTemplates } from '../../api/sop-templates.js';
 import { resolveSopIcon } from '../../utils/sopTemplateIcons.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 const C = {
   bg: '#f8fafc',
@@ -138,7 +139,7 @@ export default function SopAuthorPage() {
         <h2 style={s.sectionHeading}>Drafts in progress</h2>
 
         {isLoading ? (
-          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
+          <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
         ) : drafts.length === 0 ? (
           <div style={{ ...s.card, textAlign: 'center', padding: '48px 20px' }}>
             <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 22, color: C.mutedSoft, marginBottom: 10 }} />

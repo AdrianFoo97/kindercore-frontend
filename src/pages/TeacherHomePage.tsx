@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -15,10 +15,13 @@ import { MilestoneTrack, remainingLabel, type MonthDotState } from '../component
 import { useAnnualBonusSummary } from '../hooks/useAnnualBonusSummary.js';
 import { useTeamPoolSummary } from '../hooks/useTeamPoolSummary.js';
 import { MyOnboardingCard } from './teacherHome/MyOnboardingCard.js';
+import { MyAppraisalTasksCard } from './teacherHome/MyAppraisalTasksCard.js';
 import { QuickActions } from './teacherHome/QuickActions.js';
 import { SHOW_TEACHER_POOLS } from '../config/releaseFlags.js';
 import CurrentFocus from './teacherHome/CurrentFocus.js';
 import { focusMissions } from '../utils/focusMissions.js';
+import MissionDetailPopup from './career/MissionDetailPopup.js';
+import { useMissionTargets } from '../hooks/useMissionTargets.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher Home — a warm, motivating landing. Answers three things at a
@@ -134,6 +137,10 @@ export default function TeacherHomePage() {
     queryFn: () => fetchTeacherCareer(id!),
     enabled: !!id,
   });
+  // Current Focus opens a quest's details right here, over a blurred Home — no tab switch.
+  const [openMissionId, setOpenMissionId] = useState<string | null>(null);
+  const openMission = career?.missions.find(m => m.id === openMissionId) ?? null;
+  const { isTargeted, toggle: toggleTarget, canPinMore } = useMissionTargets(id);
 
   const firstName = (teacher?.name ?? career?.teacher?.name ?? '').trim().split(/\s+/)[0];
   const currentRole = career?.currentPosition?.name ?? null;
@@ -219,7 +226,7 @@ export default function TeacherHomePage() {
   // one (same destination Career's own "Browse missions" CTA uses) —
   // there's nothing to jump into a detail popup for yet.
   const goFocusMission = (missionId: string | null) => {
-    if (missionId) navigate(`/teachers/${id}/career/missions?focus=${missionId}`);
+    if (missionId) setOpenMissionId(missionId);
     else goMissionBoard();
   };
 
@@ -340,11 +347,23 @@ export default function TeacherHomePage() {
         {/* ── My onboarding (new joiners only) ─────────────────── */}
         {id && <MyOnboardingCard teacherId={id} sectionLabelStyle={sectionLabel} />}
 
+        {/* Appraisals waiting for them — to score, sign off, or read (only shows when there are some) */}
+        {id && <MyAppraisalTasksCard teacherId={id} sectionLabelStyle={sectionLabel} />}
+
         {/* ── Current Focus ────────────────────────────────────── */}
         <div style={sectionLabel}>Current Focus</div>
         {/* Every pinned quest (up to three) — see utils/focusMissions.ts. */}
         <div style={{ marginBottom: 26 }}>
           <CurrentFocus missions={focus} nextRole={nextRole ?? null} hasOpenMissions={hasOpenMissions} palette={C} onOpen={goFocusMission} />
+          {openMission && (
+            <MissionDetailPopup
+              mission={openMission}
+              onClose={() => setOpenMissionId(null)}
+              isTargeted={isTargeted(openMission.id)}
+              onToggleTarget={() => toggleTarget(openMission.id)}
+              canPinMore={canPinMore}
+            />
+          )}
         </div>
 
         {/* ── Team this month (team pool preview) ──────────────── */}

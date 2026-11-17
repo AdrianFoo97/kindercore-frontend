@@ -9,6 +9,7 @@ import { faCalendar, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons
 import { fetchRevenueAnalytics } from '../../api/students.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FilterPillStyles, PillSelect, PillToggle } from '../../components/common/FilterPill.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 type GroupBy = 'month' | 'quarter';
 
@@ -132,7 +133,7 @@ export default function RevenueAnalysisPage() {
     if (!entry) setPeriod('all');
   }, [entries, period]);
 
-  if (isLoading) return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: '#64748b' }}>Loading...</p></div></div>;
+  if (isLoading) return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: '#64748b' }}><LoadingSpinner /></p></div></div>;
   if (isError || !data) return <div style={s.page}><div style={s.inner}><p style={{ padding: 40, color: '#dc2626' }}>Failed to load revenue data.</p></div></div>;
 
   const years = data.availableYears.length > 0 ? data.availableYears : [currentYear];

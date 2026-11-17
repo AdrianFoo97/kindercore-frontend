@@ -14,6 +14,7 @@ import NotBuyingModal from './NotBuyingModal.js';
 import { fmtRM, shiftWeek, weekLabel, weekStartOf } from './purchaseDisplay.js';
 import { CarriedRow, ListRow, NotBuyingRow } from './ShoppingListRow.js';
 import { C, btn, iconBtn } from './shoppingListTheme.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Operation → Shopping List: the supervisor's shopping list — everything
 // staff have asked to be bought, as one checklist to tick off at the shop.
@@ -91,7 +92,7 @@ export default function ShoppingListPage() {
         <WeekBar isMobile={isMobile} week={week} isThisWeek={isThisWeek} spend={data?.spend}
           onPrev={() => setWeek(w => shiftWeek(w, -1))} onNext={() => setWeek(w => shiftWeek(w, 1))} onThisWeek={() => setWeek(thisWeek)} />
 
-        {isLoading ? <div style={empty}>Loading…</div>
+        {isLoading ? <div style={empty}><LoadingSpinner /></div>
           : error ? <div style={empty}>Couldn’t load the shopping list. {(error as Error).message}</div>
           : data && (isThisWeek ? (
             <>

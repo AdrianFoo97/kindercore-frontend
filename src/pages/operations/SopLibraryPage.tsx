@@ -26,6 +26,7 @@ import { resolveLibraryView, viewParam, type LibraryView } from './sopFavorites.
 import { useSopFavorites } from './useSopFavorites.js';
 import FavoriteStarButton from './FavoriteStarButton.js';
 import TeacherFab, { TEACHER_FAB_CLEARANCE } from '../../components/common/TeacherFab.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -396,7 +397,7 @@ export default function SopLibraryPage() {
               onAllLabels={() => setLibraryParams({ view: 'labels' })} />
           )}
           {templatesLoading || favorites.isLoading ? (
-            <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}>Loading…</p>
+            <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
           ) : showLabelsList && templates.length > 0 ? (
             <SopLabelsList labels={findLabels(labelSummary.labels, labelQuery)} unlabelled={labelSummary.unlabelled}
               query={labelQuery} onOpen={id => setLibraryParams({ view: 'labels', label: id })}

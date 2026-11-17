@@ -10,24 +10,26 @@ interface Props {
   onChange?: (ids: string[]) => void;
   ariaLabel: string;
   emptyText?: string;
+  /** Only one can be chosen: picking another replaces it (e.g. who scores — one person, so marks never clash). */
+  single?: boolean;
 }
 
 /** Positions as toggle chips — chosen ones carry a tick, not just a colour. */
-export default function PositionChips({ positions, selected, onChange, ariaLabel, emptyText = 'No positions yet' }: Props) {
+export default function PositionChips({ positions, selected, onChange, ariaLabel, emptyText = 'No positions yet', single = false }: Props) {
   if (!onChange) {
     const names = positions.filter(p => selected.includes(p.positionId)).map(p => p.name);
     return <div style={{ fontSize: 14, color: names.length ? C.text : C.muted }}>{names.length ? names.join(', ') : emptyText}</div>;
   }
-  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
+  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter(x => x !== id) : single ? [id] : [...selected, id]);
   return (
-    <div role="group" aria-label={ariaLabel} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+    <div role={single ? 'radiogroup' : 'group'} aria-label={ariaLabel} style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {positions.map(p => {
         const on = selected.includes(p.positionId);
         return (
           <button
             key={p.positionId}
             type="button"
-            aria-pressed={on}
+            {...(single ? { role: 'radio', 'aria-checked': on } : { 'aria-pressed': on })}
             onClick={() => toggle(p.positionId)}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '4px 12px', borderRadius: 999,

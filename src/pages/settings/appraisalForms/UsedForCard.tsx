@@ -1,56 +1,38 @@
-import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { setAppraisalTemplatePositions } from '../../../api/appraisal-templates.js';
-import { useToast } from '../../../components/common/Toast.js';
 import type { Position } from '../../../types/index.js';
 import PositionChips from './PositionChips.js';
-import { C, btn, card, cardHint, cardTitle } from './formTheme.js';
+import { C, label } from './formTheme.js';
 
 interface Props {
-  familyId: string;
-  positionIds: string[];
   positions: Position[];
-  readOnly: boolean;
+  selected: string[];
+  /** Omit for read-only. */
+  onChange?: (positionIds: string[]) => void;
+  /** A line under the chips — e.g. "Saved" on a live form, or why it wasn't. */
+  status?: string;
+  error?: boolean;
+  /** Not required (a scoring form) — says "(optional)". */
+  optional?: boolean;
+  /** Replaces the line under the label. */
+  hint?: string;
 }
 
 /**
- * Which positions are appraised with this form. Set for the form as a whole
- * (every version), and saved on its own — it doesn't wait for the draft.
+ * "Who it's for", inside Basics: which positions this form is meant for — offered first when scheduling them
+ * (set for the form as a whole — every version). Required to go live. The page
+ * decides when it's saved: with "Save draft" on a draft, straight away on a live form.
  */
-export default function UsedForCard({ familyId, positionIds, positions, readOnly }: Props) {
-  const qc = useQueryClient();
-  const { showToast } = useToast();
-  const [selected, setSelected] = useState(positionIds);
-  const [error, setError] = useState('');
-  useEffect(() => setSelected(positionIds), [positionIds]);
-
-  const changed = [...selected].sort().join() !== [...positionIds].sort().join();
-  const save = useMutation({
-    mutationFn: () => setAppraisalTemplatePositions(familyId, selected),
-    onSuccess: () => {
-      setError('');
-      qc.invalidateQueries({ queryKey: ['appraisal-templates'] });
-      qc.invalidateQueries({ queryKey: ['appraisal-template'] });
-      showToast('Positions saved');
-    },
-    onError: (e: Error) => setError(e.message),
-  });
-
+export default function UsedForField({ positions, selected, onChange, status, error = false, optional = false, hint }: Props) {
   return (
-    <section style={card} aria-labelledby="af-used">
-      <h2 id="af-used" style={cardTitle}>Used for</h2>
-      <p style={cardHint}>Staff in these positions are appraised with this form. Each position uses one form at a time.</p>
+    <div style={{ marginTop: 16 }}>
+      <div style={label} id="af-used">Who it’s for {optional && <span style={{ fontWeight: 400, color: C.muted }}>(optional)</span>}</div>
+      <p style={{ margin: '0 0 8px', fontSize: 13, color: C.muted, lineHeight: 1.5 }}>
+        {hint ?? 'When scheduling appraisals, staff in these positions are offered this form first. Each position has one such form.'}
+      </p>
       <PositionChips positions={positions} selected={selected} ariaLabel="Positions that use this form"
-        onChange={readOnly ? undefined : ids => { setSelected(ids); setError(''); }} emptyText="No positions yet" />
-      {error && <p role="alert" style={{ fontSize: 13, color: C.red, margin: '8px 0 0' }}>{error}</p>}
-      {!readOnly && changed && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <button type="button" style={btn('primary', false, save.isPending)} disabled={save.isPending} onClick={() => save.mutate()}>
-            {save.isPending ? 'Saving…' : 'Save positions'}
-          </button>
-          <button type="button" style={btn('secondary')} onClick={() => { setSelected(positionIds); setError(''); }}>Undo</button>
-        </div>
+        onChange={onChange} emptyText="No positions yet" />
+      {status && (
+        <p role={error ? 'alert' : 'status'} style={{ fontSize: 13, margin: '8px 0 0', color: error ? C.red : C.muted }}>{status}</p>
       )}
-    </section>
+    </div>
   );
 }

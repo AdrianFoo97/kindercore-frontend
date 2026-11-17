@@ -11,6 +11,7 @@ import { STATUS_TEXT, feedbackHeading, fmtDate, kindLabel, outcomeLine, resubmit
 import SentBackNote from './SentBackNote.js';
 import { commentsOffTable } from './reviewComments.js';
 import { C, TONE, card, pageStyle, sectionLabel, theme } from './mySuggestionsTheme.js';
+import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 /** One suggestion the person sent: where it stands, the reviewer's note, why, and what it changes. */
 export default function MySuggestionPage() {
@@ -29,7 +30,7 @@ export default function MySuggestionPage() {
     queryKey: ['sop-steps', r?.sopTemplateId], queryFn: () => fetchSteps(r!.sopTemplateId!), enabled: compare,
   });
 
-  if (isLoading) return <div style={pageStyle(teacher, isMobile)}><p style={{ color: C.muted, fontSize: 14 }}>Loading…</p></div>;
+  if (isLoading) return <div style={pageStyle(teacher, isMobile)}><p style={{ color: C.muted, fontSize: 14 }}><LoadingSpinner /></p></div>;
   if (isError || !r) {
     return (
       <div style={pageStyle(teacher, isMobile)}>
