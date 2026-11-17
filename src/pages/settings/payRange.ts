@@ -14,7 +14,6 @@ export function readPay(basicText: string, minText: string, maxText: string): { 
   const max = amount(maxText);
   if ((min != null && !Number.isFinite(min)) || (max != null && !Number.isFinite(max))) return { problem: 'Enter amounts for the pay range.' };
   if ((min == null) !== (max == null)) return { problem: 'Give both ends of the pay range, or neither.' };
-  if (min != null && min < basic) return { problem: 'The range includes allowances, so it can’t start below basic.' };
   if (min != null && max != null && max < min) return { problem: 'The top of the range can’t be below the bottom.' };
   return { pay: { basicSalary: basic, payRangeMin: min, payRangeMax: max } };
 }

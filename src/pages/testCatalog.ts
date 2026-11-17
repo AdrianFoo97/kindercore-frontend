@@ -1377,7 +1377,7 @@ export const TEST_SUITES: TestSuite[] = [
     area: 'Payroll — pay range by position',
     summary: 'Each position has a basic salary (no allowances) and, optionally, a total pay range (basic plus every allowance and incentive).',
     cases: [
-      { name: 'takes no range, or both ends with the bottom at least the basic salary', explains: 'A range needs both ends; because it includes allowances it can’t start below the basic salary, and its top can’t be below its bottom. The server refuses anything else.' },
+      { name: 'takes no range, or both ends with the top not below the bottom', explains: 'A range needs both ends and its top can’t be below its bottom; it may start below the basic salary (e.g. basic RM 1,800, range RM 1,700 – RM 2,000). The server refuses anything else.' },
     ],
   },
   {
