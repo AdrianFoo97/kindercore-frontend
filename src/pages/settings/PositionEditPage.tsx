@@ -17,6 +17,7 @@ import PositionCareerPreview from './PositionCareerPreview.js';
 import { MODULE_LABELS } from '../../constants/authModules.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 import { useGoBack } from '../../hooks/useGoBack.js';
+import AccessRoleOptions from './AccessRoleOptions.js';
 
 // Dedicated add/edit surface for a salary position. Replaces the old
 // inline-row editor on EmployeeSalaryPage so the form has room for a
@@ -301,7 +302,7 @@ export default function PositionEditPage() {
                 <span style={s.labelText}>Access role</span>
                 <select value={form.authRoleId} onChange={e => setForm(f => ({ ...f, authRoleId: e.target.value }))} style={s.input}>
                   <option value="">No access role</option>
-                  {authRoleList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  <AccessRoleOptions roles={authRoleList} />
                 </select>
               </label>
               {(() => {

@@ -110,9 +110,6 @@ import TeacherRewardDetailsPage from './pages/TeacherRewardDetailsPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
 import AuthRolesPage from './pages/settings/AuthRolesPage.js';
 import AuthRoleEditPage from './pages/settings/AuthRoleEditPage.js';
-import AuthRoleViewsPage from './pages/settings/AuthRoleViewsPage.js';
-import AuthViewsPage from './pages/settings/AuthViewsPage.js';
-import AuthViewEditPage from './pages/settings/AuthViewEditPage.js';
 import { RequireModule } from './components/common/RequireModule.js';
 import { RequireView } from './components/common/RequireView.js';
 import { MODULES } from './constants/authModules.js';
@@ -370,10 +367,9 @@ export default function App() {
             <Route path="/settings/auth-roles" element={<ErrorBoundary><AuthRolesPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles/new" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles/:id/edit" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
-            <Route path="/settings/auth-roles/:id/views" element={<ErrorBoundary><AuthRoleViewsPage /></ErrorBoundary>} />
-            <Route path="/settings/auth-views" element={<ErrorBoundary><AuthViewsPage /></ErrorBoundary>} />
-            <Route path="/settings/auth-views/new" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
-            <Route path="/settings/auth-views/:id/edit" element={<ErrorBoundary><AuthViewEditPage /></ErrorBoundary>} />
+            {/* Functions now live in code and are picked on the role itself — the old Views pages redirect here. */}
+            <Route path="/settings/auth-roles/:id/views" element={<Navigate to="/settings/auth-roles" replace />} />
+            <Route path="/settings/auth-views/*" element={<Navigate to="/settings/auth-roles" replace />} />
             <Route path="/admin/year-rollover" element={<ErrorBoundary><YearRolloverPage /></ErrorBoundary>} />
             <Route path="/admin/access-log" element={<ErrorBoundary><AccessLogPage /></ErrorBoundary>} />
             <Route path="/settings/sop-categories" element={<ErrorBoundary><SopCategoriesPage /></ErrorBoundary>} />

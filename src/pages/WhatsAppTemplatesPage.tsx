@@ -5,12 +5,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faPen, faPlus, faTrash, faXmark, faArrowLeft, faLock, faMessage, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import DeleteDialog from '../components/common/DeleteDialog.js';
+import { BUILT_IN_TEMPLATES, TEMPLATE_GROUPS, groupLabel, templateGroupOf, type TemplateGroupKey } from './messageTemplateGroups.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface CustomTemplate {
   id: string;
   name: string;
+  /** Who can use it: COMMON (everyone), MARKETING or HR (that module only). Missing = Common. */
+  group?: TemplateGroupKey;
   content_en: string;
   content_zh: string;
 }
@@ -88,10 +92,19 @@ const SYSTEM_TEMPLATES: SystemTemplate[] = [
 
 const CUSTOM_TEMPLATES_KEY = 'whatsapp_custom_templates';
 
+const GROUP_AUDIENCE: Record<TemplateGroupKey, string> = {
+  COMMON: 'Everyone can use it',
+  MARKETING: 'Only people with the Marketing module',
+  HR: 'Only people with the HRMS module',
+};
+const systemGroupOf = (id: string): TemplateGroupKey => BUILT_IN_TEMPLATES.find(b => b.id === id)?.group ?? 'COMMON';
+
 // ── Template Editor ────────────────────────────────────────────────────────────
 
-function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, variables, onSave, onCancel, saving }: {
+function TemplateEditor({ name, group, contentEn, contentZh, isSystem, isAdmin, variables, onSave, onCancel, saving }: {
   name: string;
+  /** The template's group — fixed for system templates, picked for custom ones. */
+  group: TemplateGroupKey;
   contentEn: string;
   contentZh: string;
   isSystem: boolean;
@@ -99,12 +112,13 @@ function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, variabl
   /** Placeholder chips shown above the textarea. System templates pass
    *  their scoped set; custom templates fall back to the leads set. */
   variables?: VariableGroup[];
-  onSave: (name: string, en: string, zh: string) => void;
+  onSave: (name: string, en: string, zh: string, group: TemplateGroupKey) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
   const groups: VariableGroup[] = variables ?? LEADS_VARIABLES;
   const [draftName, setDraftName] = useState(name);
+  const [draftGroup, setDraftGroup] = useState<TemplateGroupKey>(group);
   const [draftEn, setDraftEn] = useState(contentEn);
   const [draftZh, setDraftZh] = useState(contentZh);
   const [lang, setLang] = useState<'en' | 'zh'>('zh');
@@ -148,11 +162,16 @@ function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, variabl
             <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '3px 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4 }}>
               <FontAwesomeIcon icon={faLock} style={{ fontSize: 8 }} /> System
             </span>
+            <span style={{ fontSize: 13, color: '#64748b' }}>{groupLabel(group)} · {GROUP_AUDIENCE[group]}</span>
           </div>
         ) : (
           <div>
             <label style={s.fieldLabel}>Template Name</label>
             <input style={s.input} value={draftName} onChange={e => setDraftName(e.target.value)} placeholder="e.g. Visit Reminder" disabled={!isAdmin} />
+            <label style={{ ...s.fieldLabel, marginTop: 16 }} htmlFor="tpl-group">Group</label>
+            <select id="tpl-group" style={s.input} value={draftGroup} onChange={e => setDraftGroup(e.target.value as TemplateGroupKey)} disabled={!isAdmin}>
+              {TEMPLATE_GROUPS.map(g => <option key={g.key} value={g.key}>{g.label} — {GROUP_AUDIENCE[g.key]}</option>)}
+            </select>
           </div>
         )}
       </div>
@@ -210,7 +229,7 @@ function TemplateEditor({ name, contentEn, contentZh, isSystem, isAdmin, variabl
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
           <button onClick={onCancel} style={s.cancelBtn}>Cancel</button>
           <button
-            onClick={() => onSave(draftName.trim(), draftEn, draftZh)}
+            onClick={() => onSave(draftName.trim(), draftEn, draftZh, draftGroup)}
             disabled={saving || (!isSystem && !draftName.trim())}
             style={saving ? { ...s.primaryBtn, opacity: 0.6 } : s.primaryBtn}
           >
@@ -269,15 +288,15 @@ export default function WhatsAppTemplatesPage() {
     finally { setSaving(false); }
   };
 
-  const saveCustomTemplate = async (id: string | null, name: string, en: string, zh: string) => {
+  const saveCustomTemplate = async (id: string | null, name: string, en: string, zh: string, group: TemplateGroupKey) => {
     setSaving(true);
     try {
       let updated: CustomTemplate[];
       if (id) {
-        updated = customTemplates.map(t => t.id === id ? { ...t, name, content_en: en, content_zh: zh } : t);
+        updated = customTemplates.map(t => t.id === id ? { ...t, name, group, content_en: en, content_zh: zh } : t);
       } else {
         const newId = crypto.randomUUID();
-        updated = [...customTemplates, { id: newId, name, content_en: en, content_zh: zh }];
+        updated = [...customTemplates, { id: newId, name, group, content_en: en, content_zh: zh }];
       }
       await patchSetting(CUSTOM_TEMPLATES_KEY, updated as unknown as string[]);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -312,7 +331,7 @@ export default function WhatsAppTemplatesPage() {
       return (
         <div style={{ ...s.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}><div style={{ ...s.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
           <TemplateEditor
-            name={st.name} contentEn={content.en} contentZh={content.zh}
+            name={st.name} group={systemGroupOf(st.id)} contentEn={content.en} contentZh={content.zh}
             isSystem isAdmin={isAdmin} saving={saving}
             variables={st.variables}
             onSave={(_, en, zh) => saveSystemTemplate(st, st.name, en, zh)}
@@ -326,9 +345,9 @@ export default function WhatsAppTemplatesPage() {
     return (
       <div style={{ ...s.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}><div style={{ ...s.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
         <TemplateEditor
-          name={ct.name} contentEn={ct.content_en} contentZh={ct.content_zh}
+          name={ct.name} group={templateGroupOf(ct)} contentEn={ct.content_en} contentZh={ct.content_zh}
           isSystem={false} isAdmin={isAdmin} saving={saving}
-          onSave={(name, en, zh) => saveCustomTemplate(ct.id, name, en, zh)}
+          onSave={(name, en, zh, group) => saveCustomTemplate(ct.id, name, en, zh, group)}
           onCancel={() => setEditing(null)}
         />
       </div></div>
@@ -339,9 +358,9 @@ export default function WhatsAppTemplatesPage() {
     return (
       <div style={{ ...s.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}><div style={{ ...s.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
         <TemplateEditor
-          name="" contentEn="" contentZh=""
+          name="" group="COMMON" contentEn="" contentZh=""
           isSystem={false} isAdmin={isAdmin} saving={saving}
-          onSave={(name, en, zh) => saveCustomTemplate(null, name, en, zh)}
+          onSave={(name, en, zh, group) => saveCustomTemplate(null, name, en, zh, group)}
           onCancel={() => setCreating(false)}
         />
       </div></div>
@@ -351,10 +370,10 @@ export default function WhatsAppTemplatesPage() {
   // ── List View ──
 
   // Build unified list for search/filter
-  type ListItem = { id: string; name: string; type: 'system' | 'custom'; content_en: string; content_zh: string };
+  type ListItem = { id: string; name: string; type: 'system' | 'custom'; group: TemplateGroupKey; content_en: string; content_zh: string };
   const allTemplates: ListItem[] = [
-    ...SYSTEM_TEMPLATES.map(st => { const c = getSystemContent(st); return { id: st.id, name: st.name, type: 'system' as const, content_en: c.en, content_zh: c.zh }; }),
-    ...customTemplates.map(ct => ({ id: ct.id, name: ct.name, type: 'custom' as const, content_en: ct.content_en, content_zh: ct.content_zh })),
+    ...SYSTEM_TEMPLATES.map(st => { const c = getSystemContent(st); return { id: st.id, name: st.name, type: 'system' as const, group: systemGroupOf(st.id), content_en: c.en, content_zh: c.zh }; }),
+    ...customTemplates.map(ct => ({ id: ct.id, name: ct.name, type: 'custom' as const, group: templateGroupOf(ct), content_en: ct.content_en, content_zh: ct.content_zh })),
   ];
 
   const q = search.trim().toLowerCase();
@@ -416,8 +435,11 @@ export default function WhatsAppTemplatesPage() {
             <span>Template {q && <span style={{ fontWeight: 400, textTransform: 'none' as const, color: '#64748b' }}>({filtered.length} of {allTemplates.length})</span>}</span>
           </div>
 
-          {/* Template rows */}
-          {filtered.map(t => {
+          {/* Template rows, one section per group (Common, Marketing, HR) */}
+          {TEMPLATE_GROUPS.filter(g => filtered.some(t => t.group === g.key)).map(g => (
+          <div key={g.key}>
+          <div style={s.groupHeader}>{g.label} <span style={{ fontWeight: 400, textTransform: 'none' as const }}>· {GROUP_AUDIENCE[g.key]}</span></div>
+          {filtered.filter(t => t.group === g.key).map(t => {
             const preview = t.content_en || t.content_zh || '';
             const isSystem = t.type === 'system';
             return (
@@ -447,6 +469,8 @@ export default function WhatsAppTemplatesPage() {
               </div>
             );
           })}
+          </div>
+          ))}
 
           {/* Empty states */}
           {filtered.length === 0 && q && (
@@ -458,20 +482,10 @@ export default function WhatsAppTemplatesPage() {
 
       </div>
 
-      {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div style={s.backdrop} onClick={() => setDeleteTarget(null)}>
-          <div style={s.modal} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#1e293b' }}>Delete Template</h3>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#64748b' }}>
-              Are you sure you want to delete <strong>"{deleteTarget.name}"</strong>? This action cannot be undone.
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeleteTarget(null)} style={s.cancelBtn}>Cancel</button>
-              <button onClick={() => deleteCustomTemplate(deleteTarget.id, deleteTarget.name)} style={s.deletePrimaryBtn}>Delete</button>
-            </div>
-          </div>
-        </div>
+        <DeleteDialog entityType="Template" entityName={deleteTarget.name}
+          onConfirm={() => deleteCustomTemplate(deleteTarget.id, deleteTarget.name)}
+          onCancel={() => setDeleteTarget(null)} />
       )}
 
       {/* Toast */}
@@ -501,6 +515,7 @@ const s: Record<string, React.CSSProperties> = {
     display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, alignItems: 'start',
     padding: '14px 18px', borderBottom: '1px solid #f1f5f9',
   },
+  groupHeader: { padding: '8px 18px', background: '#fbfcfd', borderBottom: '1px solid #f1f5f9', fontSize: 11, fontWeight: 700, color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase' as const },
   systemBadge: { fontSize: 10, fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '2px 9px', borderRadius: 20, letterSpacing: '0.03em', whiteSpace: 'nowrap' as const },
   customBadge: { fontSize: 10, fontWeight: 600, color: '#6366f1', background: '#eef2ff', padding: '2px 9px', borderRadius: 20, letterSpacing: '0.03em', whiteSpace: 'nowrap' as const },
 
@@ -540,18 +555,6 @@ const s: Record<string, React.CSSProperties> = {
   },
   primaryBtn: {
     padding: '8px 20px', background: '#5a79c8', color: '#fff', border: 'none',
-    borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-  },
-  backdrop: {
-    position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.35)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  modal: {
-    background: '#fff', borderRadius: 12, padding: '24px 28px', width: '100%', maxWidth: 400,
-    boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
-  },
-  deletePrimaryBtn: {
-    padding: '8px 20px', background: '#dc2626', color: '#fff', border: 'none',
     borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600,
   },
   toast: {

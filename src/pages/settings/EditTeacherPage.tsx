@@ -8,7 +8,7 @@ import {
   fetchClassrooms, fetchSubjects,
 } from '../../api/planner.js';
 import { fetchPositions, fetchLevelIncentives, fetchDepartments } from '../../api/salary.js';
-import { suggestedManagers } from './orgStructure.js';
+import { managementFrom, personReportsToProblem, suggestedManagers } from './orgStructure.js';
 import { fetchCareerRecords, createCareerRecord, updateCareerRecord, deleteCareerRecord } from '../../api/career.js';
 import { fetchAllowanceTypes, fetchTeacherAllowances, upsertTeacherAllowances } from '../../api/allowance.js';
 import { useToast } from '../../components/common/Toast.js';
@@ -261,9 +261,18 @@ export default function EditTeacherPage() {
   // Possible managers: current staff (not this person, not someone who's left), A–Z.
   // The person already chosen stays listed even if they've since left.
   const todayIso = new Date().toISOString().slice(0, 10);
-  const reportsToOptions = (teachers as { id: string; name: string; resignedAt?: string | null }[])
+  // …and only those the rule allows: higher-ranked in their own department, or anyone in Management.
+  const management = managementFrom(departmentList as { departmentId: string; isManagement?: boolean }[]);
+  const ranked = (allPositions as { positionId: string; departmentId: string | null; titleWeight: number }[]);
+  const managerOk = (t: { positionId?: string | null }) => personReportsToProblem(positionId || null, t.positionId ?? null, true, ranked, management) === null;
+  const reportsToOptions = (teachers as { id: string; name: string; resignedAt?: string | null; positionId?: string | null }[])
     .filter(t => t.id !== id && (t.id === reportsToTeacherId || !t.resignedAt || t.resignedAt.slice(0, 10) >= todayIso))
+    .filter(t => t.id === reportsToTeacherId || managerOk(t))
     .sort((a, b) => a.name.localeCompare(b.name));
+  // Must be filled (only Management staff report to nobody) and allowed — Save waits, saying why.
+  const chosenManager = (teachers as { id: string; positionId?: string | null }[]).find(t => t.id === reportsToTeacherId);
+  const reportsToIssue = isNew ? null : personReportsToProblem(positionId || null, chosenManager?.positionId ?? null, !!reportsToTeacherId, ranked, management);
+  const nobodyAllowed = personReportsToProblem(positionId || null, null, false, ranked, management) === null;
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -722,9 +731,10 @@ export default function EditTeacherPage() {
                     <h2 style={s.sectionTitle}>Reporting</h2>
                     <label style={s.label} htmlFor="et-reports-to">Reports to</label>
                     <select id="et-reports-to" style={{ ...s.input, maxWidth: 320 }} value={reportsToTeacherId} onChange={e => setReportsToTeacherId(e.target.value)}>
-                      <option value="">Nobody</option>
-                      {reportsToOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      <option value="">{nobodyAllowed ? 'Nobody — top of the organisation' : 'Pick who they report to…'}</option>
+                      {reportsToOptions.map(t => <option key={t.id} value={t.id}>{t.name}{managerOk(t) ? '' : ' (needs changing)'}</option>)}
                     </select>
+                    {reportsToIssue && <div role="status" style={{ fontSize: 13, color: '#b91c1c', marginTop: 6 }}>{reportsToIssue}</div>}
                     {/* Suggested from the organisational structure (their position's reporting line) — picked by a click, never set for you. */}
                     {(() => {
                       const { position, people } = suggestedManagers(positionId || null, allPositions, reportsToOptions.map(t => ({ ...t, positionId: (t as { positionId?: string | null }).positionId ?? null })), id);
@@ -1112,7 +1122,9 @@ export default function EditTeacherPage() {
             {(tab === 'personal' || tab === 'operations') && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
                 <button onClick={() => navigate('/teachers')} style={s.cancelBtn}>Cancel</button>
-                <button onClick={handleSave} disabled={saving || !name.trim()} style={{ ...s.saveBtn, opacity: saving || !name.trim() ? 0.6 : 1 }}>
+                {reportsToIssue && <span role="status" style={{ alignSelf: 'center', fontSize: 13, color: '#b91c1c' }}>Reports to (Operations tab): {reportsToIssue}</span>}
+                <button onClick={handleSave} disabled={saving || !name.trim() || !!reportsToIssue} title={reportsToIssue ?? undefined}
+                  style={{ ...s.saveBtn, opacity: saving || !name.trim() || reportsToIssue ? 0.6 : 1, cursor: saving || !name.trim() || reportsToIssue ? 'default' : 'pointer' }}>
                   {saving ? 'Saving…' : isNew ? 'Add Teacher' : 'Save Changes'}
                 </button>
               </div>

@@ -7,6 +7,8 @@ import { faXmark, faCopy, faCheck, faPen, faFileLines, faSearch, faArrowLeft } f
 import { fetchSettings } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import LoadingSpinner from './LoadingSpinner.js';
+import { usePermissions } from '../../hooks/usePermissions.js';
+import { BUILT_IN_TEMPLATES, groupLabel, templateGroupOf, visibleTemplateGroups } from '../../pages/messageTemplateGroups.js';
 
 // Tools → Messaging → Message Templates. Read-only quick-copy of every
 // WhatsApp template, for pasting outside the system (personal WhatsApp,
@@ -20,32 +22,24 @@ import LoadingSpinner from './LoadingSpinner.js';
 // copy, a hover-free copy icon per row) and the right pane previews only
 // the selected one.
 //
-// Built-in keys mirror WhatsAppTemplatesPage's SYSTEM_TEMPLATES — a new
-// built-in template must be added in both places. Custom templates come
-// from the same `whatsapp_custom_templates` setting.
+// Grouped Common / Marketing / HR (pages/messageTemplateGroups.ts): Common is
+// for everyone, the others only with their module. Custom templates come
+// from the `whatsapp_custom_templates` setting.
 
 type Lang = 'en' | 'zh';
 interface Tpl { id: string; group: string; name: string; en: string; zh: string }
 
-const BUILT_IN: { group: string; items: { id: string; name: string; en: string; zh: string }[] }[] = [
-  { group: 'Leads', items: [
-    { id: 'enquiry',             name: 'Enquiry',             en: 'whatsapp_template',              zh: 'whatsapp_template_zh' },
-    { id: 'follow_up',           name: 'Follow Up',           en: 'whatsapp_followup_template',     zh: 'whatsapp_followup_template_zh' },
-    { id: 'confirm_appointment', name: 'Confirm Appointment', en: 'whatsapp_confirm_appt_template', zh: 'whatsapp_confirm_appt_template_zh' },
-  ] },
-  { group: 'Recruitment', items: [
-    { id: 'interview_invite',  name: 'Interview Invitation',   en: 'interview_wa_template',         zh: 'interview_wa_template_zh' },
-    { id: 'interview_confirm', name: 'Interview Confirmation', en: 'interview_confirm_wa_template', zh: 'interview_confirm_wa_template_zh' },
-    { id: 'offer_letter',      name: 'Offer Letter',           en: 'offer_wa_template',             zh: 'offer_wa_template_zh' },
-  ] },
-];
 
 const textOf = (t: Tpl, lang: Lang) => (lang === 'en' ? t.en : t.zh);
 
 export default function MessageTemplatesModal({ onClose, canEdit }: { onClose: () => void; canEdit: boolean }) {
   const navigate = useNavigate();
   const { isMobile } = useIsMobile();
-  const { data: settings, isLoading } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  const { data: settings, isLoading: settingsLoading } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
+  const { hasModule, loading: permLoading } = usePermissions();
+  const isLoading = settingsLoading || permLoading;
+  // Common first, then the groups this person's modules allow.
+  const groupKeys = visibleTemplateGroups(hasModule);
   const [lang, setLang] = useState<Lang>('zh');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -56,14 +50,16 @@ export default function MessageTemplatesModal({ onClose, canEdit }: { onClose: (
 
   const all: Tpl[] = useMemo(() => {
     const str = (k: string) => String(settings?.[k] ?? '').trim();
-    const out: Tpl[] = BUILT_IN.flatMap(g => g.items.map(t => ({ id: t.id, group: g.group, name: t.name, en: str(t.en), zh: str(t.zh) })));
+    const out: Tpl[] = BUILT_IN_TEMPLATES.filter(t => groupKeys.includes(t.group))
+      .map(t => ({ id: t.id, group: groupLabel(t.group), name: t.name, en: str(t.en), zh: str(t.zh) }));
     if (Array.isArray(settings?.whatsapp_custom_templates)) {
-      for (const t of settings!.whatsapp_custom_templates as { id: string; name: string; content_en?: string; content_zh?: string }[]) {
-        out.push({ id: `custom:${t.id}`, group: 'Custom', name: t.name, en: (t.content_en ?? '').trim(), zh: (t.content_zh ?? '').trim() });
+      for (const t of settings!.whatsapp_custom_templates as { id: string; name: string; group?: string; content_en?: string; content_zh?: string }[]) {
+        if (!groupKeys.includes(templateGroupOf(t))) continue;
+        out.push({ id: `custom:${t.id}`, group: groupLabel(templateGroupOf(t)), name: t.name, en: (t.content_en ?? '').trim(), zh: (t.content_zh ?? '').trim() });
       }
     }
     return out;
-  }, [settings]);
+  }, [settings, groupKeys.join()]);
 
   // Matches name, group or body (either language) — so "offer" or a
   // phrase you remember from the message both find it.
@@ -111,7 +107,7 @@ export default function MessageTemplatesModal({ onClose, canEdit }: { onClose: (
 
   const showList = !isMobile || !mobileDetail;
   const showDetail = !isMobile || mobileDetail;
-  const groups = ['Leads', 'Recruitment', 'Custom'].filter(g => filtered.some(t => t.group === g));
+  const groups = groupKeys.map(groupLabel).filter(g => filtered.some(t => t.group === g));
 
   return ReactDOM.createPortal(
     <div style={st.overlay} onClick={onClose}>

@@ -1,6 +1,6 @@
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faBoxesStacked, faBuilding, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins, faEye,
+  faBoxesStacked, faBuilding, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins,
   faFileImport, faGears, faGraduationCap, faIdBadge, faLayerGroup, faUserTie, faListCheck, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
   faStarHalfStroke, faRankingStar, faSitemap, faUserCheck, faUserPlus, faUserShield, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
@@ -128,7 +128,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         alsoAt: ['/settings/packages/programmes', '/settings/packages/age-groups'],
         description: 'Programmes, age groups and fees.', keywords: ['fees', 'price', 'programme', 'age group'] },
       { key: 'messages', label: 'Message templates', to: '/settings/whatsapp-templates', icon: faMessage,
-        description: 'WhatsApp messages for parents and candidates.', keywords: ['whatsapp', 'template', 'message'] },
+        description: 'Message templates by group — Common for everyone, Marketing and HR for those modules.', keywords: ['whatsapp', 'template', 'message'] },
     ],
   },
   {
@@ -154,9 +154,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       { key: 'users', label: 'Team members', to: '/settings/users', icon: faUsers,
         description: 'Invite people and link accounts to staff.', keywords: ['users', 'invite', 'accounts', 'login'] },
       { key: 'roles', label: 'Access roles', to: '/settings/auth-roles', icon: faUserShield,
-        description: 'Which areas of the app each role can open.', keywords: ['permissions', 'modules', 'roles'] },
-      { key: 'views', label: 'Views', to: '/settings/auth-views', icon: faEye,
-        description: 'Fine-grained actions you can grant to roles.', keywords: ['permissions', 'actions'] },
+        description: 'Built-in and your own roles — which modules and functions each can open.', keywords: ['permissions', 'modules', 'roles', 'functions', 'views'] },
       { key: 'access-log', label: 'Access log', to: '/admin/access-log', icon: faClockRotateLeft,
         description: 'Who opened pay, finance, appraisal and applicant records.', keywords: ['audit', 'security', 'history'] },
       { key: 'year-rollover', label: 'Year rollover', to: '/admin/year-rollover', icon: faCalendarDays,

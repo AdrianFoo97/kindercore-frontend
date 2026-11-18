@@ -121,3 +121,24 @@ export function reportsToOptions<P extends OrgPosition>(all: P[], heads: Departm
 export const reportingIssue = (all: OrgPosition[], heads: DepartmentHeads, p: OrgPosition, management: Set<string> = new Set()) => reportingProblem(all, heads, p, p.reportsToPositionId ?? null, management);
 /** The departments marked as management. */
 export const managementFrom = (departments: { departmentId: string; isManagement?: boolean }[]) => new Set(departments.filter(d => d.isManagement).map(d => d.departmentId));
+
+// ── A person's "Reports to" (staff records) ─────────────────────────────────
+// Everyone reports to someone higher-ranked in their own department, or to
+// anyone in a Management department. Only Management staff may report to
+// nobody (the top of the organisation). The server checks the same (orgStructure.logic).
+
+export interface RankedPosition { positionId: string; departmentId: string | null; titleWeight: number }
+
+/** Why this person can't report to that manager (null = nobody) — or null when they can. */
+export function personReportsToProblem(
+  selfPositionId: string | null, managerPositionId: string | null | undefined, managerChosen: boolean,
+  positions: RankedPosition[], management: Set<string>,
+): string | null {
+  const self = positions.find(p => p.positionId === selfPositionId) ?? null;
+  const selfInManagement = !!self?.departmentId && management.has(self.departmentId);
+  if (!managerChosen) return selfInManagement ? null : 'Pick who they report to — only Management staff can report to nobody.';
+  const mgr = positions.find(p => p.positionId === managerPositionId) ?? null;
+  if (mgr?.departmentId && management.has(mgr.departmentId)) return null;
+  if (self && mgr && self.departmentId && mgr.departmentId === self.departmentId && mgr.titleWeight > self.titleWeight) return null;
+  return 'They can report to someone higher-ranked in their own department, or anyone in Management.';
+}

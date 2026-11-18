@@ -8,6 +8,7 @@ import { fetchAuthRoles } from '../../api/auth-roles.js';
 import { useToast } from '../../components/common/Toast.js';
 import { memberActivity } from './memberActivity.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import AccessRoleOptions from './AccessRoleOptions.js';
 
 interface UserRecord {
   id: string;
@@ -236,9 +237,7 @@ export default function ManageUsersPage() {
                       }}
                     >
                       <option value="">No access (fails closed)</option>
-                      {authRoles.map(r => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
+                      <AccessRoleOptions roles={authRoles} />
                     </select>
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
                       What modules/views they can see in the admin portal. Can also be set later from this page, or
@@ -291,9 +290,7 @@ export default function ManageUsersPage() {
                   }}
                 >
                   <option value="">No access role</option>
-                  {authRoles.map(r => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
+                  <AccessRoleOptions roles={authRoles} />
                 </select>
                 <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
                   Direct grant, separate from whatever a linked Teacher's position gives below.

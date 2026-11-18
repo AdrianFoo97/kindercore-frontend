@@ -42,10 +42,11 @@ export default function FacilityAttachments({ issueId, attachments }: Props) {
 
 /** The blob for one attachment — cached, so a thumbnail and the full view share one download. */
 function useAttachmentUrl(issueId: string, file: FacilityAttachment) {
-  const { data: blob, isError } = useQuery({
+  const { data: blob, isError, error } = useQuery({
     queryKey: ['facility-attachment', issueId, file.id],
     queryFn: () => fetchFacilityAttachment(issueId, file.id),
     staleTime: Infinity,
+    retry: false,
   });
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -54,17 +55,17 @@ function useAttachmentUrl(issueId: string, file: FacilityAttachment) {
     setUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [blob]);
-  return { url, isError };
+  return { url, isError, reason: error instanceof Error ? error.message : 'Couldn’t load this file.' };
 }
 
 function ImageThumb({ issueId, file }: { issueId: string; file: FacilityAttachment }) {
-  const { url, isError } = useAttachmentUrl(issueId, file);
-  if (isError) return <FontAwesomeIcon icon={faCircleExclamation} style={{ color: '#64748b' }} />;
+  const { url, isError, reason } = useAttachmentUrl(issueId, file);
+  if (isError) return <FontAwesomeIcon icon={faCircleExclamation} title={reason} style={{ color: '#94a3b8' }} />;
   return url ? <img src={url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null;
 }
 
 function AttachmentViewer({ issueId, file, onClose }: { issueId: string; file: FacilityAttachment; onClose: () => void }) {
-  const { url, isError } = useAttachmentUrl(issueId, file);
+  const { url, isError, reason } = useAttachmentUrl(issueId, file);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -83,7 +84,7 @@ function AttachmentViewer({ issueId, file, onClose }: { issueId: string; file: F
         <FontAwesomeIcon icon={faXmark} />
       </button>
       {isError ? (
-        <div style={{ color: '#e2e8f0', fontSize: 14 }}>Couldn’t load this {file.kind}.</div>
+        <div style={{ color: '#e2e8f0', fontSize: 14, textAlign: 'center' }}>{reason}</div>
       ) : !url ? (
         <div style={{ color: '#e2e8f0', fontSize: 14 }}>Loading {file.kind === 'video' ? `video (${fileSizeLabel(file.size)})` : 'photo'}…</div>
       ) : file.kind === 'video' ? (

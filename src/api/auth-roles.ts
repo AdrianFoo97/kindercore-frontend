@@ -1,15 +1,23 @@
 import { apiFetch } from './client.js';
 import { ModuleKey, ViewKey } from '../constants/authModules.js';
+import type { AccessFunction } from '../pages/settings/accessRoleForm.js';
 
 export interface AuthRoleRecord {
   id: string;
   name: string;
   description: string | null;
   sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   modules: ModuleKey[];
+  /** The functions this role grants (keys from the catalog). */
   views: ViewKey[];
+  /** Built-in roles are defined in code and can't be edited — only copied. */
+  builtIn: boolean;
+  /** Built-in roles: the area they're listed under (Marketing, HRMS…). */
+  area: string | null;
+  peopleCount: number;
+  positionCount: number;
 }
 
 export interface UpsertAuthRolePayload {
@@ -20,6 +28,11 @@ export interface UpsertAuthRolePayload {
 
 export function fetchAuthRoles() {
   return apiFetch<AuthRoleRecord[]>('/api/auth-roles');
+}
+
+/** The modules and functions a role can grant (only functions the app really checks). */
+export function fetchAuthRoleCatalog() {
+  return apiFetch<{ modules: ModuleKey[]; functions: AccessFunction[]; moduleIncludes: Record<ModuleKey, string[]> }>('/api/auth-roles/catalog');
 }
 
 export function createAuthRole(payload: UpsertAuthRolePayload) {

@@ -1,4 +1,4 @@
-import { APP_REQUEST_HEADERS, ApiError, apiFetch, withSession } from './client.js';
+import { APP_REQUEST_HEADERS, ApiError, apiFetch, fetchPrivateFile, withSession } from './client.js';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -88,9 +88,7 @@ export function reportFacilityIssue(
 
 /** One attachment as a Blob — the files are private, so an <img src> can't load them directly. */
 export async function fetchFacilityAttachment(issueId: string, fileId: string): Promise<Blob> {
-  const res = await fetch(`${BASE_URL}/api/facility-issues/${issueId}/attachments/${encodeURIComponent(fileId)}`, withSession());
-  if (!res.ok) throw new ApiError('Could not load the attachment', res.status);
-  return res.blob();
+  return fetchPrivateFile(`${BASE_URL}/api/facility-issues/${issueId}/attachments/${encodeURIComponent(fileId)}`, 'Couldn’t load this file.');
 }
 
 export function fetchMyFacilityIssues(): Promise<FacilityIssue[]> {

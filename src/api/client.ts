@@ -81,3 +81,11 @@ export async function apiFetch<T>(
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
+
+/** A private file (photo, receipt…) as a Blob. On failure the error carries the server's reason (e.g. the file is no longer on the server). */
+export async function fetchPrivateFile(url: string, fallback: string): Promise<Blob> {
+  const res = await fetch(url, withSession());
+  if (res.ok) return res.blob();
+  const body = await res.json().catch(() => null) as { message?: string; code?: string } | null;
+  throw new ApiError(body?.message || fallback, res.status, body?.code);
+}

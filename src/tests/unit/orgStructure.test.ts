@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { blockedHeadChoices, branchHeadcount, headsFrom, linkedCount, orgTree, reportingIssue, reportsToOptions, suggestedManagers } from '../../pages/settings/orgStructure';
+import { blockedHeadChoices, branchHeadcount, headsFrom, personReportsToProblem, linkedCount, orgTree, reportingIssue, reportsToOptions, suggestedManagers } from '../../pages/settings/orgStructure';
 
 // Settings → HR Planning → Organisational structure.
 
@@ -54,5 +54,15 @@ describe('Organisational structure', () => {
     // Only SUP is marked Management, so the Principal (in OFFICE) can’t be picked — it’s shown with the reason.
     expect(blockedHeadChoices(all, heads, self, new Set(['SUP'])).map(b => [b.position.positionId, b.why])).toEqual([['EP', 'not in a Management department']]);
     expect(blockedHeadChoices(all, heads, all.find(x => x.positionId === 'EI')!, new Set(['SUP']))).toEqual([]); // not a head
+  });
+
+  it('offers as managers only someone higher in their department or anyone in Management', () => {
+    const ranked = [{ positionId: 'EI', departmentId: 'ACAD', titleWeight: 2 }, { positionId: 'SV', departmentId: 'ACAD', titleWeight: 4 }, { positionId: 'EP', departmentId: 'MGMT', titleWeight: 6 }];
+    const mgmt = new Set(['MGMT']);
+    expect(personReportsToProblem('EI', 'SV', true, ranked, mgmt)).toBeNull();
+    expect(personReportsToProblem('EI', 'EP', true, ranked, mgmt)).toBeNull();
+    expect(personReportsToProblem('SV', 'EI', true, ranked, mgmt)).not.toBeNull();
+    expect(personReportsToProblem('EI', null, false, ranked, mgmt)).toMatch(/Pick who they report to/);
+    expect(personReportsToProblem('EP', null, false, ranked, mgmt)).toBeNull();
   });
 });

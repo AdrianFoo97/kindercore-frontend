@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { ApiError, apiFetch, withSession } from './client.js';
+import { ApiError, apiFetch, fetchPrivateFile, withSession } from './client.js';
 
 // Purchase requests — mirrors kindercore-backend's purchase-requests.controller.ts.
 // Staff ask for things to be bought; shopping-list managers work through the
@@ -166,7 +166,5 @@ export function backToList(id: string): Promise<PurchaseRequest> {
 
 /** The receipt photo as a Blob — it's private, so an <img src> can't load it directly. */
 export async function fetchReceipt(id: string): Promise<Blob> {
-  const res = await fetch(`${BASE_URL}/api/purchase-requests/${id}/receipt`, withSession());
-  if (!res.ok) throw new ApiError('Could not load the receipt', res.status);
-  return res.blob();
+  return fetchPrivateFile(`${BASE_URL}/api/purchase-requests/${id}/receipt`, 'Couldn’t load the receipt.');
 }
