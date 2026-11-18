@@ -7,6 +7,7 @@ import { groupScore, weightedScore } from './liveScore.js';
 import { useScoreBand } from './useScoreBand.js';
 import { sopProgress, sopSections } from './sopCheck.js';
 import type { RunPalette } from './runTheme.js';
+import RunMobileItem from './RunMobileItem.js';
 
 interface Props {
   groups: InputGroup[];
@@ -20,6 +21,8 @@ interface Props {
   /** The Pass / Fail / N/A buttons and the comment box for one step. */
   scoreCell: (i: ScoreInput) => ReactNode;
   commentCell: (i: ScoreInput) => ReactNode;
+  /** The comment already written on a step (phones show its box only when there is one, or when asked). */
+  noteOf: (i: ScoreInput) => string;
 }
 
 /**
@@ -29,7 +32,7 @@ interface Props {
  * the way back to the overview and on to the next SOP. Same page, same draft:
  * nothing is lost moving between them.
  */
-export default function SopCheckView({ groups, values, policy, readOnly, palette: p, mobile, onFocus, scoreCell, commentCell }: Props) {
+export default function SopCheckView({ groups, values, policy, readOnly, palette: p, mobile, onFocus, scoreCell, commentCell, noteOf }: Props) {
   const [open, setOpen] = useState<number | null>(null);
   const top = useRef<HTMLDivElement>(null);
   const go = (i: number | null) => { setOpen(i); onFocus?.(i != null); top.current?.scrollIntoView({ block: 'nearest' }); };
@@ -37,7 +40,7 @@ export default function SopCheckView({ groups, values, policy, readOnly, palette
     <div ref={top} style={{ marginTop: 12, scrollMarginTop: 72 }}>
       {open == null
         ? <Overview groups={groups} values={values} policy={policy} readOnly={readOnly} palette={p} mobile={mobile} onOpen={go} />
-        : <Checklist groups={groups} at={open} values={values} policy={policy} palette={p} mobile={mobile} onGo={go} scoreCell={scoreCell} commentCell={commentCell} />}
+        : <Checklist groups={groups} at={open} values={values} policy={policy} palette={p} mobile={mobile} onGo={go} scoreCell={scoreCell} commentCell={commentCell} noteOf={noteOf} readOnly={readOnly} />}
     </div>
   );
 }
@@ -73,7 +76,7 @@ function Overview({ groups, values, policy, readOnly, palette: p, mobile, onOpen
                 </strong>
               </div>
             )}
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, border: `1px solid ${p.border}`, borderRadius: 8, overflow: 'hidden' }}>
+            <ul style={{ listStyle: 'none', padding: 0, ...(mobile ? { margin: '0 -16px', borderTop: `1px solid ${p.border}`, borderBottom: `1px solid ${p.border}` } : { margin: 0, border: `1px solid ${p.border}`, borderRadius: 8, overflow: 'hidden' }) }}>
               {sec.sops.map(({ g, index: gi }, row) => {
                 const x = all[gi];
                 const score = groupScore(g, values, policy);
@@ -84,14 +87,14 @@ function Overview({ groups, values, policy, readOnly, palette: p, mobile, onOpen
                   <li key={g.name ?? gi} className="kc-sop-row" style={{ borderTop: row ? `1px solid ${p.border}` : 'none' }}>
                     <button type="button" onClick={() => onOpen(gi)} aria-label={`${verb} ${g.name}`}
                       style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: mobile ? '12px' : '10px 16px', minHeight: mobile ? 56 : 52,
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: mobile ? '12px 16px' : '10px 16px', minHeight: mobile ? 56 : 52,
                         border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                       }}>
                       <FontAwesomeIcon icon={icon} aria-hidden style={{ color: iconColour, fontSize: 16, flexShrink: 0 }} />
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: p.text }}>{g.name}</span>
                         <span style={{ display: 'block', fontSize: 12, color: p.muted, marginTop: 2 }}>
-                          {x.marked === 0 ? `${x.total} steps` : `${x.marked} of ${x.total} marked · ${x.passed} passed`}
+                          {x.marked === 0 ? `${x.total} steps` : `${x.marked} of ${x.total} marked${x.passFail ? ` · ${x.passed} passed` : ''}`}
                           {grouped && g.inSection && g.weight != null ? ` · ${g.weight}% of ${g.inSection.name}` : ''}
                         </span>
                       </span>
@@ -118,9 +121,10 @@ function Overview({ groups, values, policy, readOnly, palette: p, mobile, onOpen
   );
 }
 
-function Checklist({ groups, at, values, policy, palette: p, mobile, onGo, scoreCell, commentCell }: {
+function Checklist({ groups, at, values, policy, palette: p, mobile, onGo, scoreCell, commentCell, noteOf, readOnly }: {
   groups: InputGroup[]; at: number; values: Values; policy: MissingPolicy; palette: RunPalette; mobile: boolean;
   onGo: (i: number | null) => void; scoreCell: (i: ScoreInput) => ReactNode; commentCell: (i: ScoreInput) => ReactNode;
+  noteOf: (i: ScoreInput) => string; readOnly: boolean;
 }) {
   const bandOf = useScoreBand();
   const g = groups[at];
@@ -137,28 +141,28 @@ function Checklist({ groups, at, values, policy, palette: p, mobile, onGo, score
   return (
     <section aria-label={g.name ?? 'SOP'}>
       {/* Where you are: back to every SOP, this SOP's name, its place in the list, progress and score. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-        <button type="button" onClick={() => onGo(null)} style={{ ...navBtn(false), maxWidth: 'none' }}>
-          <FontAwesomeIcon icon={faChevronLeft} /> All SOPs
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: mobile ? 'nowrap' : 'wrap', marginBottom: 12 }}>
+        {/* On a phone a small back arrow, so the SOP's name gets the width. */}
+        <button type="button" onClick={() => onGo(null)} aria-label="All SOPs" title="All SOPs"
+          style={mobile ? { ...navBtn(false), width: 44, height: 44, padding: 0, justifyContent: 'center', maxWidth: 'none', flexShrink: 0 } : { ...navBtn(false), maxWidth: 'none' }}>
+          <FontAwesomeIcon icon={faChevronLeft} />{!mobile && ' All SOPs'}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: p.text }}>{g.name}</div>
-          <div style={{ fontSize: 12, color: p.muted }}>{g.inSection && sopSections(groups).length > 1 ? `${g.inSection.name} · ` : ''}SOP {at + 1} of {groups.length} · {x.marked} of {x.total} marked · {x.passed} passed</div>
+          <div style={{ fontSize: 12, color: p.muted }}>{g.inSection && sopSections(groups).length > 1 ? `${g.inSection.name} · ` : ''}SOP {at + 1} of {groups.length} · {x.marked} of {x.total} marked{x.passFail ? ` · ${x.passed} passed` : ''}</div>
         </div>
-        <strong title="Steps passed ÷ (passed + failed); N/A isn't counted" style={{ fontSize: 18, color: score == null ? p.muted : bandOf(score).color, fontVariantNumeric: 'tabular-nums' }}>
+        <strong title={x.passFail ? "Steps passed ÷ (passed + failed); N/A isn't counted" : "The average of the marked steps' levels; N/A isn't counted"} style={{ fontSize: 18, color: score == null ? p.muted : bandOf(score).color, fontVariantNumeric: 'tabular-nums' }}>
           {score == null ? '—' : `${Math.round(score)} / 100`}
         </strong>
       </div>
 
       {mobile ? (
-        <div style={{ border: `1px solid ${p.border}`, borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ margin: '0 -16px', borderTop: `1px solid ${p.border}`, borderBottom: `1px solid ${p.border}` }}>
           {g.inputs.map((i, ii) => (
-            <div key={i.key} style={{ padding: 12, borderTop: ii ? `1px solid ${p.border}` : 'none', display: 'grid', gap: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: p.sub }}>{ii + 1}. {i.name}
-                {i.description && <span style={{ display: 'block', fontSize: 13, fontWeight: 400, color: p.muted, marginTop: 4, lineHeight: 1.5 }}>{i.description}</span>}
-              </span>
-              {scoreCell(i)}
-              {commentCell(i)}
+            <div key={i.key} style={{ borderTop: ii ? `1px solid ${p.border}` : 'none' }}>
+              {/* The step's detail and its comment box sit behind icons beside its name. */}
+              <RunMobileItem name={`${ii + 1}. ${i.name}`} description={i.description} score={scoreCell(i)} comment={commentCell(i)}
+                hasComment={noteOf(i).trim() !== ''} readOnly={readOnly} palette={p} />
             </div>
           ))}
         </div>
@@ -185,10 +189,10 @@ function Checklist({ groups, at, values, policy, palette: p, mobile, onGo, score
 
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 12 }}>
         {at > 0
-          ? <button type="button" onClick={() => onGo(at - 1)} style={navBtn(false)}><FontAwesomeIcon icon={faChevronLeft} /> {groups[at - 1].name}</button>
+          ? <button type="button" onClick={() => onGo(at - 1)} aria-label={`Previous SOP: ${groups[at - 1].name}`} style={navBtn(false)}><FontAwesomeIcon icon={faChevronLeft} /> {mobile ? 'Previous SOP' : groups[at - 1].name}</button>
           : <span />}
         {at < groups.length - 1
-          ? <button type="button" onClick={() => onGo(at + 1)} style={navBtn(true)}>Next SOP: {groups[at + 1].name} <FontAwesomeIcon icon={faChevronRight} /></button>
+          ? <button type="button" onClick={() => onGo(at + 1)} aria-label={`Next SOP: ${groups[at + 1].name}`} style={navBtn(true)}>{mobile ? 'Next SOP' : `Next SOP: ${groups[at + 1].name}`} <FontAwesomeIcon icon={faChevronRight} /></button>
           : <button type="button" onClick={() => onGo(null)} style={navBtn(true)}>Done — back to all SOPs</button>}
       </div>
     </section>

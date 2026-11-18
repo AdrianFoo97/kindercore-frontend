@@ -95,13 +95,14 @@ export function splitWeights(total: number, sizes: number[]): number[] {
  * with their SOP section ("Bags · Hang bag") when the SOP has several — each
  * pass / fail / N/A with its detail. Or why it can't be made.
  */
-export function sectionsFromSops(sops: { title: string; steps: SopStepLike[] }[]): { sections: ScoringForm['sections'] } | { problem: string } {
+export function sectionsFromSops(sops: { id?: string; title: string; steps: SopStepLike[] }[]): { sections: ScoringForm['sections'] } | { problem: string } {
   if (sops.length === 0) return { problem: 'Pick at least one SOP.' };
   if (sops.length > MAX_SOPS) return { problem: `Pick at most ${MAX_SOPS} SOPs for one scoring form.` };
   const perSop = sops.map(sop => {
     const live = sop.steps.filter(s => !s.deletedAt).sort((a, b) => a.displayOrder - b.displayOrder);
     const severalSections = new Set(live.map(s => s.section.trim())).size > 1;
     return {
+      id: sop.id,
       title: sop.title,
       steps: live.map(s => ({ ...s, title: severalSections && s.section.trim() ? `${s.section.trim()} · ${s.title.trim()}` : s.title.trim() })),
     };
@@ -116,6 +117,8 @@ export function sectionsFromSops(sops: { title: string; steps: SopStepLike[] }[]
       name: DEFAULT_SOP_SECTION, weight: 100,
       criteria: perSop.map((s, i) => ({
         name: s.title.slice(0, MAX_STEP_NAME), description: null, weight: shares[i], inputType: 'POINTS' as const, scaleConfig: null,
+        // Remembers its SOP, so a later edit to the SOP reaches new appraisals (the server keeps it current).
+        ...(s.id ? { sopTemplateId: s.id } : {}),
         points: s.steps.map(st => ({
           name: st.title.slice(0, MAX_STEP_NAME), description: st.detail?.trim().slice(0, MAX_DESCRIPTION) || null, inputType: 'PASS_FAIL' as const, scaleConfig: null,
         })),

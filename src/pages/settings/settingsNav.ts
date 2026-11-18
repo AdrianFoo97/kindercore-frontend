@@ -1,6 +1,6 @@
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faBoxesStacked, faBuilding, faBullseye, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins, faEye,
+  faBoxesStacked, faBuilding, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins, faEye,
   faFileImport, faGears, faGraduationCap, faIdBadge, faLayerGroup, faUserTie, faListCheck, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
   faStarHalfStroke, faRankingStar, faSitemap, faUserCheck, faUserPlus, faUserShield, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
@@ -114,6 +114,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         description: 'Named rating levels that appraisal criteria pick from.', keywords: ['appraisals', 'rating', 'scale', 'levels', 'rubric'] },
       { key: 'score-bands', label: 'Score bands', to: '/settings/score-bands', icon: faRankingStar,
         description: 'What appraisal scores are called and their colours — e.g. 80+ Outstanding.', keywords: ['appraisals', 'score', 'band', 'grade', 'outstanding', 'satisfactory', 'threshold'] },
+      { key: 'practice-observations', label: 'Practice observations', to: '/settings/practice-observations', icon: faChalkboardUser,
+        description: 'How observation steps are marked — pass / fail or levels — and what passes.', keywords: ['sop', 'observation', 'training', 'certify', 'pass', 'fail', 'level', 'rating', 'marking'] },
     ],
   },
   {

@@ -8,8 +8,13 @@ import { MONTH_LABELS } from './appraisalDisplay.js';
 // page can say so up front and keep Submit disabled until it's ready.
 
 /** The kinds a person enters by hand. */
-export type ManualKind = 'RATING' | 'PERCENT' | 'YES_NO' | 'PASS_FAIL' | 'NUMBER';
-const MANUAL_KINDS: readonly string[] = ['RATING', 'PERCENT', 'YES_NO', 'PASS_FAIL', 'NUMBER'];
+export type ManualKind = 'RATING' | 'PERCENT' | 'YES_NO' | 'PASS_FAIL' | 'LEVELS' | 'NUMBER';
+const MANUAL_KINDS: readonly string[] = ['RATING', 'PERCENT', 'YES_NO', 'PASS_FAIL', 'LEVELS', 'NUMBER'];
+/** Kinds that can be marked N/A (how SOP steps are marked) — N/A isn't counted. */
+export const MARKS_WITH_NA: readonly string[] = ['PASS_FAIL', 'LEVELS'];
+/** Named levels, each worth a percentage (e.g. Fail 0, Satisfactory 60, Excellent 100); a mark is a level's position. */
+export interface MarkLevel { label: string; score: number }
+export const markLevels = (scaleConfig: unknown): MarkLevel[] => ((scaleConfig as { levels?: MarkLevel[] } | null)?.levels ?? []);
 /** Pass / Fail / N/A: the value stored for N/A — it isn't counted (the rest share its weight). */
 export const NOT_APPLICABLE = '-1';
 export const PASS_FAIL_LABEL: Record<string, string> = { '1': 'Pass', '0': 'Fail', [NOT_APPLICABLE]: 'N/A' };
@@ -103,6 +108,11 @@ export function markText(i: Pick<ScoreInput, 'kind' | 'scaleConfig'>, value: str
     }
     case 'YES_NO': return value === '1' ? 'Yes' : 'No';
     case 'PASS_FAIL': return PASS_FAIL_LABEL[value] ?? value;
+    case 'LEVELS': {
+      if (value === NOT_APPLICABLE) return 'N/A';
+      const level = markLevels(i.scaleConfig)[Number(value)];
+      return level ? `${level.label} · ${level.score}%` : value;
+    }
     case 'PERCENT': return `${value} / 100`;
     case 'NUMBER': {
       const t = numberTarget(i.scaleConfig);
@@ -120,6 +130,7 @@ export function valueProblem(kind: ManualKind, scaleConfig: unknown, text: strin
     case 'PERCENT': return n >= 0 && n <= PERCENT_MAX ? null : 'Enter 0 to 100.';
     case 'YES_NO': return n === 0 || n === 1 ? null : 'Pick yes or no.';
     case 'PASS_FAIL': return n === 0 || n === 1 || n === -1 ? null : 'Pick pass, fail or N/A.';
+    case 'LEVELS': return n === -1 || (Number.isInteger(n) && n >= 0 && n < markLevels(scaleConfig).length) ? null : 'Pick a level or N/A.';
     case 'NUMBER': return n >= 0 ? null : 'Can’t be below 0.';
   }
 }

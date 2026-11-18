@@ -1,18 +1,18 @@
 import SegmentedControl from '../../../components/common/SegmentedControl.js';
 import type { InputType } from '../../../api/appraisal-templates.js';
-import { INPUT_LABEL, numberRule, type DraftScale, type ManualInput } from './appraisalFormDraft.js';
+import { INPUT_LABEL, numberRule, type DraftScale, type PickableInput } from './appraisalFormDraft.js';
 import RatingScalePicker from './RatingScalePicker.js';
 import { needsTarget } from './criterionWizard.js';
 import { C, input, label } from './formTheme.js';
 
-const INPUT_HINT: Record<ManualInput, string> = {
+const INPUT_HINT: Record<PickableInput, string> = {
   RATING: 'The assessor picks a level, e.g. 4 out of 5 = 80%.',
   PERCENT: 'The assessor enters 0–100%.',
   YES_NO: 'Yes = 100%, no = 0%.',
   PASS_FAIL: 'As in SOP observations: pass = 100%, fail = 0%, N/A isn’t counted.',
   NUMBER: 'A count compared with a target, e.g. days late.',
 };
-const INPUTS = Object.keys(INPUT_LABEL) as ManualInput[];
+const INPUTS = Object.keys(INPUT_LABEL) as PickableInput[];
 type Direction = 'lower' | 'higher';
 
 interface Props {
@@ -38,7 +38,7 @@ interface Props {
 export function ScoringChoice({ value: s, onChange, idPrefix, legend = 'How it’s scored', scoringForm }: Props) {
   // "From a scoring form" chosen = none of the kinds is (nor is an old "on several points").
   const kind = scoringForm?.chosen ? null : s.inputType;
-  const choiceText = (k: ManualInput) => ({ label: INPUT_LABEL[k], hint: INPUT_HINT[k] });
+  const choiceText = (k: PickableInput) => ({ label: INPUT_LABEL[k], hint: INPUT_HINT[k] });
   return (
     <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
       <legend style={label}>{legend}</legend>

@@ -8,12 +8,15 @@ export const STAFF_LEFT_CODE = 'STAFF_LEFT';
 export class ApiError extends Error {
   status: number;
   code?: string;
+  /** The rest of the server's reply (e.g. which appraisal already exists). */
+  body?: Record<string, unknown>;
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, body?: Record<string, unknown>) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.body = body;
   }
 }
 
@@ -72,7 +75,7 @@ export async function apiFetch<T>(
     const detail = Array.isArray(body.errors) && body.errors.length > 0
       ? ': ' + body.errors.map(e => e.message).join(', ')
       : '';
-    throw new ApiError((body.message ?? 'Request failed') + detail, res.status, body.code);
+    throw new ApiError((body.message ?? 'Request failed') + detail, res.status, body.code, body as Record<string, unknown>);
   }
 
   if (res.status === 204) return undefined as T;

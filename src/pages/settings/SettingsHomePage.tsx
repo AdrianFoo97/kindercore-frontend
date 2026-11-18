@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronRight, faMagnifyingGlass, faUsers, faXmark } from '@fortawesome/free-solid-svg-icons';
@@ -6,6 +6,7 @@ import { useIsTestServer } from '../../hooks/useIsTestServer.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { groupSections, searchSettings, visibleGroups, type SettingsGroup, type SettingsItem } from './settingsNav.js';
 import { C, isAdminRole, storedRole } from './settingsTheme.js';
+import { columnCount, splitIntoColumns } from './settingsColumns.js';
 
 /** /settings — every setting, grouped, with search. */
 export default function SettingsHomePage() {
@@ -68,22 +69,48 @@ export default function SettingsHomePage() {
   );
 }
 
-/** One card per group, each only as tall as its items, stacked in columns (no empty space under short ones). Groups are never merged. */
+/**
+ * One card per group, in columns (down each, then across), split so the columns come out even.
+ * Every column ends on the same line: its last card stretches to fill. Groups are never merged.
+ */
 /** Narrowest a column of group cards gets before there's one fewer column. */
 const GROUP_COLUMN_MIN = 300;
 const GROUP_GAP = 16;
+/** A card's heading counts as about one row when evening out the columns. */
+const CARD_HEADING_ROWS = 1;
+
+/** An element's width, kept current as the window resizes (starts from the window's, so there's no one-column flash). */
+function useWidth<T extends HTMLElement>(): [React.RefObject<T>, number] {
+  const ref = useRef<T>(null);
+  const [width, setWidth] = useState(() => (typeof window === 'undefined' ? 0 : window.innerWidth));
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, width];
+}
 
 function GroupCards({ groups, level }: { groups: SettingsGroup[]; level: 2 | 3 }) {
   const Heading = level === 2 ? 'h2' : 'h3';
+  const [ref, width] = useWidth<HTMLDivElement>();
+  // A card is about as tall as its heading plus its rows.
+  const columns = splitIntoColumns(groups, g => CARD_HEADING_ROWS + g.items.length, columnCount(width, GROUP_COLUMN_MIN, GROUP_GAP));
   return (
-    <div style={{ columnWidth: GROUP_COLUMN_MIN, columnGap: GROUP_GAP }}>
-      {groups.map(g => (
-        <section key={g.key} aria-labelledby={`st-${g.key}`} style={{ ...card, breakInside: 'avoid', marginBottom: GROUP_GAP, display: 'inline-block', width: '100%', boxSizing: 'border-box' }}>
-          <Heading id={`st-${g.key}`} style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, padding: '12px 16px 4px' }}>
-            {g.label}
-          </Heading>
-          {g.items.map(item => <ItemRow key={item.key} item={item} />)}
-        </section>
+    <div ref={ref} style={{ display: 'flex', gap: GROUP_GAP, alignItems: 'stretch' }}>
+      {columns.map((col, ci) => (
+        <div key={ci} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: GROUP_GAP }}>
+          {col.map((g, gi) => (
+            <section key={g.key} aria-labelledby={`st-${g.key}`} style={{ ...card, boxSizing: 'border-box', ...(gi === col.length - 1 ? { flex: 1 } : {}) }}>
+              <Heading id={`st-${g.key}`} style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0, padding: '12px 16px 4px' }}>
+                {g.label}
+              </Heading>
+              {g.items.map(item => <ItemRow key={item.key} item={item} />)}
+            </section>
+          ))}
+        </div>
       ))}
     </div>
   );

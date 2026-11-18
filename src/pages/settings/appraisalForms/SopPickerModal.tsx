@@ -42,7 +42,7 @@ export default function SopPickerModal({ sectionName, excludeTitles, onAdd, onCl
   const shown = filterSops(offered, query, tagId);
   const { steps, loading, error } = useSopSteps(picked);
   const chosen = offered.filter(s => picked.includes(s.id));
-  const built = picked.length && !loading ? sectionsFromSops(chosen.map(s => ({ title: s.title, steps: steps[s.id] ?? [] }))) : null;
+  const built = picked.length && !loading ? sectionsFromSops(chosen.map(s => ({ id: s.id, title: s.title, steps: steps[s.id] ?? [] }))) : null;
   const problem = !picked.length ? 'Tick at least one SOP.' : loading ? 'Loading their steps…' : built && 'problem' in built ? built.problem : null;
   const toggle = (id: string) => setPicked(ps => (ps.includes(id) ? ps.filter(x => x !== id) : [...ps, id]));
   const field: React.CSSProperties = {

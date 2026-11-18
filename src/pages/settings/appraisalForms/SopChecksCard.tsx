@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import StepMarkingPicker, { typedFromLevels, type TypedLevel } from './StepMarkingPicker.js';
+import { CUSTOM_STARTER, levelsProblem, markingOfPoint, pointScale, type StepMarking } from './stepMarking.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faChevronRight, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../../../hooks/useIsMobile.js';
@@ -37,7 +39,16 @@ export default function SopChecksCard({ sections, onChange, onProblem }: Props) 
   const [addingTo, setAddingTo] = useState<string | null>(null);
   // One section: no section name or share to show — it's simply the SOP list (and it's the whole total).
   const grouped = sections.length > 1;
-  const problem = sopGroupingProblem(sections.map(s => ({
+  // How the steps are marked — read from the first step (they're all marked the same way on one form).
+  const [marking, setMarking] = useState<StepMarking>(() => markingOfPoint(sections[0]?.criteria[0]?.points[0] ? { inputType: sections[0].criteria[0].points[0].inputType, scaleConfig: sections[0].criteria[0].points[0].levelsConfig } : undefined));
+  const [typedLevels, setTypedLevels] = useState<TypedLevel[]>(() => typedFromLevels(marking.inputType === 'LEVELS' ? marking.levels : CUSTOM_STARTER));
+  /** Every step (of every SOP) marked this way. */
+  const markAll = (secs: DraftSection[], m: StepMarking): DraftSection[] => {
+    const scale = pointScale(m);
+    return secs.map(s => ({ ...s, criteria: s.criteria.map(c => ({ ...c, points: c.points.map(p => ({ ...p, inputType: scale.inputType, levelsConfig: scale.scaleConfig })) })) }));
+  };
+  const changeMarking = (m: StepMarking) => { setMarking(m); onChange(markAll(sections, m)); };
+  const problem = (marking.inputType === 'LEVELS' ? levelsProblem(marking.levels) : null) ?? sopGroupingProblem(sections.map(s => ({
     name: s.name, share: typed[s.key] ?? String(s.weight), sops: s.criteria.map(c => ({ name: c.name, share: typed[c.key] ?? String(c.weight) })),
   })));
   useEffect(() => { onProblem(problem); }, [problem]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -79,7 +90,8 @@ export default function SopChecksCard({ sections, onChange, onProblem }: Props) 
   // Adding or removing SOPs never changes anyone's share: new SOPs start at 0% and the status says what's
   // left to share — "Split evenly" is there when that's what's wanted.
   const addSops = (key: string, picked: { criterion: SopCriterion }[]) => {
-    const added = sectionsFromSaved([{ name: '', weight: 0, criteria: picked.map(p => ({ ...p.criterion, weight: 0 })) }])[0].criteria;
+    // New SOPs' steps are marked the way this form marks them.
+    const added = markAll(sectionsFromSaved([{ name: '', weight: 0, criteria: picked.map(p => ({ ...p.criterion, weight: 0 })) }]), marking)[0].criteria;
     commit(sections.map(x => (x.key === key ? { ...x, criteria: [...x.criteria, ...added] } : x)), Object.fromEntries(added.map(c => [c.key, '0'])));
     setAddingTo(null);
   };
@@ -106,8 +118,9 @@ export default function SopChecksCard({ sections, onChange, onProblem }: Props) 
         {grouped && <WeightTotal label="Sections" weights={sections.map(s => asNumber(typed[s.key]))} />}
       </div>
       <p style={cardHint}>
-        Add the SOPs to check and set how much each counts — add sections to group them. Each SOP is scored like an SOP observation: steps passed ÷ (passed + failed); N/A isn’t counted.
+        Add the SOPs to check and set how much each counts — add sections to group them. Each SOP scores the average of its marked steps; N/A isn’t counted.
       </p>
+      <StepMarkingPicker value={marking} onChange={changeMarking} typed={typedLevels} onTyped={setTypedLevels} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {sections.map((s, si) => (

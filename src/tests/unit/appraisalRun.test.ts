@@ -196,10 +196,10 @@ describe('Appraisal — SOP checks', () => {
   const lunch = { name: 'Lunch Duty', weight: 50, inputs: [step('c'), step('d')] };
 
   it('tells each SOP apart as not started, in progress or done, with how many passed', () => {
-    expect(sopProgress(gate, {})).toEqual({ marked: 0, passed: 0, total: 2, status: 'NOT_STARTED' });
-    expect(sopProgress(gate, { a: '1' })).toEqual({ marked: 1, passed: 1, total: 2, status: 'IN_PROGRESS' });
+    expect(sopProgress(gate, {})).toEqual({ marked: 0, passed: 0, total: 2, status: 'NOT_STARTED', passFail: true });
+    expect(sopProgress(gate, { a: '1' })).toEqual({ marked: 1, passed: 1, total: 2, status: 'IN_PROGRESS', passFail: true });
     // N/A counts as marked (it's a decision), but not as passed.
-    expect(sopProgress(gate, { a: '0', b: '-1' })).toEqual({ marked: 2, passed: 0, total: 2, status: 'DONE' });
+    expect(sopProgress(gate, { a: '0', b: '-1' })).toEqual({ marked: 2, passed: 0, total: 2, status: 'DONE', passFail: true });
     expect(isSopCheck([gate, lunch])).toBe(true);
     expect(isSopCheck([gate])).toBe(false);
     expect(isSopCheck([gate, { ...lunch, inputs: [{ ...step('c'), kind: 'RATING' as const }] }])).toBe(false);

@@ -11,7 +11,9 @@ export const DEFAULT_RATING_MAX = 5;
 
 /** Kinds of input a criterion or point can be scored by (automatic ones come later). */
 export type ManualInput = Exclude<InputType, 'AUTO' | 'POINTS' | 'FORM'>;
-export const INPUT_LABEL: Record<ManualInput, string> = {
+/** The kinds offered when building a criterion — levels are only for SOP steps (set on the SOP scoring form). */
+export type PickableInput = Exclude<ManualInput, 'LEVELS'>;
+export const INPUT_LABEL: Record<PickableInput, string> = {
   RATING: 'Rating scale', PERCENT: 'Percentage', YES_NO: 'Yes or no', PASS_FAIL: 'Pass, fail or N/A', NUMBER: 'Number against a target',
 };
 export const STATUS_LABEL: Record<TemplateStatus, string> = { DRAFT: 'Draft', ACTIVE: 'Live', RETIRED: 'Retired' };
@@ -28,9 +30,13 @@ export interface DraftScale {
   higherIsBetter: boolean;
   /** The rating scale its levels were copied from — kept so that scale can't be deleted once a live form used it. */
   scaleId?: string | null;
+  /** LEVELS (SOP steps): the levels and where they came from, kept as saved. */
+  levelsConfig?: Record<string, unknown> | null;
 }
 export interface DraftCriterion extends DraftScale {
   key: string;
+  /** An SOP check's criterion: the SOP it scores (kept as it was saved). */
+  sopTemplateId?: string | null;
   name: string;
   description: string;
   weight: number;
@@ -47,7 +53,7 @@ export const defaultScale = (): DraftScale & { inputType: ManualInput } => ({
 /** Only the scoring fields of a criterion or point (copied, so editing one never changes the other). */
 const copyScale = <T extends DraftScale>(s: T) => ({
   inputType: s.inputType, ratingMax: s.ratingMax, ratingLabels: [...s.ratingLabels], ratingDescriptions: [...s.ratingDescriptions],
-  target: s.target, higherIsBetter: s.higherIsBetter, scaleId: s.scaleId ?? null,
+  target: s.target, higherIsBetter: s.higherIsBetter, scaleId: s.scaleId ?? null, levelsConfig: s.levelsConfig ?? null,
 });
 /** A new point, scored like `like` (the point above it) or a 1–5 rating. */
 export const newPoint = (name = '', like?: DraftScale & { inputType: ManualInput }): DraftPoint =>
@@ -87,6 +93,7 @@ function scaleFromSaved(inputType: InputType, scaleConfig: unknown): DraftScale 
     ratingDescriptions: Array.from({ length: max }, (_, i) => level(i)?.description ?? ''),
     target: num?.target ?? '', higherIsBetter: num?.higherIsBetter ?? false,
     scaleId: rating?.scaleId ?? null,
+    levelsConfig: inputType === 'LEVELS' ? ((scaleConfig ?? null) as Record<string, unknown> | null) : null,
   };
 }
 export const newSection = (name = ''): DraftSection => ({ key: newKey('s'), name, weight: 0, criteria: [] });
@@ -115,6 +122,7 @@ export function sectionsFromSaved(sections: SavedSection[]): DraftSection[] {
       ...(c.points?.length && c.inputType !== 'AUTO' && c.inputType !== 'FORM' ? { inputType: 'POINTS' as const } : {}),
       otherConfig: c.inputType === 'AUTO' || c.inputType === 'FORM' ? c.scaleConfig : null,
       points: (c.points ?? []).map(pointFromSaved),
+      ...(c.sopTemplateId ? { sopTemplateId: c.sopTemplateId } : {}),
     })),
   }));
 }
@@ -127,6 +135,7 @@ export function sectionsPayload(sections: DraftSection[]): SectionsPayload {
       name: c.name.trim(), description: c.description.trim() || null, weight: c.weight, inputType: c.inputType, scaleConfig: scaleOf(c),
       // Only a criterion scored on points keeps them.
       points: c.inputType === 'POINTS' ? namedPoints(c.points).map(pointPayload) : [],
+      ...(c.sopTemplateId ? { sopTemplateId: c.sopTemplateId } : {}),
     })),
   }));
 }
@@ -153,6 +162,8 @@ function scaleOf(c: DraftScale & { otherConfig?: unknown }): unknown {
       return { ...(c.scaleId ? { scaleId: c.scaleId } : {}), max: c.ratingMax, levels: ratingLevels(c) };
     case 'NUMBER':
       return { target: c.target === '' ? 0 : c.target, higherIsBetter: c.higherIsBetter };
+    case 'LEVELS':
+      return c.levelsConfig ?? null;
     case 'AUTO':
     case 'FORM':
       return c.otherConfig;
@@ -211,7 +222,7 @@ export function overWeightProblems(sections: Pick<DraftSection, 'name' | 'weight
 }
 
 /** "Rating 1–5", "Number · target 2, lower is better" — how a criterion is scored, in a few words. */
-export function inputSummary(c: Pick<DraftCriterion, 'inputType' | 'ratingMax' | 'target' | 'higherIsBetter'> & { ratingLabels?: string[]; points?: unknown[]; otherConfig?: unknown }): string {
+export function inputSummary(c: Pick<DraftCriterion, 'inputType' | 'ratingMax' | 'target' | 'higherIsBetter'> & { ratingLabels?: string[]; points?: unknown[]; otherConfig?: unknown; levelsConfig?: Record<string, unknown> | null }): string {
   switch (c.inputType) {
     case 'RATING': {
       // Show the named ends of the scale, so it's clear the rating has its own wording.
@@ -222,6 +233,7 @@ export function inputSummary(c: Pick<DraftCriterion, 'inputType' | 'ratingMax' |
     case 'PERCENT': return 'Percentage';
     case 'YES_NO': return 'Yes or no';
     case 'PASS_FAIL': return 'Pass, fail or N/A';
+    case 'LEVELS': return `Levels · ${((c.levelsConfig?.levels ?? []) as { label: string }[]).map(l => l.label).join(' · ')} / N/A`;
     case 'NUMBER': return c.target === '' ? 'Number · no target yet' : `Number · target ${c.target}, ${c.higherIsBetter ? 'higher' : 'lower'} is better`;
     case 'AUTO': return 'Automatic';
     case 'FORM': return `From scoring form “${(c.otherConfig as { name?: string } | null)?.name ?? '—'}”`;

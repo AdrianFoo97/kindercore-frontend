@@ -9,7 +9,8 @@ export type Frequency = 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'MANUAL';
 export type MissingPolicy = 'REQUIRE_ALL' | 'REWEIGHT';
 /** AUTO (pulled from app data) exists on the server but can't be chosen in the editor yet. */
 /** POINTS = the average of the criterion's points, each scored its own way. FORM = a scoring form's weighted total. */
-export type InputType = 'RATING' | 'PERCENT' | 'YES_NO' | 'PASS_FAIL' | 'NUMBER' | 'AUTO' | 'POINTS' | 'FORM';
+/** LEVELS = one of a set of named levels, each worth a percentage, or N/A (how SOP steps can be marked). */
+export type InputType = 'RATING' | 'PERCENT' | 'YES_NO' | 'PASS_FAIL' | 'LEVELS' | 'NUMBER' | 'AUTO' | 'POINTS' | 'FORM';
 /** How a single point can be scored. */
 export type PointInputType = Exclude<InputType, 'AUTO' | 'POINTS' | 'FORM'>;
 export type StageKind = 'ASSESS' | 'SIGN_OFF' | 'ACKNOWLEDGE';
@@ -29,6 +30,8 @@ export interface TemplateCriterion {
   scaleConfig: RatingScale | NumberScale | Record<string, unknown> | null;
   /** Optional points it's judged on — each scored its own way, then averaged. Empty = scored directly. */
   points: { id: string; name: string; description?: string | null; inputType: PointInputType; scaleConfig: unknown }[];
+  /** An SOP check's criterion: the SOP it scores — new appraisals pick up later edits to it. */
+  sopTemplateId?: string | null;
 }
 export interface TemplateSection { id: string; name: string; weight: number; criteria: TemplateCriterion[] }
 /** Sections as saved — on an appraisal form (with ids) or in a scoring form (without). */
@@ -73,7 +76,7 @@ export interface AppraisalTemplateSummary {
   positionIds: string[];
 }
 
-export type SectionsPayload = { name: string; weight: number; criteria: { name: string; description: string | null; weight: number; inputType: InputType; scaleConfig: unknown; points: { name: string; inputType: PointInputType; scaleConfig: unknown }[] }[] }[];
+export type SectionsPayload = { name: string; weight: number; criteria: { name: string; description: string | null; weight: number; inputType: InputType; scaleConfig: unknown; points: { name: string; inputType: PointInputType; scaleConfig: unknown }[]; sopTemplateId?: string }[] }[];
 export interface TemplateSavePayload {
   name: string;
   description: string | null;

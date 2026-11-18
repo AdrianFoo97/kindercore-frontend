@@ -1,5 +1,5 @@
 import type { MissingPolicy, TemplateCriterion, TemplateSection } from '../../api/appraisal-templates.js';
-import { NOT_APPLICABLE, inputGroups, numberTarget, ratingMax, valueProblem, type InputGroup, type ScoreInput, type Values } from './appraisalRun.js';
+import { NOT_APPLICABLE, inputGroups, numberTarget, ratingMax, valueProblem, type InputGroup, type ScoreInput, type Values, MARKS_WITH_NA, markLevels } from './appraisalRun.js';
 
 // Scores worked out on screen as the scorer marks — each item, a scoring
 // form's sections, and the criterion — so they see what a choice is worth
@@ -24,7 +24,7 @@ export const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /** One entered value → 0–100, N/A, or null (not scored yet, or what's typed doesn't fit). */
 function itemPart(i: Pick<ScoreInput, 'kind' | 'scaleConfig'>, text: string): Part {
-  if (i.kind === 'PASS_FAIL' && text.trim() === NOT_APPLICABLE) return NA;
+  if (MARKS_WITH_NA.includes(i.kind) && text.trim() === NOT_APPLICABLE) return NA;
   return itemScore(i, text);
 }
 
@@ -37,6 +37,7 @@ export function itemScore(i: Pick<ScoreInput, 'kind' | 'scaleConfig'>, text: str
     case 'PERCENT': return clamp(raw);
     case 'YES_NO': return raw > 0 ? FULL : 0;
     case 'PASS_FAIL': return raw > 0 ? FULL : raw === 0 ? 0 : null;
+    case 'LEVELS': { const level = markLevels(i.scaleConfig)[raw]; return level ? clamp(level.score) : null; }
     case 'NUMBER': {
       const t = numberTarget(i.scaleConfig);
       if (!t?.target) return null;

@@ -10,6 +10,7 @@ import {
 import { useToast } from '../components/common/Toast.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
 import { certifyProblem } from './teacherHome/myTraining.js';
+import { levelsScore, markingOfObservation, passMarkText, passedForLevel, type MarkLevel } from './observationMarking.js';
 
 const C = {
   bg: '#f8fafc',
@@ -234,15 +235,18 @@ function TrainerStage({ obs, onDone, showToast }: {
 function AssessorStage({ obs, onDone, showToast }: {
   obs: SopObservationDetail; onDone: () => void; showToast: (msg: string, kind?: string) => void;
 }) {
-  const [results, setResults] = useState<Record<string, { passed: StepResultValue; note: string }>>(
-    () => Object.fromEntries(obs.stepResults.map(r => [r.sopStepId, { passed: r.passed, note: r.note ?? '' }])),
+  // Marked on levels (Settings → Practice observations, copied when assigned) or pass / fail.
+  const marking = markingOfObservation(obs.marking);
+  const onLevels = marking.inputType === 'LEVELS';
+  const [results, setResults] = useState<Record<string, { passed: StepResultValue; note: string; level?: number | null }>>(
+    () => Object.fromEntries(obs.stepResults.map(r => [r.sopStepId, { passed: r.passed, note: r.note ?? '', level: r.level ?? null }])),
   );
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const assessorName = currentUserName();
 
-  const setResult = (stepId: string, patch: Partial<{ passed: StepResultValue; note: string }>) => {
+  const setResult = (stepId: string, patch: Partial<{ passed: StepResultValue; note: string; level: number | null }>) => {
     setResults(prev => ({ ...prev, [stepId]: { ...prev[stepId], ...patch } }));
   };
 
@@ -250,12 +254,11 @@ function AssessorStage({ obs, onDone, showToast }: {
   const blocker = certifyProblem(obs.stepResults.map(r => results[r.sopStepId]?.passed ?? 'NA'));
   const anyFailed = obs.stepResults.some(r => results[r.sopStepId]?.passed === 'FAIL');
   const liveScore = computeScore(obs.stepResults.map(r => ({ passed: results[r.sopStepId]?.passed ?? 'NA' })));
+  const levelAverage = onLevels ? levelsScore(marking.levels, obs.stepResults.map(r => results[r.sopStepId]?.level ?? null)) : null;
 
-  const currentStepResults = () => obs.stepResults.map(r => ({
-    stepId: r.sopStepId,
-    passed: results[r.sopStepId]?.passed ?? 'NA',
-    note: results[r.sopStepId]?.note || null,
-  }));
+  const currentStepResults = () => obs.stepResults.map(r => (onLevels
+    ? { stepId: r.sopStepId, level: results[r.sopStepId]?.level ?? -1, note: results[r.sopStepId]?.note || null }
+    : { stepId: r.sopStepId, passed: results[r.sopStepId]?.passed ?? 'NA', note: results[r.sopStepId]?.note || null }));
 
   const saveDraft = async () => {
     setSavingDraft(true);
@@ -309,9 +312,9 @@ function AssessorStage({ obs, onDone, showToast }: {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' as const }}>
         <h3 style={s.cardTitle}>Assessor review</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {liveScore.percent !== null && (
-            <span style={{ ...s.scoreBadge, background: liveScore.percent >= 80 ? C.successSoft : C.dangerSoft, color: liveScore.percent >= 80 ? C.success : C.danger }}>
-              {liveScore.passed}/{liveScore.decided} passed · {liveScore.percent}%
+          {(onLevels ? levelAverage : liveScore.percent) !== null && (
+            <span style={{ ...s.scoreBadge, background: (onLevels ? levelAverage! : liveScore.percent!) >= 80 ? C.successSoft : C.dangerSoft, color: (onLevels ? levelAverage! : liveScore.percent!) >= 80 ? C.success : C.danger }}>
+              {liveScore.passed}/{liveScore.decided} passed · {onLevels ? `average ${levelAverage}%` : `${liveScore.percent}%`}
             </span>
           )}
           <button onClick={saveDraft} disabled={saving || savingDraft} style={{ ...s.secondaryBtn, padding: '6px 12px', fontSize: 12, opacity: saving || savingDraft ? 0.5 : 1 }}>
@@ -320,7 +323,13 @@ function AssessorStage({ obs, onDone, showToast }: {
           </button>
         </div>
       </div>
-      <p style={s.cardSub}>Go through each step and mark the result.</p>
+      {obs.stepResults.length === 0 && (
+        <div role="status" style={{ margin: '12px 0', padding: '12px 14px', borderRadius: 10, background: '#fffbeb', color: '#92400e', fontSize: 13.5, lineHeight: 1.5 }}>
+          <strong>{obs.templateTitle ?? 'This guide'} has no steps yet</strong>, so there’s nothing to mark. Add its steps in the guide — they’ll show here to mark.{' '}
+          <a href={`/operations/sops/${obs.sopTemplateId}`} style={{ color: C.primary, fontWeight: 600 }}>Open the guide</a>
+        </div>
+      )}
+      <p style={s.cardSub}>{onLevels ? `Go through each step and pick its level — ${passMarkText(marking.levels, marking.passMark)} passes. N/A isn’t counted.` : 'Go through each step and mark the result.'}</p>
 
       {sections.map(sec => (
         <div key={sec} style={{ marginBottom: 18 }}>
@@ -343,6 +352,10 @@ function AssessorStage({ obs, onDone, showToast }: {
                       />
                     )}
                   </div>
+                  {onLevels ? (
+                    <LevelButtons levels={marking.levels} passMark={marking.passMark} level={results[r.sopStepId]?.level ?? null}
+                      onPick={level => setResult(r.sopStepId, { level, passed: passedForLevel(marking.levels, marking.passMark, level), ...(passedForLevel(marking.levels, marking.passMark, level) !== 'FAIL' ? { note: '' } : {}) })} />
+                  ) : (
                   <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                     {(['PASS', 'FAIL', 'NA'] as StepResultValue[]).map(opt => (
                       <button
@@ -360,6 +373,7 @@ function AssessorStage({ obs, onDone, showToast }: {
                       </button>
                     ))}
                   </div>
+                  )}
                 </div>
               );
             })}
@@ -402,11 +416,33 @@ function AssessorStage({ obs, onDone, showToast }: {
   );
 }
 
+/** One step marked on levels: a button per level (green at or above the pass mark, red below — with its name), then N/A. */
+function LevelButtons({ levels, passMark, level, onPick }: { levels: MarkLevel[]; passMark: number; level: number | null; onPick: (level: number | null) => void }) {
+  const opts = [...levels.map((l, i) => ({ i, label: l.label, title: `${l.score}%`, pass: l.score >= passMark })), { i: -1, label: 'N/A', title: 'Not counted', pass: null as boolean | null }];
+  return (
+    <div role="radiogroup" aria-label="Level" style={{ display: 'flex', gap: 4, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 320 }}>
+      {opts.map(o => {
+        const on = o.i === -1 ? level == null : level === o.i;
+        const fg = o.pass === null ? C.muted : o.pass ? C.success : C.danger;
+        const bg = o.pass === null ? C.divider : o.pass ? C.successSoft : C.dangerSoft;
+        return (
+          <button key={o.i} type="button" role="radio" aria-checked={on} title={o.title} onClick={() => onPick(o.i === -1 ? null : o.i)}
+            style={{ ...s.pillBtn, background: on ? bg : '#fff', color: on ? fg : C.mutedSoft, borderColor: on ? fg : C.cardBorder }}>
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Certified (read-only) ─────────────────────────────────────────────────────
 
 function CertifiedSummary({ obs }: { obs: SopObservationDetail }) {
   const failedSteps = obs.stepResults.filter(r => r.passed === 'FAIL');
   const score = computeScore(obs.stepResults);
+  const marking = markingOfObservation(obs.marking);
+  const levelName = (r: { level?: number | null; passed: StepResultValue }) => (marking.inputType === 'LEVELS' && r.level != null ? marking.levels[r.level]?.label ?? r.passed : r.passed);
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
@@ -428,7 +464,7 @@ function CertifiedSummary({ obs }: { obs: SopObservationDetail }) {
               ...s.miniPill,
               background: r.passed === 'PASS' ? C.successSoft : r.passed === 'FAIL' ? C.dangerSoft : C.divider,
               color: r.passed === 'PASS' ? C.success : r.passed === 'FAIL' ? C.danger : C.muted,
-            }}>{r.passed}</span>
+            }}>{levelName(r)}</span>
             <span style={{ color: C.textSub }}>{r.title}</span>
           </div>
         ))}

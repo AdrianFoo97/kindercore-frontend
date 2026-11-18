@@ -67,8 +67,8 @@ export function RunActions({ run, palette: p, mobile, scoring, onSettled }: Prop
   // On a phone the buttons share the row equally; on a desktop they sit on the right.
   const grow = mobile ? { flex: 1 } : {};
 
-  // Discard and Save draft: on the left / right of the bar on a desktop; on a phone they sit at the end of the
-  // page, so the pinned bar holds only what moves the appraisal on (one row, out of the way of the form).
+  // Discard and Save draft: on the left / right of the bar on a desktop. On a phone Save draft stays in the pinned
+  // bar (a long form shouldn't need scrolling to the end to save), and Discard — rare, destructive — sits at the end of the page.
   const secondaryButtons = scoring ? {
     discard: (
             <button type="button" style={{ ...button(p, 'danger', { mobile, disabled: !scoring.canDiscard }), borderColor: scoring.canDiscard ? p.red : undefined, ...grow }}
@@ -77,9 +77,9 @@ export function RunActions({ run, palette: p, mobile, scoring, onSettled }: Prop
             </button>
     ),
     save: (
-              <button type="button" style={{ ...button(p, 'secondary', { mobile, disabled: !scoring.canSave || scoring.saving }), ...grow }}
-                disabled={!scoring.canSave || scoring.saving} onClick={scoring.onSave}>
-                {scoring.saving ? 'Saving…' : 'Save draft'}
+              <button type="button" style={{ ...button(p, 'secondary', { mobile, disabled: !scoring.canSave || scoring.saving }), ...(mobile ? { flex: '0 0 auto' } : {}) }}
+                disabled={!scoring.canSave || scoring.saving} onClick={scoring.onSave} aria-label="Save draft">
+                {scoring.saving ? 'Saving…' : mobile ? 'Save' : 'Save draft'}
               </button>
     ),
   } : null;
@@ -87,7 +87,7 @@ export function RunActions({ run, palette: p, mobile, scoring, onSettled }: Prop
   return (
     <>
       {mobile && secondaryButtons && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>{secondaryButtons.discard}{secondaryButtons.save}</div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>{secondaryButtons.discard}</div>
       )}
       {/* Pinned to the bottom of the screen; the page keeps ACTION_BAR_SPACE free below the form so nothing ends up hidden under it. */}
       <section aria-label="Actions" style={{
@@ -96,8 +96,9 @@ export function RunActions({ run, palette: p, mobile, scoring, onSettled }: Prop
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         {error && <p role="alert" style={{ margin: '0 0 8px', color: p.red, fontSize: 14 }}>{error.message}</p>}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', flexWrap: mobile ? 'wrap' : 'nowrap' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'nowrap' }}>
           {!mobile && secondaryButtons && <>{secondaryButtons.discard}<span style={{ flex: 1 }} />{secondaryButtons.save}</>}
+          {mobile && secondaryButtons && secondaryButtons.save}
           {scoring && (
             <>
               {/* Score → Comments → Review: a Back on every step after the first, Next until the last, Submit only on Review. */}

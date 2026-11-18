@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NOT_APPLICABLE, markText, numberTarget, ratingLevels, ratingMax, valueProblem, type ScoreInput } from './appraisalRun.js';
+import { NOT_APPLICABLE, markLevels, markText, numberTarget, ratingLevels, ratingMax, valueProblem, type ScoreInput } from './appraisalRun.js';
 import { TARGET, type RunPalette } from './runTheme.js';
 
 interface Props {
@@ -30,6 +30,12 @@ export default function RunScoreField({ input, value, onChange, readOnly, palett
       return (
         <Choices label={input.name} palette={p} mobile={mobile} value={value} onChange={onChange}
           options={[{ value: '1', label: 'Pass', tone: PASS_TONE }, { value: '0', label: 'Fail', tone: FAIL_TONE }, { value: NOT_APPLICABLE, label: 'N/A', tone: NA_TONE }]} />
+      );
+    case 'LEVELS':
+      // The form's own levels (each worth a percentage), then N/A — which isn't counted.
+      return (
+        <Choices label={input.name} palette={p} mobile={mobile} value={value} onChange={onChange}
+          options={[...markLevels(input.scaleConfig).map((l, i) => ({ value: String(i), label: l.label, title: `${l.score}%`, tone: levelTone(l.score) })), { value: NOT_APPLICABLE, label: 'N/A', tone: NA_TONE }]} />
       );
     case 'PERCENT':
     case 'NUMBER':
@@ -106,6 +112,9 @@ interface Tone { bg: string; fg: string; border: string }
 const PASS_TONE: Tone = { bg: '#ecfdf5', fg: '#047857', border: '#047857' };
 const FAIL_TONE: Tone = { bg: '#fef2f2', fg: '#b91c1c', border: '#b91c1c' };
 const NA_TONE: Tone = { bg: '#f1f5f9', fg: '#475569', border: '#94a3b8' };
+const MID_TONE: Tone = { bg: '#fffbeb', fg: '#b45309', border: '#b45309' };
+/** A level's colour from its percentage: full marks green, none red, anything between amber (the label always shows too). */
+const levelTone = (score: number): Tone => (score >= 100 ? PASS_TONE : score <= 0 ? FAIL_TONE : MID_TONE);
 
 /** One-of-several buttons; tapping the chosen one again clears it. */
 function Choices({ label, options, value, onChange, palette: p, mobile, square }: ChoicesProps) {

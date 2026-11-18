@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PERFORMANCE_STAFF_KEY, fetchPerformanceStaff, startOneOffAppraisal } from '../../api/appraisal-schedules.js';
 import { fetchAppraisalTemplates } from '../../api/appraisal-templates.js';
 import FormModal from '../../components/common/FormModal.js';
@@ -9,6 +9,7 @@ import SearchSelect from '../../components/common/SearchSelect.js';
 import { MONTH_LABELS } from './appraisalDisplay.js';
 import { fitsForm } from './appraisalSchedule.js';
 import { ADMIN as p } from './runTheme.js';
+import { ApiError } from '../../api/client.js';
 
 /**
  * HRMS → Appraisals → New appraisal: pick someone, then a form meant for their
@@ -22,6 +23,7 @@ export default function NewAppraisalModal({ period, alreadyAppraised, onClose }:
   onClose: () => void;
 }) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [teacherId, setTeacherId] = useState('');
   const [familyId, setFamilyId] = useState('');
   const staff = useQuery({ queryKey: PERFORMANCE_STAFF_KEY, queryFn: fetchPerformanceStaff });
@@ -31,9 +33,16 @@ export default function NewAppraisalModal({ period, alreadyAppraised, onClose }:
   const fitting = person ? (forms.data ?? []).filter(f => f.status === 'ACTIVE' && fitsForm(person, f.positionIds)).sort((a, b) => a.name.localeCompare(b.name)) : [];
   const start = useMutation({
     mutationFn: () => startOneOffAppraisal({ teacherId, familyId, year: period.year, month: period.month, secondAnyway: !!hasOne }),
-    onSuccess: r => navigate(`/appraisals/${r.id}`),
+    // The lists that show it (this month's appraisals, the schedule's created ones) refresh, so it's there on the way back.
+    onSuccess: r => {
+      qc.invalidateQueries({ queryKey: ['appraisal-overview'] });
+      qc.invalidateQueries({ queryKey: ['appraisal-schedules'] });
+      navigate(`/appraisals/${r.id}`);
+    },
   });
   const hasOne = person ? alreadyAppraised.get(person.id) ?? null : null;
+  /** Refused because this one already exists: which, so it can be opened. */
+  const existingId = start.error instanceof ApiError && typeof start.error.body?.existingId === 'string' ? start.error.body.existingId : null;
   const problem = !teacherId ? 'Pick a staff member.' : !familyId ? 'Pick an appraisal form.' : null;
 
   return (
@@ -59,7 +68,12 @@ export default function NewAppraisalModal({ period, alreadyAppraised, onClose }:
           {person && fitting.length === 0 && (
             <p style={note}>No live form is for {person.positionName ?? 'their position'} — set one’s “Who it’s for” in Settings → Appraisal forms.</p>
           )}
-          {start.error && <p role="alert" style={{ margin: '8px 0 0', color: p.red, fontSize: 14 }}>{(start.error as Error).message}</p>}
+          {start.error && (
+            <p role="alert" style={{ margin: '8px 0 0', color: p.red, fontSize: 14 }}>
+              {(start.error as Error).message}
+              {existingId && <> <Link to={`/appraisals/${existingId}`} onClick={() => { qc.invalidateQueries({ queryKey: ['appraisal-overview'] }); }} style={{ color: p.accent, fontWeight: 600 }}>Open it</Link></>}
+            </p>
+          )}
         </>
       )}
     </FormModal>

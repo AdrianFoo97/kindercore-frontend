@@ -27,6 +27,8 @@ export interface SopObservationStepResult {
   id: string;
   sopStepId: string;
   passed: StepResultValue;
+  /** Marked on levels: which one (its position); null = pass / fail, or N/A. */
+  level?: number | null;
   note: string | null;
   section: string;
   title: string;
@@ -49,6 +51,8 @@ export interface SopObservationDetail {
   assessorName: string | null;
   assessorAt: string | null;
   notes: string | null;
+  /** How its steps are marked, copied when assigned (null = pass / fail / N/A). */
+  marking?: unknown;
   createdAt: string;
   updatedAt: string;
   stepResults: SopObservationStepResult[];
@@ -75,7 +79,9 @@ export function createObservation(payload: { teacherId: string; sopTemplateId: s
 // current status server-side, so submitting the wrong shape 400s cleanly.
 export type AdvanceStagePayload =
   | { trainerName: string; trainerAt: string }
-  | { assessorName: string; assessorAt: string; notes?: string | null; stepResults: { stepId: string; passed: StepResultValue; note?: string | null }[] };
+  | { assessorName: string; assessorAt: string; notes?: string | null; stepResults: StepMarkInput[] };
+/** One step's mark: pass / fail / N/A, or (marked on levels) a level's position, -1 = N/A. */
+export type StepMarkInput = { stepId: string; passed?: StepResultValue; level?: number | null; note?: string | null };
 
 export function advanceStage(id: string, payload: AdvanceStagePayload) {
   return apiFetch<SopObservation>(`/api/sop-observations/${id}/advance`, {
@@ -86,7 +92,7 @@ export function advanceStage(id: string, payload: AdvanceStagePayload) {
 
 // Persists marking progress without advancing the stage — lets the assessor
 // step away from a long checklist and pick up where they left off.
-export function saveStepResultsDraft(id: string, stepResults: { stepId: string; passed: StepResultValue; note?: string | null }[]) {
+export function saveStepResultsDraft(id: string, stepResults: StepMarkInput[]) {
   return apiFetch<{ ok: true }>(`/api/sop-observations/${id}/step-results`, {
     method: 'POST',
     body: JSON.stringify({ stepResults }),
@@ -116,5 +122,8 @@ export const fetchMyTraining = (teacherId: string) => apiFetch<MyTraining>(`/api
 export const recordTrainingGiven = (teacherId: string, observationId: string, trainedOn: string) =>
   apiFetch<{ ok: true }>(`/api/teachers/${teacherId}/training/${observationId}/trained`, { method: 'POST', body: JSON.stringify({ trainedOn }) });
 /** The assessor found a step not done right: back to the trainer for more training (marks kept). */
-export const sendBackForTraining = (id: string, stepResults: { stepId: string; passed: StepResultValue; note?: string | null }[], notes: string | null) =>
+export const sendBackForTraining = (id: string, stepResults: StepMarkInput[], notes: string | null) =>
   apiFetch<SopObservation>(`/api/sop-observations/${id}/send-back`, { method: 'POST', body: JSON.stringify({ stepResults, notes }) });
+/** Settings → Practice observations: how new observations mark their steps (admins). */
+export const saveObservationMarking = (marking: unknown) =>
+  apiFetch<unknown>('/api/sop-observation-marking', { method: 'PUT', body: JSON.stringify(marking) });

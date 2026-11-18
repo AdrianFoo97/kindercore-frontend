@@ -55,6 +55,28 @@ export default function RunScoreSummary({ sections, values, policy, current, onJ
 
   return (
     <>
+      {mobile && editing ? (
+        // Scoring on a phone: the score is a compact row and the sections are chips — the marking starts on the first screen.
+        <section id="score-card-body" aria-label="Score" style={{ ...card(p), padding: 12 }}>
+          <SlimBar {...summary} palette={p} flat />
+          <ol aria-label="Sections — pick one to score it" style={{ listStyle: 'none', margin: '10px 0 0', padding: '0 0 2px', display: 'flex', gap: 6, overflowX: 'auto' }}>
+            {sections.map((s, si) => {
+              const score = sectionScore(s, values, policy);
+              const on = si === openSection;
+              return (
+                <li key={s.id} style={{ flexShrink: 0 }}>
+                  <button type="button" onClick={() => jumpToSection(si)} aria-current={on ? 'step' : undefined}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44, padding: '0 12px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: on ? 700 : 600, whiteSpace: 'nowrap', border: `1px solid ${on ? p.accent : p.border}`, background: on ? p.accentSoft : p.card, color: on ? p.accent : p.sub }}>
+                    {si + 1}. {s.name}
+                    <span style={{ fontWeight: 700, color: score == null ? p.muted : bandOf(score).color, fontVariantNumeric: 'tabular-nums' }}>{pct(score)}</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: p.muted }}>{s.weight}%</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : (
         <section id="score-card-body" aria-label="Score" style={{ ...card(p), display: 'flex', gap: mobile ? 16 : 24, flexDirection: mobile ? 'column' : 'row', alignItems: mobile ? 'stretch' : 'center' }}>
           <div style={{ flexShrink: 0, minWidth: mobile ? 0 : 280 }}>
             <RunTotalScore {...summary} palette={p} />
@@ -85,6 +107,7 @@ export default function RunScoreSummary({ sections, values, policy, current, onJ
             })}
           </ol>
         </section>
+      )}
 
       {/* Where the card ends: once this has scrolled up past the (zero-height, sticky) pin below, the card is out of sight. */}
       <div ref={passed.mark} aria-hidden />
@@ -151,15 +174,19 @@ export default function RunScoreSummary({ sections, values, policy, current, onJ
 }
 
 /** One line: small ring, band, progress — plus whatever goes on the end (the sections, or "Show sections"). */
-function SlimBar({ total, band, progress, problem, palette: p, end, after, shadow }: {
+function SlimBar({ total, band, progress, problem, palette: p, end, after, shadow, flat }: {
   total: number | null; band: Band | null; progress: { done: number; count: number } | null; problem: string | null;
   /** After the progress (the sections); `after` goes on the far right (Hide). */
   palette: RunPalette; end?: React.ReactNode; after?: React.ReactNode; shadow?: boolean;
+  /** Inside another card (the compact phone card): no card of its own, with a progress bar. */
+  flat?: boolean;
 }) {
   const left = progress ? progress.count - progress.done : 0;
   const complete = !!progress && progress.count > 0 && left === 0;
   return (
-    <section aria-label="Score" style={{ ...card(p), marginBottom: shadow ? 0 : card(p).marginBottom, display: 'flex', alignItems: 'center', gap: 12, padding: '6px 12px', boxShadow: shadow ? '0 4px 16px rgba(15,23,42,0.12)' : undefined }}>
+    <section aria-label="Score" style={flat
+      ? { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }
+      : { ...card(p), marginBottom: shadow ? 0 : card(p).marginBottom, display: 'flex', alignItems: 'center', gap: 12, padding: '6px 12px', boxShadow: shadow ? '0 4px 16px rgba(15,23,42,0.12)' : undefined }}>
       <MiniScoreRing total={total} band={band} palette={p} />
       <div style={{ minWidth: 0, flexShrink: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: band?.color ?? p.muted, lineHeight: 1.2 }}>{band?.label ?? 'Not scored yet'}</div>
@@ -173,6 +200,11 @@ function SlimBar({ total, band, progress, problem, palette: p, end, after, shado
       {end}
       <span style={{ flex: 1 }} />
       {after}
+      {flat && progress && (
+        <div aria-hidden style={{ flexBasis: '100%', height: 4, background: p.border, borderRadius: 2, overflow: 'hidden' }}>
+          <div style={{ width: `${progress.count ? Math.round((progress.done / progress.count) * 100) : 0}%`, height: '100%', background: complete ? p.green : p.accent, borderRadius: 2 }} />
+        </div>
+      )}
     </section>
   );
 }

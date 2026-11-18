@@ -145,6 +145,7 @@ import AccessLogPage from './pages/admin/AccessLogPage.js';
 import SettingsLayout from './pages/settings/SettingsLayout.js';
 import TitledSettingsPage from './pages/settings/TitledSettingsPage.js';
 import ScoreBandsPage from './pages/settings/ScoreBandsPage.js';
+import PracticeObservationSettingsPage from './pages/settings/PracticeObservationSettingsPage.js';
 import OrgChartPage from './pages/settings/OrgChartPage.js';
 import PositionsPage from './pages/settings/PositionsPage.js';
 import DepartmentsPage from './pages/settings/DepartmentsPage.js';
@@ -354,6 +355,7 @@ export default function App() {
             <Route path="/settings/org-structure" element={<OrgStructureRedirect />} />
             <Route path="/settings/rating-scales" element={<ErrorBoundary><RatingScalesPage /></ErrorBoundary>} />
             <Route path="/settings/score-bands" element={<ErrorBoundary><ScoreBandsPage /></ErrorBoundary>} />
+            <Route path="/settings/practice-observations" element={<ErrorBoundary><PracticeObservationSettingsPage /></ErrorBoundary>} />
             <Route path="/settings/rating-scales/:id" element={<ErrorBoundary><RatingScalePage /></ErrorBoundary>} />
             <Route path="/settings/scoring-forms" element={<ErrorBoundary><ScoringFormsPage /></ErrorBoundary>} />
             <Route path="/settings/scoring-forms/:id" element={<ErrorBoundary><ScoringFormPage /></ErrorBoundary>} />

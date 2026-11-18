@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronDown, faChevronRight, faComment } from '@fortawesome/free-solid-svg-icons';
 import type { TemplateCriterion } from '../../api/appraisal-templates.js';
-import { inputGroups, markText, type Notes, type Values } from './appraisalRun.js';
+import { inputGroups, markText, type Notes, type Values, MARKS_WITH_NA, markLevels } from './appraisalRun.js';
 import type { RunPalette } from './runTheme.js';
 
 /** A comment behind a small icon — read on a tap, so the marks stay easy to scan. */
@@ -74,7 +74,7 @@ export function CriterionItems({ c, values, notes, palette: p, onlyGroup }: {
   const [readingKey, setReadingKey] = useState<string | null>(null);
   const groups = inputGroups(c);
   // Pass / fail steps (an SOP) read as Step | Result; anything else as Item | Rating.
-  const passFail = groups.every(g => g.inputs.every(i => i.kind === 'PASS_FAIL'));
+  const passFail = groups.every(g => g.inputs.every(i => MARKS_WITH_NA.includes(i.kind)));
   return (
     <>
       <div aria-hidden style={{ display: 'flex', justifyContent: 'space-between', gap: 8, paddingBottom: 6, fontSize: 12, fontWeight: 700, color: p.muted }}>
@@ -94,7 +94,7 @@ export function CriterionItems({ c, values, notes, palette: p, onlyGroup }: {
                     <span style={{ minWidth: 0, fontSize: 14, color: p.text }}>{i.name}</span>
                     <CommentToggle note={note} about={i.name} open={readingKey === i.key} onToggle={() => setReadingKey(k => (k === i.key ? null : i.key))} palette={p} />
                   </span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: markColour(i.kind, values[i.key] ?? '', p) ?? (mark ? p.text : p.muted), whiteSpace: 'nowrap' }}>{mark ?? 'Not marked'}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: markColour(i, values[i.key] ?? '', p) ?? (mark ? p.text : p.muted), whiteSpace: 'nowrap' }}>{mark ?? 'Not marked'}</span>
                 </div>
                 {readingKey === i.key && <CommentText note={note} palette={p} />}
               </div>
@@ -106,8 +106,14 @@ export function CriterionItems({ c, values, notes, palette: p, onlyGroup }: {
   );
 }
 
-/** Pass green, Fail red, N/A grey — as in an SOP observation (with the word, never colour alone). Other kinds: no special colour. */
-function markColour(kind: string, value: string, p: RunPalette): string | null {
-  if (kind !== 'PASS_FAIL') return null;
-  return value === '1' ? p.green : value === '0' ? p.red : value === '-1' ? p.muted : null;
+/**
+ * Pass green, Fail red, N/A grey — as in an SOP observation; a level by its percentage (full green, none red, between amber).
+ * Always with the word, never colour alone. Other kinds: no special colour.
+ */
+function markColour(i: { kind: string; scaleConfig: unknown }, value: string, p: RunPalette): string | null {
+  if (value === '-1' && MARKS_WITH_NA.includes(i.kind)) return p.muted;
+  if (i.kind === 'PASS_FAIL') return value === '1' ? p.green : value === '0' ? p.red : null;
+  if (i.kind !== 'LEVELS' || value === '') return null;
+  const level = markLevels(i.scaleConfig)[Number(value)];
+  return !level ? null : level.score >= 100 ? p.green : level.score <= 0 ? p.red : p.amber;
 }

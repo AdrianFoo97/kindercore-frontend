@@ -56,7 +56,7 @@ describe('Settings navigation', () => {
     // Appraisals have their own group, Performance Management; "appraisals" or "performance" finds all three parts.
     expect(searchSettings('people appraisal').map(r => r.item.key)).toEqual(['appraisal-forms']);
     expect(searchSettings('appraisals').map(r => r.item.key)).toEqual(['appraisal-forms', 'scoring-forms', 'rating-scales', 'score-bands']);
-    expect(searchSettings('performance').map(r => r.item.key)).toEqual(['appraisal-forms', 'scoring-forms', 'rating-scales', 'score-bands']);
+    expect(searchSettings('performance').map(r => r.item.key)).toEqual(['appraisal-forms', 'scoring-forms', 'rating-scales', 'score-bands', 'practice-observations']);
     expect(searchSettings('rubric').map(r => r.item.key)).toEqual(['rating-scales']);
     expect(searchSettings('   ')).toEqual([]);
     expect(searchSettings('nothing like this')).toEqual([]);
