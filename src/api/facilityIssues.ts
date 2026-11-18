@@ -88,7 +88,10 @@ export function reportFacilityIssue(
 
 /** One attachment as a Blob — the files are private, so an <img src> can't load them directly. */
 export async function fetchFacilityAttachment(issueId: string, fileId: string): Promise<Blob> {
-  return fetchPrivateFile(`${BASE_URL}/api/facility-issues/${issueId}/attachments/${encodeURIComponent(fileId)}`, 'Couldn’t load this file.');
+  // Asked for without its extension: Hostinger's CDN answers any address ending in
+  // .jpg/.png itself (as a static file), which breaks this signed-in request.
+  const stem = fileId.replace(/\.[a-z0-9]+$/i, '');
+  return fetchPrivateFile(`${BASE_URL}/api/facility-issues/${issueId}/attachments/${encodeURIComponent(stem)}`, 'Couldn’t load this file.');
 }
 
 export function fetchMyFacilityIssues(): Promise<FacilityIssue[]> {
