@@ -108,6 +108,7 @@ import TeacherEarnPointsPage from './pages/TeacherEarnPointsPage.js';
 import TeacherRedeemedRewardPage from './pages/TeacherRedeemedRewardPage.js';
 import TeacherRewardDetailsPage from './pages/TeacherRewardDetailsPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
+import EditAccessPage from './pages/settings/EditAccessPage.js';
 import AuthRolesPage from './pages/settings/AuthRolesPage.js';
 import AuthRoleEditPage from './pages/settings/AuthRoleEditPage.js';
 import { RequireModule } from './components/common/RequireModule.js';
@@ -364,6 +365,7 @@ export default function App() {
             <Route path="/settings/test/seed-candidates" element={<ErrorBoundary><TestToolsPage key="seed-candidates" tool="seed-candidates" /></ErrorBoundary>} />
             <Route path="/settings/test/unit-tests" element={<Navigate to="/admin/test-catalog" replace />} />
             <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
+            <Route path="/settings/users/:id/access" element={<ErrorBoundary><EditAccessPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles" element={<ErrorBoundary><AuthRolesPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles/new" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles/:id/edit" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />

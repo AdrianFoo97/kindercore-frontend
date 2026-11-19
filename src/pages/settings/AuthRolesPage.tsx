@@ -60,7 +60,7 @@ export default function AuthRolesPage() {
   );
 
   return (
-    <div>
+    <div className="m-pad">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>Access roles</h1>
         <button onClick={() => navigate('/settings/auth-roles/new')} style={s.primaryBtn}>

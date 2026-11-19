@@ -480,6 +480,8 @@ export const TEST_SUITES: TestSuite[] = [
       { name: 'lets you build your own role from modules and functions, refusing functions the app doesn’t check', explains: 'A role you build grants exactly what you ticked; made-up functions are refused.' },
       { name: 'won’t delete a role someone still has', explains: 'You can’t delete a role while a person still holds it — nobody silently loses access.' },
       { name: 'only gives people a role that exists — built-in or your own', explains: 'Giving someone a role id that doesn’t exist is refused.' },
+      { name: 'lets one person hold several roles and gives them everything those roles allow', explains: 'Someone with HR Director + Finance Manager gets HR, Finance and Analysis together; taking one role off removes only what that role gave.' },
+      { name: 'counts a role as in use while anyone holds it, among their other roles', explains: 'A role someone holds alongside others still counts as in use, so it can’t be deleted out from under them.' },
     ],
   },
   {
@@ -494,6 +496,10 @@ export const TEST_SUITES: TestSuite[] = [
       { name: 'only lets you tick a function once its module is ticked', explains: 'A function can’t be granted without the module it belongs to.' },
       { name: 'drops a module’s functions when the module is unticked, keeping the others', explains: 'Unticking a module also removes its functions, so nothing is left granted by accident.' },
       { name: 'groups built-in roles by area and says who uses a role', explains: 'Built-in roles are listed by area, each with “Used by …”.' },
+      { name: 'lists every module a person’s roles open between them, once each', explains: 'Edit access shows what a person can open between all their roles (e.g. HR, Finance, Analysis).' },
+      { name: 'shows the role a person gets from their staff record’s position, if any', explains: 'Edit access lists the role their position gives (locked), so you see their real access, not just the roles given to them directly.' },
+      { name: 'finds roles by name or area', explains: 'The roles list in Edit access can be searched — “oper” finds Supervisor — so the right role is quick to find as the list grows.' },
+      { name: 'lists the extra functions a person’s roles grant, and spots when their roles really changed', explains: 'Edit access sums up the extra functions all their roles give, and only lets you save (or warns before leaving) when something actually changed — ticking and unticking the same role counts as no change.' },
     ],
   },
   {

@@ -38,3 +38,40 @@ export function usageLine(peopleCount: number, positionCount: number): string {
   if (positionCount) parts.push(`${positionCount} ${positionCount === 1 ? 'position' : 'positions'}`);
   return parts.length ? `Used by ${parts.join(' · ')}` : 'Not given to anyone yet';
 }
+
+/** Every module the chosen roles open between them, in the catalog's order. */
+export function combinedModules<M extends string>(roles: { id: string; modules: M[] }[], chosen: string[], order: M[]): M[] {
+  const open = new Set(roles.filter(r => chosen.includes(r.id)).flatMap(r => r.modules));
+  return order.filter(m => open.has(m));
+}
+
+/** The role a person's linked staff record gets from its position — or null (no link, no position, or no role on it). */
+export function positionRoleFor<R extends { id: string }>(
+  teacherId: string | null | undefined,
+  teachers: { id: string; positionId?: string | null }[],
+  positions: { positionId: string; name: string; authRoleId?: string | null }[],
+  roles: R[],
+): { role: R; positionName: string } | null {
+  const positionId = teachers.find(t => t.id === teacherId)?.positionId;
+  const position = positions.find(p => p.positionId === positionId);
+  const role = roles.find(r => r.id === position?.authRoleId);
+  return position && role ? { role, positionName: position.name } : null;
+}
+
+/** Roles whose name or area contains the search text (case-insensitive); all of them when it's blank. */
+export function searchRoles<R extends { name: string; area: string | null }>(roles: R[], query: string): R[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return roles;
+  return roles.filter(r => r.name.toLowerCase().includes(q) || (r.area ?? '').toLowerCase().includes(q));
+}
+
+/** Every extra function the chosen roles grant between them (keys, first-seen order, once each). */
+export function combinedFunctions(roles: { id: string; views: string[] }[], chosen: string[]): string[] {
+  return [...new Set(roles.filter(r => chosen.includes(r.id)).flatMap(r => r.views))];
+}
+
+/** True when two id lists hold the same ids, whatever the order. */
+export function sameIds(a: string[], b: string[]): boolean {
+  const sa = new Set(a), sb = new Set(b);
+  return sa.size === sb.size && [...sa].every(x => sb.has(x));
+}

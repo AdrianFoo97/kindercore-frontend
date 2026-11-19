@@ -33,6 +33,7 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   AuthRole: { domain: 'Accounts & access', about: 'An access role — a named bundle of what a non-admin user may open (e.g. "Class Teacher").' },
   AuthRoleModule: { domain: 'Accounts & access', about: 'Which top-level modules (Marketing, HR, Finance…) each access role has switched on.' },
   AuthRoleView: { domain: 'Accounts & access', about: 'Which individual views/permissions each access role has been granted.' },
+  UserAuthRole: { domain: 'Accounts & access', about: 'The access roles each person holds — any number (e.g. Principal + HR Director), on top of their position’s role.' },
   AuthView: { domain: 'Accounts & access', about: 'The catalog of grantable views — the permission keys checked in code.' },
   AuthViewModule: { domain: 'Accounts & access', about: 'Which module(s) each view belongs to, so it is offered under the right module.' },
   GoogleConnection: { domain: 'Accounts & access', about: 'A connected Google account (tokens) used to create calendar events for visits and interviews.' },

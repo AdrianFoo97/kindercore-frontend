@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserPlus, faCopy, faCheck, faTrash, faPaperPlane, faPen, faCircle } from '@fortawesome/free-solid-svg-icons';
@@ -8,7 +9,9 @@ import { fetchAuthRoles } from '../../api/auth-roles.js';
 import { useToast } from '../../components/common/Toast.js';
 import { memberActivity } from './memberActivity.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
-import AccessRoleOptions from './AccessRoleOptions.js';
+import AccessRolesPicker from './AccessRolesPicker.js';
+import { fetchPositions } from '../../api/salary.js';
+import { positionRoleFor } from './accessRoleForm.js';
 
 interface UserRecord {
   id: string;
@@ -19,7 +22,8 @@ interface UserRecord {
   inviteLink: string | null;
   createdAt: string;
   teacherId: string | null;
-  authRoleId: string | null;
+  /** Their own access roles (any number) — on top of whatever their linked staff record's position gives. */
+  authRoleIds: string[];
   lastLoginAt: string | null;
   lastSeenAt: string | null;
 }
@@ -42,37 +46,17 @@ export default function ManageUsersPage() {
     queryFn: fetchAuthRoles,
   });
 
-  const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
-  const [editAuthRoleId, setEditAuthRoleId] = useState('');
-  const [editTeacherId, setEditTeacherId] = useState('');
-  const [editSaving, setEditSaving] = useState(false);
+  // Edit access is its own page (Settings → Team members → a person).
+  const navigate = useNavigate();
+  const openEdit = (u: UserRecord) => navigate(`/settings/users/${u.id}/access`);
 
-  const openEdit = (u: UserRecord) => {
-    setEditingUser(u);
-    setEditAuthRoleId(u.authRoleId ?? '');
-    setEditTeacherId(u.teacherId ?? '');
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingUser) return;
-    setEditSaving(true);
-    try {
-      const calls: Promise<unknown>[] = [
-        apiFetch(`/api/auth/users/${editingUser.id}/teacher`, { method: 'PATCH', body: JSON.stringify({ teacherId: editTeacherId || null }) }),
-      ];
-      if (editingUser.role === 'USER') {
-        calls.push(apiFetch(`/api/auth/users/${editingUser.id}/auth-role`, { method: 'PATCH', body: JSON.stringify({ authRoleId: editAuthRoleId || null }) }));
-      }
-      await Promise.all(calls);
-      qc.invalidateQueries({ queryKey: ['admin-users'] });
-      showToast('Access updated');
-      setEditingUser(null);
-    } catch (e: any) {
-      const msg = (() => { try { return JSON.parse(e?.message)?.message ?? e.message; } catch { return e?.message ?? 'Failed to save'; } })();
-      showToast(msg, 'error');
-    } finally {
-      setEditSaving(false);
-    }
+  const { data: positions = [] } = useQuery({ queryKey: ['salary-positions'], queryFn: fetchPositions });
+  /** Every role a person has: their position's (marked) and their own. */
+  const roleSummary = (u: UserRecord) => {
+    const fromPosition = positionRoleFor(u.teacherId, teachers, positions, authRoles);
+    const own = (u.authRoleIds ?? []).filter(id => id !== fromPosition?.role.id).map(id => authRoles.find(r => r.id === id)?.name).filter(Boolean);
+    const all = [...(fromPosition ? [`${fromPosition.role.name} (position)`] : []), ...own];
+    return all.length ? all.join(' · ') : 'No access roles';
   };
 
   const canDelete = (u: UserRecord) => {
@@ -93,7 +77,7 @@ export default function ManageUsersPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'USER' | 'ADMIN'>('USER');
-  const [inviteAuthRoleId, setInviteAuthRoleId] = useState('');
+  const [inviteRoleIds, setInviteRoleIds] = useState<string[]>([]);
   const [copiedId, setCopiedId] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [resendingId, setResendingId] = useState('');
@@ -101,7 +85,7 @@ export default function ManageUsersPage() {
   const [inviteSuccess, setInviteSuccess] = useState('');
 
   const inviteMutation = useMutation({
-    mutationFn: (payload: { email: string; role: string; authRoleId: string | null }) =>
+    mutationFn: (payload: { email: string; role: string; authRoleIds: string[] }) =>
       apiFetch<{ inviteLink: string; emailSent: boolean }>('/api/auth/invite', { method: 'POST', body: JSON.stringify(payload) }),
     onSuccess: (data) => {
       setInviteError('');
@@ -122,7 +106,7 @@ export default function ManageUsersPage() {
     inviteMutation.mutate({
       email: inviteEmail.trim().toLowerCase(),
       role: inviteRole,
-      authRoleId: inviteRole === 'USER' ? (inviteAuthRoleId || null) : null,
+      authRoleIds: inviteRole === 'USER' ? inviteRoleIds : [],
     });
   };
 
@@ -171,7 +155,7 @@ export default function ManageUsersPage() {
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', margin: 0 }}>Team Members</h1>
         </div>
         <button
-          onClick={() => { setShowInvite(true); setInviteEmail(''); setInviteError(''); setInviteRole('USER'); setInviteAuthRoleId(''); }}
+          onClick={() => { setShowInvite(true); setInviteEmail(''); setInviteError(''); setInviteRole('USER'); setInviteRoleIds([]); }}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '10px 20px', background: '#1d4ed8', color: '#fff',
@@ -226,22 +210,10 @@ export default function ManageUsersPage() {
                 </div>
                 {inviteRole === 'USER' && (
                   <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Access Role</label>
-                    <select
-                      value={inviteAuthRoleId}
-                      onChange={e => setInviteAuthRoleId(e.target.value)}
-                      style={{
-                        width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
-                        fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-                        background: '#fff', color: inviteAuthRoleId ? '#0f172a' : '#94a3b8',
-                      }}
-                    >
-                      <option value="">No access (fails closed)</option>
-                      <AccessRoleOptions roles={authRoles} />
-                    </select>
+                    <label htmlFor="invite-roles" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Access roles</label>
+                    <AccessRolesPicker id="invite-roles" roles={authRoles} value={inviteRoleIds} onChange={setInviteRoleIds} />
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
-                      What modules/views they can see in the admin portal. Can also be set later from this page, or
-                      — for teaching staff — inherited from whichever Teacher record they get linked to instead.
+                      Give as many as fit what they do. Staff also get their position’s role once linked to their staff record.
                     </p>
                   </div>
                 )}
@@ -263,73 +235,6 @@ export default function ManageUsersPage() {
                   </button>
                 </div>
               </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit access modal */}
-      {editingUser && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: '32px', width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
-            onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>
-              Edit access — {editingUser.name || editingUser.email}
-            </h2>
-            <p style={{ fontSize: 14, color: '#64748b', margin: '0 0 24px' }}>{editingUser.email}</p>
-
-            {editingUser.role === 'USER' && (
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Access Role</label>
-                <select
-                  value={editAuthRoleId}
-                  onChange={e => setEditAuthRoleId(e.target.value)}
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
-                    fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-                    background: '#fff', color: editAuthRoleId ? '#0f172a' : '#94a3b8',
-                  }}
-                >
-                  <option value="">No access role</option>
-                  <AccessRoleOptions roles={authRoles} />
-                </select>
-                <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
-                  Direct grant, separate from whatever a linked Teacher's position gives below.
-                </p>
-              </div>
-            )}
-
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Staff Link</label>
-              <select
-                value={editTeacherId}
-                onChange={e => setEditTeacherId(e.target.value)}
-                style={{
-                  width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
-                  fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-                  background: '#fff', color: editTeacherId ? '#0f172a' : '#94a3b8',
-                }}
-              >
-                <option value="">No staff record linked</option>
-                {teachers.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" onClick={() => setEditingUser(null)} disabled={editSaving} style={{
-                padding: '9px 20px', border: '1.5px solid #d1d5db', borderRadius: 8,
-                background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600,
-                cursor: editSaving ? 'default' : 'pointer', fontFamily: 'inherit',
-              }}>Cancel</button>
-              <button type="button" onClick={handleSaveEdit} disabled={editSaving} style={{
-                padding: '9px 24px', background: '#1d4ed8', color: '#fff', border: 'none',
-                borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: editSaving ? 'default' : 'pointer', fontFamily: 'inherit',
-                opacity: editSaving ? 0.6 : 1,
-              }}>
-                {editSaving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -374,6 +279,11 @@ export default function ManageUsersPage() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{u.name || '—'}</div>
                   <div style={{ fontSize: 13, color: '#64748b', overflowWrap: 'anywhere' }}>{u.email}</div>
+                  {u.role === 'USER' && (
+                    <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
+                      {roleSummary(u)}
+                    </div>
+                  )}
                   <div title={fmtSignIn(u.lastLoginAt)} style={{
                     fontSize: 12, marginTop: 2, fontWeight: activity.online ? 600 : 500,
                     color: activity.online ? '#16a34a' : '#94a3b8',
