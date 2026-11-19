@@ -67,7 +67,7 @@ import SopAuthorPage from './pages/operations/SopAuthorPage.js';
 import SopTemplateStepsPage from './pages/operations/SopTemplateStepsPage.js';
 import SopCategoriesPage from './pages/settings/SopCategoriesPage.js';
 import SopSectionsPage from './pages/settings/SopSectionsPage.js';
-import SettingsOperationPage from './pages/settings/SettingsOperationPage.js';
+import HowToGuideSettingsPage from './pages/settings/HowToGuideSettingsPage.js';
 import SopObservationsPage from './pages/SopObservationsPage.js';
 import SopObservationNewPage from './pages/SopObservationNewPage.js';
 import SopObservationDetailPage from './pages/SopObservationDetailPage.js';
@@ -109,6 +109,7 @@ import TeacherRedeemedRewardPage from './pages/TeacherRedeemedRewardPage.js';
 import TeacherRewardDetailsPage from './pages/TeacherRewardDetailsPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
 import EditAccessPage from './pages/settings/EditAccessPage.js';
+import InviteMemberPage from './pages/settings/InviteMemberPage.js';
 import AuthRolesPage from './pages/settings/AuthRolesPage.js';
 import AuthRoleEditPage from './pages/settings/AuthRoleEditPage.js';
 import { RequireModule } from './components/common/RequireModule.js';
@@ -200,7 +201,7 @@ const TEACHER_SOP = /^\/operations\/sops(?:\/|$)/;
 
 // Settings → HR & Payroll → Staff Onboarding: HR's list, then the joiner's own.
 const STAFF_ONBOARDING_SECTIONS: ChecklistSection[] = [
-  { settingKey: 'staff_onboarding_tasks', label: 'HR checklist', help: 'What HR does for a new joiner — ticked on HR → Onboarding. Finishing this list completes their onboarding.' },
+  { settingKey: 'staff_onboarding_tasks', label: 'HR’s checklist', help: 'What HR does for a new joiner — ticked on HR → Onboarding. Finishing this list completes their onboarding.' },
   { settingKey: 'staff_self_onboarding_tasks', label: 'New staff\'s own checklist', help: 'What the new joiner does themselves — they tick it in their app under "My onboarding".' },
 ];
 // One appraisal (scoring / signing off / confirming): opened from the admin
@@ -365,6 +366,7 @@ export default function App() {
             <Route path="/settings/test/seed-candidates" element={<ErrorBoundary><TestToolsPage key="seed-candidates" tool="seed-candidates" /></ErrorBoundary>} />
             <Route path="/settings/test/unit-tests" element={<Navigate to="/admin/test-catalog" replace />} />
             <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
+            <Route path="/settings/users/invite" element={<ErrorBoundary><InviteMemberPage /></ErrorBoundary>} />
             <Route path="/settings/users/:id/access" element={<ErrorBoundary><EditAccessPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles" element={<ErrorBoundary><AuthRolesPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles/new" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
@@ -376,7 +378,9 @@ export default function App() {
             <Route path="/admin/access-log" element={<ErrorBoundary><AccessLogPage /></ErrorBoundary>} />
             <Route path="/settings/sop-categories" element={<ErrorBoundary><SopCategoriesPage /></ErrorBoundary>} />
             <Route path="/settings/sop-sections" element={<ErrorBoundary><SopSectionsPage /></ErrorBoundary>} />
-            <Route path="/settings/operation" element={<ErrorBoundary><SettingsOperationPage /></ErrorBoundary>} />
+            <Route path="/settings/how-to-guides" element={<ErrorBoundary><HowToGuideSettingsPage /></ErrorBoundary>} />
+            {/* Operation settings were split into Classes / Subjects / Tasks / How-to guides. */}
+            <Route path="/settings/operation" element={<Navigate to="/settings/timetable/classes" replace />} />
             <Route path="/settings/operating-cost-main-categories" element={<ErrorBoundary><OperatingCostMainCategoriesPage /></ErrorBoundary>} />
             <Route path="/settings/operating-cost-categories" element={<ErrorBoundary><OperatingCostCategoriesPage /></ErrorBoundary>} />
             <Route path="/settings/operating-cost" element={<ErrorBoundary><SettingsOperatingCostPage /></ErrorBoundary>} />

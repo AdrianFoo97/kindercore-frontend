@@ -1,6 +1,6 @@
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faBoxesStacked, faBuilding, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins,
+  faBookOpen, faBoxesStacked, faBuilding, faChalkboard, faBook, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins,
   faFileImport, faGears, faGraduationCap, faIdBadge, faLayerGroup, faUserTie, faListCheck, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
   faStarHalfStroke, faRankingStar, faSitemap, faUserCheck, faUserPlus, faUserShield, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
@@ -62,6 +62,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         description: 'Connect Google Calendar.', keywords: ['google', 'calendar'] },
       { key: 'data', label: 'Data import', to: '/settings/data', icon: faFileImport,
         description: 'Import leads, students and candidates from a spreadsheet.', keywords: ['import', 'excel', 'csv', 'upload'] },
+      { key: 'messages', label: 'Message templates', to: '/settings/whatsapp-templates', icon: faMessage,
+        description: 'Message templates by group — Common for everyone, Marketing and HR for those modules.', keywords: ['whatsapp', 'template', 'message'] },
     ],
   },
   // HR settings follow the classic HR modules, in their usual order — the same sections as the HRMS menu:
@@ -91,7 +93,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       { key: 'recruitment', label: 'Recruitment', to: '/settings/recruitment', icon: faUserPlus,
         description: 'Job application form and hiring pipeline.', keywords: ['hr', 'hiring', 'candidates', 'interview', 'apply', 'people'] },
       { key: 'staff-onboarding', label: 'Staff onboarding', to: '/settings/staff-onboarding', icon: faUserCheck,
-        description: 'Checklists every new staff member gets.', keywords: ['hr', 'new staff', 'joiner', 'checklist', 'people'] },
+        description: 'Checklists every new staff member gets — items can have a link button.', keywords: ['hr', 'new staff', 'joiner', 'checklist', 'checklists', 'people', 'link', 'button'] },
     ],
   },
   {
@@ -119,16 +121,21 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     ],
   },
   {
-    key: 'students-sales', label: 'Students & sales', items: [
+    // Marketing — what the Marketing Manager looks after: the leads pipeline and what we sell.
+    key: 'marketing', label: 'Marketing', items: [
       { key: 'crm', label: 'CRM', to: '/settings/leads', icon: faUsers,
-        description: 'Lead statuses and lost reasons.', keywords: ['leads', 'enquiry', 'status', 'marketing'] },
-      { key: 'students', label: 'Students', to: '/settings/onboarding', icon: faGraduationCap,
-        description: 'Onboarding checklist for new students.', keywords: ['enrolment', 'checklist', 'onboarding'] },
+        description: 'Lead statuses and lost reasons.', keywords: ['leads', 'enquiry', 'status', 'marketing', 'sales'] },
       { key: 'packages', label: 'Packages & pricing', to: '/settings/packages', icon: faBoxesStacked,
         alsoAt: ['/settings/packages/programmes', '/settings/packages/age-groups'],
-        description: 'Programmes, age groups and fees.', keywords: ['fees', 'price', 'programme', 'age group'] },
-      { key: 'messages', label: 'Message templates', to: '/settings/whatsapp-templates', icon: faMessage,
-        description: 'Message templates by group — Common for everyone, Marketing and HR for those modules.', keywords: ['whatsapp', 'template', 'message'] },
+        description: 'Programmes, age groups and fees.', keywords: ['fees', 'price', 'programme', 'age group', 'sales', 'marketing'] },
+    ],
+  },
+  {
+    key: 'students', label: 'Students', items: [
+      { key: 'students', label: 'Student onboarding', to: '/settings/onboarding', icon: faGraduationCap,
+        description: 'Checklist for new students — items can have a link button.', keywords: ['enrolment', 'checklist', 'checklists', 'onboarding', 'students', 'link', 'button'] },
+      { key: 'attendance-reader', label: 'Attendance reader', to: '/settings/attendance-reader', icon: faIdBadge,
+        description: 'Key for the RFID card reader at the door.', keywords: ['rfid', 'card', 'attendance', 'scanner'] },
     ],
   },
   {
@@ -142,11 +149,15 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   },
   {
     key: 'operations', label: 'Operations', items: [
-      { key: 'operation', label: 'Operation', to: '/settings/operation', icon: faGears,
-        alsoAt: ['/settings/timetable', '/settings/sop-categories', '/settings/sop-sections'],
-        description: 'Timetable, and how-to guide categories and sections.', keywords: ['timetable', 'sop', 'guides', 'planner'] },
-      { key: 'attendance-reader', label: 'Attendance reader', to: '/settings/attendance-reader', icon: faIdBadge,
-        description: 'Key for the RFID card reader at the door.', keywords: ['rfid', 'card', 'attendance', 'scanner'] },
+      { key: 'classes', label: 'Classes', to: '/settings/timetable/classes', icon: faChalkboard,
+        description: 'Classes, their hours and capacity.', keywords: ['timetable', 'planner', 'classroom', 'capacity'] },
+      { key: 'subjects', label: 'Subjects', to: '/settings/timetable/subjects', icon: faBookOpen,
+        description: 'Subjects taught, for the timetable.', keywords: ['timetable', 'planner', 'lessons'] },
+      { key: 'tasks', label: 'Tasks', to: '/settings/timetable/tasks', icon: faListCheck,
+        description: 'Non-teaching blocks for the timetable, like lunch break.', keywords: ['timetable', 'planner', 'duties', 'break'] },
+      { key: 'how-to-guides', label: 'How-to guides', to: '/settings/how-to-guides', icon: faBook,
+        alsoAt: ['/settings/sop-categories', '/settings/sop-sections'],
+        description: 'Categories and sections for organising guides.', keywords: ['sop', 'guides', 'categories', 'sections'] },
     ],
   },
   {

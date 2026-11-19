@@ -9,7 +9,6 @@ import { fetchAuthRoles } from '../../api/auth-roles.js';
 import { useToast } from '../../components/common/Toast.js';
 import { memberActivity } from './memberActivity.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
-import AccessRolesPicker from './AccessRolesPicker.js';
 import { fetchPositions } from '../../api/salary.js';
 import { positionRoleFor } from './accessRoleForm.js';
 
@@ -74,41 +73,10 @@ export default function ManageUsersPage() {
     refetchInterval: 60_000, // keep "Online now" current while the page is open
   });
 
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'USER' | 'ADMIN'>('USER');
-  const [inviteRoleIds, setInviteRoleIds] = useState<string[]>([]);
   const [copiedId, setCopiedId] = useState('');
-  const [inviteError, setInviteError] = useState('');
   const [resendingId, setResendingId] = useState('');
 
   const [inviteSuccess, setInviteSuccess] = useState('');
-
-  const inviteMutation = useMutation({
-    mutationFn: (payload: { email: string; role: string; authRoleIds: string[] }) =>
-      apiFetch<{ inviteLink: string; emailSent: boolean }>('/api/auth/invite', { method: 'POST', body: JSON.stringify(payload) }),
-    onSuccess: (data) => {
-      setInviteError('');
-      setShowInvite(false);
-      setInviteSuccess(data.emailSent ? `Invite email sent to ${inviteEmail}` : 'Invite created — copy the link to share');
-      setInviteEmail('');
-      qc.invalidateQueries({ queryKey: ['admin-users'] });
-      setTimeout(() => setInviteSuccess(''), 5000);
-    },
-    onError: (err: any) => {
-      setInviteError(err?.message || 'Failed to create invite');
-    },
-  });
-
-  const handleInvite = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    inviteMutation.mutate({
-      email: inviteEmail.trim().toLowerCase(),
-      role: inviteRole,
-      authRoleIds: inviteRole === 'USER' ? inviteRoleIds : [],
-    });
-  };
 
   const handleCopy = (id: string, link: string) => {
     navigator.clipboard.writeText(link);
@@ -155,7 +123,7 @@ export default function ManageUsersPage() {
           <h1 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', margin: 0 }}>Team Members</h1>
         </div>
         <button
-          onClick={() => { setShowInvite(true); setInviteEmail(''); setInviteError(''); setInviteRole('USER'); setInviteRoleIds([]); }}
+          onClick={() => navigate('/settings/users/invite')}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '10px 20px', background: '#1d4ed8', color: '#fff',
@@ -171,71 +139,6 @@ export default function ManageUsersPage() {
       {inviteSuccess && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, marginBottom: 20, fontSize: 14, color: '#166534', fontWeight: 500 }}>
           <FontAwesomeIcon icon={faCheck} /> {inviteSuccess}
-        </div>
-      )}
-
-      {/* Invite modal */}
-      {showInvite && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: '32px', width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
-            onClick={e => e.stopPropagation()}>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>Invite team member</h2>
-            <p style={{ fontSize: 14, color: '#64748b', margin: '0 0 24px' }}>They'll receive a link to set up their account.</p>
-
-            <form onSubmit={handleInvite}>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Email address</label>
-                  <input
-                    type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                    placeholder="colleague@school.com"
-                    style={{
-                      width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #d1d5db',
-                      fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
-                    }}
-                  />
-                </div>
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Role</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {(['USER', 'ADMIN'] as const).map(r => (
-                      <button key={r} type="button" onClick={() => setInviteRole(r)} style={{
-                        padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                        border: inviteRole === r ? '1.5px solid #1d4ed8' : '1.5px solid #d1d5db',
-                        background: inviteRole === r ? '#eff6ff' : '#fff',
-                        color: inviteRole === r ? '#1d4ed8' : '#6b7280',
-                        cursor: 'pointer', fontFamily: 'inherit',
-                      }}>{r === 'USER' ? 'User' : 'Admin'}</button>
-                    ))}
-                  </div>
-                </div>
-                {inviteRole === 'USER' && (
-                  <div style={{ marginBottom: 20 }}>
-                    <label htmlFor="invite-roles" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Access roles</label>
-                    <AccessRolesPicker id="invite-roles" roles={authRoles} value={inviteRoleIds} onChange={setInviteRoleIds} />
-                    <p style={{ margin: '6px 0 0', fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
-                      Give as many as fit what they do. Staff also get their position’s role once linked to their staff record.
-                    </p>
-                  </div>
-                )}
-                {inviteError && (
-                  <p style={{ color: '#dc2626', fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{inviteError}</p>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <button type="button" onClick={() => setShowInvite(false)} style={{
-                    padding: '9px 20px', border: '1.5px solid #d1d5db', borderRadius: 8,
-                    background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}>Cancel</button>
-                  <button type="submit" disabled={inviteMutation.isPending || !inviteEmail.trim()} style={{
-                    padding: '9px 24px', background: '#1d4ed8', color: '#fff', border: 'none',
-                    borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                    opacity: inviteMutation.isPending || !inviteEmail.trim() ? 0.6 : 1,
-                  }}>
-                    {inviteMutation.isPending ? 'Sending...' : 'Send Invite'}
-                  </button>
-                </div>
-              </form>
-          </div>
         </div>
       )}
 

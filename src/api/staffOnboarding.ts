@@ -36,6 +36,12 @@ export const startStaffOnboarding = (teacherId: string) =>
 export const fetchMyOnboarding = (teacherId: string) =>
   apiFetch<{ tasks: OnboardingTask[] }>(`/api/teachers/${teacherId}/my-onboarding`);
 
+/** HR: replace a new joiner's own checklist with the latest steps (they can only tick it themselves). */
+export const saveOwnOnboardingSteps = (teacherId: string, tasks: OnboardingTask[]) =>
+  apiFetch<{ tasks: OnboardingTask[] }>(`/api/teachers/${teacherId}/onboarding/own-steps`, {
+    method: 'PUT', body: JSON.stringify({ progress: tasks }),
+  });
+
 export const tickMyOnboarding = (teacherId: string, tasks: OnboardingTask[]) =>
   apiFetch<{ tasks: OnboardingTask[] }>(`/api/teachers/${teacherId}/my-onboarding`, {
     method: 'PUT', body: JSON.stringify({ done: tasks.map(t => t.done) }),

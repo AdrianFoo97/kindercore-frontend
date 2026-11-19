@@ -39,24 +39,13 @@ const dayBtn = (active: boolean): React.CSSProperties => ({
 
 type ResourceType = 'teachers' | 'classes' | 'subjects' | 'tasks';
 
-const TABS: { key: 'classes' | 'subjects' | 'tasks'; label: string; icon: any }[] = [
-  { key: 'classes', label: 'Classes', icon: faChalkboard },
-  { key: 'subjects', label: 'Subjects', icon: faBookOpen },
-  { key: 'tasks', label: 'Tasks', icon: faListCheck },
-];
 
-export default function TimetableSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
+// Settings → Operations → Classes / Subjects / Tasks — one list per page (/settings/timetable/:type).
+export default function TimetableSettingsPage() {
   const { type } = useParams<{ type: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  // Embedded (inside Settings > Operation's tab strip) has no :type route
-  // param to read, so tab switching is local state instead of navigate() —
-  // otherwise clicking Classes/Subjects/Tasks would jump out to the
-  // standalone /settings/timetable/:type route and lose the outer tab bar.
-  // Defaults to 'classes' rather than the standalone route's 'teachers'
-  // fallback, since Teachers isn't one of the three tabs actually shown.
-  const [localType, setLocalType] = useState<'classes' | 'subjects' | 'tasks'>('classes');
-  const resourceType = (embedded ? localType : (type || 'teachers')) as ResourceType;
+  const resourceType = (type || 'teachers') as ResourceType;
 
   const { data: teachers = [] } = useQuery({ queryKey: ['planner-teachers'], queryFn: fetchTeachers });
   const { data: classrooms = [] } = useQuery({ queryKey: ['planner-classrooms'], queryFn: fetchClassrooms });
@@ -137,7 +126,8 @@ export default function TimetableSettingsPage({ embedded = false }: { embedded?:
   }, [resourceType, teachers, classrooms, subjects, tasks]);
 
   const title = resourceType === 'teachers' ? 'Teachers' : resourceType === 'classes' ? 'Classes' : resourceType === 'subjects' ? 'Subjects' : 'Tasks';
-  const singular = title.slice(0, -1);
+  // Not title.slice(0, -1) — that made "Classe".
+  const singular = { Teachers: 'Teacher', Classes: 'Class', Subjects: 'Subject', Tasks: 'Task' }[title];
   const activeClasses = classrooms.filter((c: any) => c.isActive);
 
   const handleSave = () => {
@@ -188,36 +178,16 @@ export default function TimetableSettingsPage({ embedded = false }: { embedded?:
   };
 
   return (
-    <div className={embedded ? undefined : 'm-pad'} style={embedded ? undefined : { padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
-      <style>{`.tt-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
-      <div style={embedded ? undefined : { maxWidth: 960, margin: '0 auto' }}>
-        {!embedded && <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: '4px 0 20px' }}>Timetable</h1>}
+    <div className="m-pad" style={{ padding: '28px 32px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
+      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: '4px 0 20px' }}>{title}</h1>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, borderBottom: `1px solid ${C.border}`, marginBottom: 20 }}>
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              className="tt-settings-tab"
-              onClick={() => embedded ? setLocalType(t.key) : navigate(`/settings/timetable/${t.key}`)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', fontSize: 13,
-                color: resourceType === t.key ? C.primary : C.muted, background: 'none', border: 'none',
-                borderBottom: resourceType === t.key ? `2px solid ${C.primary}` : '2px solid transparent',
-                borderRadius: '8px 8px 0 0', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
-                fontWeight: resourceType === t.key ? 600 : 500, transition: 'all 0.1s', marginBottom: -1,
-              }}
-            >
-              <FontAwesomeIcon icon={t.icon} style={{ fontSize: 12, width: 14 }} />
-              {t.label}
-            </button>
-          ))}
-        </div>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: C.text, margin: 0 }}>{title}</h2>
-          <span style={{ fontSize: 12, color: C.muted, background: '#f1f5f9', padding: '2px 8px', borderRadius: 10 }}>{items.length}</span>
+          {/* The page title already names the list — just say how many. */}
+          <span style={{ fontSize: 13, color: C.muted }}>{items.length} {(items.length === 1 ? singular : title).toLowerCase()}</span>
         </div>
         <button onClick={openNew} style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: C.primary, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
           <FontAwesomeIcon icon={faPlus} style={{ fontSize: 11 }} />

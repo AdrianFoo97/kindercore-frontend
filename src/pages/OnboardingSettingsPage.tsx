@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchSettings, patchSetting } from '../api/settings.js';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPen, faXmark, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { fetchSettings } from '../api/settings.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import ChecklistEditor from './ChecklistEditor.js';
+import { parseChecklistTemplate } from './checklistItems.js';
 
 /** One checklist template on the page — e.g. HR's list and the new joiner's own list. */
 export interface ChecklistSection {
@@ -15,241 +15,64 @@ export interface ChecklistSection {
 
 const STUDENT_SECTIONS: ChecklistSection[] = [{ settingKey: 'onboarding_tasks' }];
 
-/** The same checklist editor serves students (default) and staff (Settings → HR & Payroll → Staff Onboarding). */
+/** The same checklist editor serves students (default) and staff (Settings → Staff onboarding). */
 export default function OnboardingSettingsPage({
   sections = STUDENT_SECTIONS,
   title = 'Student Onboarding',
 }: { sections?: ChecklistSection[]; title?: string }) {
   const queryClient = useQueryClient();
-
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['settings'],
-    queryFn: fetchSettings,
-  });
+  // Several lists (staff onboarding: HR's + the joiner's own) → one tab each.
+  const [tab, setTab] = useState(sections[0]?.settingKey);
+  const tabbed = sections.length > 1;
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['settings'], queryFn: fetchSettings });
 
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
 
-  if (isLoading) return <p style={styles.state}><LoadingSpinner /></p>;
-  if (isError) return <p style={{ ...styles.state, color: '#e53e3e' }}>Failed to load settings.</p>;
+  if (isLoading) return <div className="m-pad"><LoadingSpinner /></div>;
+  if (isError) {
+    return (
+      <div className="m-pad">
+        <p style={{ fontSize: 14, color: '#b91c1c' }}>Couldn’t load the checklist.</p>
+        <button type="button" onClick={() => refetch()} style={{ minHeight: 36, padding: '0 16px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Retry</button>
+      </div>
+    );
+  }
 
   return (
-    <div className="m-pad" style={styles.page}>
-      <div style={styles.inner}>
-        <h1 style={styles.heading}>{title}</h1>
-        {!isAdmin && (
-          <p style={styles.readonlyNote}>You have read-only access. Admin role required to save changes.</p>
-        )}
-        {sections.map(section => {
-          const stored = data?.[section.settingKey];
-          const tasks: string[] = Array.isArray(stored) ? (stored as string[]) : [];
-          return (
-            <section key={section.settingKey} style={{ marginBottom: sections.length > 1 ? 28 : 0 }}>
-              {section.label && <h2 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>{section.label}</h2>}
-              {section.help && <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 12px' }}>{section.help}</p>}
-              <OnboardingEditor
-                key={section.settingKey}
-                settingKey={section.settingKey}
-                tasks={tasks}
-                isAdmin={isAdmin}
-                onSaved={() => queryClient.invalidateQueries({ queryKey: ['settings'] })}
-              />
-            </section>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function OnboardingEditor({
-  settingKey,
-  tasks: initialTasks,
-  isAdmin,
-  onSaved,
-}: {
-  settingKey: string;
-  tasks: string[];
-  isAdmin: boolean;
-  onSaved: () => void;
-}) {
-  const [items, setItems] = useState<string[]>(initialTasks);
-  const [newItem, setNewItem] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
-  const [dragOver, setDragOver] = useState<number | null>(null);
-  const dragIdx = useRef<number | null>(null);
-  const [editingIdx, setEditingIdx] = useState<number | null>(null);
-  const [editingValue, setEditingValue] = useState('');
-
-  const handleDragStart = (idx: number) => { dragIdx.current = idx; };
-  const handleDragOver = (e: React.DragEvent, idx: number) => { e.preventDefault(); setDragOver(idx); };
-  const handleDrop = (targetIdx: number) => {
-    const from = dragIdx.current;
-    if (from === null || from === targetIdx) { setDragOver(null); return; }
-    setItems(prev => {
-      const next = [...prev];
-      const [moved] = next.splice(from, 1);
-      next.splice(targetIdx, 0, moved);
-      return next;
-    });
-    dragIdx.current = null;
-    setDragOver(null);
-    setSaved(false);
-  };
-
-  const addItem = () => {
-    const trimmed = newItem.trim();
-    if (!trimmed) return;
-    setItems(prev => [...prev, trimmed]);
-    setNewItem('');
-    setSaved(false);
-  };
-
-  const removeItem = (idx: number) => {
-    setItems(prev => prev.filter((_, i) => i !== idx));
-    setSaved(false);
-  };
-
-  const startEdit = (idx: number) => { setEditingIdx(idx); setEditingValue(items[idx]); };
-  const commitEdit = () => {
-    if (editingIdx === null) return;
-    const trimmed = editingValue.trim();
-    if (trimmed) {
-      setItems(prev => prev.map((item, i) => i === editingIdx ? trimmed : item));
-      setSaved(false);
-    }
-    setEditingIdx(null); setEditingValue('');
-  };
-
-  const handleSave = async () => {
-    setSaving(true); setError('');
-    try {
-      await patchSetting(settingKey, items);
-      setSaved(true);
-      onSaved();
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div style={styles.card}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {items.length === 0 && (
-          <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>No tasks yet. Add one below.</p>
-        )}
-        {items.map((item, idx) => (
-          <div
-            key={idx}
-            draggable={isAdmin && editingIdx !== idx}
-            onDragStart={() => handleDragStart(idx)}
-            onDragOver={e => handleDragOver(e, idx)}
-            onDrop={() => handleDrop(idx)}
-            onDragLeave={() => setDragOver(null)}
-            style={{
-              ...rowStyles.row,
-              ...(dragOver === idx ? { borderColor: '#6366f1', background: '#eef2ff' } : {}),
-              cursor: isAdmin && editingIdx !== idx ? 'grab' : 'default',
-            }}
-          >
-            {isAdmin && <span style={rowStyles.handle}>⠿</span>}
-            <span style={rowStyles.num}>{idx + 1}.</span>
-            {editingIdx === idx ? (
-              <input
-                autoFocus
-                style={{ ...styles.input, flex: 1, padding: '3px 7px', fontSize: 13 }}
-                value={editingValue}
-                onChange={e => setEditingValue(e.target.value)}
-                onBlur={commitEdit}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') commitEdit();
-                  if (e.key === 'Escape') { setEditingIdx(null); setEditingValue(''); }
-                }}
-              />
-            ) : (
-              <span style={rowStyles.text}>{item}</span>
-            )}
-            {isAdmin && editingIdx !== idx && (
-              <button onClick={() => startEdit(idx)} style={rowStyles.iconBtn} title="Edit"><FontAwesomeIcon icon={faPen} /></button>
-            )}
-            {isAdmin && editingIdx !== idx && (
-              <button onClick={() => removeItem(idx)} style={rowStyles.iconBtn} title="Remove"><FontAwesomeIcon icon={faXmark} /></button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {isAdmin && (
-        <>
-          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-            <input
-              style={{ ...styles.input, flex: 1 }}
-              placeholder="Add new task…"
-              value={newItem}
-              onChange={e => setNewItem(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addItem()}
-            />
-            <button onClick={addItem} style={styles.addBtn} disabled={!newItem.trim()}>Add</button>
-          </div>
-          {error && <p style={{ color: '#e53e3e', fontSize: 12, margin: '8px 0 0' }}>{error}</p>}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-            <button onClick={handleSave} disabled={saving} style={saved ? styles.savedBtn : styles.saveBtn}>
-              {saving ? 'Saving…' : saved ? <>Saved <FontAwesomeIcon icon={faCheck} /></> : 'Save Changes'}
-            </button>
-          </div>
-        </>
+    <div className="m-pad">
+      <h1>{title}</h1>
+      {!isAdmin && <p style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>Only admins can change these checklists.</p>}
+      {tabbed && (
+        <div role="tablist" aria-label="Checklists" style={{ display: 'flex', flexWrap: 'wrap', gap: 4, borderBottom: '1px solid #e2e8f0' }}>
+          {sections.map(sec => {
+            const on = sec.settingKey === tab;
+            return (
+              <button key={sec.settingKey} role="tab" aria-selected={on} onClick={() => setTab(sec.settingKey)} style={{
+                minHeight: 44, padding: '0 12px', marginBottom: -1, border: 'none', background: 'none', whiteSpace: 'nowrap',
+                borderBottom: `2px solid ${on ? '#4f5bd5' : 'transparent'}`, color: on ? '#4f5bd5' : '#475569',
+                fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              }}>{sec.label}</button>
+            );
+          })}
+        </div>
       )}
+      {sections.map(section => (
+        // Every list stays mounted (just hidden), so switching tabs keeps unsaved changes.
+        <section key={section.settingKey} role={tabbed ? 'tabpanel' : undefined} aria-label={section.label}
+          hidden={tabbed && section.settingKey !== tab}>
+          {!tabbed && section.label && <h2 style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>{section.label}</h2>}
+          {section.help && <p style={{ fontSize: 13, color: '#64748b', margin: tabbed ? '12px 0 16px' : '0 0 12px' }}>{section.help}</p>}
+          <ChecklistEditor
+            key={section.settingKey}
+            settingKey={section.settingKey}
+            initialItems={parseChecklistTemplate(data?.[section.settingKey])}
+            isAdmin={isAdmin}
+            onSaved={() => queryClient.invalidateQueries({ queryKey: ['settings'] })}
+          />
+        </section>
+      ))}
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: { padding: '32px 24px', fontFamily: 'system-ui, sans-serif', display: 'flex', justifyContent: 'center' },
-  inner: { width: '100%', maxWidth: 960 },
-  heading: { margin: '0 0 4px', fontSize: 24 },
-  subheading: { margin: '0 0 20px', fontSize: 13, color: '#718096' },
-  readonlyNote: { color: '#718096', fontSize: 13, marginBottom: 16 },
-  state: { padding: 32, fontSize: 16, color: '#4a5568' },
-  card: {
-    background: '#fff', border: '1px solid #eef0f4', borderRadius: 14, padding: '22px 26px',
-    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)',
-  },
-  input: {
-    padding: '8px 10px', border: '1px solid #cbd5e0', borderRadius: 4,
-    fontSize: 14, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
-  },
-  addBtn: {
-    padding: '8px 16px', background: '#edf2f7', border: '1px solid #e2e8f0',
-    borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#4a5568',
-    whiteSpace: 'nowrap',
-  },
-  saveBtn: {
-    padding: '8px 20px', background: '#4299e1', color: '#fff', border: 'none',
-    borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-  },
-  savedBtn: {
-    padding: '8px 20px', background: '#38a169', color: '#fff', border: 'none',
-    borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-  },
-};
-
-const rowStyles: Record<string, React.CSSProperties> = {
-  row: {
-    display: 'flex', alignItems: 'center', gap: 8,
-    padding: '8px 10px', background: '#f7fafc',
-    borderRadius: 4, border: '1px solid #e2e8f0',
-  },
-  handle: { color: '#64748b', fontSize: 14, cursor: 'grab', userSelect: 'none', flexShrink: 0 },
-  num: { fontSize: 12, color: '#64748b', fontWeight: 700, width: 22, flexShrink: 0, textAlign: 'right' },
-  text: { flex: 1, fontSize: 13, color: '#2d3748' },
-  iconBtn: {
-    background: 'none', border: 'none', cursor: 'pointer',
-    color: '#64748b', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0,
-  },
-};

@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faXmark } from '@fortawesome/free-solid-svg-icons';
 import type { OnboardingTask } from '../../types/index.js';
+import ChecklistLinkButton from './ChecklistLinkButton.js';
+import ChecklistStepInfo from './ChecklistStepInfo.js';
+import { matchesTemplate, parseChecklistTemplate, updateToTemplate } from '../../pages/checklistItems.js';
 
 // The onboarding checklist window — the same one for Students → Onboarding
 // and HR → Onboarding (staff). Callers decide what Save does.
@@ -17,8 +20,8 @@ export function ChecklistModal({
   /** Whose checklist — e.g. "Aisha · 012-345 6789". */
   subtitle: string;
   initialItems: OnboardingTask[];
-  /** Loaded into an empty checklist, e.g. from Settings → Onboarding. */
-  templateTasks?: string[];
+  /** Loaded into an empty checklist, e.g. from Settings → Onboarding (text, or text + link button). */
+  templateTasks?: unknown;
   /**
    * Whether ticking this whole list finishes onboarding. False when something
    * else is still outstanding (a new joiner's other list) — then a fully
@@ -26,16 +29,34 @@ export function ChecklistModal({
    */
   canFinish?: boolean;
   onClose: () => void;
-  /** Persist the ticks; `finish` means the caller should also mark onboarding complete. */
-  onSave: (items: OnboardingTask[], finish: boolean) => Promise<void>;
+  /**
+   * Persist the ticks; `finish` means the caller should also mark onboarding complete;
+   * `stepsChanged` means the steps were updated to the latest template (not just ticked).
+   */
+  onSave: (items: OnboardingTask[], finish: boolean, stepsChanged: boolean) => Promise<void>;
 }) {
   const [items, setItems] = useState<OnboardingTask[]>(initialItems);
+  // "Update to latest steps": their checklist before the update (so it can be
+  // discarded until saved) and a line saying what changed.
+  const [beforeUpdate, setBeforeUpdate] = useState<OnboardingTask[] | null>(null);
+  const [updateNote, setUpdateNote] = useState('');
+  const latest = parseChecklistTemplate(templateTasks);
+  const outdated = beforeUpdate === null && items.length > 0 && latest.length > 0 && !matchesTemplate(items, latest);
+  const updateSteps = () => {
+    const r = updateToTemplate(items, latest);
+    setBeforeUpdate(items);
+    setItems(r.steps);
+    const parts = [r.added && `${r.added} new`, r.removed && `${r.removed} removed`].filter(Boolean);
+    setUpdateNote(parts.length ? `Updated to the latest steps (${parts.join(', ')}).` : 'Updated to the latest wording, descriptions and links.');
+  };
+  const discardUpdate = () => { if (beforeUpdate) setItems(beforeUpdate); setBeforeUpdate(null); setUpdateNote(''); };
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (items.length === 0 && templateTasks?.length) {
-      setItems(templateTasks.map(task => ({ task, done: false })));
+    const template = parseChecklistTemplate(templateTasks);
+    if (items.length === 0 && template.length) {
+      setItems(template.map(t => ({ ...t, done: false })));
     }
   }, [templateTasks]);
 
@@ -52,7 +73,7 @@ export function ChecklistModal({
   const handleSave = async () => {
     setSaving(true); setError('');
     try {
-      await onSave(items, finishes);
+      await onSave(items, finishes, beforeUpdate !== null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -111,6 +132,19 @@ export function ChecklistModal({
           </div>
         </div>
 
+        {outdated && (
+          <div role="status" style={modal.notice}>
+            <span style={{ flex: 1 }}>The steps have changed in Settings since this checklist was made.</span>
+            <button type="button" onClick={updateSteps} style={modal.noticeBtn}>Update to latest steps</button>
+          </div>
+        )}
+        {beforeUpdate && (
+          <div role="status" style={{ ...modal.notice, background: '#f0fdf4', borderColor: '#bbf7d0', color: '#166534' }}>
+            <span style={{ flex: 1 }}>{updateNote} Ticks are kept on steps that still match. Save to keep it.</span>
+            <button type="button" onClick={discardUpdate} style={{ ...modal.noticeBtn, color: '#166534', borderColor: '#86efac' }}>Discard update</button>
+          </div>
+        )}
+
         <div ref={listRef} style={modal.list}>
           {items.length === 0 && (
             <p style={{ color: '#64748b', fontSize: 13, textAlign: 'center', margin: 0 }}>
@@ -140,6 +174,8 @@ export function ChecklistModal({
               <span style={{ fontSize: 13, color: t.done ? '#6ee7b7' : '#374151', flex: 1, lineHeight: 1.5, textDecoration: t.done ? 'line-through' : 'none' }}>
                 {t.task}
               </span>
+              {t.description && <ChecklistStepInfo text={t.description} />}
+              {t.linkLabel && t.linkUrl && <ChecklistLinkButton label={t.linkLabel} url={t.linkUrl} />}
             </label>
           ))}
         </div>
@@ -173,6 +209,8 @@ export function ChecklistModal({
 }
 
 const modal: Record<string, React.CSSProperties> = {
+  notice: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 12px', marginBottom: 12, borderRadius: 8, border: '1px solid #c7d2fe', background: '#eef2ff', color: '#3730a3', fontSize: 13, lineHeight: 1.45 },
+  noticeBtn: { minHeight: 32, padding: '0 12px', borderRadius: 8, border: '1px solid #a5b4fc', background: '#fff', color: '#3730a3', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' },
   backdrop: {
     position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', padding: 16,
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,

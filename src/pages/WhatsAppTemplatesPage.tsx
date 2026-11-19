@@ -256,6 +256,8 @@ export default function WhatsAppTemplatesPage() {
   // Editing state: null = list view, { type, id } = editing
   const [editing, setEditing] = useState<{ type: 'system' | 'custom'; id: string } | null>(null);
   const [creating, setCreating] = useState(false);
+  // Which group's tab is open — Common, Marketing or HR.
+  const [tab, setTab] = useState<TemplateGroupKey>('COMMON');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -302,6 +304,7 @@ export default function WhatsAppTemplatesPage() {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       setEditing(null);
       setCreating(false);
+      setTab(group);
       showToast(id ? `${name} updated` : `${name} created`);
     } catch { showToast('Failed to save'); }
     finally { setSaving(false); }
@@ -358,7 +361,7 @@ export default function WhatsAppTemplatesPage() {
     return (
       <div style={{ ...s.page, ...(isMobile ? { padding: '16px 12px' } : {}) }}><div style={{ ...s.inner, ...(isMobile ? { maxWidth: '100%' } : {}) }}>
         <TemplateEditor
-          name="" group="COMMON" contentEn="" contentZh=""
+          name="" group={tab} contentEn="" contentZh=""
           isSystem={false} isAdmin={isAdmin} saving={saving}
           onSave={(name, en, zh, group) => saveCustomTemplate(null, name, en, zh, group)}
           onCancel={() => setCreating(false)}
@@ -386,6 +389,8 @@ export default function WhatsAppTemplatesPage() {
     }
     return [...nameMatches, ...contentMatches];
   })() : allTemplates;
+
+  const inTab = filtered.filter(x => x.group === tab);
 
   const langPill = (has: boolean, label: string) => (
     <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 4, background: has ? '#f0fdf4' : '#f8fafc', color: has ? '#16a34a' : '#cbd5e0', border: `1px solid ${has ? '#bbf7d0' : '#e2e8f0'}` }}>{label} {has ? '✓' : '—'}</span>
@@ -428,18 +433,23 @@ export default function WhatsAppTemplatesPage() {
           </div>
         )}
 
-        {/* Template table */}
-        <div style={{ background: '#fff', border: '1px solid #eef0f4', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)' }}>
-          {/* Table header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: 11, fontWeight: 600, color: '#8893a7', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>
-            <span>Template {q && <span style={{ fontWeight: 400, textTransform: 'none' as const, color: '#64748b' }}>({filtered.length} of {allTemplates.length})</span>}</span>
-          </div>
+        {/* One tab per group — who can use it is said under the tabs */}
+        <div role="tablist" aria-label="Template groups" style={s.tabs}>
+          {TEMPLATE_GROUPS.map(g => {
+            const on = tab === g.key;
+            const count = filtered.filter(x => x.group === g.key).length;
+            return (
+              <button key={g.key} role="tab" aria-selected={on} onClick={() => setTab(g.key)}
+                style={{ ...s.tab, color: on ? '#4f5bd5' : '#475569', borderBottomColor: on ? '#4f5bd5' : 'transparent' }}>
+                {g.label} <span style={{ ...s.tabCount, background: on ? '#eef2ff' : '#f1f5f9', color: on ? '#4f5bd5' : '#64748b' }}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ margin: '12px 0 16px', fontSize: 13, color: '#64748b' }}>{GROUP_AUDIENCE[tab]}.</p>
 
-          {/* Template rows, one section per group (Common, Marketing, HR) */}
-          {TEMPLATE_GROUPS.filter(g => filtered.some(t => t.group === g.key)).map(g => (
-          <div key={g.key}>
-          <div style={s.groupHeader}>{g.label} <span style={{ fontWeight: 400, textTransform: 'none' as const }}>· {GROUP_AUDIENCE[g.key]}</span></div>
-          {filtered.filter(t => t.group === g.key).map(t => {
+        <div role="tabpanel" aria-label={groupLabel(tab)} style={{ background: '#fff', border: '1px solid #eef0f4', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)' }}>
+          {inTab.map(t => {
             const preview = t.content_en || t.content_zh || '';
             const isSystem = t.type === 'system';
             return (
@@ -469,13 +479,19 @@ export default function WhatsAppTemplatesPage() {
               </div>
             );
           })}
-          </div>
-          ))}
 
-          {/* Empty states */}
-          {filtered.length === 0 && q && (
-            <div style={{ padding: '24px 18px', textAlign: 'center' as const, color: '#64748b', fontSize: 13 }}>
-              No templates matching "{search.trim()}"
+          {inTab.length === 0 && (
+            <div style={{ padding: '32px 18px', textAlign: 'center' as const, color: '#64748b', fontSize: 13 }}>
+              {q ? <>No {groupLabel(tab)} templates match “{search.trim()}”.</> : (
+                <>
+                  <div>No {groupLabel(tab)} templates yet.</div>
+                  {isAdmin && (
+                    <button onClick={() => setCreating(true)} style={{ ...s.editBtn, marginTop: 12 }}>
+                      <FontAwesomeIcon icon={faPlus} style={{ marginRight: 5 }} /> New template
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -515,7 +531,9 @@ const s: Record<string, React.CSSProperties> = {
     display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, alignItems: 'start',
     padding: '14px 18px', borderBottom: '1px solid #f1f5f9',
   },
-  groupHeader: { padding: '8px 18px', background: '#fbfcfd', borderBottom: '1px solid #f1f5f9', fontSize: 11, fontWeight: 700, color: '#475569', letterSpacing: '0.04em', textTransform: 'uppercase' as const },
+  tabs: { display: 'flex', flexWrap: 'wrap' as const, gap: 4, borderBottom: '1px solid #e2e8f0' },
+  tab: { display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 44, padding: '0 12px', marginBottom: -1, border: 'none', borderBottom: '2px solid transparent', background: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' as const },
+  tabCount: { fontSize: 12, fontWeight: 600, padding: '1px 8px', borderRadius: 999 },
   systemBadge: { fontSize: 10, fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '2px 9px', borderRadius: 20, letterSpacing: '0.03em', whiteSpace: 'nowrap' as const },
   customBadge: { fontSize: 10, fontWeight: 600, color: '#6366f1', background: '#eef2ff', padding: '2px 9px', borderRadius: 20, letterSpacing: '0.03em', whiteSpace: 'nowrap' as const },
 

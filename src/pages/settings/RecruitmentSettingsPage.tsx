@@ -59,7 +59,15 @@ const DEFAULT_REFERRAL_SOURCES = [
   'Other',
 ];
 
+/** Recruitment settings, in two tabs: what the public job application form offers, and how interviews are scheduled. */
+const TABS = [
+  { key: 'form', label: 'Job application form', about: 'What candidates see and choose from on the public apply form.' },
+  { key: 'interviews', label: 'Interviews', about: 'How interview slots are scheduled and confirmed.' },
+] as const;
+type TabKey = typeof TABS[number]['key'];
+
 export default function RecruitmentSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const [tab, setTab] = useState<TabKey>('form');
   const { data, isLoading, isError } = useQuery({
     queryKey: ['settings'],
     queryFn: fetchSettings,
@@ -107,6 +115,22 @@ export default function RecruitmentSettingsPage({ embedded = false }: { embedded
           <p style={S.readonly}>Read-only — admin role required to save changes.</p>
         )}
 
+        <div role="tablist" aria-label="Recruitment settings" style={{ display: 'flex', flexWrap: 'wrap', gap: 4, borderBottom: '1px solid #e2e8f0' }}>
+          {TABS.map(x => {
+            const on = x.key === tab;
+            return (
+              <button key={x.key} type="button" role="tab" aria-selected={on} onClick={() => setTab(x.key)} style={{
+                minHeight: 44, padding: '0 12px', marginBottom: -1, border: 'none', background: 'none', whiteSpace: 'nowrap',
+                borderBottom: `2px solid ${on ? C.primary : 'transparent'}`, color: on ? C.primary : C.textSub,
+                fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+              }}>{x.label}</button>
+            );
+          })}
+        </div>
+        <p style={{ margin: '12px 0 16px', fontSize: 13, color: C.textSub }}>{TABS.find(x => x.key === tab)!.about}</p>
+
+        {/* Both tabs stay mounted (just hidden), so switching keeps unsaved edits. */}
+        <div role="tabpanel" aria-label="Job application form" hidden={tab !== 'form'}>
         <RecruitmentPositionsEditor stored={data?.recruitment_positions} isAdmin={isAdmin} />
 
         <ListEditor
@@ -140,6 +164,9 @@ export default function RecruitmentSettingsPage({ embedded = false }: { embedded
           lockedValues={['Other']}
           showUtmSlug
         />
+        </div>
+
+        <div role="tabpanel" aria-label="Interviews" hidden={tab !== 'interviews'}>
 
         <NumberEditor
           icon={faClock}
@@ -166,6 +193,7 @@ export default function RecruitmentSettingsPage({ embedded = false }: { embedded
           step={1}
           isAdmin={isAdmin}
         />
+        </div>
       </div>
     </div>
   );

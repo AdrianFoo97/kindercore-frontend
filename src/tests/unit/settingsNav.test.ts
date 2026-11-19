@@ -35,7 +35,8 @@ describe('Settings navigation', () => {
     expect(itemForPath('/settings/points-rewards/edit/rule/r1')?.key).toBe('points-rewards');
     expect(itemForPath('/settings/mission-categories')?.key).toBe('mission-categories');
     expect(itemForPath('/settings/auth-roles/r1/views')?.key).toBe('roles');
-    expect(itemForPath('/settings/timetable/class')?.key).toBe('operation');
+    expect(itemForPath('/settings/timetable/classes')?.key).toBe('classes');
+    expect(itemForPath('/settings/sop-sections')?.key).toBe('how-to-guides');
     expect(itemForPath('/settings/packages/age-groups')?.key).toBe('packages');
     expect(itemForPath('/admin/access-log')?.key).toBe('access-log');
     // A path that merely starts with the same letters isn't a match.

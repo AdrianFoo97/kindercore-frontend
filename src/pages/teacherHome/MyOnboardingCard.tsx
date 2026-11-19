@@ -4,6 +4,8 @@ import { faCheck, faListCheck } from '@fortawesome/free-solid-svg-icons';
 import type { OnboardingTask } from '../../types/index.js';
 import { fetchMyOnboarding, tickMyOnboarding } from '../../api/staffOnboarding.js';
 import { checklistProgress } from '../staffOnboarding/progress.js';
+import ChecklistLinkButton from '../../components/onboarding/ChecklistLinkButton.js';
+import ChecklistStepInfo from '../../components/onboarding/ChecklistStepInfo.js';
 
 // Teacher Home → "My onboarding": a new joiner's own checklist (handbook,
 // guides, routine…). Each tap saves straight away — no Save button to forget
@@ -63,13 +65,13 @@ export function MyOnboardingCard({ teacherId, sectionLabelStyle }: { teacherId: 
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {tasks.map((t, i) => (
+            <div key={`${i}-${t.task}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
-              key={`${i}-${t.task}`}
               type="button"
               onClick={() => toggle(i)}
               aria-pressed={t.done}
               style={{
-                display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, textAlign: 'left',
                 padding: '11px 12px', borderRadius: 12, cursor: 'pointer', font: 'inherit',
                 border: `1px solid ${t.done ? '#bbf7d0' : '#eceef2'}`, background: t.done ? C.doneSoft : '#f8fafc',
                 WebkitTapHighlightColor: 'transparent',
@@ -85,6 +87,10 @@ export function MyOnboardingCard({ teacherId, sectionLabelStyle }: { teacherId: 
                 {t.task}
               </span>
             </button>
+            {t.description && <ChecklistStepInfo text={t.description} size="lg" />}
+            {/* The item's link (if any) sits beside it — tapping it opens the link, never ticks. */}
+            {t.linkLabel && t.linkUrl && <ChecklistLinkButton label={t.linkLabel} url={t.linkUrl} accent={C.accent} size="lg" />}
+            </div>
           ))}
         </div>
       </div>

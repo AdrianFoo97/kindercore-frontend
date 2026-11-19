@@ -14,6 +14,7 @@ import { faChildren } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { useToast } from '../components/common/Toast.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import { parseChecklistTemplate } from './checklistItems.js';
 
 const CURRENT_YEAR  = new Date().getFullYear();
 
@@ -926,12 +927,12 @@ export default function StudentsPage() {
                       setOpenMenuId(null);
                       try {
                         const settings = await fetchSettings();
-                        const template = Array.isArray(settings?.onboarding_tasks) ? (settings.onboarding_tasks as string[]) : [];
+                        const template = parseChecklistTemplate(settings?.onboarding_tasks);
                         if (template.length === 0) {
                           setConfirmModal({ message: 'Onboarding template is empty. Add tasks in Settings → Student Onboarding first.', onConfirm: () => {} });
                           return;
                         }
-                        await patchOnboardingProgress(s.id, template.map(task => ({ task, done: false })));
+                        await patchOnboardingProgress(s.id, template.map(t => ({ ...t, done: false })));
                         invalidateStudentDerived();
                         showToast('Onboarding tasks created');
                         navigate(`/onboarding?student=${s.id}`);

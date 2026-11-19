@@ -82,7 +82,8 @@ export interface Settings {
   appointment_lead_time_hours: number;
   kinder_address: string;
   lost_reasons: string[];
-  onboarding_tasks: string[];
+  /** Student onboarding checklist — plain text, or { task, linkLabel?, linkUrl? } (see pages/checklistItems.ts). */
+  onboarding_tasks: unknown[];
   company_vision: string;
   company_missions: string[];
   company_core_values: string[];
@@ -107,6 +108,11 @@ export interface Package {
 export interface OnboardingTask {
   task: string;
   done: boolean;
+  /** More detail about the step — shown on hover (tap on phones). */
+  description?: string;
+  /** Set when the checklist item has a button with a link (Settings → … onboarding). */
+  linkLabel?: string;
+  linkUrl?: string;
 }
 
 /**
