@@ -114,6 +114,9 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   OperatingCost: { domain: 'Finance', about: 'One recorded operating cost — a category\'s spend for one month.' },
   OperatingCostCategory: { domain: 'Finance', about: 'A cost category (e.g. Rental, Petrol) with its preset amount and monthly budget.' },
   OperatingCostCategoryGroup: { domain: 'Finance', about: 'A group of cost categories; can be excluded from the operating cost total.' },
+  OperatingCostImport: { domain: 'Finance', about: 'Each P&L imported into Operating Costs — who, which month, which AI reader, and every line left out with its amount and why.' },
+  AiRequest: { domain: 'Accounts & access', about: 'Every AI request from every feature (e.g. reading a P&L) — provider, model, tokens, whether it passed the feature’s checks. Drives the monthly limit and usage in Settings → AI.' },
+  OperatingCostImportRule: { domain: 'Finance', about: 'Remembered P&L import choices by line name — record into a category, or always skip (payroll lines start as skip).' },
 
   // Planner & timetable
   PlannerTask: { domain: 'Planner & timetable', about: 'A task in the operations planner.' },

@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faLayerGroup, faTags } from '@fortawesome/free-solid-svg-icons';
+import { faFileImport, faLayerGroup, faTags } from '@fortawesome/free-solid-svg-icons';
+import ImportRulesSettings from './operating-cost/ImportRulesSettings.js';
 import OperatingCostMainCategoriesPage from './OperatingCostMainCategoriesPage.js';
 import OperatingCostCategoriesPage from './OperatingCostCategoriesPage.js';
 
@@ -8,15 +10,19 @@ const C = {
   primary: '#5a67d8', primaryLight: '#eef0fa', text: '#1e293b', muted: '#94a3b8', border: '#e2e8f0',
 };
 
-type TabKey = 'mainCategories' | 'categories';
+type TabKey = 'mainCategories' | 'categories' | 'importRules';
 
 const TABS: { key: TabKey; label: string; icon: any }[] = [
   { key: 'mainCategories', label: 'Main Categories', icon: faLayerGroup },
   { key: 'categories', label: 'Categories', icon: faTags },
+  { key: 'importRules', label: 'Import rules', icon: faFileImport },
 ];
+const isTab = (v: string | null): v is TabKey => TABS.some(t => t.key === v);
 
 export default function SettingsOperatingCostPage() {
-  const [tab, setTab] = useState<TabKey>('mainCategories');
+  // ?tab=importRules opens a tab directly (e.g. from Settings → AI).
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<TabKey>(() => { const t = params.get('tab'); return isTab(t) ? t : 'mainCategories'; });
   const active = TABS.find(t => t.key === tab)!;
 
   return (
@@ -42,6 +48,7 @@ export default function SettingsOperatingCostPage() {
         <div style={s.content}>
           {tab === 'mainCategories' && <OperatingCostMainCategoriesPage embedded />}
           {tab === 'categories' && <OperatingCostCategoriesPage embedded />}
+          {tab === 'importRules' && <ImportRulesSettings />}
         </div>
       </div>
     </div>

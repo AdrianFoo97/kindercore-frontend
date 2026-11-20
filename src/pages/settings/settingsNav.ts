@@ -1,7 +1,7 @@
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
   faBell, faBookOpen, faBoxesStacked, faBuilding, faChalkboard, faBook, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins,
-  faFileImport, faGears, faGraduationCap, faIdBadge, faLayerGroup, faUserTie, faListCheck, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
+  faFileImport, faGears, faRobot, faGraduationCap, faIdBadge, faLayerGroup, faUserTie, faListCheck, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
   faStarHalfStroke, faRankingStar, faSitemap, faUserCheck, faUserPlus, faUserShield, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -60,6 +60,10 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         description: 'Vision, mission, core values and branches.', keywords: ['school', 'branch', 'values'] },
       { key: 'integrations', label: 'Integrations', to: '/settings/calendar', icon: faPlug,
         description: 'Connect Google Calendar.', keywords: ['google', 'calendar'] },
+      // Next to Integrations: AI is a connection to outside services too, plus what each AI feature does.
+      { key: 'ai', label: 'AI', to: '/settings/ai', icon: faRobot,
+        description: 'AI providers and keys, and each feature that uses AI.',
+        keywords: ['ai', 'anthropic', 'claude', 'openai', 'gpt', 'api key', 'model', 'p&l reading', 'integration'] },
       { key: 'data', label: 'Data import', to: '/settings/data', icon: faFileImport,
         description: 'Import leads, students and candidates from a spreadsheet.', keywords: ['import', 'excel', 'csv', 'upload'] },
       { key: 'notifications', label: 'Notifications', to: '/settings/notifications', icon: faBell,
@@ -145,8 +149,10 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       { key: 'finance', label: 'Finance', to: '/settings/finance', icon: faMoneyBillTrendUp, alsoAt: ['/settings/compensation'],
         description: 'Finance targets and compensation tiers.', keywords: ['profit share', 'bonus', 'expense ratio', 'target'] },
       { key: 'operating-cost', label: 'Operating cost', to: '/settings/operating-cost', icon: faReceipt,
+        // Tabs: Main categories · Categories · Import rules (P&L import).
         alsoAt: ['/settings/operating-cost-categories', '/settings/operating-cost-main-categories'],
-        description: 'Cost categories for recording spending.', keywords: ['expenses', 'cost', 'category'] },
+        description: 'Cost categories and P&L import rules.',
+        keywords: ['expenses', 'cost', 'category', 'p&l', 'profit and loss', 'import', 'rules'] },
     ],
   },
   {

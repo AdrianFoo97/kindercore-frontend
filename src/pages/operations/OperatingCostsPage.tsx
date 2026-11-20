@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCalendar, faClockRotateLeft, faFileImport } from '@fortawesome/free-solid-svg-icons';
+import { ImportNoticeBanner } from './operating-costs/ImportNoticeBanner.js';
 import {
   fetchOperatingCostCategories,
   fetchOperatingCostGroups,
@@ -26,11 +29,16 @@ export default function OperatingCostsPage() {
   const { isMobile } = useIsMobile();
   const { showToast } = useToast();
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  // ?year=&month= (0-11) opens a given month — e.g. straight after a P&L import.
+  const [params] = useSearchParams();
+  const linkedYear = Number(params.get('year'));
+  const linkedMonth = Number(params.get('month'));
 
   // ── Filter state ───────────────────────────────────────────────────────────
-  const [year, setYear] = useState(() => new Date().getFullYear());
+  const [year, setYear] = useState(() => (Number.isInteger(linkedYear) && linkedYear > 2000 ? linkedYear : new Date().getFullYear()));
   const [viewMode, setViewMode] = useState<ViewMode>('month');
-  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth());
+  const [selectedMonth, setSelectedMonth] = useState(() => (params.has('month') && Number.isInteger(linkedMonth) && linkedMonth >= 0 && linkedMonth <= 11 ? linkedMonth : new Date().getMonth()));
   const [activeGroupName, setActiveGroupName] = useState('');
   const [page, setPage] = useState(1);
 
@@ -99,6 +107,12 @@ export default function OperatingCostsPage() {
     setExcluded(excludedSnapshot);
     setOriginalExcluded(excludedSnapshot);
   }, [entriesData, categories]);
+
+  // Amounts on screen that came from a P&L import and haven't been changed since.
+  const importedKeys = useMemo(() => new Set((entriesData?.rows ?? [])
+    .filter(r => r.importId)
+    .map(r => cellKey(r.categoryId, r.month))
+    .filter(k => values[k] === originalValues[k])), [entriesData, values, originalValues]);
 
   // ── Derived: grouped categories ────────────────────────────────────────────
   // Seed the map with every group (including empty ones) so they appear in the
@@ -493,6 +507,17 @@ export default function OperatingCostsPage() {
                 }))
             }
           />
+          {/* Always available: with AI off (or failing) the P&L is read from its printed text instead. */}
+          <button type="button" onClick={() => navigate('/operations/operating-costs/import')} style={importBtnStyle}
+            onMouseEnter={e => { e.currentTarget.style.background = C.primaryLight; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
+            <FontAwesomeIcon icon={faFileImport} style={{ marginRight: 6 }} />Import P&amp;L
+          </button>
+          <button type="button" onClick={() => navigate('/operations/operating-costs/imports')} style={{ ...importBtnStyle, border: `1px solid ${C.border}`, color: C.textSub }}
+            onMouseEnter={e => { e.currentTarget.style.background = C.hover; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
+            <FontAwesomeIcon icon={faClockRotateLeft} style={{ marginRight: 6 }} />Import history
+          </button>
           <button
             type="button"
             onClick={() => setShowResetConfirm(true)}
@@ -518,6 +543,8 @@ export default function OperatingCostsPage() {
         </div>
       </header>
 
+      {viewMode === 'month' && <ImportNoticeBanner year={year} month={selectedMonth} />}
+
       {/* Main content */}
       {entriesLoading ? (
         <div style={loadingStyle}><LoadingSpinner /></div>
@@ -526,7 +553,7 @@ export default function OperatingCostsPage() {
           No categories yet. Add categories under Settings → Operating Cost → Categories.
         </div>
       ) : viewMode === 'month' ? (
-        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 14 : 24, alignItems: isMobile ? 'stretch' : 'flex-start' }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 14 : 24, alignItems: 'stretch' /* sidebar as tall as the panel */ }}>
           <CategorySidebar
             groups={sidebarGroups}
             grandTotal={grandTotal}
@@ -546,6 +573,7 @@ export default function OperatingCostsPage() {
               values={values}
               lastMonthValues={lastMonthValues}
               excluded={excluded}
+              importedKeys={importedKeys}
               selectedMonth={selectedMonth}
               year={year}
               onCellChange={setCell}
@@ -1073,6 +1101,10 @@ const pageStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: 24, fontWeight: 800, color: C.textStrong, margin: '0 0 4px',
   letterSpacing: '-0.025em',
+};
+const importBtnStyle: React.CSSProperties = {
+  height: 34, padding: '0 14px', borderRadius: 999, border: `1px solid ${C.primaryBorder}`, background: '#fff',
+  color: C.primary, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'background 120ms',
 };
 const loadingStyle: React.CSSProperties = {
   color: C.muted, fontSize: 14, textAlign: 'center', padding: '60px 0',

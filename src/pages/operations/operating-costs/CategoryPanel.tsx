@@ -25,6 +25,8 @@ interface CategoryPanelProps {
   values: Record<string, number>;
   lastMonthValues: Record<string, number>;
   excluded: Record<string, boolean>;
+  /** "categoryId|month" keys showing an amount from a P&L import (unchanged since). */
+  importedKeys?: Set<string>;
   selectedMonth: number;
   year: number;
   onCellChange: (categoryId: string, month: number, v: number) => void;
@@ -42,7 +44,7 @@ interface CategoryPanelProps {
 export function CategoryPanel({
   groupName, rows, totalCount, filledCount, missingCount,
   groupTotal, groupLastMonthTotal,
-  values, lastMonthValues, excluded, selectedMonth, year,
+  values, lastMonthValues, excluded, importedKeys, selectedMonth, year,
   onCellChange, onToggleExcluded, onCopyRowFromLast, onCopyAllFromLast, hasAnyLastMonth,
   page, totalPages, onPageChange,
 }: CategoryPanelProps) {
@@ -86,6 +88,7 @@ export function CategoryPanel({
             isLast={i === rows.length - 1}
             excluded={!!excluded[cellKey(r.category.id, selectedMonth)]}
             locked={r.locked}
+            imported={!!importedKeys?.has(cellKey(r.category.id, selectedMonth))}
             onChange={v => onCellChange(r.category.id, selectedMonth, v)}
             onToggleExcluded={() => onToggleExcluded(r.category.id, selectedMonth)}
             onCopyLast={() =>

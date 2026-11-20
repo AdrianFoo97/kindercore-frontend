@@ -44,6 +44,8 @@ export interface OperatingCostEntry {
   /** Per-entry override: false excludes just this (category, month) row from
    *  the operating cost sum, even though its category/group are included. */
   includeInOperatingCostSum: boolean;
+  /** The P&L import that filled this amount (null = typed in). */
+  importId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

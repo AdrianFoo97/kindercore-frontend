@@ -27,8 +27,8 @@ export function CategorySidebar({
       boxShadow: SHADOW.card,
       border: `1px solid ${C.border}`,
       overflow: 'hidden',
-      position: 'sticky',
-      top: 24,
+      // As tall as the panel beside it (the page's row stretches both).
+      alignSelf: 'stretch',
     }}>
       {/* KPI — grand total */}
       <div style={{

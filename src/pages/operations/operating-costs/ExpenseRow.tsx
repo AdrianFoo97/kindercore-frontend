@@ -34,10 +34,12 @@ export interface ExpenseRowProps {
   onChange: (v: number) => void;
   onToggleExcluded: () => void;
   onCopyLast: () => void;
+  /** The saved amount came from a P&L import (and hasn't been changed since). */
+  imported?: boolean;
 }
 
 export function ExpenseRow({
-  category, value, lastMonthValue, state, isLast, excluded, locked, onChange, onToggleExcluded, onCopyLast,
+  category, value, lastMonthValue, state, isLast, excluded, locked, onChange, onToggleExcluded, onCopyLast, imported = false,
 }: ExpenseRowProps) {
   const hasLast = lastMonthValue > 0;
   const hasValue = value > 0;
@@ -87,6 +89,12 @@ export function ExpenseRow({
           textOverflow: 'ellipsis',
         }}>
           {category.name}
+          {imported && (
+            <span title="Filled in from an imported P&L" style={{
+              marginLeft: 8, padding: '1px 6px', borderRadius: 999, fontSize: 11, fontWeight: 600,
+              color: C.primary, background: C.primaryLight, letterSpacing: 0,
+            }}>From P&amp;L</span>
+          )}
         </div>
         {hasBudget && hasValue && (
           <BudgetIndicator

@@ -42,6 +42,7 @@ import BugReportsPage from './pages/BugReportsPage.js';
 import ProfitSharingPage from './pages/ProfitSharingPage.js';
 import AnnualBonusPage from './pages/AnnualBonusPage.js';
 import OperatingCostsPage from './pages/operations/OperatingCostsPage.js';
+import ImportPnlPage from './pages/operations/pnl-import/ImportPnlPage.js';
 import OperatingCostCategoriesPage from './pages/settings/OperatingCostCategoriesPage.js';
 import OperatingCostMainCategoriesPage from './pages/settings/OperatingCostMainCategoriesPage.js';
 import SettingsOperatingCostPage from './pages/settings/SettingsOperatingCostPage.js';
@@ -76,6 +77,9 @@ import TeacherCareerPage from './pages/TeacherCareerPage.js';
 import TeacherHomePage from './pages/TeacherHomePage.js';
 import TeacherMySettingsPage from './pages/TeacherMySettingsPage.js';
 import TeacherNotificationSettingsPage from './pages/TeacherNotificationSettingsPage.js';
+import AiSettingsPage from './pages/settings/ai/AiSettingsPage.js';
+import ComparePnlReadingPage from './pages/settings/ai/ComparePnlReadingPage.js';
+import ImportHistoryPage from './pages/operations/pnl-import/ImportHistoryPage.js';
 import TeacherReportBugPage from './pages/TeacherReportBugPage.js';
 import TeacherIncidentsPage from './pages/TeacherIncidentsPage.js';
 import TeacherReportIncidentPage from './pages/TeacherReportIncidentPage.js';
@@ -372,6 +376,8 @@ export default function App() {
             <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
             <Route path="/settings/users/invite" element={<ErrorBoundary><InviteMemberPage /></ErrorBoundary>} />
             <Route path="/settings/notifications" element={<ErrorBoundary><NotificationSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/ai" element={<ErrorBoundary><AiSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/ai/compare/pnl-reading" element={<ErrorBoundary><ComparePnlReadingPage /></ErrorBoundary>} />
             <Route path="/settings/users/:id/access" element={<ErrorBoundary><EditAccessPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles" element={<ErrorBoundary><AuthRolesPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles/new" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
@@ -487,6 +493,8 @@ export default function App() {
           <Route path="/tools/bug-reports"element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><OperatingCostsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/operations/operating-costs/import" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><ImportPnlPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/operations/operating-costs/imports" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><ImportHistoryPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopLibraryPage /></ErrorBoundary></RequireModule>} />
           {/* Your own guide suggestions (new + improvements) and where each stands — the server only returns your own. */}
           <Route path="/operations/sops/my-suggestions" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><MySuggestionsPage /></ErrorBoundary></RequireModule>} />
