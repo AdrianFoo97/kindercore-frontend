@@ -11,6 +11,7 @@ import { useScrolledPast } from '../../hooks/useScrolledPast.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useInstallApp } from '../../hooks/useInstallApp.js';
 import { MODULES } from '../../constants/authModules.js';
+import NotificationBell from './NotificationBell.js';
 
 // Entry points into the wider admin app — a teacher account that's also
 // been granted admin modules had no way to reach any of them from mobile
@@ -90,6 +91,7 @@ const TITLES: Record<string, string> = {
   'leaderboard': 'Leaderboard',
   'settings': 'My Profile',
   'settings/report-bug': 'Report a Bug',
+  'settings/notifications': 'Notifications',
 };
 
 // Tails that ARE a bottom-nav tab destination → no back chevron.
@@ -490,6 +492,15 @@ export default function TeacherTopBar() {
           zIndex: collapsesOnScroll ? 45 : undefined,
         }}
       />
+      {/* The bell, just left of the ⋯ (it hides itself when there's nothing to be notified about). */}
+      {showMoreMenu && (
+        <div style={{
+          position: 'fixed', right: 40, zIndex: 45,
+          top: `calc(env(safe-area-inset-top) + ${(TEACHER_TOPBAR_HEIGHT - 44) / 2}px)`,
+        }}>
+          <NotificationBell variant="teacher" />
+        </div>
+      )}
       {showMoreMenu && (
         <button className="tap"
           ref={menuBtnElRef}

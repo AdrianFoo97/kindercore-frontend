@@ -863,7 +863,7 @@ export default function ImportLeadsPage({ embedded = false }: { embedded?: boole
           <div style={{ marginBottom: 24 }}>
             <h1 style={styles.heading}>Import Leads</h1>
             <p style={styles.subheading}>
-              Upload a CSV or Excel file to bulk import leads. Existing leads with matching phone numbers are flagged as duplicates and skipped by default.
+              Existing leads with matching phone numbers are flagged as duplicates and skipped by default.
             </p>
           </div>
         )}

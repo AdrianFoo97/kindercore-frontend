@@ -135,10 +135,6 @@ export default function SopCategoriesPage({ embedded = false }: { embedded?: boo
         {!embedded && (
           <div style={{ marginBottom: 24 }}>
             <h1 style={s.heading}>How-To Guide Categories</h1>
-            <p style={s.subheading}>
-              Labels used to organize How-To Guides — a guide can carry several. Assigned from each guide's own page;
-              managed here.
-            </p>
           </div>
         )}
 
@@ -327,7 +323,6 @@ const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100vh', color: C.text },
   inner: { maxWidth: 900, margin: '0 auto' },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
-  subheading: { margin: 0, fontSize: 13, color: C.muted, lineHeight: 1.5, maxWidth: 620 },
   card: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS,
     padding: '22px 26px', boxShadow: SHADOW,

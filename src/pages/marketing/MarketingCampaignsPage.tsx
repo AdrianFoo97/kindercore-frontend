@@ -180,8 +180,7 @@ export default function MarketingCampaignsPage() {
         <div style={{ marginBottom: 24 }}>
           <h1 style={s.heading}>Campaigns</h1>
           <p style={s.subheading}>
-            Marketing campaigns, each with a promo code parents can enter on the enquiry form. A code only works
-            while today falls within its start and end date.
+            A promo code only works between its start and end date.
           </p>
         </div>
 

@@ -75,6 +75,7 @@ import TeachersPage from './pages/TeachersPage.js';
 import TeacherCareerPage from './pages/TeacherCareerPage.js';
 import TeacherHomePage from './pages/TeacherHomePage.js';
 import TeacherMySettingsPage from './pages/TeacherMySettingsPage.js';
+import TeacherNotificationSettingsPage from './pages/TeacherNotificationSettingsPage.js';
 import TeacherReportBugPage from './pages/TeacherReportBugPage.js';
 import TeacherIncidentsPage from './pages/TeacherIncidentsPage.js';
 import TeacherReportIncidentPage from './pages/TeacherReportIncidentPage.js';
@@ -110,6 +111,7 @@ import TeacherRewardDetailsPage from './pages/TeacherRewardDetailsPage.js';
 import ManageUsersPage from './pages/settings/ManageUsersPage.js';
 import EditAccessPage from './pages/settings/EditAccessPage.js';
 import InviteMemberPage from './pages/settings/InviteMemberPage.js';
+import NotificationSettingsPage from './pages/settings/NotificationSettingsPage.js';
 import AuthRolesPage from './pages/settings/AuthRolesPage.js';
 import AuthRoleEditPage from './pages/settings/AuthRoleEditPage.js';
 import { RequireModule } from './components/common/RequireModule.js';
@@ -309,6 +311,8 @@ export default function App() {
         <Route path="/join" element={<StaffJoinPage />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/no-access" element={<ErrorBoundary><NoAccessPage /></ErrorBoundary>} />
+          {/* Everyone's own notification choices (admins also have it under Settings). */}
+          <Route path="/notifications/settings" element={<ErrorBoundary><div style={{ maxWidth: 840, margin: '0 auto', padding: '24px 0' }}><NotificationSettingsPage /></div></ErrorBoundary>} />
           <Route path="/leads" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><LeadsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/leads/import" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><ImportLeadsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/marketing/campaigns" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><MarketingCampaignsPage /></ErrorBoundary></RequireModule>} />
@@ -367,6 +371,7 @@ export default function App() {
             <Route path="/settings/test/unit-tests" element={<Navigate to="/admin/test-catalog" replace />} />
             <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
             <Route path="/settings/users/invite" element={<ErrorBoundary><InviteMemberPage /></ErrorBoundary>} />
+            <Route path="/settings/notifications" element={<ErrorBoundary><NotificationSettingsPage /></ErrorBoundary>} />
             <Route path="/settings/users/:id/access" element={<ErrorBoundary><EditAccessPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles" element={<ErrorBoundary><AuthRolesPage /></ErrorBoundary>} />
             <Route path="/settings/auth-roles/new" element={<ErrorBoundary><AuthRoleEditPage /></ErrorBoundary>} />
@@ -442,6 +447,7 @@ export default function App() {
           <Route path="/teachers/:id/home" element={<ErrorBoundary><TeacherHomePage /></ErrorBoundary>} />
           <Route path="/teachers/:id/my-training" element={<ErrorBoundary><TeacherMyTrainingPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/settings" element={<ErrorBoundary><TeacherMySettingsPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/settings/notifications" element={<ErrorBoundary><TeacherNotificationSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/settings/report-bug" element={<ErrorBoundary><TeacherReportBugPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/incidents" element={<ErrorBoundary><TeacherIncidentsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/incidents/new" element={<ErrorBoundary><TeacherReportIncidentPage /></ErrorBoundary>} />

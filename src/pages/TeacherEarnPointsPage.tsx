@@ -64,9 +64,6 @@ export default function TeacherEarnPointsPage() {
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={s.eyebrow}>Points & Rewards</div>
             <h1 style={s.heading}>How to earn points</h1>
-            <p style={s.subheading}>
-              Every activity below grows your points balance. Sorted by reward size so the biggest wins are at the top.
-            </p>
           </div>
           <div style={s.balanceChip}>
             <FontAwesomeIcon icon={faSackDollar} style={{ fontSize: 13, color: POINTS_C.accent }} />
@@ -169,10 +166,6 @@ const s: Record<string, React.CSSProperties> = {
   heading: {
     margin: '4px 0 0', fontSize: 26, fontWeight: 800, color: C.text,
     letterSpacing: '-0.025em', lineHeight: 1.15,
-  },
-  subheading: {
-    margin: '6px 0 0', fontSize: 13, fontWeight: 500, color: C.muted,
-    lineHeight: 1.55, maxWidth: 640,
   },
   balanceChip: {
     display: 'inline-flex', alignItems: 'center', gap: 8,

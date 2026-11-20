@@ -457,7 +457,6 @@ export default function OperatingCostsPage() {
       }}>
         <div>
           <h1 style={titleStyle}>Operating Costs</h1>
-          <p style={subtitleStyle}>Record monthly operating expenses by category</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <PillSelect
@@ -1074,9 +1073,6 @@ const pageStyle: React.CSSProperties = {
 const titleStyle: React.CSSProperties = {
   fontSize: 24, fontWeight: 800, color: C.textStrong, margin: '0 0 4px',
   letterSpacing: '-0.025em',
-};
-const subtitleStyle: React.CSSProperties = {
-  fontSize: 13, color: C.muted, margin: 0,
 };
 const loadingStyle: React.CSSProperties = {
   color: C.muted, fontSize: 14, textAlign: 'center', padding: '60px 0',

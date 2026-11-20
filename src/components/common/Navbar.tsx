@@ -15,6 +15,7 @@ import { faXmark, faCalendarCheck, faCartShopping, faArrowUpRightFromSquare, faU
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
+import NotificationBell from './NotificationBell.js';
 
 /** Small uppercase heading that groups items inside a nav dropdown (Tools, Operation). */
 function NavSectionLabel({ label, first, mobile }: { label: string; first?: boolean; mobile: boolean }) {
@@ -36,6 +37,8 @@ export default function Navbar() {
   const navigate = useNavigate();
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { name: string; role: string; teacherId?: string | null }) : null;
+  // The bell shows for anyone signed in; it hides itself when their roles come with no notifications.
+  const showBell = !!user;
   // How much room the row needs depends on which modules this account
   // has, the teacher-linked flat links, browser zoom and OS display
   // scaling (a 1920px laptop at 150% is a ~1280px CSS viewport) — no
@@ -818,6 +821,8 @@ export default function Navbar() {
         KinderTech
       </span>
 
+      {navCollapsed && showBell && <div style={{ marginLeft: 'auto' }}><NotificationBell /></div>}
+
       {/* ── Desktop nav ── */}
       {!navCollapsed && (
         <>
@@ -828,6 +833,7 @@ export default function Navbar() {
               button — Logout is a rare action, and that button plus its
               divider was ~90px of the row the menus need. */}
           <div ref={rightRef} style={styles.right}>
+            {showBell && <NotificationBell />}
             {user ? (
               <div ref={profileRef} style={{ position: 'relative' }}>
                 <button onClick={() => setProfileOpen(o => !o)} className="nav-link" title={user.name}

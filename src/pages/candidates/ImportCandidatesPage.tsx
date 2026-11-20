@@ -770,7 +770,7 @@ export default function ImportCandidatesPage({ embedded = false }: { embedded?: 
             <div style={{ marginBottom: 24 }}>
               <h1 style={{ margin: '0 0 6px', fontSize: 24, fontWeight: 700, color: '#1a202c' }}>Import Candidates</h1>
               <p style={{ margin: 0, fontSize: 14, color: '#718096', lineHeight: 1.5 }}>
-                Upload a CSV or Excel file to bulk import candidates. Existing candidates with matching phone numbers can be reviewed after upload.
+                Existing candidates with matching phone numbers can be reviewed after upload.
               </p>
             </div>
           </>

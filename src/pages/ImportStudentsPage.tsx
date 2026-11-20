@@ -293,7 +293,7 @@ export default function ImportStudentsPage({ embedded = false }: { embedded?: bo
           <>
             <h1 style={s.heading}>Import Students</h1>
             <p style={s.subtitle}>
-              Upload a CSV or Excel file to import students. Each student will be linked to an enrolled lead by matching child name.
+              Each student will be linked to an enrolled lead by matching child name.
             </p>
           </>
         )}

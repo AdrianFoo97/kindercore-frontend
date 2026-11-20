@@ -120,11 +120,6 @@ export default function SopSectionsPage({ embedded = false }: { embedded?: boole
         {!embedded && (
           <div style={{ marginBottom: 24 }}>
             <h1 style={s.heading}>How-To Guide Sections</h1>
-            <p style={s.subheading}>
-              The group headings a step can belong to (e.g. "Pre-shift Preparation", "Main Process") — shared across every
-              guide, so the same grouping means the same thing everywhere. Picked from this list when adding a step;
-              managed here.
-            </p>
           </div>
         )}
 
@@ -245,7 +240,6 @@ const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100vh', color: C.text },
   inner: { maxWidth: 900, margin: '0 auto' },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
-  subheading: { margin: 0, fontSize: 13, color: C.muted, lineHeight: 1.5, maxWidth: 620 },
   card: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS,
     padding: '22px 26px', boxShadow: SHADOW,

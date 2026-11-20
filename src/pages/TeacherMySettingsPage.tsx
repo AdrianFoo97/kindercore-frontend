@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faEnvelope, faBriefcase, faCakeCandles, faPhone, faArrowRightFromBracket, faMobileScreenButton,
+  faEnvelope, faBriefcase, faCakeCandles, faPhone, faArrowRightFromBracket, faMobileScreenButton, faBell, faChevronRight,
 } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { fetchTeacherCareer } from '../api/career-missions.js';
@@ -166,6 +166,16 @@ export default function TeacherMySettingsPage() {
         )}
 
         {/* Report a Bug lives in the ⋯ menu now (TeacherTopBar), next to My Profile. */}
+
+        <button type="button" onClick={() => navigate(`/teachers/${id}/settings/notifications`)} style={{
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%', minHeight: 52, marginBottom: 16, padding: '14px 16px',
+          background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 14, cursor: 'pointer',
+          textAlign: 'left', fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
+        }}>
+          <FontAwesomeIcon icon={faBell} style={{ width: 16, color: C.pAccent }} />
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: C.textStrong }}>Notifications</span>
+          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 12, color: C.muted }} />
+        </button>
 
         {/* Android only, while Chrome says the app can be installed — opens Chrome's install dialog. */}
         {installApp.canInstall && (

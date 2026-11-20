@@ -370,7 +370,7 @@ export default function PackageSettingsPage() {
     <div style={{ ...st.page, ...(isMobile ? { padding: '16px 12px', maxWidth: '100%' } : {}) }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={st.heading}>Package Assignment</h1>
-        <p style={st.sub}>Assign programmes to age groups. Only assigned packages appear on the pricing page.</p>
+        <p style={st.sub}>Only assigned packages appear on the pricing page.</p>
       </div>
       <AssignmentsEditor packages={packages} programmes={programmes} ages={ages} years={years} onChanged={handleSaved} />
     </div>

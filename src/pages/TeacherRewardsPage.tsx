@@ -110,9 +110,6 @@ export default function TeacherRewardsPage() {
         <div style={{ marginTop: SP.xl, marginBottom: SP.lg }}>
           <div style={s.eyebrow}>Points & Rewards</div>
           <h1 style={s.heading}>{teacher?.name ? `${teacher.name}'s Rewards` : 'Rewards'}</h1>
-          <p style={s.subheading}>
-            Earn points through teaching activity. Redeem them for perks and track everything you&apos;ve claimed.
-          </p>
         </div>
 
         <BalanceHero teacherId={id!} />
@@ -874,10 +871,6 @@ const s: Record<string, React.CSSProperties> = {
   heading: {
     margin: '4px 0 0', fontSize: 26, fontWeight: 800, color: C.text,
     letterSpacing: '-0.025em', lineHeight: 1.15,
-  },
-  subheading: {
-    margin: '6px 0 0', fontSize: 13, fontWeight: 500, color: C.muted,
-    lineHeight: 1.55, maxWidth: 640,
   },
   card: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 12,

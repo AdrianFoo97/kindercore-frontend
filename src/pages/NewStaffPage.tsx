@@ -71,7 +71,6 @@ export default function NewStaffPage() {
       <div className="m-wrap" style={s.header}>
         <div>
           <h1 style={s.h1}>New Staff</h1>
-          <p style={s.subtitle}>People who joined without applying through Recruitment. Approve to add them to the staff list.</p>
         </div>
         <button type="button" onClick={copyLink} style={s.linkBtn(copied)} title={formLink}>
           <FontAwesomeIcon icon={copied ? faCheck : faCopy} /> {copied ? 'Link copied' : 'Copy form link'}
@@ -189,7 +188,6 @@ const s = {
   page: { padding: '28px 32px', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text, maxWidth: 960, margin: '0 auto' } as React.CSSProperties,
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 } as React.CSSProperties,
   h1: { fontSize: 22, fontWeight: 800, margin: 0 } as React.CSSProperties,
-  subtitle: { fontSize: 13, color: C.muted, margin: '4px 0 0' } as React.CSSProperties,
   linkBtn: (done: boolean): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
     border: `1px solid ${done ? C.success : C.border}`, background: done ? C.successSoft : C.card, color: done ? C.success : C.sub, flexShrink: 0,

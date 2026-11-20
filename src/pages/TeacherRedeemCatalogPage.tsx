@@ -134,9 +134,6 @@ export default function TeacherRedeemCatalogPage() {
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={s.eyebrow}>Points & Rewards</div>
             <h1 style={s.heading}>Redeem rewards</h1>
-            <p style={s.subheading}>
-              Spend your points on the rewards below. Items you can&apos;t afford yet stay visible with a progress bar so you can see how close you are.
-            </p>
           </div>
           <div style={s.balanceChip}>
             <FontAwesomeIcon icon={faSackDollar} style={{ fontSize: 13, color: POINTS_C.accent }} />
@@ -607,10 +604,6 @@ const s: Record<string, React.CSSProperties> = {
   heading: {
     margin: '4px 0 0', fontSize: 26, fontWeight: 800, color: C.text,
     letterSpacing: '-0.025em', lineHeight: 1.15,
-  },
-  subheading: {
-    margin: '6px 0 0', fontSize: 13, fontWeight: 500, color: C.muted,
-    lineHeight: 1.55, maxWidth: 640,
   },
   balanceChip: {
     display: 'inline-flex', alignItems: 'center', gap: 8,

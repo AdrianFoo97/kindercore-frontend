@@ -76,9 +76,6 @@ export default function SopAuthorPage() {
       <div style={s.inner}>
         <div style={{ marginBottom: 22 }}>
           <h1 style={s.heading}>Author Guides</h1>
-          <p style={s.subheading}>
-            Start something new, pick up where you left off, or improve a guide that's already live.
-          </p>
         </div>
 
         <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' as const }}>
@@ -191,7 +188,6 @@ const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100vh', color: C.text },
   inner: { maxWidth: 900, margin: '0 auto' },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
-  subheading: { margin: 0, fontSize: 13, color: C.muted, maxWidth: 640, lineHeight: 1.5 },
   sectionHeading: { margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: C.text },
   actionCard: {
     display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', background: C.card,

@@ -79,11 +79,6 @@ export default function BackendArchitecturePage() {
       <div style={st.inner}>
         <div style={{ marginBottom: 18 }}>
           <h1 style={st.h1}><FontAwesomeIcon icon={faSitemap} style={{ color: C.primary, fontSize: 20, marginRight: 10 }} />Backend Architecture</h1>
-          <p style={st.sub}>
-            How the server is built: each request comes in through a <b>route</b>, passes its access checks, is handled by
-            a <b>controller</b>, which may call a shared <b>service</b>, and reads or writes database <b>tables</b>.
-            Generated from the server’s own code, so it always matches what’s deployed.
-          </p>
         </div>
 
         {isLoading ? (
@@ -314,7 +309,6 @@ const st = {
   page: { padding: '28px 32px 48px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100%', color: C.text } as React.CSSProperties,
   inner: { maxWidth: 1240, margin: '0 auto' } as React.CSSProperties,
   h1: { margin: '0 0 6px', fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center' } as React.CSSProperties,
-  sub: { margin: 0, fontSize: 13, color: C.muted, lineHeight: 1.6, maxWidth: 760 } as React.CSSProperties,
   empty: { padding: 32, textAlign: 'center', color: C.muted, fontSize: 13, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12 } as React.CSSProperties,
   stats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 } as React.CSSProperties,
   stat: { background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 16px', cursor: 'default' } as React.CSSProperties,

@@ -71,7 +71,7 @@ export default function TeacherReportIncidentPage() {
           <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-0.01em' }}>Report an Incident</h1>
         </div>
         <p style={{ margin: '0 0 20px', fontSize: 13.5, color: C.muted, lineHeight: 1.55 }}>
-          Write down what happened while it’s fresh. Your name is added automatically.
+          Your name is added automatically.
         </p>
 
         <IncidentFormFields value={draft} onChange={d => { setDraft(d); if (problem) setProblem(null); }}

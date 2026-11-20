@@ -74,9 +74,6 @@ export default function HrSopRevisionsPage() {
       <div style={s.inner}>
         <div style={{ marginBottom: 22 }}>
           <h1 style={s.heading}>Improvement Inbox</h1>
-          <p style={s.subheading}>
-            Challenge before we decide, align after we decide. How-To Guide changes and new suggestions from the team, waiting for review before they become the current way.
-          </p>
         </div>
 
         <div style={s.tabStrip}>
@@ -154,7 +151,6 @@ const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100vh', color: C.text },
   inner: { maxWidth: 900, margin: '0 auto' },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
-  subheading: { margin: 0, fontSize: 13, color: C.muted, maxWidth: 640, lineHeight: 1.5 },
   tabStrip: { display: 'flex', gap: 2, borderBottom: `1px solid ${C.cardBorder}`, marginBottom: 20 },
   tabBtn: {
     padding: '9px 16px', fontSize: 13, fontWeight: 600, color: C.muted, background: 'none',

@@ -60,7 +60,6 @@ export default function SopObservationsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, gap: 12, flexWrap: 'wrap' }}>
           <div>
             <h1 style={s.heading}>Practice Observations</h1>
-            <p style={s.subheading}>Run and certify staff observations against the How-To Guides library.</p>
           </div>
           <button onClick={() => navigate('/hr/sop-observations/new')} style={s.primaryBtn}>
             <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />
@@ -135,7 +134,6 @@ const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100vh', color: C.text },
   inner: { maxWidth: 1100, margin: '0 auto' },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
-  subheading: { margin: 0, fontSize: 13, color: C.muted },
   primaryBtn: {
     padding: '9px 16px', borderRadius: 10, border: 'none',
     background: C.primary, color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer',

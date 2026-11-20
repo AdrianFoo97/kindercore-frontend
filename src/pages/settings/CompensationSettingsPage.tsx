@@ -45,10 +45,7 @@ export default function CompensationSettingsPage({ embedded = false }: { embedde
       <div style={embedded ? undefined : { maxWidth: 720, margin: '0 auto' }}>
         {!embedded && (
           <>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>Compensation Settings</h1>
-            <p style={{ margin: '4px 0 20px', fontSize: 13, color: C.muted }}>
-              Appraisal score thresholds that gate the Performer and High-Performer tiers on the Teacher Compensation page.
-            </p>
+            <h1 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 700, color: C.text }}>Compensation Settings</h1>
           </>
         )}
 

@@ -111,6 +111,7 @@ import DeleteDialog from '../components/common/DeleteDialog.js';
 import ConfirmDialog from '../components/common/ConfirmDialog.js';
 import { CandidateQuickViewModal } from './candidates/CandidateQuickViewModal.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import { useSearchParams } from 'react-router-dom';
 
 
 /** Builds a WhatsApp send URL from any phone shape. Strips non-digits and,
@@ -441,6 +442,16 @@ export default function CandidatesPage() {
   }
   const [desiredPosition, setDesiredPosition] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
+  // A link like /hr/candidates?candidate=<id> (e.g. from a notification) opens that applicant.
+  const [linkParams, setLinkParams] = useSearchParams();
+  useEffect(() => {
+    const linked = linkParams.get('candidate');
+    if (!linked) return;
+    setOpenId(linked);
+    const next = new URLSearchParams(linkParams);
+    next.delete('candidate');
+    setLinkParams(next, { replace: true });
+  }, [linkParams, setLinkParams]);
   const [deleteTarget, setDeleteTarget] = useState<Candidate | null>(null);
   const [reopenTarget, setReopenTarget] = useState<Candidate | null>(null);
   const [schedulingCandidate, setSchedulingCandidate] = useState<Candidate | null>(null);
@@ -1114,7 +1125,6 @@ export default function CandidatesPage() {
       <div style={S.headerRow}>
         <div>
           <h1 style={S.h1}>Recruitment</h1>
-          <p style={S.subtitle}>Review applicants and manage your hiring pipeline.</p>
         </div>
       </div>
 
@@ -4786,9 +4796,6 @@ const S = {
   h1: {
     fontSize: 24, fontWeight: 700, margin: 0, color: C.text,
     letterSpacing: -0.2,
-  } as React.CSSProperties,
-  subtitle: {
-    fontSize: 14, color: C.muted, margin: '6px 0 0', lineHeight: 1.45,
   } as React.CSSProperties,
   linkBtn: (copied: boolean): React.CSSProperties => ({
     display: 'inline-flex', alignItems: 'center', gap: 8,

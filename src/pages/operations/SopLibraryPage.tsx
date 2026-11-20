@@ -325,9 +325,6 @@ export default function SopLibraryPage() {
         ) : (
           <div style={{ marginBottom: isMobile ? 16 : 18 }}>
             <h1 style={{ ...s.heading, ...(isMobile ? sMobile.heading : null) }}>How-To Guides</h1>
-            {!isMobile && (
-              <p style={s.subheading}>Simple, shared ways to help us work well, stay consistent, and keep improving together.</p>
-            )}
           </div>
         )}
 
@@ -567,7 +564,6 @@ const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100vh', color: C.text },
   inner: { maxWidth: 1100, margin: '0 auto' },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
-  subheading: { margin: 0, fontSize: 13, color: C.muted, maxWidth: 620 },
   toolbar: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const, marginBottom: 20 },
   searchWrap: { position: 'relative', flex: '1 1 320px', maxWidth: 420, minWidth: 220 },
   searchInput: {

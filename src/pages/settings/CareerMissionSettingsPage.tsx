@@ -229,7 +229,6 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
         {!embedded && (
           <div style={{ marginBottom: 24 }}>
             <h1 style={s.heading}>Career Mission Settings</h1>
-            <p style={s.subheading}>Define the capability missions a teacher must complete before they can be promoted from each position.</p>
           </div>
         )}
 
@@ -716,7 +715,6 @@ const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100vh', color: C.text },
   inner: { maxWidth: 1100, margin: '0 auto' },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
-  subheading: { margin: 0, fontSize: 13, color: C.muted },
   tabsCard: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS,
     padding: 8, marginBottom: 18, boxShadow: SHADOW,

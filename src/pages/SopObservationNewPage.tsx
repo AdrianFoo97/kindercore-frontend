@@ -138,7 +138,6 @@ export default function SopObservationNewPage() {
 
         <div style={{ marginBottom: 20 }}>
           <h1 style={s.heading}>New Observation</h1>
-          <p style={s.subheading}>Pick who's being observed, on which How-To Guide, and who's running it.</p>
         </div>
 
         <div style={s.card}>
@@ -386,7 +385,6 @@ const s: Record<string, React.CSSProperties> = {
     border: 'none', background: 'transparent', color: C.muted, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
   },
   heading: { margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
-  subheading: { margin: 0, fontSize: 12.5, color: C.muted },
   card: {
     background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS,
     boxShadow: SHADOW, overflow: 'hidden',

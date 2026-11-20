@@ -121,7 +121,6 @@ export default function TestCatalogPage() {
         <div style={st.headerRow}>
           <div style={{ minWidth: 0 }}>
             <h1 style={st.h1}><FontAwesomeIcon icon={faVial} style={{ color: C.primary, fontSize: 18, marginRight: 9 }} />Test Catalog</h1>
-            <p style={st.sub}>Every automated test, in plain English. They run on every push to the <code style={st.code}>test</code> branch.</p>
           </div>
           <div style={st.summary1}>
             <b style={{ color: C.text }}>{total}</b> tests · {TEST_SUITES.length} files · {count('Frontend')} frontend · {count('Backend')} backend
@@ -462,7 +461,6 @@ const st = {
   chipCount: (on: boolean, warn: boolean): React.CSSProperties => ({ fontSize: 11, fontWeight: 700, padding: '0 6px', borderRadius: 999, minWidth: 18, textAlign: 'center', background: on ? (warn ? '#fde68a' : '#dfe3fb') : '#f1f5f9', color: warn ? C.warn : on ? '#3c339a' : C.mutedSoft }),
   select: { height: 38, padding: '0 10px', fontSize: 13, border: `1px solid ${C.border}`, borderRadius: 9, background: '#fff', color: C.textSub, fontFamily: 'inherit', cursor: 'pointer' } as React.CSSProperties,
   h1: { margin: '0 0 2px', fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center' } as React.CSSProperties,
-  sub: { margin: 0, fontSize: 13, color: C.muted, lineHeight: 1.55, maxWidth: 680 } as React.CSSProperties,
   code: { fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 12, background: '#eef0f4', padding: '1px 6px', borderRadius: 4, color: C.textSub } as React.CSSProperties,
   toolbar: { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' } as React.CSSProperties,
   searchWrap: { position: 'relative', flex: 1, minWidth: 220 } as React.CSSProperties,

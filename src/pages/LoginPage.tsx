@@ -269,8 +269,9 @@ export default function LoginPage() {
         if (err.code === STAFF_LEFT_CODE) {
           // Past their last working day — the server's message names the date.
           setAuthError(err.message);
-        } else if (err.status === 401) {
-          setAuthError('The email or password you entered is incorrect. Please try again.');
+        } else if (err.status === 401 || err.status === 400) {
+          // One answer for both, on purpose: saying "email not found" would tell anyone which emails have accounts.
+          setAuthError('Wrong email or password.');
         } else if (err.status === 429) {
           setAuthError('Too many login attempts. Please wait a few minutes and try again.');
         } else if (err.status === 503 || err.code === 'DB_UNAVAILABLE') {

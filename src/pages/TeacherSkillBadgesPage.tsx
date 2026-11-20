@@ -82,10 +82,6 @@ export default function TeacherSkillBadgesPage() {
       <div style={s.inner}>
         <h1 style={s.heading}>Skill Badges</h1>
 
-        {/* Quiet subtitle + stats line — short, never dominates. */}
-        <div style={s.subheading}>
-          Badges you earn by completing teaching milestones.
-        </div>
         {totalCount > 0 && (
           <div style={s.statsRow}>
             <span style={{ color: C.text, fontWeight: 800 }}>{earnedCount}</span>
@@ -422,11 +418,6 @@ const s: Record<string, React.CSSProperties> = {
   heading: {
     margin: 0, fontSize: 18, fontWeight: 800, color: C.text,
     letterSpacing: '-0.018em', lineHeight: 1.2,
-  },
-  subheading: {
-    marginTop: 14,
-    fontSize: 12, fontWeight: 500, color: C.muted,
-    lineHeight: 1.45,
   },
   statsRow: {
     marginTop: 4,

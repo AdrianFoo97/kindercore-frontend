@@ -160,10 +160,6 @@ export default function PointsRewardsSettingsPage({ embedded = false }: { embedd
                 <h1 style={s.heading}>Earning rules & redemption catalog</h1>
               </>
             )}
-            <p style={s.subheading}>
-              Configure how teachers earn points and what they can redeem. Only active items
-              appear on the teacher&apos;s rewards page.
-            </p>
           </div>
           {previewTeacherId && (
             <Link
@@ -642,10 +638,6 @@ const s: Record<string, React.CSSProperties> = {
   heading: {
     margin: '4px 0 0', fontSize: 26, fontWeight: 800, color: C.text,
     letterSpacing: '-0.025em', lineHeight: 1.15,
-  },
-  subheading: {
-    margin: '6px 0 0', fontSize: 13, fontWeight: 500, color: C.muted,
-    lineHeight: 1.55, maxWidth: 640,
   },
 
   // Summary cards

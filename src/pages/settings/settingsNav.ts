@@ -1,6 +1,6 @@
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faBookOpen, faBoxesStacked, faBuilding, faChalkboard, faBook, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins,
+  faBell, faBookOpen, faBoxesStacked, faBuilding, faChalkboard, faBook, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins,
   faFileImport, faGears, faGraduationCap, faIdBadge, faLayerGroup, faUserTie, faListCheck, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
   faStarHalfStroke, faRankingStar, faSitemap, faUserCheck, faUserPlus, faUserShield, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
@@ -62,6 +62,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         description: 'Connect Google Calendar.', keywords: ['google', 'calendar'] },
       { key: 'data', label: 'Data import', to: '/settings/data', icon: faFileImport,
         description: 'Import leads, students and candidates from a spreadsheet.', keywords: ['import', 'excel', 'csv', 'upload'] },
+      { key: 'notifications', label: 'Notifications', to: '/settings/notifications', icon: faBell,
+        description: 'Choose which events the bell tells you about.', keywords: ['bell', 'alerts', 'notify', 'new lead', 'incident'] },
       { key: 'messages', label: 'Message templates', to: '/settings/whatsapp-templates', icon: faMessage,
         description: 'Message templates by group — Common for everyone, Marketing and HR for those modules.', keywords: ['whatsapp', 'template', 'message'] },
     ],

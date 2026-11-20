@@ -67,7 +67,7 @@ export default function TeacherReportFacilityPage() {
           <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-0.01em' }}>Report a Facility Issue</h1>
         </div>
         <p style={{ margin: '0 0 20px', fontSize: 13.5, color: C.muted, lineHeight: 1.55 }}>
-          Something broken or unsafe in the centre? Tell the office. Your name is added automatically.
+          Your name is added automatically.
         </p>
 
         <FacilityIssueFields value={draft} onChange={d => { setDraft(d); if (problem) setProblem(null); }}
