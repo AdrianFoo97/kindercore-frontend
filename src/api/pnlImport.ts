@@ -13,6 +13,8 @@ export interface PreviewLine {
   amount: number;
   /** The amount was found printed in the PDF. */
   found: boolean;
+  /** What the PDF's own text says for this line when it differs from the AI's reading (else null). */
+  textAmount: number | null;
   status: LineStatus;
   categoryId: string | null;
 }
@@ -36,6 +38,8 @@ export interface ImportPreview {
   /** Why the backup provider read it (null = the main one did). */
   backupReason: string | null;
   hasText: boolean;
+  /** The PDF contains wording aimed at an AI — a person must check it. */
+  injectionSuspected: boolean;
   sections: PreviewSection[];
   lines: PreviewLine[];
   existing: Record<string, number>;

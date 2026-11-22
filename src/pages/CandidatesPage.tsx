@@ -1,4 +1,5 @@
 import { whatsappSendUrl } from '../utils/whatsapp.js';
+import { openExternalUrl } from '../utils/externalLink.js';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -2948,7 +2949,7 @@ function CandidateActionsMenu(props: {
             // the Apps Script bridge). Falls back to the auth-gated
             // internal fetch for native /apply uploads.
             if (c.resumeUrl) {
-              window.open(c.resumeUrl, '_blank', 'noopener,noreferrer');
+              if (!openExternalUrl(c.resumeUrl)) showToast('That resume link isn’t a safe https link.', 'error');
             } else {
               const win = window.open('', '_blank');
               downloadCandidateResume(c.id, win).catch((e: any) => {
@@ -3194,7 +3195,7 @@ function InboxReviewCard(props: {
               type="button"
               onClick={() => {
                 if (c.resumeUrl) {
-                  window.open(c.resumeUrl, '_blank', 'noopener,noreferrer');
+                  if (!openExternalUrl(c.resumeUrl)) alert('That resume link isn’t a safe https link, so it wasn’t opened.');
                 } else {
                   const win = window.open('', '_blank');
                   downloadCandidateResume(c.id, win).catch((e: any) => {

@@ -34,6 +34,8 @@ export function clearLoginNotice(): void {
 export function safeNextPath(raw: string | null | undefined): string | null {
   if (!raw || !raw.startsWith('/')) return null;
   if (raw.startsWith('//') || raw.startsWith('/\\')) return null; // protocol-relative → another site
+  // Browsers drop tabs/newlines and read \ as /, so "/\t/evil.example" can become "//evil.example".
+  if (/[\u0000-\u001f\u007f\\]/.test(raw)) return null;
   if (raw === '/login' || raw.startsWith('/login?') || raw.startsWith('/login/')) return null;
   return raw;
 }

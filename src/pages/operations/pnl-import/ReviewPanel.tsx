@@ -62,10 +62,11 @@ export function ReviewPanel({ preview, state, onChange, canAddCategory, importin
         </div>
       </section>
 
-      {(!preview.hasText || off.length > 0) && (
+      {(!preview.hasText || off.length > 0 || preview.injectionSuspected) && (
         <div role="alert" style={s.warn}>
           <FontAwesomeIcon icon={faTriangleExclamation} style={{ color: C.amber, marginTop: 2 }} />
           <div>
+            {preview.injectionSuspected && <div><strong>This PDF contains text aimed at an AI</strong> (e.g. telling it to ignore instructions or change figures). It may have been tampered with — check every amount against the PDF.</div>}
             {!preview.hasText && <div>This PDF has no text to check against (it may be scanned). Check every amount against the PDF.</div>}
             {off.map(sec => (
               <div key={sec.title}>“{sec.title}” adds up to {formatMoney(sec.sum)}, but the P&L prints {formatMoney(sec.printedSubtotal ?? 0)}. Check its amounts.</div>

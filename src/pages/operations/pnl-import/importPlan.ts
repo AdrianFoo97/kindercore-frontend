@@ -50,9 +50,14 @@ export function existingConflict(p: ImportPreview, line: PreviewLine, d: Decisio
   return before !== undefined && Math.abs(before - line.amount) >= AMOUNT_TOLERANCE ? before : null;
 }
 
-/** Something a person must look at before importing: no text to check against, a section that doesn't add up, or an amount not found in the file. */
+/**
+ * Something a person must look at before importing: no text to check against,
+ * wording aimed at an AI, a section that doesn't add up, an amount not found in
+ * the file, or an amount the PDF's own text gives differently.
+ */
 export function needsCheck(p: ImportPreview, s: PlanState): boolean {
-  if (!p.hasText) return true;
+  if (!p.hasText || p.injectionSuspected) return true;
+  if (decisionLines(p).some(l => l.textAmount !== null && s.decisions[l.key]?.kind !== 'SKIP')) return true;
   if (p.sections.some(sec => (sec.kind === 'EXPENSE' || sec.kind === 'COST_OF_SALES') && sec.addsUp === false)) return true;
   return decisionLines(p).some(l => !l.found && s.decisions[l.key]?.kind !== 'SKIP');
 }

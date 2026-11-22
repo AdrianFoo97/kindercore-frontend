@@ -19,7 +19,7 @@ describe('Signing in — returning to the page you were opening', () => {
   });
 
   it('never sends you to another website, whatever the link says', () => {
-    for (const evil of ['https://evil.example', '//evil.example', '/\\evil.example', 'javascript:alert(1)', 'evil.example']) {
+    for (const evil of ['https://evil.example', '//evil.example', '/\\evil.example', 'javascript:alert(1)', 'evil.example', '/\t/evil.example', '/\n/evil.example', '/x\\..\\evil']) {
       expect(safeNextPath(evil)).toBeNull();
     }
     expect(nextPathFrom('?next=https%3A%2F%2Fevil.example')).toBeNull();

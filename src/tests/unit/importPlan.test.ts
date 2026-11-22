@@ -4,10 +4,10 @@ import { blockReason, buildApplyBody, initialState, needsCheck, summarise, type 
 
 // A made-up preview (never the real P&Ls in `test data/`).
 const line = (key: string, name: string, amount: number, status: PreviewLine['status'], categoryId: string | null = null, found = true): PreviewLine =>
-  ({ key, section: 'Administrative Expenses', sectionKind: 'EXPENSE', name, amount, found, status, categoryId });
+  ({ key, section: 'Administrative Expenses', sectionKind: 'EXPENSE', name, amount, found, textAmount: null, status, categoryId });
 
 const PREVIEW: ImportPreview = {
-  fileName: 'pnl.pdf', period: { year: 2026, month: 9 }, provider: 'fake', model: 'fake-1', instructionsVersion: 1, backupReason: null, hasText: true,
+  fileName: 'pnl.pdf', period: { year: 2026, month: 9 }, provider: 'fake', model: 'fake-1', instructionsVersion: 1, backupReason: null, hasText: true, injectionSuspected: false,
   sections: [{ title: 'Administrative Expenses', kind: 'EXPENSE', sum: 0, printedSubtotal: 0, addsUp: true }],
   lines: [
     { ...line('0-0', 'Sales', 5000, 'NOT_A_COST'), sectionKind: 'REVENUE' },
@@ -42,12 +42,15 @@ describe('Import P&L — deciding each line', () => {
     expect(blockReason(PREVIEW, s)).toBeNull();
   });
 
-  it('asks for a check when an amount isn’t found in the file, or the PDF has no text', () => {
+  it('asks for a check when an amount isn’t found in the file, the PDF’s text disagrees, the PDF has no text, or it contains text aimed at an AI', () => {
     const missing = { ...PREVIEW, lines: PREVIEW.lines.map(l => (l.key === '1-0' ? { ...l, found: false } : l)) };
     expect(needsCheck(missing, decided())).toBe(true);
     expect(blockReason(missing, decided())).toBe('Tick that you’ve checked the flagged amounts');
     expect(blockReason(missing, { ...decided(), checked: true })).toBeNull();
     expect(needsCheck({ ...PREVIEW, hasText: false }, decided())).toBe(true);
+    expect(needsCheck({ ...PREVIEW, injectionSuspected: true }, decided())).toBe(true);
+    const disagrees = { ...PREVIEW, lines: PREVIEW.lines.map(l => (l.key === '1-0' ? { ...l, textAmount: 179.86 } : l)) };
+    expect(needsCheck(disagrees, decided())).toBe(true);
     expect(needsCheck(PREVIEW, decided())).toBe(false);
   });
 

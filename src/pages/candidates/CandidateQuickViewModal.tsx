@@ -12,6 +12,7 @@ import {
 import { fetchCandidate, downloadCandidateResume } from '../../api/candidates.js';
 import { Candidate, CandidateStatus, CommuteTime } from '../../types/index.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import { openExternalUrl } from '../../utils/externalLink.js';
 
 const COMMUTE_LABEL: Record<CommuteTime, string> = {
   UNDER_15:  'Less than 15 minutes',
@@ -485,7 +486,7 @@ function ResumeRow(props: { candidateId: string; fileName: string; externalUrl: 
           disabled={busy}
           onClick={() => {
             if (props.externalUrl) {
-              window.open(props.externalUrl, '_blank', 'noopener,noreferrer');
+              if (!openExternalUrl(props.externalUrl)) alert('That resume link isn’t a safe https link, so it wasn’t opened.');
               return;
             }
             // 'noopener' would force window.open to return null, breaking

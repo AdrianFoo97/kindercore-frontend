@@ -70,6 +70,9 @@ export function LineRow({ line, decision, categories, groups, canAddCategory, ex
           {undecided && (
             <span style={{ color: '#b45309', fontWeight: 700 }}><FontAwesomeIcon icon={faCircleExclamation} style={{ marginRight: 4 }} />Needs a decision — choose a category or Skip</span>
           )}
+          {line.textAmount !== null && (
+            <span style={{ color: C.red, fontWeight: 600 }}><FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 4 }} />The PDF’s text says {formatMoney(line.textAmount)}</span>
+          )}
           {hasText && !line.found && (
             <span style={{ color: C.red, fontWeight: 600 }}><FontAwesomeIcon icon={faTriangleExclamation} style={{ marginRight: 4 }} />Amount not found in the PDF</span>
           )}
