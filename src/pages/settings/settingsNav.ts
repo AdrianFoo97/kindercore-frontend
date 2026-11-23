@@ -195,8 +195,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 
 /** One kind of access: a module, plus a function inside it when needed. */
 export interface AccessNeed { module: string; fn?: string }
-/** Who a settings page is for besides Admins: everyone, or anyone meeting one of the needs. */
-export type SettingsAccess = 'everyone' | AccessNeed[];
+/** Who a settings page is for besides Admins: anyone with an access role (any module), or anyone meeting one of the needs. */
+export type SettingsAccess = 'anyRole' | AccessNeed[];
 
 const HR_ALL: AccessNeed[] = [{ module: 'HR', fn: 'HR_SEE_ALL_STAFF' }];
 const HR_PAY: AccessNeed[] = [{ module: 'HR', fn: 'HR_SEE_PAY' }];
@@ -204,7 +204,8 @@ const only = (module: string, fn?: string): AccessNeed[] => [{ module, fn }];
 
 /** Settings pages open to more than Admins (by item key). Anything not here is Admin-only. */
 export const SETTINGS_ACCESS: Record<string, SettingsAccess> = {
-  notifications: 'everyone',
+  // Nobody without an access role sees Settings at all — not even this.
+  notifications: 'anyRole',
   // Parents' templates are Marketing's; applicants' are whole-school HR's (the server checks each one on save).
   messages: [...only('MARKETING'), ...HR_ALL],
   crm: only('MARKETING'), packages: only('MARKETING'),
@@ -219,15 +220,16 @@ export const SETTINGS_ACCESS: Record<string, SettingsAccess> = {
 };
 
 /** What the person viewing Settings may do (usePermissions). */
-export interface SettingsViewer { isAdmin: boolean; hasModule: (m: string) => boolean; hasView: (v: string) => boolean }
-const ADMIN_VIEWER: SettingsViewer = { isAdmin: true, hasModule: () => true, hasView: () => true };
+export interface SettingsViewer { isAdmin: boolean; hasAnyModule: boolean; hasModule: (m: string) => boolean; hasView: (v: string) => boolean }
+const ADMIN_VIEWER: SettingsViewer = { isAdmin: true, hasAnyModule: true, hasModule: () => true, hasView: () => true };
 
 /** Whether this person may open (and change) a settings page. */
 export function canOpenSetting(item: SettingsItem, viewer: SettingsViewer): boolean {
   if (viewer.isAdmin) return true;
   const access = SETTINGS_ACCESS[item.key];
   if (!access) return false;
-  return access === 'everyone' || access.some(n => viewer.hasModule(n.module) && (!n.fn || viewer.hasView(n.fn)));
+  if (access === 'anyRole') return viewer.hasAnyModule;
+  return access.some(n => viewer.hasModule(n.module) && (!n.fn || viewer.hasView(n.fn)));
 }
 
 /** The groups this person should see — their pages only, test-only items only on the test server; empty groups dropped. */

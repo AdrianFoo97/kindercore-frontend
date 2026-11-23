@@ -6,8 +6,8 @@ import { SETTINGS_GROUPS, canOpenSetting, itemForPath, visibleGroups, type Setti
 
 /** The person viewing Settings, for settingsNav's access rules. */
 function useViewer(): { viewer: SettingsViewer; loading: boolean } {
-  const { isAdmin, hasModule, hasView, loading } = usePermissions();
-  return { viewer: { isAdmin, hasModule: m => hasModule(m as ModuleKey), hasView }, loading };
+  const { isAdmin, hasAnyModule, hasModule, hasView, loading } = usePermissions();
+  return { viewer: { isAdmin, hasAnyModule, hasModule: m => hasModule(m as ModuleKey), hasView }, loading };
 }
 
 /** The settings groups this person may see (their pages only). */

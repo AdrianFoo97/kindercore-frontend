@@ -24,11 +24,13 @@ describe('Organisational structure', () => {
     expect(linkedCount(positions)).toBe(3);
   });
 
-  it('suggests the manager from the position it reports to — only when one person holds it', () => {
+  it('suggests the manager from the nearest filled position above — skipping a vacant one — and offers all when several hold it', () => {
     expect(suggestedManagers('SV', positions, staff).people.map(s => s.name)).toEqual(['Pat']);
     // Two supervisors: both offered, neither assumed.
     expect(suggestedManagers('JEI', positions, staff).people.map(s => s.name)).toEqual(['Alicia', 'Ben']);
     expect(suggestedManagers('PRIN', positions, staff)).toEqual({ position: null, people: [] });
+    // Supervisor vacant: the line goes up to the Principal.
+    expect(suggestedManagers('JEI', positions, staff.filter(s => s.positionId !== 'SV')).people.map(s => s.name)).toEqual(['Pat']);
   });
 
   it('offers only lines the rules allow: within the department and upwards, or — for its head — another department', () => {
@@ -82,5 +84,19 @@ describe('Organisational structure', () => {
     // A loop (each reports to the other) still shows both people, once each.
     const loop = peopleTree([{ id: 'a', name: 'A', positionId: null, reportsToTeacherId: 'b' }, { id: 'b', name: 'B', positionId: null, reportsToTeacherId: 'a' }]);
     expect(loop.map(r => [r.person.name, r.children.map(c => c.person.name)])).toEqual([['A', ['B']]]);
+  });
+
+  it('follows the position reporting line — a Junior EI reports to a Supervisor or above, never a Senior EI', () => {
+    const line = [
+      { positionId: 'EI', name: 'Junior EI', departmentId: 'ACAD', titleWeight: 2, reportsToPositionId: 'SV' },
+      { positionId: 'SEI', name: 'Senior EI', departmentId: 'ACAD', titleWeight: 3, reportsToPositionId: 'SV' },
+      { positionId: 'SV', name: 'Supervisor', departmentId: 'ACAD', titleWeight: 4, reportsToPositionId: 'EP' },
+      { positionId: 'EP', name: 'Principal', departmentId: 'MGMT', titleWeight: 6, reportsToPositionId: null },
+    ];
+    const mgmt = new Set(['MGMT']);
+    expect(personReportsToProblem('EI', 'SV', true, line, mgmt)).toBeNull();
+    expect(personReportsToProblem('EI', 'EP', true, line, mgmt)).toBeNull();
+    expect(personReportsToProblem('EI', 'SEI', true, line, mgmt)).toBe('They report to someone in a position above theirs: Supervisor, Principal.');
+    expect(personReportsToProblem('SV', 'SEI', true, line, mgmt)).toMatch(/above theirs: Principal/);
   });
 });

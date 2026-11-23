@@ -16,6 +16,7 @@ import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
 import NotificationBell from './NotificationBell.js';
+import { useSettingsGroups } from '../../pages/settings/useSettingsAccess.js';
 
 /** Small uppercase heading that groups items inside a nav dropdown (Tools, Operation). */
 function NavSectionLabel({ label, first, mobile }: { label: string; first?: boolean; mobile: boolean }) {
@@ -66,7 +67,10 @@ export default function Navbar() {
   // authenticated user sees all 7) for the common case where the request
   // resolves in a moment anyway.
   const { hasModule, hasView, loading: permLoading } = usePermissions();
-  const allowModule = (m: string) => permLoading || hasModule(m as any);
+  // Nothing shows until permissions have loaded — never a flash of menus someone doesn't have.
+  const allowModule = (m: string) => !permLoading && hasModule(m as any);
+  // Settings only when this person has something there (no access role → no Settings link).
+  const { groups: settingsGroups } = useSettingsGroups();
 
   // Measures before paint, so stepping a tier down never flashes the
   // overflowing row. "Fits" = the right-hand profile cluster (last flex
@@ -325,7 +329,7 @@ export default function Navbar() {
               : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
             }>{navIcon(faSackDollar)}My Pay</NavLink>
         )}
-        {user?.teacherId && (
+        {user?.teacherId && allowModule(MODULES.OPERATION) && (
           <NavLink to="/operations/sops?app=teacher" onClick={closeAll}
             className={mobile ? '' : 'nav-link'}
             style={mobile
@@ -697,9 +701,9 @@ export default function Navbar() {
         )}
 
         {/* Settings — one link to the Settings area (grouped home page + sidebar;
-            see pages/settings/settingsNav.ts). Everyone signed in: each person
-            sees only the settings their access roles cover. */}
-        {!!user && (
+            see pages/settings/settingsNav.ts). Only for people with something there:
+            each sees just their access roles' settings — no role, no link. */}
+        {settingsGroups.length > 0 && (
           <Link to="/settings" onClick={closeAll} className={mobile ? '' : 'nav-link'} aria-current={onSettingsRoute ? 'page' : undefined}
             style={{
               ...(mobile ? mLink : styles.link), display: 'flex', alignItems: 'center',

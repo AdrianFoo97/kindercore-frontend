@@ -33,6 +33,8 @@ export function usePermissions() {
     isAdmin: data?.isAdmin ?? false,
     hasModule: (m: ModuleKey) => !!data && (data.isAdmin || data.modules.includes(m)),
     hasView: (v: ViewKey) => !!data && (data.isAdmin || data.views.includes(v)),
+    /** Holds any module at all — no access role (or one granting nothing) means nothing to show. */
+    hasAnyModule: !!data && (data.isAdmin || data.modules.length > 0),
     loading: isLoading,
   };
 }

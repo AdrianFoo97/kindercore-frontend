@@ -4,6 +4,8 @@ import {
   faHouse, faStar, faSackDollar, faBookOpen,
 } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
+import { usePermissions } from '../../hooks/usePermissions.js';
+import { MODULES } from '../../constants/authModules.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher mobile bottom nav — the app tab bar for the gamified
@@ -116,11 +118,13 @@ const TABS = [
   { seg: 'home',            label: 'Home',   icon: faHouse },
   { seg: 'my-career',       label: 'Career', icon: faStar },
   { seg: 'my-compensation', label: 'Pay',    icon: faSackDollar },
-  { seg: 'sop',             label: 'Guides', icon: faBookOpen, href: '/operations/sops?app=teacher' },
+  // Guides need the Operation module (like the page itself) — no role, no tab.
+  { seg: 'sop',             label: 'Guides', icon: faBookOpen, href: '/operations/sops?app=teacher', module: MODULES.OPERATION },
 ] as const;
 
 export default function TeacherMobileNav() {
   const { isMobile } = useIsMobile();
+  const { hasModule, loading: permLoading } = usePermissions();
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
 
@@ -178,7 +182,7 @@ export default function TeacherMobileNav() {
           .tnav-tab--active .tnav-ico { animation: none; }
         }
       `}</style>
-      {TABS.map(t => {
+      {TABS.filter(t => !('module' in t) || (!permLoading && hasModule(t.module))).map(t => {
         const active = t.seg === activeSeg;
         return (
           <button

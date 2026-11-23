@@ -47,15 +47,17 @@ export function branchHeadcount(node: OrgNode): number {
 }
 
 /**
- * Who a staff member in this position would usually report to: the person in
- * the position it reports to — when exactly one person holds it. Several (or
- * nobody) → no single suggestion; the list says who could be picked.
+ * Who a staff member in this position would usually report to: the people in
+ * the nearest position above it in its reporting line that someone holds — a
+ * vacant position (e.g. no Supervisor right now) is skipped and the line goes
+ * up to the next one. Several people there → all offered, none assumed.
  */
 export function suggestedManagers<S extends OrgStaff>(positionId: string | null, positions: OrgPosition[], staff: S[], selfId?: string): { position: OrgPosition | null; people: S[] } {
-  const parentId = positions.find(p => p.positionId === positionId)?.reportsToPositionId ?? null;
-  const position = positions.find(p => p.positionId === parentId) ?? null;
-  if (!position) return { position: null, people: [] };
-  return { position, people: staff.filter(s => s.positionId === position.positionId && s.id !== selfId).sort((a, b) => a.name.localeCompare(b.name)) };
+  for (const position of positionsAbove(positionId, positions as (OrgPosition & RankedPosition)[])) {
+    const people = staff.filter(s => s.positionId === position.positionId && s.id !== selfId).sort((a, b) => a.name.localeCompare(b.name));
+    if (people.length) return { position, people };
+  }
+  return { position: null, people: [] };
 }
 
 /** Each department's head position (department id → position id, or null when not set). */
@@ -123,11 +125,13 @@ export const reportingIssue = (all: OrgPosition[], heads: DepartmentHeads, p: Or
 export const managementFrom = (departments: { departmentId: string; isManagement?: boolean }[]) => new Set(departments.filter(d => d.isManagement).map(d => d.departmentId));
 
 // ── A person's "Reports to" (staff records) ─────────────────────────────────
-// Everyone reports to someone higher-ranked in their own department, or to
-// anyone in a Management department. Only Management staff may report to
-// nobody (the top of the organisation). The server checks the same (orgStructure.logic).
+// Everyone reports to someone in a position above theirs in its reporting line
+// (Settings → Positions: Junior EI → Supervisor → Principal) — so never a
+// Senior EI for a Junior EI. A position with no line set yet: someone
+// higher-ranked in their own department, or anyone in Management. Only
+// Management staff may report to nobody. The server checks the same (orgStructure.logic).
 
-export interface RankedPosition { positionId: string; departmentId: string | null; titleWeight: number }
+export interface RankedPosition { positionId: string; departmentId: string | null; titleWeight: number; reportsToPositionId?: string | null; name?: string }
 
 /** Why this person can't report to that manager (null = nobody) — or null when they can. */
 export function personReportsToProblem(
@@ -138,9 +142,31 @@ export function personReportsToProblem(
   const selfInManagement = !!self?.departmentId && management.has(self.departmentId);
   if (!managerChosen) return selfInManagement ? null : 'Pick who they report to — only Management staff can report to nobody.';
   const mgr = positions.find(p => p.positionId === managerPositionId) ?? null;
+  // Their position's reporting line (Settings → Positions) decides: anyone in a position above it in that line.
+  const line = positionsAbove(selfPositionId, positions);
+  if (line.length) {
+    if (mgr && line.some(p => p.positionId === mgr.positionId)) return null;
+    return `They report to someone in a position above theirs: ${line.map(p => p.name ?? p.positionId).join(', ')}.`;
+  }
+  // No line set for their position yet: someone higher in their own department, or anyone in Management.
   if (mgr?.departmentId && management.has(mgr.departmentId)) return null;
   if (self && mgr && self.departmentId && mgr.departmentId === self.departmentId && mgr.titleWeight > self.titleWeight) return null;
   return 'They can report to someone higher-ranked in their own department, or anyone in Management.';
+}
+
+/** The positions above this one in its reporting line, nearest first (Junior EI → Supervisor → … → Principal). Stops on a loop. */
+export function positionsAbove<P extends RankedPosition>(positionId: string | null, positions: P[]): P[] {
+  const out: P[] = [];
+  const seen = new Set<string>(positionId ? [positionId] : []);
+  let next = positions.find(p => p.positionId === positionId)?.reportsToPositionId ?? null;
+  while (next && !seen.has(next)) {
+    seen.add(next);
+    const p = positions.find(x => x.positionId === next);
+    if (!p) break;
+    out.push(p);
+    next = p.reportsToPositionId ?? null;
+  }
+  return out;
 }
 
 // ── By person: who each staff member reports to (Teacher.reportsToTeacherId,

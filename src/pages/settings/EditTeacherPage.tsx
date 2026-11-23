@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faCalendarDays, faBriefcase, faPlus, faTrash, faCoins, faPen, faStar, faArrowUp, faChevronLeft, faRoad } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faCalendarDays, faBriefcase, faPlus, faTrash, faCoins, faPen, faStar, faArrowUp, faChevronLeft, faRoad, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchTeachers, createTeacher, updateTeacher,
   fetchClassrooms, fetchSubjects,
@@ -278,6 +278,12 @@ export default function EditTeacherPage() {
   const reportsToIssue = isNew ? null : personReportsToProblem(positionId || null, chosenManager?.positionId ?? null, !!reportsToTeacherId, ranked, management);
   const nobodyAllowed = personReportsToProblem(positionId || null, null, false, ranked, management) === null;
 
+  /** Open the Operations tab and put the cursor on Reports to. */
+  const goToReportsTo = () => {
+    setTab('operations');
+    requestAnimationFrame(() => document.getElementById('et-reports-to')?.focus());
+  };
+
   const handleSave = () => {
     if (!name.trim()) return;
     const d = {
@@ -461,7 +467,7 @@ export default function EditTeacherPage() {
 
   return (
     <div className="m-pad" style={s.page}>
-      <style>{`.et-tab:not(.et-tab-active):hover { color: ${C.text} !important; border-bottom-color: #cbd5e1 !important; } .et-tabs::-webkit-scrollbar { display: none; } .et-del-career:hover { color: #ef4444 !important; background: #fef2f2 !important; } .et-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }`}</style>
+      <style>{`.et-tab:not(.et-tab-active):hover { color: ${C.text} !important; border-bottom-color: #cbd5e1 !important; } .et-tabs::-webkit-scrollbar { display: none; } .et-del-career:hover { color: #ef4444 !important; background: #fef2f2 !important; } .et-fix-btn:hover { background: #fef3c7 !important; } .et-back-btn:hover { background: #f1f5f9 !important; color: ${C.text} !important; border-color: #cbd5e1 !important; }`}</style>
       <div style={s.inner}>
         {/* Back + breadcrumb */}
         <div style={s.breadcrumb}>
@@ -488,6 +494,10 @@ export default function EditTeacherPage() {
                 style={{ ...s.tabBtn, ...(tab === t.key ? s.tabBtnActive : {}) }}>
                 <FontAwesomeIcon icon={t.icon} style={{ fontSize: 12 }} />
                 {t.label}
+                {/* Where Save is waiting on something: a marker on that tab, with words for screen readers. */}
+                {t.key === 'operations' && reportsToIssue && (
+                  <FontAwesomeIcon icon={faCircleExclamation} title="Needs attention" aria-label="needs attention" style={{ fontSize: 11, color: '#b45309' }} />
+                )}
               </button>
             ))}
           </div>
@@ -1131,7 +1141,14 @@ export default function EditTeacherPage() {
             {(tab === 'personal' || tab === 'operations') && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
                 <button onClick={() => navigate('/teachers')} style={s.cancelBtn}>Cancel</button>
-                {reportsToIssue && <span role="status" style={{ alignSelf: 'center', fontSize: 13, color: '#b91c1c' }}>Reports to (Operations tab): {reportsToIssue}</span>}
+                {/* Save waits on Reports to — a short pointer that takes you there (the reason sits under the field). */}
+                {reportsToIssue && (
+                  <button type="button" onClick={goToReportsTo} className="et-fix-btn"
+                    style={{ alignSelf: 'center', display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '4px 10px', border: 'none', borderRadius: 8, background: '#fffbeb', color: '#92400e', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    <FontAwesomeIcon icon={faCircleExclamation} style={{ fontSize: 12 }} />
+                    Choose who they report to
+                  </button>
+                )}
                 <button onClick={handleSave} disabled={saving || !name.trim() || !!reportsToIssue} title={reportsToIssue ?? undefined}
                   style={{ ...s.saveBtn, opacity: saving || !name.trim() || reportsToIssue ? 0.6 : 1, cursor: saving || !name.trim() || reportsToIssue ? 'default' : 'pointer' }}>
                   {saving ? 'Saving…' : isNew ? 'Add Teacher' : 'Save Changes'}

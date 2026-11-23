@@ -68,10 +68,12 @@ describe('Settings navigation', () => {
     expect(visibleGroups(true).find(g => g.key === 'test-tools')?.items.map(i => i.key)).toEqual(['reset-candidates']);
   });
 
-  it('shows each person only the settings their access roles cover — Admins see everything', () => {
-    const viewer = (modules: string[], views: string[] = []) => ({ isAdmin: false, hasModule: (m: string) => modules.includes(m), hasView: (v: string) => views.includes(v) });
+  it('shows each person only the settings their access roles cover, and nothing without a role — Admins see everything', () => {
+    const viewer = (modules: string[], views: string[] = []) => ({ isAdmin: false, hasAnyModule: modules.length > 0, hasModule: (m: string) => modules.includes(m), hasView: (v: string) => views.includes(v) });
     const keys = (v: ReturnType<typeof viewer>) => visibleGroups(false, SETTINGS_GROUPS, v).flatMap(g => g.items.map(i => i.key));
-    expect(keys(viewer([]))).toEqual(['notifications']);
+    // No access role → nothing at all, not even Notifications.
+    expect(keys(viewer([]))).toEqual([]);
+    expect(keys(viewer(['OPERATION']))).toEqual(['notifications']);
     expect(keys(viewer(['MARKETING']))).toEqual(expect.arrayContaining(['notifications', 'messages', 'crm', 'packages']));
     expect(keys(viewer(['MARKETING']))).not.toContain('finance');
     // A Team Lead (HR alone) gets the team-level HR pages, not recruitment, appraisal set-up or pay.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronRight, faMagnifyingGlass, faUsers, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
@@ -13,10 +13,13 @@ export default function SettingsHomePage() {
   const navigate = useNavigate();
   const { isMobile } = useIsMobile();
   // Only the pages this person's access roles cover.
-  const { groups } = useSettingsGroups();
+  const { groups, loading } = useSettingsGroups();
   const [query, setQuery] = useState('');
   const results = searchSettings(query, groups);
   const searching = query.trim().length > 0;
+  // No access role → no settings at all.
+  if (loading) return null;
+  if (groups.length === 0) return <Navigate to="/no-access" replace />;
 
   return (
     <div className="m-pad" style={{ padding: '32px 32px 48px', background: C.bg, minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif', color: C.text }}>
