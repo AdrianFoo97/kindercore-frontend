@@ -142,3 +142,43 @@ export function personReportsToProblem(
   if (self && mgr && self.departmentId && mgr.departmentId === self.departmentId && mgr.titleWeight > self.titleWeight) return null;
   return 'They can report to someone higher-ranked in their own department, or anyone in Management.';
 }
+
+// ── By person: who each staff member reports to (Teacher.reportsToTeacherId,
+// set on their staff record). This is what decides someone's team in HRMS.
+
+export interface OrgPerson { id: string; name: string; positionId: string | null; reportsToTeacherId?: string | null }
+export interface PersonNode<S extends OrgPerson = OrgPerson> { person: S; children: PersonNode<S>[] }
+
+/**
+ * People under the person they report to, A–Z at every level. Anyone whose
+ * manager isn't in the list (left, or not set) sits at the top. A loop can't
+ * hang the chart or hide anyone: each branch stops at someone already above
+ * it, and anyone only reachable through a loop starts their own branch.
+ */
+export function peopleTree<S extends OrgPerson>(people: S[]): PersonNode<S>[] {
+  const ids = new Set(people.map(p => p.id));
+  const byName = (a: S, b: S) => a.name.localeCompare(b.name);
+  const build = (p: S, seen: Set<string>): PersonNode<S> => {
+    const next = new Set(seen).add(p.id);
+    const kids = people.filter(c => c.reportsToTeacherId === p.id && !next.has(c.id)).sort(byName);
+    return { person: p, children: kids.map(c => build(c, next)) };
+  };
+  const tops = people.filter(p => !p.reportsToTeacherId || !ids.has(p.reportsToTeacherId)).sort(byName);
+  const roots = tops.map(p => build(p, new Set()));
+  // Nobody is left off: someone only reachable through a loop starts their own branch.
+  const shown = new Set<string>();
+  const mark = (n: PersonNode<S>) => { shown.add(n.person.id); n.children.forEach(mark); };
+  roots.forEach(mark);
+  for (const p of [...people].sort(byName)) {
+    if (shown.has(p.id)) continue;
+    const branch = build(p, new Set());
+    mark(branch);
+    roots.push(branch);
+  }
+  return roots;
+}
+
+/** Everyone below this person (directly or further down) — their team in HRMS. */
+export function teamSize(node: PersonNode): number {
+  return node.children.reduce((n, c) => n + 1 + teamSize(c), 0);
+}

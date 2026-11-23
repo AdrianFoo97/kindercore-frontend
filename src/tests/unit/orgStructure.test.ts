@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { blockedHeadChoices, branchHeadcount, headsFrom, personReportsToProblem, linkedCount, orgTree, reportingIssue, reportsToOptions, suggestedManagers } from '../../pages/settings/orgStructure';
+import { blockedHeadChoices, branchHeadcount, headsFrom, personReportsToProblem, linkedCount, orgTree, peopleTree, reportingIssue, reportsToOptions, suggestedManagers, teamSize } from '../../pages/settings/orgStructure';
 
 // Settings → HR Planning → Organisational structure.
 
@@ -64,5 +64,23 @@ describe('Organisational structure', () => {
     expect(personReportsToProblem('SV', 'EI', true, ranked, mgmt)).not.toBeNull();
     expect(personReportsToProblem('EI', null, false, ranked, mgmt)).toMatch(/Pick who they report to/);
     expect(personReportsToProblem('EP', null, false, ranked, mgmt)).toBeNull();
+  });
+
+  it('draws people under the person they report to, A–Z, with anyone whose manager isn’t listed at the top — never leaving anyone out', () => {
+    const people = [
+      { id: 'p', name: 'Pat', positionId: 'PRIN', reportsToTeacherId: null },
+      { id: 'b', name: 'Ben', positionId: 'SV', reportsToTeacherId: 'p' },
+      { id: 'a', name: 'Alicia', positionId: 'SV', reportsToTeacherId: 'p' },
+      { id: 'n', name: 'Nabila', positionId: 'JEI', reportsToTeacherId: 'a' },
+      { id: 'x', name: 'Xena', positionId: 'JEI', reportsToTeacherId: 'left-already' },
+    ];
+    const roots = peopleTree(people);
+    expect(roots.map(r => r.person.name)).toEqual(['Pat', 'Xena']);
+    expect(roots[0].children.map(c => c.person.name)).toEqual(['Alicia', 'Ben']);
+    expect(roots[0].children[0].children.map(c => c.person.name)).toEqual(['Nabila']);
+    expect(teamSize(roots[0])).toBe(3);
+    // A loop (each reports to the other) still shows both people, once each.
+    const loop = peopleTree([{ id: 'a', name: 'A', positionId: null, reportsToTeacherId: 'b' }, { id: 'b', name: 'B', positionId: null, reportsToTeacherId: 'a' }]);
+    expect(loop.map(r => [r.person.name, r.children.map(c => c.person.name)])).toEqual([['A', ['B']]]);
   });
 });

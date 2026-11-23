@@ -11,7 +11,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faCalendarCheck, faCartShopping, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBars, faClipboardList, faClipboardCheck, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faChalkboardUser, faSliders, faScrewdriverWrench, faChildren, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faListCheck } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCalendarCheck, faCartShopping, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBars, faClipboardList, faClipboardCheck, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faChalkboardUser, faSliders, faScrewdriverWrench, faChildren, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faListCheck, faHouse } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
@@ -288,7 +288,7 @@ export default function Navbar() {
 
     return (
       <>
-        {/* My Profile — a teacher-linked account's own self-service app
+        {/* Home — a teacher-linked account's own self-service app
             (Career / Pay / Rewards), separate from the admin-facing
             Module system: shown whenever the account is linked to a
             Teacher, regardless of what (if any) AuthRole/modules it also
@@ -300,7 +300,7 @@ export default function Navbar() {
             style={({ isActive }) => mobile
               ? { ...mLink, ...(isActive ? mLinkActive : {}) }
               : { ...styles.link, ...(isActive ? styles.activeLink : {}) }
-            }>{navIcon(faIdCard)}My Profile</NavLink>
+            }>{navIcon(faHouse)}Home</NavLink>
         )}
         {/* Career / Pay / Guides — same three destinations as the other
             tabs on the floating bottom nav (TeacherMobileNav.tsx), which
@@ -308,7 +308,7 @@ export default function Navbar() {
             desktop had "My Profile" (Home) and nothing else pointing at
             their own app — everything past that page required knowing a
             URL. Same icons as their mobile-tab counterparts, same
-            teacherId gate as My Profile above. */}
+            teacherId gate as Home above. */}
         {user?.teacherId && (
           <NavLink to={`/teachers/${user.teacherId}/my-career`} onClick={closeAll}
             className={mobile ? '' : 'nav-link'}
@@ -416,6 +416,8 @@ export default function Navbar() {
                   Staff
                 </NavLink>
 
+                {/* The school-wide HR desks — whole-school HR only (a Team Lead manages just their team). */}
+                {hasView('HR_SEE_ALL_STAFF') && (<>
                 <NavSectionDivider />
                 <NavSectionLabel label="Recruitment & Hiring" mobile={mobile} />
                 <NavLink to="/hr/candidates" onClick={closeAll} className={itemClass} style={linkStyle}>
@@ -432,6 +434,7 @@ export default function Navbar() {
                   <FontAwesomeIcon icon={faListCheck} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
                   Onboarding
                 </NavLink>
+                </>)}
 
                 {/* Performance management — same name as its Settings group (the forms, scoring forms, rating scales). */}
                 <NavSectionDivider />
@@ -686,14 +689,7 @@ export default function Navbar() {
                 {item(faArrowUpRightFromSquare, '#94a3b8', 'Enquiry Form', () => { closeAll(); window.open('/enquiry', '_blank'); })}
                 {item(faArrowUpRightFromSquare, '#94a3b8', 'Job Application Form', () => { closeAll(); window.open('/apply', '_blank'); })}
                 {item(faLink, '#94a3b8', 'Form Links', () => { closeAll(); setFormLinksModal(true); })}
-                {sep}
-                {section('Support')}
-                <NavLink to="/tools/bug-reports" className={mobile ? '' : 'nav-drop-item'}
-                  style={{ ...mPanelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}
-                  onClick={closeAll}>
-                  <FontAwesomeIcon icon={faBug} style={{ fontSize: 12, color: '#64748b', width: 16 }} />
-                  Bug Reports
-                </NavLink>
+                {/* Bug Reports lives in the account menu (top right). */}
               </div>
             );
           })()}
@@ -701,9 +697,9 @@ export default function Navbar() {
         )}
 
         {/* Settings — one link to the Settings area (grouped home page + sidebar;
-            see pages/settings/settingsNav.ts). Team & access, formerly the Admin
-            menu, lives there too. Admin only. */}
-        {(user?.role === 'ADMIN' || user?.role === 'SUPERADMIN') && (
+            see pages/settings/settingsNav.ts). Everyone signed in: each person
+            sees only the settings their access roles cover. */}
+        {!!user && (
           <Link to="/settings" onClick={closeAll} className={mobile ? '' : 'nav-link'} aria-current={onSettingsRoute ? 'page' : undefined}
             style={{
               ...(mobile ? mLink : styles.link), display: 'flex', alignItems: 'center',
@@ -848,6 +844,13 @@ export default function Navbar() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{user.name}</div>
                       <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, textTransform: 'capitalize' as const }}>{user.role.toLowerCase()}</div>
                     </div>
+                    {allowModule(MODULES.TOOLS) && (
+                      <Link to="/tools/bug-reports" onClick={() => { setProfileOpen(false); closeAll(); }} className="nav-drop-item"
+                        style={{ ...styles.panelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <FontAwesomeIcon icon={faBug} style={{ fontSize: 12, width: 16, color: '#64748b' }} />
+                        Bug Reports
+                      </Link>
+                    )}
                     <button onClick={handleLogout} className="nav-drop-item"
                       style={{ ...styles.panelItem, width: '100%', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' as const, display: 'flex', alignItems: 'center', gap: 10, color: '#c53030' }}>
                       <FontAwesomeIcon icon={faRightFromBracket} style={{ fontSize: 12, width: 16 }} />
@@ -870,7 +873,14 @@ export default function Navbar() {
         <div onClick={closeAll} style={{ position: 'fixed', inset: 0, top: 50, background: 'rgba(0,0,0,0.3)', zIndex: 99 }} />
         <div style={{ position: 'fixed', top: 50, left: 0, right: 0, bottom: 0, background: '#fff', zIndex: 100, overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           {renderNavItems(true)}
-          {/* User info + logout at bottom */}
+          {/* Account: Bug Reports, then user info + logout at bottom (same as the desktop account menu) */}
+          {allowModule(MODULES.TOOLS) && (
+            <Link to="/tools/bug-reports" onClick={closeAll}
+              style={{ padding: '14px 20px', minHeight: 44, boxSizing: 'border-box', fontSize: 15, fontWeight: 500, color: '#374151', borderTop: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+              <FontAwesomeIcon icon={faBug} style={{ fontSize: 13, width: 16, color: '#64748b' }} />
+              Bug Reports
+            </Link>
+          )}
           <div style={{ borderTop: '1px solid #e5e7eb', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {user && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

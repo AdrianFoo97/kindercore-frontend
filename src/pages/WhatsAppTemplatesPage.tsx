@@ -7,6 +7,7 @@ import { useIsMobile } from '../hooks/useIsMobile.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
 import DeleteDialog from '../components/common/DeleteDialog.js';
 import { BUILT_IN_TEMPLATES, TEMPLATE_GROUPS, groupLabel, templateGroupOf, type TemplateGroupKey } from './messageTemplateGroups.js';
+import { useCanEditThisSetting } from './settings/useSettingsAccess.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -251,7 +252,8 @@ export default function WhatsAppTemplatesPage() {
 
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+  // Whoever this settings page is for may change it (settingsNav SETTINGS_ACCESS; the server checks each save).
+  const isAdmin = useCanEditThisSetting();
 
   // Editing state: null = list view, { type, id } = editing
   const [editing, setEditing] = useState<{ type: 'system' | 'custom'; id: string } | null>(null);

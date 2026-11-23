@@ -10,6 +10,7 @@ import {
 import { fetchPositions, fetchLevelIncentives, fetchDepartments } from '../../api/salary.js';
 import { managementFrom, personReportsToProblem, suggestedManagers } from './orgStructure.js';
 import { fetchCareerRecords, createCareerRecord, updateCareerRecord, deleteCareerRecord } from '../../api/career.js';
+import { useStaffAccess } from '../teachers/staffAccess.js';
 import { fetchAllowanceTypes, fetchTeacherAllowances, upsertTeacherAllowances } from '../../api/allowance.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
@@ -73,6 +74,9 @@ export default function EditTeacherPage() {
   const { showToast } = useToast();
   const { confirm: confirmDeleteRecord } = useDeleteDialog();
   const isNew = id === 'new';
+  // Without “See pay & salaries”: no Salary tab, no pay fields, no position/level
+  // changes (they set the salary) — the server refuses them too.
+  const { seesPay } = useStaffAccess();
 
   const { data: teachers = [] } = useQuery({ queryKey: ['planner-teachers'], queryFn: fetchTeachers });
   const { data: classrooms = [] } = useQuery({ queryKey: ['planner-classrooms'], queryFn: fetchClassrooms });
@@ -89,7 +93,7 @@ export default function EditTeacherPage() {
   const { data: teacherAllowanceData = [] } = useQuery({
     queryKey: ['teacher-allowances', id],
     queryFn: () => fetchTeacherAllowances(id!),
-    enabled: !isNew && !!id,
+    enabled: !isNew && !!id && seesPay,
   });
   const activeClasses = classrooms.filter((c: any) => c.isActive);
 
@@ -291,16 +295,19 @@ export default function EditTeacherPage() {
       workDays: workDays.length > 0 ? workDays : undefined,
       // New staff: left out (the record doesn't exist yet to point a manager at).
       ...(isNew ? {} : { reportsToTeacherId: reportsToTeacherId || null }),
-      positionId: positionId || null, level,
-      salaryType,
-      isFixedSalary: salaryType === 'fixed',
-      fixedSalaryAmount: salaryType === 'fixed' ? fixedSalaryAmount : null,
-      hourlyRate: salaryType === 'hourly' ? hourlyRate : null,
-      excludeFromProfitShare,
-      excludeFromStaffCost,
-      overrideProfitShareWeight,
-      customProfitShareWeight: overrideProfitShareWeight ? customProfitShareWeight : null,
-      hasEpf, hasSocso, hasEis,
+      // Pay is only sent by people who can see it (the record they loaded has none).
+      ...(seesPay ? {
+        positionId: positionId || null, level,
+        salaryType,
+        isFixedSalary: salaryType === 'fixed',
+        fixedSalaryAmount: salaryType === 'fixed' ? fixedSalaryAmount : null,
+        hourlyRate: salaryType === 'hourly' ? hourlyRate : null,
+        excludeFromProfitShare,
+        excludeFromStaffCost,
+        overrideProfitShareWeight,
+        customProfitShareWeight: overrideProfitShareWeight ? customProfitShareWeight : null,
+        hasEpf, hasSocso, hasEis,
+      } : {}),
     };
     if (isNew) createMut.mutate(d as any);
     else updateMut.mutate({ id: id!, data: d });
@@ -447,7 +454,7 @@ export default function EditTeacherPage() {
     { key: 'personal', label: 'Personal', icon: faUser },
     { key: 'operations', label: 'Operations', icon: faCalendarDays },
     { key: 'career', label: 'Career', icon: faBriefcase },
-    { key: 'salary', label: 'Salary', icon: faCoins },
+    ...(seesPay ? [{ key: 'salary' as Tab, label: 'Salary', icon: faCoins }] : []),
     // Every staff member can be appraised, whatever their position.
     ...(isNew ? [] : [{ key: 'appraisals' as Tab, label: 'Appraisals', icon: faStar }]),
   ];
@@ -615,6 +622,7 @@ export default function EditTeacherPage() {
                     </div>
                   </div>
 
+                  {seesPay && (
                   <div style={{ borderTop: `1px solid #f1f5f9`, paddingTop: 16 }}>
                     <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                       <div style={{ width: 140 }}>
@@ -719,6 +727,7 @@ export default function EditTeacherPage() {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               </>
             )}
@@ -847,7 +856,7 @@ export default function EditTeacherPage() {
                           <FontAwesomeIcon icon={faRoad} style={{ fontSize: 10 }} /> View Progression
                         </button>
                       )}
-                      {!isNew && !showCareerForm && (
+                      {!isNew && !showCareerForm && seesPay && (
                         <button onClick={() => {
                           setShowCareerForm(true);
                           // First career record → use join date; otherwise use today
@@ -868,7 +877,7 @@ export default function EditTeacherPage() {
                   ) : careerHistory.length === 0 && !showCareerForm ? (
                     <div style={{ textAlign: 'center', padding: '24px 0' }}>
                       <p style={{ fontSize: 13, color: C.muted, margin: '0 0 8px' }}>No career records yet</p>
-                      <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>Click "Record Progression" to start tracking.</p>
+                      <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>{seesPay ? 'Click “Record Progression” to start tracking.' : 'HR records position changes here.'}</p>
                     </div>
                   ) : (
                     <div>
@@ -986,14 +995,14 @@ export default function EditTeacherPage() {
                                     )}
                                     {isCurrent && <span style={{ fontSize: 10, fontWeight: 700, color: C.primary, background: C.primaryLight, padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Current</span>}
                                   </div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  {seesPay && <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                     <button onClick={() => startEditCareer(rec)} className="et-del-career" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px 6px', fontSize: 11, borderRadius: 4 }} title="Edit">
                                       <FontAwesomeIcon icon={faPen} />
                                     </button>
                                     <button onClick={() => handleDeleteCareer(rec)} className="et-del-career" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px 6px', fontSize: 11, borderRadius: 4 }} title="Delete">
                                       <FontAwesomeIcon icon={faTrash} />
                                     </button>
-                                  </div>
+                                  </div>}
                                 </div>
                               )}
                             </div>

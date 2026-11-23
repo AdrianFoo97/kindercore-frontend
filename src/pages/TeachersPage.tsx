@@ -17,6 +17,7 @@ import { joinFormUrl } from '../api/staffJoins.js';
 import { startStaffOnboarding } from '../api/staffOnboarding.js';
 import { TP_C, TP_MOTION, TP_RADIUS } from './teachers/tokens.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import { useStaffAccess } from './teachers/staffAccess.js';
 
 interface SalaryEntry {
   calculatedSalary: number;
@@ -32,10 +33,15 @@ export default function TeachersPage() {
     showToast(copied ? 'New staff form link copied — send it to the new joiner' : 'Could not copy the link', copied ? 'success' : 'error');
   };
   const { isMobile } = useIsMobile();
+  // Team Leads see only the people below them, without pay; whole-school HR
+  // also adds staff and runs onboarding (staffAccess.ts).
+  const { wholeSchool, seesPay } = useStaffAccess();
 
   const { data: teachers = [], isLoading } = useQuery({
     queryKey: ['planner-teachers'],
     queryFn: fetchTeachers,
+    // Colleagues outside your team come back as name/colour only — not listed here.
+    select: (rows: any[]) => rows.filter(t => !t.outsideTeam),
   });
   const { data: positions = [] } = useQuery({
     queryKey: ['salary-positions'],
@@ -44,6 +50,7 @@ export default function TeachersPage() {
   const { data: teachersSalary = [] } = useQuery({
     queryKey: ['salary-teachers'],
     queryFn: fetchTeachersWithSalary,
+    enabled: seesPay,
   });
   const { data: departmentList = [] } = useQuery({
     queryKey: ['departments'],
@@ -111,10 +118,10 @@ export default function TeachersPage() {
       if (hasNotStartedYet) continue;
       const pos = t.positionId ? posMap.get(t.positionId) : null;
       const sal = salaryMap.get(t.id);
-      if (!pos || !sal || sal.calculatedSalary <= 0) n++;
+      if (!pos || (seesPay && (!sal || sal.calculatedSalary <= 0))) n++;
     }
     return n;
-  }, [teachers, posMap, salaryMap, today]);
+  }, [teachers, posMap, salaryMap, today, seesPay]);
 
   const headerStats = useMemo(() => {
     let partTime = 0;
@@ -212,9 +219,10 @@ export default function TeachersPage() {
     onEdit: () => navigate(`/teachers/${t.id}`),
     onCareer: () => navigate(`/teachers/${t.id}/career`),
     onAppraisal: () => navigate(`/teachers/${t.id}/appraisal`),
-    onCompensation: () => navigate(`/teachers/${t.id}/compensation`),
+    onCompensation: seesPay ? () => navigate(`/teachers/${t.id}/compensation`) : undefined,
     onResign: () => setResignTarget(t),
-    onStartOnboarding: () => startOnboardingFor(t),
+    onStartOnboarding: wholeSchool ? () => startOnboardingFor(t) : undefined,
+    showPay: seesPay,
     // Dev-only entries — the teacher-facing mobile hubs are
     // works-in-progress. Vite's `import.meta.env.DEV` is true under `npm
     // run dev` and false in production builds, so these entries are
@@ -251,7 +259,7 @@ export default function TeachersPage() {
           </div>
         </div>
 
-        <PendingJoinersNotice />
+        {wholeSchool && <PendingJoinersNotice />}
 
         {/* Summary */}
         <HeaderStats stats={headerStats} compact={isMobile} />
@@ -266,7 +274,7 @@ export default function TeachersPage() {
           onSearchChange={setSearch}
           groupBy={groupBy}
           onGroupByChange={setGroupBy}
-          rightActions={
+          rightActions={wholeSchool && (
             <>
               {/* Or let the new joiner fill in their own details — HR approves them under New Staff. */}
               <button
@@ -285,7 +293,7 @@ export default function TeachersPage() {
                 <FontAwesomeIcon icon={faPlus} style={{ fontSize: 11 }} /> Add Teacher
               </button>
             </>
-          }
+          )}
         />
 
         {/* Table / empty */}
@@ -301,7 +309,7 @@ export default function TeachersPage() {
               {search ? 'No teachers match your search' : 'No teachers yet'}
             </div>
             <div style={s.emptySub}>
-              {search ? 'Try a different search term.' : 'Add your first teacher to get started.'}
+              {search ? 'Try a different search term.' : wholeSchool ? 'Add your first teacher to get started.' : 'Nobody reports to you yet.'}
             </div>
           </div>
         ) : isMobile ? (
@@ -328,7 +336,7 @@ export default function TeachersPage() {
                 <col />
                 <col style={{ width: '26%' }} />
                 <col style={{ width: 180 }} />
-                <col style={{ width: 160 }} />
+                {seesPay && <col style={{ width: 160 }} />}
                 <col style={{ width: 56 }} />
               </colgroup>
               <thead>
@@ -336,7 +344,7 @@ export default function TeachersPage() {
                   <th style={s.th}>Teacher</th>
                   <th style={s.th}>Role</th>
                   <th style={s.th}>Schedule</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>Salary</th>
+                  {seesPay && <th style={{ ...s.th, textAlign: 'right' }}>Salary</th>}
                   <th style={s.th} />
                 </tr>
               </thead>
@@ -345,7 +353,7 @@ export default function TeachersPage() {
                   <Fragment key={group.id}>
                     {group.name && (
                       <tr>
-                        <td colSpan={5} style={s.groupHeader}>
+                        <td colSpan={seesPay ? 5 : 4} style={s.groupHeader}>
                           {group.name}
                           <span style={s.groupCount}>{group.teachers.length}</span>
                         </td>

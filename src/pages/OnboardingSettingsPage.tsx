@@ -4,6 +4,7 @@ import { fetchSettings } from '../api/settings.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
 import ChecklistEditor from './ChecklistEditor.js';
 import { parseChecklistTemplate } from './checklistItems.js';
+import { useCanEditThisSetting } from './settings/useSettingsAccess.js';
 
 /** One checklist template on the page — e.g. HR's list and the new joiner's own list. */
 export interface ChecklistSection {
@@ -28,7 +29,8 @@ export default function OnboardingSettingsPage({
 
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+  // Whoever this settings page is for may change it (settingsNav SETTINGS_ACCESS; the server checks each save).
+  const isAdmin = useCanEditThisSetting();
 
   if (isLoading) return <div className="m-pad"><LoadingSpinner /></div>;
   if (isError) {
@@ -43,7 +45,7 @@ export default function OnboardingSettingsPage({
   return (
     <div className="m-pad">
       <h1>{title}</h1>
-      {!isAdmin && <p style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>Only admins can change these checklists.</p>}
+      {!isAdmin && <p style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>Only the people this page is for can change these checklists.</p>}
       {tabbed && (
         <div role="tablist" aria-label="Checklists" style={{ display: 'flex', flexWrap: 'wrap', gap: 4, borderBottom: '1px solid #e2e8f0' }}>
           {sections.map(sec => {

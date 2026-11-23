@@ -9,6 +9,11 @@ import {
 // sidebar on every settings page and settings search. Grouped by what the
 // person is doing, not by how the app is built. To add a settings page, add
 // it here (and its route in App.tsx); everything else picks it up.
+//
+// Everyone can open Settings but sees only the pages their access roles
+// cover (SETTINGS_ACCESS below; a page not listed there is Admin-only). The
+// server checks the same areas when anything is saved (backend
+// constants/settingKeyAccess.ts and each settings endpoint's gate).
 
 export interface SettingsItem {
   key: string;
@@ -188,10 +193,47 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   },
 ];
 
-/** The groups this person should see — test-only items only on the test server; empty groups dropped. */
-export function visibleGroups(isTestServer: boolean, groups: SettingsGroup[] = SETTINGS_GROUPS): SettingsGroup[] {
+/** One kind of access: a module, plus a function inside it when needed. */
+export interface AccessNeed { module: string; fn?: string }
+/** Who a settings page is for besides Admins: everyone, or anyone meeting one of the needs. */
+export type SettingsAccess = 'everyone' | AccessNeed[];
+
+const HR_ALL: AccessNeed[] = [{ module: 'HR', fn: 'HR_SEE_ALL_STAFF' }];
+const HR_PAY: AccessNeed[] = [{ module: 'HR', fn: 'HR_SEE_PAY' }];
+const only = (module: string, fn?: string): AccessNeed[] => [{ module, fn }];
+
+/** Settings pages open to more than Admins (by item key). Anything not here is Admin-only. */
+export const SETTINGS_ACCESS: Record<string, SettingsAccess> = {
+  notifications: 'everyone',
+  // Parents' templates are Marketing's; applicants' are whole-school HR's (the server checks each one on save).
+  messages: [...only('MARKETING'), ...HR_ALL],
+  crm: only('MARKETING'), packages: only('MARKETING'),
+  students: only('STUDENTS'),
+  'org-chart': only('HR'), 'career-missions': only('HR'), 'mission-categories': only('HR'), 'points-rewards': only('HR'),
+  recruitment: HR_ALL, 'staff-onboarding': HR_ALL,
+  'appraisal-forms': HR_ALL, 'scoring-forms': HR_ALL, 'rating-scales': HR_ALL, 'score-bands': HR_ALL, 'practice-observations': HR_ALL,
+  positions: HR_PAY, payroll: HR_PAY,
+  finance: only('FINANCE'), 'operating-cost': only('FINANCE'),
+  classes: only('TOOLS'), subjects: only('TOOLS'), tasks: only('TOOLS'),
+  'how-to-guides': only('OPERATION', 'OPERATION_SOP_APPROVE'),
+};
+
+/** What the person viewing Settings may do (usePermissions). */
+export interface SettingsViewer { isAdmin: boolean; hasModule: (m: string) => boolean; hasView: (v: string) => boolean }
+const ADMIN_VIEWER: SettingsViewer = { isAdmin: true, hasModule: () => true, hasView: () => true };
+
+/** Whether this person may open (and change) a settings page. */
+export function canOpenSetting(item: SettingsItem, viewer: SettingsViewer): boolean {
+  if (viewer.isAdmin) return true;
+  const access = SETTINGS_ACCESS[item.key];
+  if (!access) return false;
+  return access === 'everyone' || access.some(n => viewer.hasModule(n.module) && (!n.fn || viewer.hasView(n.fn)));
+}
+
+/** The groups this person should see — their pages only, test-only items only on the test server; empty groups dropped. */
+export function visibleGroups(isTestServer: boolean, groups: SettingsGroup[] = SETTINGS_GROUPS, viewer: SettingsViewer = ADMIN_VIEWER): SettingsGroup[] {
   return groups
-    .map(g => ({ ...g, items: g.items.filter(i => !i.testServerOnly || isTestServer) }))
+    .map(g => ({ ...g, items: g.items.filter(i => (!i.testServerOnly || isTestServer) && canOpenSetting(i, viewer)) }))
     .filter(g => g.items.length > 0);
 }
 

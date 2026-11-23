@@ -9,6 +9,7 @@ import { C, S, DragGrip, RowMenu, useDragReorder } from './recruitmentSettingsUi
 import RecruitmentPositionsEditor from './RecruitmentPositionsEditor.js';
 import { useToast } from '../../components/common/Toast.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import { useCanEditThisSetting } from './useSettingsAccess.js';
 
 // Two admin-curated lists that drive the public Apply form dropdowns:
 //   - recruitment_positions     → "Position" dropdown
@@ -75,7 +76,8 @@ export default function RecruitmentSettingsPage({ embedded = false }: { embedded
 
   const raw = localStorage.getItem('user');
   const user = raw ? (JSON.parse(raw) as { role: string }) : null;
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+  // Whoever this settings page is for may change it (settingsNav SETTINGS_ACCESS; the server checks each save).
+  const isAdmin = useCanEditThisSetting();
 
   if (isLoading) return <p style={S.state}><LoadingSpinner /></p>;
   if (isError) return <p style={{ ...S.state, color: C.danger }}>Failed to load settings.</p>;

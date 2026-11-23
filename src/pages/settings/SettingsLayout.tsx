@@ -1,11 +1,11 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faSliders, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
-import { useIsTestServer } from '../../hooks/useIsTestServer.js';
-import { SETTINGS_HOME, groupSections, itemForPath, visibleGroups, type SettingsGroup, type SettingsItem } from './settingsNav.js';
-import { C, isAdminRole, storedRole } from './settingsTheme.js';
+import { SETTINGS_HOME, groupSections, itemForPath, type SettingsGroup, type SettingsItem } from './settingsNav.js';
+import { C } from './settingsTheme.js';
+import { useCanOpenSettingsPath, useSettingsGroups } from './useSettingsAccess.js';
 
 const SIDEBAR_WIDTH = 240;
 
@@ -18,10 +18,14 @@ const SIDEBAR_WIDTH = 240;
 export default function SettingsLayout() {
   const { pathname } = useLocation();
   const { isTablet } = useIsMobile();
-  const groups = visibleGroups(useIsTestServer(isAdminRole(storedRole())));
+  const { groups } = useSettingsGroups();
   const current = itemForPath(pathname, groups);
+  const { allowed, loading } = useCanOpenSettingsPath(pathname);
 
   if (pathname === SETTINGS_HOME) return <Outlet />;
+  // A page outside this person's access roles (the server refuses its data anyway).
+  if (loading) return null;
+  if (!allowed) return <Navigate to="/no-access" replace />;
   if (isTablet) {
     return (
       <>

@@ -49,10 +49,13 @@ interface TeacherRowProps {
   onEdit: () => void;
   onCareer: () => void;
   onAppraisal: () => void;
-  onCompensation: () => void;
+  /** Omit to hide Compensation (people who can’t see pay). */
+  onCompensation?: () => void;
   onResign: () => void;
-  /** Staff page → ⋯ → Create Onboarding Tasks. */
-  onStartOnboarding: () => void;
+  /** Staff page → ⋯ → Create Onboarding Tasks. Omit to hide. */
+  onStartOnboarding?: () => void;
+  /** False for people who can’t see pay: no salary shown, and a blank salary isn’t “incomplete”. */
+  showPay?: boolean;
   /** Optional dev-only handler — forwarded to ActionMenu so the
    *  "My Compensation (Dev)" entry only renders when the page
    *  supplies it (gated by env in TeachersPage). */
@@ -65,7 +68,7 @@ interface TeacherRowProps {
  * Everything a row/card shows that's derived from the teacher — one place,
  * so the desktop table row and the phone card can't disagree.
  */
-function deriveRow(t: TeacherLike, pos: PositionLike | null | undefined, sal: SalaryLike | undefined) {
+function deriveRow(t: TeacherLike, pos: PositionLike | null | undefined, sal: SalaryLike | undefined, showPay: boolean) {
   const initial = (t.name ?? '?').trim().charAt(0).toUpperCase();
   const hasSalary = !!sal && sal.calculatedSalary > 0;
   // Currently active = no resignedAt, or resignedAt is still in the future.
@@ -83,7 +86,7 @@ function deriveRow(t: TeacherLike, pos: PositionLike | null | undefined, sal: Sa
   // than flagged as a data-entry problem.
   const joinDate = t.createdAt ? new Date(t.createdAt) : null;
   const hasNotStartedYet = !!joinDate && joinDate > todayStart;
-  const incomplete = isCurrentlyActive && !hasNotStartedYet && (!pos || !hasSalary);
+  const incomplete = isCurrentlyActive && !hasNotStartedYet && (!pos || (showPay && !hasSalary));
   const workDaysCount = Array.isArray(t.workDays) ? t.workDays.length : 0;
   const dailyHours = (t.workStartMinute != null && t.workEndMinute != null)
     ? computeDailyHours(t.workStartMinute, t.workEndMinute)
@@ -108,12 +111,12 @@ function deriveRow(t: TeacherLike, pos: PositionLike | null | undefined, sal: Sa
 
 export const TeacherRow = memo(function TeacherRow({
   teacher: t, position: pos, salary: sal,
-  onEdit, onCareer, onAppraisal, onCompensation, onResign, onStartOnboarding, onMyCompensationDev, onMyCareerDev,
+  onEdit, onCareer, onAppraisal, onCompensation, onResign, onStartOnboarding, onMyCompensationDev, onMyCareerDev, showPay = true,
 }: TeacherRowProps) {
   const {
     initial, hasSalary, resignedDate, isFutureResign, isCurrentlyActive, hasNotStartedYet, incomplete,
     workDaysCount, dailyHours, isPartTime, isBirthdayMonth, careerDisabledReason,
-  } = deriveRow(t, pos, sal);
+  } = deriveRow(t, pos, sal, showPay);
 
   return (
     <tr className="tp-row">
@@ -164,18 +167,20 @@ export const TeacherRow = memo(function TeacherRow({
         )}
       </td>
 
-      {/* Salary */}
-      <td style={{ ...styles.td, textAlign: 'right' }}>
-        {hasSalary && sal ? (
-          <SalaryCell
-            amount={sal.calculatedSalary}
-            type={t.salaryType}
-            hourlyRate={t.hourlyRate ?? null}
-          />
-        ) : (
-          <span style={styles.dash}>—</span>
-        )}
-      </td>
+      {/* Salary — only for people who can see pay */}
+      {showPay && (
+        <td style={{ ...styles.td, textAlign: 'right' }}>
+          {hasSalary && sal ? (
+            <SalaryCell
+              amount={sal.calculatedSalary}
+              type={t.salaryType}
+              hourlyRate={t.hourlyRate ?? null}
+            />
+          ) : (
+            <span style={styles.dash}>—</span>
+          )}
+        </td>
+      )}
 
       {/* Actions */}
       <td style={{ ...styles.td, padding: '0 12px 0 0', textAlign: 'right' }}>
@@ -209,12 +214,12 @@ export const TeacherRow = memo(function TeacherRow({
  */
 export const TeacherCard = memo(function TeacherCard({
   teacher: t, position: pos, salary: sal,
-  onEdit, onCareer, onAppraisal, onCompensation, onResign, onStartOnboarding, onMyCompensationDev, onMyCareerDev,
+  onEdit, onCareer, onAppraisal, onCompensation, onResign, onStartOnboarding, onMyCompensationDev, onMyCareerDev, showPay = true,
 }: TeacherRowProps) {
   const {
     initial, hasSalary, resignedDate, isFutureResign, isCurrentlyActive, hasNotStartedYet, incomplete,
     workDaysCount, dailyHours, isPartTime, isBirthdayMonth, careerDisabledReason,
-  } = deriveRow(t, pos, sal);
+  } = deriveRow(t, pos, sal, showPay);
   const hoursLabel = dailyHours != null ? dailyHours.toFixed(1).replace(/\.0$/, '') : null;
 
   return (
@@ -225,7 +230,7 @@ export const TeacherCard = memo(function TeacherCard({
         {/* Name + salary on one line */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <div style={{ ...styles.name, flex: 1, color: isCurrentlyActive ? TP_C.text : TP_C.muted }}>{t.name}</div>
-          {hasSalary && sal && (
+          {showPay && hasSalary && sal && (
             <div style={{ fontSize: 14, fontWeight: 800, color: TP_C.text, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
               {fmtRM(sal.calculatedSalary)}
             </div>

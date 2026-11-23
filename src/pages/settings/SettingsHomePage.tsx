@@ -2,17 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronRight, faMagnifyingGlass, faUsers, faXmark } from '@fortawesome/free-solid-svg-icons';
-import { useIsTestServer } from '../../hooks/useIsTestServer.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
-import { groupSections, searchSettings, visibleGroups, type SettingsGroup, type SettingsItem } from './settingsNav.js';
-import { C, isAdminRole, storedRole } from './settingsTheme.js';
+import { groupSections, searchSettings, type SettingsGroup, type SettingsItem } from './settingsNav.js';
+import { C } from './settingsTheme.js';
+import { useSettingsGroups } from './useSettingsAccess.js';
 import { columnCount, splitIntoColumns } from './settingsColumns.js';
 
 /** /settings — every setting, grouped, with search. */
 export default function SettingsHomePage() {
   const navigate = useNavigate();
   const { isMobile } = useIsMobile();
-  const groups = visibleGroups(useIsTestServer(isAdminRole(storedRole())));
+  // Only the pages this person's access roles cover.
+  const { groups } = useSettingsGroups();
   const [query, setQuery] = useState('');
   const results = searchSettings(query, groups);
   const searching = query.trim().length > 0;

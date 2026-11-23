@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HRMS, SETTINGS_GROUPS, groupSections, isSettingsArea, itemForPath, searchSettings, visibleGroups } from '../../pages/settings/settingsNav';
+import { HRMS, SETTINGS_ACCESS, SETTINGS_GROUPS, groupSections, isSettingsArea, itemForPath, searchSettings, visibleGroups } from '../../pages/settings/settingsNav';
 
 // The Settings area: one grouped list behind the Settings home page, the
 // sidebar on every settings page and settings search.
@@ -66,5 +66,21 @@ describe('Settings navigation', () => {
   it('shows test-server tools only on the test server, and drops a group left empty', () => {
     expect(visibleGroups(false).some(g => g.key === 'test-tools')).toBe(false);
     expect(visibleGroups(true).find(g => g.key === 'test-tools')?.items.map(i => i.key)).toEqual(['reset-candidates']);
+  });
+
+  it('shows each person only the settings their access roles cover — Admins see everything', () => {
+    const viewer = (modules: string[], views: string[] = []) => ({ isAdmin: false, hasModule: (m: string) => modules.includes(m), hasView: (v: string) => views.includes(v) });
+    const keys = (v: ReturnType<typeof viewer>) => visibleGroups(false, SETTINGS_GROUPS, v).flatMap(g => g.items.map(i => i.key));
+    expect(keys(viewer([]))).toEqual(['notifications']);
+    expect(keys(viewer(['MARKETING']))).toEqual(expect.arrayContaining(['notifications', 'messages', 'crm', 'packages']));
+    expect(keys(viewer(['MARKETING']))).not.toContain('finance');
+    // A Team Lead (HR alone) gets the team-level HR pages, not recruitment, appraisal set-up or pay.
+    const lead = keys(viewer(['HR']));
+    expect(lead).toEqual(expect.arrayContaining(['org-chart', 'career-missions', 'points-rewards']));
+    for (const k of ['recruitment', 'appraisal-forms', 'positions', 'payroll', 'users']) expect(lead, k).not.toContain(k);
+    expect(keys(viewer(['HR'], ['HR_SEE_ALL_STAFF', 'HR_SEE_PAY']))).toEqual(expect.arrayContaining(['recruitment', 'appraisal-forms', 'positions', 'payroll']));
+    // Company-wide and Team & access pages stay Admin-only.
+    for (const k of ['company', 'integrations', 'ai', 'users', 'roles']) expect(SETTINGS_ACCESS[k], k).toBeUndefined();
+    expect(visibleGroups(false).flatMap(g => g.items).length).toBe(SETTINGS_GROUPS.flatMap(g => g.items.filter(i => !i.testServerOnly)).length);
   });
 });

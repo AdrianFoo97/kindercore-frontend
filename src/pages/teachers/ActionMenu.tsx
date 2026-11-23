@@ -11,7 +11,8 @@ interface ActionMenuProps {
   onEdit: () => void;
   onCareer: () => void;
   onAppraisal: () => void;
-  onCompensation: () => void;
+  /** Omit to hide Compensation (people who can’t see pay). */
+  onCompensation?: () => void;
   /** Omit to hide the Resign entry (e.g. for already-resigned teachers). */
   onResign?: () => void;
   /** When set, Career Path / Compensation are rendered as
@@ -110,12 +111,14 @@ export function ActionMenu({
             label="Appraisal"
             onClick={() => { setOpen(false); onAppraisal(); }}
           />
-          <MenuItem
-            icon={faSackDollar}
-            label="Compensation"
-            disabledReason={careerDisabledReason}
-            onClick={() => { setOpen(false); onCompensation(); }}
-          />
+          {onCompensation && (
+            <MenuItem
+              icon={faSackDollar}
+              label="Compensation"
+              disabledReason={careerDisabledReason}
+              onClick={() => { setOpen(false); onCompensation(); }}
+            />
+          )}
           {onStartOnboarding && (
             <>
               <div style={styles.divider} />

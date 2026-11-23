@@ -404,10 +404,12 @@ export default function App() {
           <Route path="/onboarding" element={<RequireModule module={MODULES.STUDENTS}><ErrorBoundary><OnboardingPage /></ErrorBoundary></RequireModule>} />
           {/* Package Assignment was merged into the unified /packages page (matrix-based) */}
           <Route path="/teachers" element={<RequireModule module={MODULES.HR}><ErrorBoundary><TeachersPage /></ErrorBoundary></RequireModule>} />
+          {/* Adding staff is whole-school HR; a Team Lead edits only their team (checked on the server). */}
+          <Route path="/teachers/new" element={<RequireModule module={MODULES.HR}><RequireView view="HR_SEE_ALL_STAFF"><ErrorBoundary><EditTeacherPage /></ErrorBoundary></RequireView></RequireModule>} />
           <Route path="/teachers/:id" element={<RequireModule module={MODULES.HR}><ErrorBoundary><EditTeacherPage /></ErrorBoundary></RequireModule>} />
-          <Route path="/hr/candidates" element={<RequireModule module={MODULES.HR}><ErrorBoundary><CandidatesPage /></ErrorBoundary></RequireModule>} />
-          <Route path="/hr/new-staff" element={<RequireModule module={MODULES.HR}><ErrorBoundary><NewStaffPage /></ErrorBoundary></RequireModule>} />
-          <Route path="/hr/onboarding" element={<RequireModule module={MODULES.HR}><ErrorBoundary><StaffOnboardingPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/hr/candidates" element={<RequireModule module={MODULES.HR}><RequireView view="HR_SEE_ALL_STAFF"><ErrorBoundary><CandidatesPage /></ErrorBoundary></RequireView></RequireModule>} />
+          <Route path="/hr/new-staff" element={<RequireModule module={MODULES.HR}><RequireView view="HR_SEE_ALL_STAFF"><ErrorBoundary><NewStaffPage /></ErrorBoundary></RequireView></RequireModule>} />
+          <Route path="/hr/onboarding" element={<RequireModule module={MODULES.HR}><RequireView view="HR_SEE_ALL_STAFF"><ErrorBoundary><StaffOnboardingPage /></ErrorBoundary></RequireView></RequireModule>} />
           <Route path="/hr/appraisals" element={<RequireModule module={MODULES.HR}><ErrorBoundary><AppraisalsPage /></ErrorBoundary></RequireModule>} />
         <Route path="/hr/appraisal-schedule" element={<RequireModule module={MODULES.HR}><ErrorBoundary><AppraisalSchedulePage /></ErrorBoundary></RequireModule>} />
         <Route path="/hr/appraisal-schedule/new" element={<RequireModule module={MODULES.HR}><ErrorBoundary><ScheduleNewPage /></ErrorBoundary></RequireModule>} />
@@ -417,7 +419,7 @@ export default function App() {
         <Route path="/appraisals/:id" element={<ErrorBoundary><AppraisalRunPage /></ErrorBoundary>} />
         {/* One criterion scored from a form, on its own page (each item's rating and comments). */}
         <Route path="/appraisals/:id/criteria/:criterionId" element={<ErrorBoundary><CriterionMarksPage /></ErrorBoundary>} />
-          <Route path="/hr/candidates/import" element={<RequireModule module={MODULES.HR}><ErrorBoundary><ImportCandidatesPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/hr/candidates/import" element={<RequireModule module={MODULES.HR}><RequireView view="HR_SEE_ALL_STAFF"><ErrorBoundary><ImportCandidatesPage /></ErrorBoundary></RequireView></RequireModule>} />
           <Route path="/hr/sop-observations" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/sop-observations/new" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationNewPage /></ErrorBoundary></RequireModule>} />
           <Route path="/hr/sop-observations/:id" element={<RequireModule module={MODULES.HR}><ErrorBoundary><SopObservationDetailPage /></ErrorBoundary></RequireModule>} />
@@ -443,7 +445,7 @@ export default function App() {
               screens, not the teacher's own self-service mobile app. */}
           <Route path="/teachers/:id/career" element={<RequireModule module={MODULES.HR}><ErrorBoundary><TeacherCareerPage /></ErrorBoundary></RequireModule>} />
           <Route path="/teachers/:id/appraisal" element={<RequireModule module={MODULES.HR}><ErrorBoundary><TeacherAppraisalPage /></ErrorBoundary></RequireModule>} />
-          <Route path="/teachers/:id/compensation" element={<RequireModule module={MODULES.HR}><ErrorBoundary><TeacherCompensationPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/teachers/:id/compensation" element={<RequireModule module={MODULES.HR}><RequireView view="HR_SEE_PAY"><ErrorBoundary><TeacherCompensationPage /></ErrorBoundary></RequireView></RequireModule>} />
           {/* Teacher-facing mobile app (bottom-nav tabs Home / Career / Pay /
               Rewards / Leaderboard) — a teacher's own self-service access to
               their own record, orthogonal to the admin nav Module system.
