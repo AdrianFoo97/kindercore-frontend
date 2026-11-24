@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import StepPhoto from './operations/guidePhotos/StepPhoto.js';
+import StepPhotoField from './operations/guidePhotos/StepPhotoField.js';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -199,12 +201,12 @@ export default function HrSopRevisionReviewPage() {
   const editingStep = drawer.mode === 'edit' ? steps.find(st => st.key === drawer.key) ?? null : null;
   const insertAfterStep = drawer.mode === 'new' && drawer.insertAfterKey ? steps.find(st => st.key === drawer.insertAfterKey) ?? null : null;
   const closeDrawer = () => setDrawer({ mode: 'closed' });
-  const saveDrawerStep = (section: string, title: string, detail: string) => {
+  const saveDrawerStep = (section: string, title: string, detail: string, imageId: string | null) => {
     if (drawer.mode === 'edit') {
       const key = drawer.key;
-      setSteps(prev => prev.map(st => (st.key === key ? { ...st, section, title, detail } : st)));
+      setSteps(prev => prev.map(st => (st.key === key ? { ...st, section, title, detail, imageId } : st)));
     } else {
-      const newStep: DraftStep = { key: `k${keySeq++}`, section, title, detail };
+      const newStep: DraftStep = { key: `k${keySeq++}`, section, title, detail, imageId };
       const insertAfterKey = drawer.mode === 'new' ? drawer.insertAfterKey : undefined;
       setSteps(prev => {
         const idx = insertAfterKey ? prev.findIndex(st => st.key === insertAfterKey) : -1;
@@ -219,7 +221,8 @@ export default function HrSopRevisionReviewPage() {
 
   const cleanSteps: ProposedStep[] = steps
     .filter(st => st.title.trim())
-    .map(st => ({ section: st.section.trim() || 'General', title: st.title.trim(), detail: (st.detail ?? '').trim() || null }));
+    // Keep each step's linked guide and photo — editing in review must not drop them.
+    .map(st => ({ section: st.section.trim() || 'General', title: st.title.trim(), detail: (st.detail ?? '').trim() || null, linkedTemplateId: st.linkedTemplateId ?? null, imageId: st.imageId ?? null }));
 
   const [processing, setProcessing] = useState(false);
 
@@ -514,6 +517,7 @@ export default function HrSopRevisionReviewPage() {
                       <span style={{ flex: 1, fontWeight: 600, color: C.text }}>{st.title}</span>
                     </div>
                     {detailLines.length > 0 && <div style={sMobile.stepCardDetail}>{renderDetailLines(detailLines)}</div>}
+                    {st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} height={140} />}
                     {isPending && commentBox(st) && <div style={{ marginTop: 10 }}>{commentBox(st)}</div>}
                     {isPending && (
                       <div style={sMobile.stepCardActions}>
@@ -563,7 +567,10 @@ export default function HrSopRevisionReviewPage() {
                             <span style={{ fontWeight: 600, color: C.text, paddingTop: 2 }}>{st.title}</span>
                           </div>
                         </td>
-                        <td style={s.tdDetail}>{renderDetailLines(detailLines)}</td>
+                        <td style={s.tdDetail}>
+                          {renderDetailLines(detailLines)}
+                          {st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} height={140} />}
+                        </td>
                         {isPending && (
                           <td style={s.tdActions}>
                             <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
@@ -651,8 +658,10 @@ function StepDrawer({
   insertAfterStep: DraftStep | null;
   sections: string[];
   onCancel: () => void;
-  onSave: (section: string, title: string, detail: string) => void;
+  onSave: (section: string, title: string, detail: string, imageId: string | null) => void;
 }) {
+  const [imageId, setImageId] = useState<string | null>(initial?.imageId ?? null);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [section, setSection] = useState(initial?.section ?? insertAfterStep?.section ?? sections[0] ?? '');
   const [title, setTitle] = useState(initial?.title ?? '');
   const [detail, setDetail] = useState(initial?.detail ?? '');
@@ -694,10 +703,16 @@ function StepDrawer({
             <label style={s.label}>Operation details<span style={s.labelHint}>One point per line. Start a line with "-" for a bullet point.</span></label>
             <textarea value={detail} onChange={e => setDetail(e.target.value)} style={{ ...s.input, minHeight: 140, resize: 'vertical' as const }} />
           </div>
+          <div style={{ ...s.field, marginTop: 18, marginBottom: 0 }}>
+            <label style={s.label}>Photo<span style={s.labelHint}>Optional — one clear picture of how it should look.</span></label>
+            <StepPhotoField imageId={imageId} onChange={setImageId} stepTitle={title} accent={C.primary} onBusy={setPhotoBusy} />
+          </div>
         </div>
         <div style={drawerS.footer}>
           <button onClick={onCancel} style={s.cancelBtn}>Cancel</button>
-          <button onClick={() => onSave(section.trim() || 'General', title.trim(), detail)} disabled={!title.trim()} style={{ ...s.saveBtn, opacity: !title.trim() ? 0.5 : 1 }}>
+          <button onClick={() => onSave(section.trim() || 'General', title.trim(), detail, imageId)} disabled={!title.trim() || photoBusy}
+            title={photoBusy ? 'Wait for the photo to finish uploading' : undefined}
+            style={{ ...s.saveBtn, opacity: !title.trim() || photoBusy ? 0.5 : 1, cursor: !title.trim() || photoBusy ? 'default' : 'pointer' }}>
             {mode === 'edit' ? 'Save step' : 'Add step'}
           </button>
         </div>

@@ -10,6 +10,8 @@ export interface SopStep {
   // the target template is later deleted; the caller should only render a
   // link when it can still resolve the target's title from a live list.
   linkedTemplateId: string | null;
+  /** Optional photo (load with fetchGuideImage). */
+  imageId: string | null;
   displayOrder: number;
   deletedAt: string | null;
   createdAt: string;
@@ -22,6 +24,7 @@ export interface UpsertSopStepPayload {
   title: string;
   detail?: string | null;
   linkedTemplateId?: string | null;
+  imageId?: string | null;
   displayOrder?: number;
 }
 

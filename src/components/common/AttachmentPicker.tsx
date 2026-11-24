@@ -1,30 +1,49 @@
 import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCamera, faPlay, faXmark } from '@fortawesome/free-solid-svg-icons';
-import { ATTACHMENT_ACCEPT, MAX_ATTACHMENTS, attachmentProblem, fileKind, fileSizeLabel } from './facilityDisplay.js';
-import type { FacilityFieldsTheme } from './FacilityIssueFields.js';
+import { fileKind, fileSizeLabel } from '../../pages/facilities/facilityDisplay.js';
 
-// Report form → "Photos or videos": pick from the camera or gallery, see a
-// preview of each, remove one. Files are checked here (type, size, count)
-// so nothing doomed gets uploaded.
+// A form's "Photos" field: pick from the camera or gallery, see a preview of
+// each, remove one. Files are checked here (type, size, count — the caller's
+// rules) so nothing doomed gets uploaded. Used by Facilities → Report and the
+// purchase request form.
 
 const TILE = 84;
+
+/** What this field takes — the caller's own limits and wording. */
+export interface AttachmentRules {
+  max: number;
+  /** For the file input's `accept` — phones then offer the camera and the gallery. */
+  accept: string;
+  /** Why these files can't be attached, or null when they're fine. */
+  problem: (files: File[]) => string | null;
+  /** Shown under the tiles while nothing is wrong. */
+  hint: string;
+}
+
+export interface AttachmentPickerTheme {
+  accent: string;
+  muted: string;
+  border: string;
+  inputBg?: string;
+}
 
 interface Props {
   files: File[];
   onChange: (files: File[]) => void;
-  theme: FacilityFieldsTheme;
+  rules: AttachmentRules;
+  theme: AttachmentPickerTheme;
   disabled?: boolean;
 }
 
-export default function AttachmentPicker({ files, onChange, theme: t, disabled }: Props) {
+export default function AttachmentPicker({ files, onChange, rules, theme: t, disabled }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
   const add = (picked: FileList | null) => {
     if (!picked?.length) return;
     const next = [...files, ...Array.from(picked)];
-    const p = attachmentProblem(next);
+    const p = rules.problem(next);
     setProblem(p);
     if (!p) onChange(next);
     if (input.current) input.current.value = ''; // so picking the same file again still fires
@@ -37,9 +56,9 @@ export default function AttachmentPicker({ files, onChange, theme: t, disabled }
           <PickedFileTile key={`${f.name}-${f.size}-${i}`} file={f} disabled={disabled}
             onRemove={() => { setProblem(null); onChange(files.filter((_, j) => j !== i)); }} />
         ))}
-        {files.length < MAX_ATTACHMENTS && (
+        {files.length < rules.max && (
           <button type="button" disabled={disabled} onClick={() => input.current?.click()} style={{
-            width: TILE, height: TILE, borderRadius: 12, border: `1.5px dashed ${t.border}`, background: t.inputBg,
+            width: TILE, height: TILE, borderRadius: 12, border: `1.5px dashed ${t.border}`, background: t.inputBg ?? '#fff',
             color: t.muted, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
             fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', cursor: disabled ? 'default' : 'pointer', WebkitTapHighlightColor: 'transparent',
           }}>
@@ -48,9 +67,9 @@ export default function AttachmentPicker({ files, onChange, theme: t, disabled }
           </button>
         )}
       </div>
-      <input ref={input} type="file" accept={ATTACHMENT_ACCEPT} multiple hidden onChange={e => add(e.target.files)} />
+      <input ref={input} type="file" accept={rules.accept} multiple hidden onChange={e => add(e.target.files)} />
       <div style={{ fontSize: 12, color: problem ? '#b91c1c' : t.muted, fontWeight: problem ? 700 : 500, marginTop: 6 }}>
-        {problem ?? `At least one, up to ${MAX_ATTACHMENTS} — photos under 10 MB, videos under 50 MB.`}
+        {problem ?? rules.hint}
       </div>
     </div>
   );

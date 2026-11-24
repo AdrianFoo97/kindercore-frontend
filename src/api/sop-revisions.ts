@@ -18,6 +18,8 @@ export interface ProposedStep {
   title: string;
   detail?: string | null;
   linkedTemplateId?: string | null;
+  /** Optional step photo (uploaded with uploadGuideImage). */
+  imageId?: string | null;
 }
 
 export interface SopTemplateRevision {

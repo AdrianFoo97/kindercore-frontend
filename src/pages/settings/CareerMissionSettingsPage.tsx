@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faTrash, faPen, faGripVertical, faTimes, faCheck, faCircleExclamation,
-  faRoad, faClipboardCheck, faCalendarDays, faPeopleArrows, faStar,
+  faRoad, faClipboardCheck, faCalendarDays, faPeopleArrows, faStar, faRobot,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchPositions, fetchDepartments } from '../../api/salary.js';
 import {
@@ -14,7 +14,9 @@ import {
 import { useCategoryMeta } from '../../utils/missionCategoryIcons.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
+import { BulkMissionBar } from './career-missions/BulkMissionBar.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import { useNavigate } from 'react-router-dom';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -47,6 +49,7 @@ const DIFFICULTY_META: Record<MissionDifficulty, { label: string; color: string 
 const PAGE_SIZE = 10;
 
 export default function CareerMissionSettingsPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { confirm: confirmDelete } = useDeleteDialog();
@@ -133,6 +136,14 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CareerMission | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  // Ticked missions, for changing or archiving several at once (BulkMissionBar).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  useEffect(() => { setSelected(new Set()); }, [selectedPositionId]);
+  const toggleSelected = (id: string) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const [dropId, setDropId] = useState<string | null>(null);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['career-missions'] });
@@ -305,6 +316,15 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
                   </select>
                 )}
                 <button
+                  type="button"
+                  onClick={() => navigate('/settings/career-missions/import')}
+                  title="Read an Excel or PDF list with AI — you check everything before it’s created"
+                  style={{ minHeight: 36, padding: '0 14px', borderRadius: 8, border: '1px solid #c7cdf2', background: '#fff', color: '#5a67d8', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <FontAwesomeIcon icon={faRobot} />
+                  Import with AI
+                </button>
+                <button
                   onClick={() => { setEditing(null); setEditorOpen(true); }}
                   style={s.primaryBtn}
                 >
@@ -334,6 +354,30 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
             </div>
           ) : (
             <>
+              {selected.size > 0 && (
+                <BulkMissionBar
+                  ids={[...selected]}
+                  categories={missionCategories.map(c => ({ code: c.code, label: getMeta(c.code).label }))}
+                  onDone={() => { setSelected(new Set()); invalidate(); }}
+                  onClear={() => setSelected(new Set())}
+                />
+              )}
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 13, color: C.muted, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  style={{ width: 16, height: 16, accentColor: C.primary }}
+                  checked={pagedMissions.length > 0 && pagedMissions.every(m => selected.has(m.id))}
+                  onChange={e => {
+                    const on = e.target.checked;
+                    setSelected(prev => {
+                      const next = new Set(prev);
+                      for (const m of pagedMissions) { if (on) next.add(m.id); else next.delete(m.id); }
+                      return next;
+                    });
+                  }}
+                />
+                Select all on this page
+              </label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {pagedMissions.map((m, idx) => {
                   const cat = getMeta(m.category);
@@ -359,10 +403,18 @@ export default function CareerMissionSettingsPage({ embedded = false }: { embedd
                         style={{
                           ...s.missionRow,
                           opacity: isDrag ? 0.45 : 1,
-                          borderColor: isDrop ? C.primary : C.cardBorder,
+                          borderColor: isDrop || selected.has(m.id) ? C.primary : C.cardBorder,
                           boxShadow: isDrop ? '0 0 0 3px rgba(90,103,216,0.15)' : 'none',
+                          ...(selected.has(m.id) ? { background: '#f8f9ff' } : null),
                         }}
                       >
+                        <input
+                          type="checkbox"
+                          checked={selected.has(m.id)}
+                          onChange={() => toggleSelected(m.id)}
+                          aria-label={`Select “${m.title}”`}
+                          style={{ width: 16, height: 16, flexShrink: 0, accentColor: C.primary, cursor: 'pointer' }}
+                        />
                         <div
                           style={{ ...s.dragHandle, color: C.mutedSoft, opacity: dragEnabled ? 1 : 0.3, cursor: dragEnabled ? 'grab' : 'default' }}
                           title={dragEnabled ? undefined : 'Select a single category to reorder'}

@@ -1,8 +1,8 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
-import { FACILITY_CATEGORIES, type FacilityDraft } from './facilityDisplay.js';
+import { FACILITY_ATTACHMENT_RULES, FACILITY_CATEGORIES, type FacilityDraft } from './facilityDisplay.js';
 import { CATEGORY_ICON } from './facilityLook.js';
-import AttachmentPicker from './AttachmentPicker.js';
+import AttachmentPicker from '../../components/common/AttachmentPicker.js';
 
 // The "report a facility issue" fields — used by the teacher app's report
 // page and the admin report pop-up, each with its own colours.
@@ -82,7 +82,7 @@ export default function FacilityIssueFields({ value, onChange, theme: t, disable
 
       <div>
         <span style={label}>Photo or video</span>
-        <AttachmentPicker files={value.files} onChange={files => set('files', files)} theme={t} disabled={disabled} />
+        <AttachmentPicker files={value.files} onChange={files => set('files', files)} rules={FACILITY_ATTACHMENT_RULES} theme={t} disabled={disabled} />
       </div>
 
       {/* Urgent = unsafe for the children or stops a class. */}

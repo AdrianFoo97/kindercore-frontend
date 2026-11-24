@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  carriedTag, emptyPurchaseDraft, fmtMoment, fmtRM, laterOutcome, purchaseDraftProblem, purchaseDraftToInput, shiftWeek,
+  carriedTag, emptyPurchaseDraft, fmtMoment, fmtRM, laterOutcome, purchaseDraftProblem, purchaseDraftToInput, purchasePhotoProblem, shiftWeek,
   timelineWithCarryOvers, weekLabel, weekStartOf, weeksCarried,
 } from '../../pages/purchases/purchaseDisplay';
 
@@ -68,5 +68,17 @@ describe('Shopping list — week picker, money and the request form', () => {
     expect(purchaseDraftProblem({ ...ready, link: 'https://shopee.com.my/glue' })).toBeNull();
     expect(purchaseDraftToInput(ready)).toEqual({ buyer: 'SUPERVISOR', item: 'Glue', quantity: '2 boxes', purpose: 'Art', note: null, link: null });
     expect(purchaseDraftToInput({ ...ready, buyer: 'SELF' }).buyer).toBe('SELF');
+  });
+});
+
+describe('Request form — photos', () => {
+  const photo = (name: string, type = 'image/jpeg', size = 1024) => ({ name, type, size });
+  it('takes up to 3 photos under 10 MB — and refuses videos, PDFs and oversized photos before uploading', () => {
+    expect(purchasePhotoProblem([])).toBeNull();
+    expect(purchasePhotoProblem([photo('a.jpg'), photo('b.png', 'image/png'), photo('c.webp', 'image/webp')])).toBeNull();
+    expect(purchasePhotoProblem([photo('a'), photo('b'), photo('c'), photo('d')])).toMatch(/up to 3/);
+    expect(purchasePhotoProblem([photo('clip.mp4', 'video/mp4')])).toMatch(/clip.mp4.*isn’t a photo/);
+    expect(purchasePhotoProblem([photo('quote.pdf', 'application/pdf')])).toMatch(/isn’t a photo/);
+    expect(purchasePhotoProblem([photo('big.jpg', 'image/jpeg', 11 * 1024 * 1024)])).toMatch(/big.jpg.*under 10 MB/);
   });
 });

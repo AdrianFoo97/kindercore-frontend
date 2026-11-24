@@ -6,8 +6,9 @@ import {
   faCheck, faClockRotateLeft, faNoteSticky, faPen, faPlus, faReceipt, faTrash, faUser,
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  MY_REQUESTS_FRESHNESS, fetchMyPurchaseRequests, markBoughtMyself, refreshPurchaseLists, withdrawPurchaseRequest, type PurchaseBuyer, type PurchaseRequest,
+  MY_REQUESTS_FRESHNESS, fetchMyPurchaseRequests, fetchPurchasePhoto, markBoughtMyself, refreshPurchaseLists, withdrawPurchaseRequest, type PurchaseBuyer, type PurchaseRequest,
 } from '../../api/purchaseRequests.js';
+import PrivateAttachments from '../../components/common/PrivateAttachments.js';
 import ConfirmDialog from '../../components/common/ConfirmDialog.js';
 import FormModal from '../../components/common/FormModal.js';
 import SegmentedControl from '../../components/common/SegmentedControl.js';
@@ -211,6 +212,7 @@ function RequestCard({ request: r, onEdit, onWithdraw, onRecord, onBoughtMyself 
           {PURCHASE_STATUS_LABEL[r.status]}
         </span>
       </div>
+      {!!r.photos?.length && <PrivateAttachments files={r.photos} cacheKey={['purchase-photo', r.id]} load={fileId => fetchPurchasePhoto(r.id, fileId)} />}
       {r.status === 'NOT_BUYING' && r.declineReason && (
         <div style={{ marginTop: 10, padding: '8px 11px', borderRadius: 10, background: '#f8fafc', fontSize: 13, color: C.textStrong, lineHeight: 1.45 }}>
           {r.declineReason}

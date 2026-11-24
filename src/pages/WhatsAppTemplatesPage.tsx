@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchSettings, patchSetting } from '../api/settings.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,6 +8,10 @@ import LoadingSpinner from '../components/common/LoadingSpinner.js';
 import DeleteDialog from '../components/common/DeleteDialog.js';
 import { BUILT_IN_TEMPLATES, TEMPLATE_GROUPS, groupLabel, templateGroupOf, type TemplateGroupKey } from './messageTemplateGroups.js';
 import { useCanEditThisSetting } from './settings/useSettingsAccess.js';
+import { RewriteRequest, RewriteSuggestion, useMessageRewrite } from './message-templates/RewriteWithAi.js';
+
+/** The message box's height — the AI suggestion beside it matches. */
+const EDITOR_HEIGHT = 260;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -124,6 +128,9 @@ function TemplateEditor({ name, group, contentEn, contentZh, isSystem, isAdmin, 
   const [draftZh, setDraftZh] = useState(contentZh);
   const [lang, setLang] = useState<'en' | 'zh'>('zh');
   const taRef = useRef<HTMLTextAreaElement>(null);
+  // Rewrite with AI — for the language shown; switching language drops a suggestion for the other one.
+  const rewrite = useMessageRewrite(lang === 'en' ? draftEn : draftZh, next => (lang === 'en' ? setDraftEn(next) : setDraftZh(next)));
+  useEffect(() => { rewrite.discard(); }, [lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const insertPlaceholder = (placeholder: string) => {
     const ta = taRef.current;
@@ -215,14 +222,20 @@ function TemplateEditor({ name, group, contentEn, contentZh, isSystem, isAdmin, 
             ))}
           </div>
         </div>
-        <textarea
-          ref={taRef}
-          style={{ ...s.input, height: 260, resize: 'vertical', lineHeight: 1.75, fontSize: 14, padding: '14px 16px' }}
-          value={lang === 'en' ? draftEn : draftZh}
-          onChange={e => lang === 'en' ? setDraftEn(e.target.value) : setDraftZh(e.target.value)}
-          placeholder={lang === 'en' ? 'Enter English message template...' : 'Enter Chinese message template...'}
-          disabled={!isAdmin}
-        />
+        {/* Rewrite with AI — above the message so it's always in view; rewrites the language shown. */}
+        {isAdmin && <RewriteRequest text={lang === 'en' ? draftEn : draftZh} r={rewrite} />}
+        {/* The message, with an AI suggestion beside it to compare (stacks underneath on a phone). */}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'stretch' }}>
+          <textarea
+            ref={taRef}
+            style={{ ...s.input, flex: '1 1 320px', minWidth: 0, height: EDITOR_HEIGHT, resize: 'vertical', lineHeight: 1.75, fontSize: 14, padding: '14px 16px' }}
+            value={lang === 'en' ? draftEn : draftZh}
+            onChange={e => lang === 'en' ? setDraftEn(e.target.value) : setDraftZh(e.target.value)}
+            placeholder={lang === 'en' ? 'Enter English message template...' : 'Enter Chinese message template...'}
+            disabled={!isAdmin}
+          />
+          <RewriteSuggestion r={rewrite} height={EDITOR_HEIGHT} />
+        </div>
       </div>
 
       {/* ── Footer ── */}

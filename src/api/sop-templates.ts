@@ -1,4 +1,6 @@
-import { apiFetch } from './client.js';
+import { apiFetch, fetchPrivateFile } from './client.js';
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export interface SopTemplateCategoryRef {
   id: string;
@@ -17,6 +19,13 @@ export interface SopTemplate {
   // FA icon name (with the `fa` prefix) — see ALLOWED_ICONS in
   // sopTemplateIcons.ts for the picker allow-list.
   icon: string;
+  /** The saved AI poster (load with fetchPosterImage) — drawn once, then reused. */
+  posterImageId: string | null;
+  /** The guide version the poster was drawn from — older than currentVersion = the guide changed since. */
+  posterVersion: number | null;
+  posterMadeAt: string | null;
+  /** A newly drawn poster waiting to be checked (Use this / Discard). */
+  posterDraftImageId: string | null;
   displayOrder: number;
   // Only present on listTemplates (a joined query) — createTemplate/
   // updateTemplate return the bare row, so this is absent there. Consumers
@@ -67,4 +76,31 @@ export function setTemplateCategories(id: string, categoryIds: string[]) {
     method: 'PUT',
     body: JSON.stringify({ categoryIds }),
   });
+}
+
+// ── AI poster (sop-templates.routes.ts → guidePoster.controller.ts) ──
+
+export interface PosterAiStatus { available: boolean; reason: string | null }
+
+/** Guide authors: whether "Make poster with AI" can work right now. */
+export function fetchPosterAiStatus() {
+  return apiFetch<PosterAiStatus>('/api/sop-templates/poster/ai-status');
+}
+
+/** Draw a new poster (takes up to a minute) — kept as a draft until accepted. */
+export function drawPosterDraft(templateId: string) {
+  return apiFetch<{ draftImageId: string; provider: string; model: string }>(`/api/sop-templates/${templateId}/poster/draft`, { method: 'POST' });
+}
+
+export function acceptPosterDraft(templateId: string) {
+  return apiFetch<{ ok: true }>(`/api/sop-templates/${templateId}/poster/accept`, { method: 'POST' });
+}
+
+export function discardPosterDraft(templateId: string) {
+  return apiFetch<{ ok: true }>(`/api/sop-templates/${templateId}/poster/draft`, { method: 'DELETE' });
+}
+
+/** The poster (or its draft) picture as a Blob — private, so fetched with the login. */
+export function fetchPosterImage(templateId: string, imageId: string): Promise<Blob> {
+  return fetchPrivateFile(`${BASE_URL}/api/sop-templates/${templateId}/poster/image/${encodeURIComponent(imageId)}`, 'Couldn’t load the poster.');
 }

@@ -26,6 +26,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.13.1",
@@ -38,6 +39,7 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
+    "@types/qrcode": "^1.5.5",
     "jsdom": "^24.1.0",
     "vitest": "^1.6.0"
   }

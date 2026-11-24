@@ -104,3 +104,7 @@ export async function compareProvidersOnPnl(file: File): Promise<Comparison> {
   // Sent as JSON, like Import P&L (the host's firewall blocks PDF file uploads).
   return apiFetch<Comparison>('/api/ai/compare/pnl-reading', { method: 'POST', body: JSON.stringify(await pdfAsJson(file)) });
 }
+
+/** Message templates → Rewrite with AI: a suggestion only (same language, every {{placeholder}} kept). Saves nothing. */
+export const rewriteMessage = (text: string, request: string) =>
+  apiFetch<{ text: string }>('/api/ai/rewrite-message', { method: 'POST', body: JSON.stringify({ text, request }) });

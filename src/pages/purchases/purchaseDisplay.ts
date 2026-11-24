@@ -1,3 +1,5 @@
+import type { AttachmentRules } from '../../components/common/AttachmentPicker.js';
+import { IMAGE_ACCEPT, MAX_IMAGE_BYTES, fileKind } from '../facilities/facilityDisplay.js';
 import type { PurchaseBuyer, PurchaseLogKind, PurchaseRequestInput, PurchaseStatus } from '../../api/purchaseRequests.js';
 
 // Purchase requests — labels, the week picker and the request form's
@@ -175,6 +177,28 @@ export function purchaseDraftProblem(d: PurchaseDraft): string | null {
   if (link && !/^https?:\/\/\S+\.\S+/i.test(link)) return 'Paste the full shop link, starting with https://';
   return null;
 }
+
+// ── Photos on a request (e.g. the exact product) — the server checks the same ──
+
+export const MAX_PURCHASE_PHOTOS = 3;
+const MB = 1024 * 1024;
+
+/** Why these photos can't be attached, or null when they're fine — checked before uploading. */
+export function purchasePhotoProblem(files: { type: string; size: number; name: string }[]): string | null {
+  if (files.length > MAX_PURCHASE_PHOTOS) return `You can add up to ${MAX_PURCHASE_PHOTOS} photos.`;
+  for (const f of files) {
+    if (fileKind(f.type) !== 'image') return `“${f.name}” isn’t a photo we can take (JPG, PNG, WebP, GIF).`;
+    if (f.size > MAX_IMAGE_BYTES) return `“${f.name}” is too big — each photo must be under ${MAX_IMAGE_BYTES / MB} MB.`;
+  }
+  return null;
+}
+
+export const PURCHASE_PHOTO_RULES: AttachmentRules = {
+  max: MAX_PURCHASE_PHOTOS,
+  accept: IMAGE_ACCEPT,
+  problem: purchasePhotoProblem,
+  hint: `Up to ${MAX_PURCHASE_PHOTOS} photos, e.g. the exact product — each under 10 MB.`,
+};
 
 export function purchaseDraftToInput(d: PurchaseDraft): PurchaseRequestInput {
   return {

@@ -164,6 +164,8 @@ function teacherSopTopBar(pathname: string, search: string): TopBarState | null 
       backTo: step === '2' ? `${here}/propose?app=teacher&step=1` : GO_BACK,
     };
   }
+  // A guide's printable poster — back to the guide it was opened from.
+  if (/^\/operations\/sops\/[^/]+\/poster$/.test(pathname)) return { title: 'Poster', showBack: true, backTo: GO_BACK };
   const detailMatch = pathname.match(/^\/operations\/sops\/([^/]+)$/);
   if (detailMatch) {
     // SopTemplateStepsPage.tsx mirrors the guide's own name and

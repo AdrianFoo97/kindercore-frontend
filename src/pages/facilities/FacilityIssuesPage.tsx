@@ -5,7 +5,7 @@ import {
   faCheck, faClock, faLocationDot, faPlus, faRotateLeft, faScrewdriverWrench, faSearch, faUser, faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  fetchFacilityIssues, fetchMyFacilityIssues, FACILITY_MANAGE_VIEW, type FacilityIssue, type FacilityStatus,
+  fetchFacilityAttachment, fetchFacilityIssues, fetchMyFacilityIssues, FACILITY_MANAGE_VIEW, type FacilityIssue, type FacilityStatus,
 } from '../../api/facilityIssues.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
@@ -14,7 +14,7 @@ import {
 } from './facilityDisplay.js';
 import { CATEGORY_ICON, STATUS_LOOK, URGENT_LOOK } from './facilityLook.js';
 import ReportFacilityModal from './ReportFacilityModal.js';
-import FacilityAttachments from './FacilityAttachments.js';
+import PrivateAttachments from '../../components/common/PrivateAttachments.js';
 import UpdateFacilityStatusModal from './UpdateFacilityStatusModal.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
@@ -169,7 +169,7 @@ function FacilityIssueCard({ issue: i, canManage, onMove }: { issue: FacilityIss
             <span><FontAwesomeIcon icon={faUser} style={{ fontSize: 10.5, marginRight: 4, color: C.mutedSoft }} />{i.reportedByName}, {ageLabel(i.createdAt)}</span>
           </div>
           {i.description && <div style={{ fontSize: 13, color: C.sub, marginTop: 8, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{i.description}</div>}
-          {!!i.attachments?.length && <FacilityAttachments issueId={i.id} attachments={i.attachments} />}
+          {!!i.attachments?.length && <PrivateAttachments files={i.attachments} cacheKey={['facility-attachment', i.id]} load={fileId => fetchFacilityAttachment(i.id, fileId)} />}
           {i.statusNote && (
             <div style={{ fontSize: 12.5, color: C.sub, marginTop: 8, padding: '7px 10px', borderRadius: 8, background: '#f8fafc', borderLeft: `3px solid ${look.fg}` }}>
               {i.statusNote}

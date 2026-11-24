@@ -66,6 +66,7 @@ import HrSopRevisionsPage from './pages/HrSopRevisionsPage.js';
 import HrSopRevisionReviewPage from './pages/HrSopRevisionReviewPage.js';
 import SopAuthorPage from './pages/operations/SopAuthorPage.js';
 import SopTemplateStepsPage from './pages/operations/SopTemplateStepsPage.js';
+import GuidePosterPage from './pages/operations/poster/GuidePosterPage.js';
 import SopCategoriesPage from './pages/settings/SopCategoriesPage.js';
 import SopSectionsPage from './pages/settings/SopSectionsPage.js';
 import HowToGuideSettingsPage from './pages/settings/HowToGuideSettingsPage.js';
@@ -162,6 +163,7 @@ import CandidatesPage from './pages/CandidatesPage.js';
 import ImportCandidatesPage from './pages/candidates/ImportCandidatesPage.js';
 import RecruitmentSettingsPage from './pages/settings/RecruitmentSettingsPage.js';
 import { APP_VERSION, LAST_UPDATED } from './version.js';
+import MissionImportPage from './pages/settings/missionImport/MissionImportPage.js';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
@@ -350,6 +352,7 @@ export default function App() {
             <Route path="/settings/employee-salary" element={<ErrorBoundary><EmployeeSalaryPage /></ErrorBoundary>} />
             <Route path="/settings/employee-salary/positions/new" element={<ErrorBoundary><PositionEditPage /></ErrorBoundary>} />
             <Route path="/settings/employee-salary/positions/:id/edit" element={<ErrorBoundary><PositionEditPage /></ErrorBoundary>} />
+            <Route path="/settings/career-missions/import" element={<ErrorBoundary><MissionImportPage /></ErrorBoundary>} />
             <Route path="/settings/career-missions" element={<ErrorBoundary><TitledSettingsPage title="Career missions"><CareerMissionSettingsPage embedded /></TitledSettingsPage></ErrorBoundary>} />
             <Route path="/settings/mission-categories" element={<ErrorBoundary><TitledSettingsPage title="Mission categories"><MissionCategoriesPage embedded /></TitledSettingsPage></ErrorBoundary>} />
             <Route path="/settings/hr" element={<ErrorBoundary><SettingsHrPage /></ErrorBoundary>} />
@@ -504,6 +507,7 @@ export default function App() {
           <Route path="/operations/sops/propose" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopProposePage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops/:templateId" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopTemplateStepsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/guide/:templateId" element={<GuideShareRedirect />} />
+          <Route path="/operations/sops/:templateId/poster" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><GuidePosterPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/sops/:templateId/propose" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><SopProposePage /></ErrorBoundary></RequireModule>} />
           <Route path="/analysis/sales-marketing" element={<RequireModule module={MODULES.ANALYSIS}><ErrorBoundary><SalesMarketingPage /></ErrorBoundary></RequireModule>} />
           <Route path="/analysis/sales" element={<RequireModule module={MODULES.ANALYSIS}><ErrorBoundary><SalesAnalysisPage /></ErrorBoundary></RequireModule>} />

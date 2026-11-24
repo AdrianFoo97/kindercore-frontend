@@ -3,13 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faLocationDot, faPlus } from '@fortawesome/free-solid-svg-icons';
-import { fetchMyFacilityIssues, type FacilityIssue, type FacilityStatus } from '../../api/facilityIssues.js';
+import { fetchFacilityAttachment, fetchMyFacilityIssues, type FacilityIssue, type FacilityStatus } from '../../api/facilityIssues.js';
 import { TEACHER_CONTENT_TOP } from '../../components/common/TeacherTopBar.js';
 import TeacherFab, { TEACHER_FAB_CLEARANCE } from '../../components/common/TeacherFab.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { FACILITY_STATUS_LABEL, ageLabel, sortForQueue } from './facilityDisplay.js';
 import { CATEGORY_ICON, STATUS_LOOK } from './facilityLook.js';
-import FacilityAttachments from './FacilityAttachments.js';
+import PrivateAttachments from '../../components/common/PrivateAttachments.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Teacher app → Facilities: report something broken (door, leaking pipe…)
@@ -139,7 +139,7 @@ function ReportCard({ report: r }: { report: FacilityIssue }) {
           </div>
         </div>
       </div>
-      {!!r.attachments?.length && <FacilityAttachments issueId={r.id} attachments={r.attachments} />}
+      {!!r.attachments?.length && <PrivateAttachments files={r.attachments} cacheKey={['facility-attachment', r.id]} load={fileId => fetchFacilityAttachment(r.id, fileId)} />}
       {r.statusNote && (
         <div style={{ marginTop: 10, padding: '8px 11px', borderRadius: 10, background: '#f8fafc', fontSize: 13, color: C.textStrong, lineHeight: 1.45 }}>
           {r.statusNote}

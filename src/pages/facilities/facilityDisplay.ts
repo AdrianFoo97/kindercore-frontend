@@ -1,3 +1,4 @@
+import type { AttachmentRules } from '../../components/common/AttachmentPicker.js';
 import type { FacilityCategory, FacilityIssue, FacilityIssueInput, FacilityStatus, FacilityUrgency } from '../../api/facilityIssues.js';
 
 // Facility issues — labels, the work-queue order, filters and the report
@@ -71,6 +72,8 @@ export const MAX_IMAGE_BYTES = 10 * MB;
 export const MAX_VIDEO_BYTES = 50 * MB;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+/** Photos only — for forms that take no video. */
+export const IMAGE_ACCEPT = IMAGE_TYPES.join(',');
 /** For the file picker's `accept` — phones then offer the camera and the gallery. */
 export const ATTACHMENT_ACCEPT = [...IMAGE_TYPES, ...VIDEO_TYPES].join(',');
 
@@ -91,6 +94,14 @@ export function attachmentProblem(files: { type: string; size: number; name: str
   }
   return null;
 }
+
+/** The report form's photo/video field. */
+export const FACILITY_ATTACHMENT_RULES: AttachmentRules = {
+  max: MAX_ATTACHMENTS,
+  accept: ATTACHMENT_ACCEPT,
+  problem: attachmentProblem,
+  hint: `At least one, up to ${MAX_ATTACHMENTS} — photos under 10 MB, videos under 50 MB.`,
+};
 
 /** "2.4 MB" / "640 KB". */
 export function fileSizeLabel(bytes: number): string {

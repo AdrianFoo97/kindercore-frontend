@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTrash, faPen, faGripVertical, faTimes, faCheck, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faTrash, faPen, faGripVertical, faTimes, faCheck, faChevronLeft, faRobot } from '@fortawesome/free-solid-svg-icons';
 import {
   fetchMissionCategories, createMissionCategory, updateMissionCategory,
   deleteMissionCategory, reorderMissionCategories,
@@ -12,6 +12,7 @@ import { resolveCategoryIcon } from '../../utils/missionCategoryIcons.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import { useNavigate } from 'react-router-dom';
 
 const C = {
   bg: '#f8fafc',
@@ -32,6 +33,7 @@ const RADIUS_SM = 8;
 const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 
 export default function MissionCategoriesPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const { showToast } = useToast();
   const { confirm } = useDeleteDialog();
@@ -133,6 +135,16 @@ export default function MissionCategoriesPage({ embedded = false }: { embedded?:
                 {sorted.length === 0 ? 'No categories yet' : `${sorted.length} categor${sorted.length === 1 ? 'y' : 'ies'} · drag to reorder`}
               </div>
             </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => navigate('/settings/career-missions/import')}
+                title="Read an Excel or PDF list with AI — you check everything before it’s created"
+                style={{ minHeight: 36, padding: '0 14px', borderRadius: 8, border: '1px solid #c7cdf2', background: '#fff', color: '#5a67d8', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <FontAwesomeIcon icon={faRobot} />
+                Import with AI
+              </button>
             <button
               onClick={() => { setEditing(null); setEditorOpen(true); }}
               style={s.primaryBtn}
@@ -140,6 +152,7 @@ export default function MissionCategoriesPage({ embedded = false }: { embedded?:
               <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />
               Add category
             </button>
+            </div>
           </div>
 
           {isLoading ? (

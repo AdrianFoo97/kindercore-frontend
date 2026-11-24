@@ -2,7 +2,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowUpRightFromSquare, faBan, faCheck, faClock, faClockRotateLeft, faNoteSticky, faReceipt, faRotateLeft, faThumbsUp, faUser,
 } from '@fortawesome/free-solid-svg-icons';
-import type { PurchaseRequest } from '../../api/purchaseRequests.js';
+import { fetchPurchasePhoto, type PurchaseRequest } from '../../api/purchaseRequests.js';
+import PrivateAttachments from '../../components/common/PrivateAttachments.js';
 import { ActionMenu, type ActionMenuItem } from '../../components/onboarding/ActionMenu.js';
 import { ReceiptThumb } from './BoughtDetailsModal.js';
 import { CARRIED_LOOK, carriedTag, fmtRM, laterOutcome, weekStartOf } from './purchaseDisplay.js';
@@ -143,6 +144,7 @@ function RequestInfo({ request: r, extra, crossedOut }: { request: PurchaseReque
           )}
         </div>
       )}
+      {!!r.photos?.length && <PrivateAttachments files={r.photos} cacheKey={['purchase-photo', r.id]} load={fileId => fetchPurchasePhoto(r.id, fileId)} />}
     </div>
   );
 }

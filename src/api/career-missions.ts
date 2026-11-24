@@ -154,3 +154,8 @@ export function setMissionTarget(
     body: JSON.stringify({ isTargeted }),
   });
 }
+
+/** Several missions at once: archive them, or set the same details on all of them. */
+export function bulkUpdateMissions(ids: string[], action: { delete: true } | { set: Partial<Pick<CreateMissionPayload, 'difficulty' | 'required' | 'highPriority' | 'category'>> }) {
+  return apiFetch<{ updated: number }>('/api/career-missions/bulk', { method: 'POST', body: JSON.stringify({ ids, ...action }) });
+}

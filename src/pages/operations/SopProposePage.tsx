@@ -10,6 +10,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchTemplates } from '../../api/sop-templates.js';
 import { fetchSteps } from '../../api/sop-steps.js';
+import StepPhoto from './guidePhotos/StepPhoto.js';
+import StepPhotoField from './guidePhotos/StepPhotoField.js';
 import { fetchCategories } from '../../api/sop-categories.js';
 import { fetchSections } from '../../api/sop-sections.js';
 import { createRevision, fetchRevision, updateRevision, approveRevision, resubmitRevision, ProposedStep } from '../../api/sop-revisions.js';
@@ -273,7 +275,7 @@ export default function SopProposePage() {
     setSteps(
       liveSteps.length > 0
         ? [...liveSteps].sort((a, b) => a.displayOrder - b.displayOrder).map(st => ({
-            key: st.id, section: st.section, title: st.title, detail: st.detail ?? '',
+            key: st.id, section: st.section, title: st.title, detail: st.detail ?? '', linkedTemplateId: st.linkedTemplateId ?? null, imageId: st.imageId ?? null,
           }))
         : [],
     );
@@ -293,7 +295,7 @@ export default function SopProposePage() {
     setSteps(
       duplicateSourceSteps.length > 0
         ? [...duplicateSourceSteps].sort((a, b) => a.displayOrder - b.displayOrder).map(st => ({
-            key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '', linkedTemplateId: st.linkedTemplateId ?? null,
+            key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '', linkedTemplateId: st.linkedTemplateId ?? null, imageId: st.imageId ?? null,
           }))
         : [],
     );
@@ -316,7 +318,7 @@ export default function SopProposePage() {
     setIcon(sourceRevision.icon ?? ALLOWED_SOP_ICONS[0]);
     setCategoryIds(sourceRevision.categoryIdsJson ?? []);
     const seededSteps = sourceRevision.stepsJson.map(st => ({
-      key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '', linkedTemplateId: st.linkedTemplateId ?? null,
+      key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '', linkedTemplateId: st.linkedTemplateId ?? null, imageId: st.imageId ?? null,
     }));
     setSteps(seededSteps);
     if (currentUser?.id && sourceRevision.proposedByUserId === currentUser.id && sourceRevision.status === 'DRAFT') {
@@ -443,12 +445,12 @@ export default function SopProposePage() {
   const [drawer, setDrawer] = useState<StepDrawerState>({ mode: 'closed' });
   const editingStep = drawer.mode === 'edit' ? steps.find(s => s.key === drawer.key) ?? null : null;
   const closeDrawer = () => setDrawer({ mode: 'closed' });
-  const saveDrawerStep = (section: string, title: string, detail: string) => {
+  const saveDrawerStep = (section: string, title: string, detail: string, imageId: string | null) => {
     if (drawer.mode === 'edit') {
       const key = drawer.key;
-      setSteps(prev => prev.map(s => s.key === key ? { ...s, section, title, detail } : s));
+      setSteps(prev => prev.map(s => s.key === key ? { ...s, section, title, detail, imageId } : s));
     } else {
-      const newStep: DraftStep = { key: `k${keySeq++}`, section, title, detail };
+      const newStep: DraftStep = { key: `k${keySeq++}`, section, title, detail, imageId };
       const insertAfterKey = drawer.mode === 'new' ? drawer.insertAfterKey : undefined;
       setSteps(prev => {
         const idx = insertAfterKey ? prev.findIndex(s => s.key === insertAfterKey) : -1;
@@ -479,7 +481,7 @@ export default function SopProposePage() {
   const cleanSteps: ProposedStep[] = steps
     .filter(s => s.title.trim())
     // A step's link to another guide (from an import or the guide it was copied from) is kept as it is.
-    .map(s => ({ section: s.section.trim() || 'General', title: s.title.trim(), detail: (s.detail ?? '').trim() || null, linkedTemplateId: s.linkedTemplateId ?? null }));
+    .map(s => ({ section: s.section.trim() || 'General', title: s.title.trim(), detail: (s.detail ?? '').trim() || null, linkedTemplateId: s.linkedTemplateId ?? null, imageId: s.imageId ?? null }));
 
   // Step 1's "Next": reasons listed (suggesting an edit) or title + goal (a new guide).
   const step1Ready = needsReasons ? canContinue(reasons) : (!!title.trim() && !!goal.trim());
@@ -1073,6 +1075,7 @@ export default function SopProposePage() {
                         {detailLines.length > 0 && (
                           <div style={sMobile.stepCardDetail}>{renderDetailLines(detailLines)}</div>
                         )}
+                        {st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} height={120} />}
                         {feedbackOn(st) && <StepFeedback comment={feedbackOn(st)!} />}
                         <div style={sMobile.stepCardActions}>
                           <button onClick={() => setDrawer({ mode: 'new', insertAfterKey: st.key })} style={s.stepIconBtn} aria-label="Insert step after this one" title="Insert step after this one">
@@ -1143,6 +1146,7 @@ export default function SopProposePage() {
                             </td>
                             <td style={s.tdDetail}>
                               {renderDetailLines(detailLines)}
+                              {st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} height={120} />}
                               {feedbackOn(st) && <StepFeedback comment={feedbackOn(st)!} />}
                             </td>
                             <td style={s.tdActions}>
@@ -1410,12 +1414,14 @@ function ProposeStepDrawer({
    *  separate component that was never touched when that pass landed. */
   themeIsTeacher?: boolean;
   onCancel: () => void;
-  onSave: (section: string, title: string, detail: string) => void;
+  onSave: (section: string, title: string, detail: string, imageId: string | null) => void;
 }) {
   const { isMobile } = useIsMobile();
   const [section, setSection] = useState(initial?.section ?? insertAfterStep?.section ?? sections[0] ?? '');
   const [title, setTitle] = useState(initial?.title ?? '');
   const [detail, setDetail] = useState(initial?.detail ?? '');
+  const [imageId, setImageId] = useState<string | null>(initial?.imageId ?? null);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const contextText = mode === 'edit'
     ? 'Local to this proposal until submitted'
     : insertAfterStep
@@ -1527,14 +1533,24 @@ function ProposeStepDrawer({
             </label>
             <textarea value={detail} onChange={e => setDetail(e.target.value)} style={{ ...inputStyle, minHeight: 140, resize: 'vertical' as const }} />
           </div>
+
+          <div style={{ ...s.field, marginTop: 18, marginBottom: 0 }}>
+            <label style={s.label}>
+              Photo
+              <span style={s.labelHint}>Optional — one clear picture of how it should look.</span>
+            </label>
+            <StepPhotoField imageId={imageId} onChange={setImageId} stepTitle={title} onBusy={setPhotoBusy}
+              accent={themeIsTeacher ? TEACHER_ACCENT.accent : C.primary} />
+          </div>
         </div>
 
         <div style={drawerS.footer}>
           <button onClick={onCancel} style={s.cancelBtn}>Cancel</button>
           <button
-            onClick={() => onSave(section.trim() || 'General', title.trim(), detail)}
-            disabled={!title.trim()}
-            style={{ ...s.saveBtn, opacity: !title.trim() ? 0.5 : 1 }}
+            onClick={() => onSave(section.trim() || 'General', title.trim(), detail, imageId)}
+            disabled={!title.trim() || photoBusy}
+            title={photoBusy ? 'Wait for the photo to finish uploading' : undefined}
+            style={{ ...s.saveBtn, opacity: !title.trim() || photoBusy ? 0.5 : 1, cursor: !title.trim() || photoBusy ? 'default' : 'pointer' }}
           >
             {mode === 'edit' ? 'Save step' : 'Add step'}
           </button>

@@ -42,6 +42,8 @@ export interface PurchaseRequest {
   /** RM as a string ("12.50"); only on the shopping list, not the requester's own list. */
   cost?: string | null;
   receipt?: { id: string; mime: string; size: number; name: string } | null;
+  /** Photos the requester added (private — load with fetchPurchasePhoto). */
+  photos: PurchasePhoto[] | null;
   declineReason: string | null;
   /** The supervisor's note on the item — the requester sees it too. */
   supervisorNote: string | null;
@@ -55,6 +57,8 @@ export interface PurchaseRequest {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface PurchasePhoto { id: string; kind: 'image'; mime: string; size: number; name: string }
 
 export type PurchaseBuyer = 'SUPERVISOR' | 'SELF';
 
@@ -95,8 +99,13 @@ export function refreshPurchaseLists(qc: QueryClient): void {
  */
 export const MY_REQUESTS_FRESHNESS = { refetchOnMount: 'always', refetchOnWindowFocus: 'always' } as const;
 
-export function requestPurchase(input: PurchaseRequestInput): Promise<PurchaseRequest> {
-  return apiFetch<PurchaseRequest>('/api/purchase-requests', { method: 'POST', body: JSON.stringify(input) });
+/** Multipart when photos ride along; plain JSON otherwise. */
+export async function requestPurchase(input: PurchaseRequestInput, photos: File[] = []): Promise<PurchaseRequest> {
+  if (!photos.length) return apiFetch<PurchaseRequest>('/api/purchase-requests', { method: 'POST', body: JSON.stringify(input) });
+  const form = new FormData();
+  for (const [k, v] of Object.entries(input)) if (v !== null) form.append(k, v);
+  for (const p of photos) form.append('photos', p);
+  return postForm('/api/purchase-requests', form, 'Could not send that');
 }
 
 export function fetchMyPurchaseRequests(): Promise<PurchaseRequest[]> {
@@ -121,6 +130,10 @@ async function postBought(path: string, details: BoughtDetails = {}): Promise<Pu
   const form = new FormData();
   if (details.cost !== undefined) form.append('cost', details.cost);
   if (details.receipt) form.append('receipt', details.receipt);
+  return postForm(path, form, 'Could not save');
+}
+
+async function postForm(path: string, form: FormData, fallback: string): Promise<PurchaseRequest> {
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}${path}`, withSession({ method: 'POST', body: form }));
@@ -128,7 +141,7 @@ async function postBought(path: string, details: BoughtDetails = {}): Promise<Pu
     throw new ApiError('Unable to connect to server.', 0, 'NETWORK_ERROR');
   }
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status === 413 ? 'That photo is too large to upload.' : body.message ?? 'Could not save', res.status);
+  if (!res.ok) throw new ApiError(res.status === 413 ? 'That photo is too large to upload.' : body.message ?? fallback, res.status);
   return body as PurchaseRequest;
 }
 
@@ -167,4 +180,10 @@ export function backToList(id: string): Promise<PurchaseRequest> {
 /** The receipt photo as a Blob — it's private, so an <img src> can't load it directly. */
 export async function fetchReceipt(id: string): Promise<Blob> {
   return fetchPrivateFile(`${BASE_URL}/api/purchase-requests/${id}/receipt`, 'Couldn’t load the receipt.');
+}
+
+/** A photo on a request — private, so fetched with the login. Asked for without its extension (Hostinger's CDN answers .jpg/.png addresses itself). */
+export async function fetchPurchasePhoto(id: string, fileId: string): Promise<Blob> {
+  const stem = fileId.replace(/\.[a-z0-9]+$/i, '');
+  return fetchPrivateFile(`${BASE_URL}/api/purchase-requests/${id}/photos/${encodeURIComponent(stem)}`, 'Couldn’t load this photo.');
 }

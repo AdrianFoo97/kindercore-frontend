@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faTrash, faPen, faPenToSquare, faGripVertical, faArrowLeft, faCircleExclamation, faBullseye,
-  faCheck, faXmark, faArrowTurnDown, faChevronRight, faChevronDown, faLink, faVideo, faCirclePlay, faDownload,
+  faCheck, faXmark, faArrowTurnDown, faChevronRight, faChevronDown, faLink, faVideo, faCirclePlay, faDownload, faTableCells,
   faMagnifyingGlass, faEllipsisVertical, faArrowUp, faArrowDown, faCopy,
 } from '@fortawesome/free-solid-svg-icons';
 import { fetchTemplates, updateTemplate, deleteTemplate, setTemplateCategories, SopTemplate } from '../../api/sop-templates.js';
@@ -25,6 +25,8 @@ import { useScrolledPast } from '../../hooks/useScrolledPast.js';
 import { useScrollSpySection } from '../../hooks/useScrollSpySection.js';
 import { TEACHER_CONTENT_TOP } from '../../components/common/TeacherTopBar.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import StepPhoto from './guidePhotos/StepPhoto.js';
+import StepPhotoField from './guidePhotos/StepPhotoField.js';
 
 const C = {
   bg: '#f8fafc',
@@ -837,6 +839,15 @@ export default function SopTemplateStepsPage() {
                     <FontAwesomeIcon icon={faDownload} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
                     Download PDF
                   </button>
+                  <button
+                    type="button"
+                    className="sop-more-menu-item"
+                    onClick={() => { setMoreMenuOpen(false); navigate(`/operations/sops/${templateId}/poster${contextSuffix}`); }}
+                    style={s.moreMenuItem}
+                  >
+                    <FontAwesomeIcon icon={faTableCells} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
+                    Poster
+                  </button>
                   {showSuggestButton && (
                     <button
                       type="button"
@@ -920,6 +931,15 @@ export default function SopTemplateStepsPage() {
               >
                 <FontAwesomeIcon icon={faDownload} style={{ marginRight: 6 }} />
                 Download PDF
+              </button>
+              <button
+                className="sop-download-btn"
+                onClick={() => navigate(`/operations/sops/${templateId}/poster${contextSuffix}`)}
+                title="Every step on one printable page"
+                style={{ ...s.secondaryBtn, ...(isMobile ? { width: '100%', justifyContent: 'center' } : null) }}
+              >
+                <FontAwesomeIcon icon={faTableCells} style={{ marginRight: 6 }} />
+                Poster
               </button>
             </>
           )}
@@ -1268,6 +1288,7 @@ export default function SopTemplateStepsPage() {
                           )}
                         </div>
                       )}
+                      {st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} height={180} />}
                       {canEdit && (
                         <div style={sMobile.stepCardActions}>
                           <button
@@ -1360,6 +1381,7 @@ export default function SopTemplateStepsPage() {
                                 See: {linkedTemplate.title}
                               </Link>
                             )}
+                            {st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} />}
                           </td>
                           {canEdit && (
                             <td style={s.tdActions}>
@@ -1478,6 +1500,8 @@ function StepDrawer({ drawer, templateId, steps, sections, allTemplates, hidden,
   const [title, setTitle] = useState(editingStep?.title ?? '');
   const [detail, setDetail] = useState(editingStep?.detail ?? '');
   const [linkedTemplateId, setLinkedTemplateId] = useState(editingStep?.linkedTemplateId ?? '');
+  const [imageId, setImageId] = useState<string | null>(editingStep?.imageId ?? null);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const linkableTemplates = allTemplates.filter(t => t.id !== templateId);
   const linkedTemplate = linkableTemplates.find(t => t.id === linkedTemplateId) ?? null;
@@ -1536,7 +1560,7 @@ function StepDrawer({ drawer, templateId, steps, sections, allTemplates, hidden,
     try {
       const payload: UpsertSopStepPayload = {
         sopTemplateId: templateId, section: section.trim(), title: title.trim(), detail: detail.trim() || null,
-        linkedTemplateId: linkedTemplateId || null,
+        linkedTemplateId: linkedTemplateId || null, imageId,
       };
       if (isEditing) {
         await updateStep(editingStep!.id, payload);
@@ -1648,6 +1672,14 @@ function StepDrawer({ drawer, templateId, steps, sections, allTemplates, hidden,
           />
         </div>
 
+        <div style={drawerS.field}>
+          <label style={drawerS.label}>
+            Photo
+            <span style={drawerS.labelHint}>Optional — one clear picture of how it should look.</span>
+          </label>
+          <StepPhotoField imageId={imageId} onChange={setImageId} stepTitle={title} accent={C.primary} onBusy={setPhotoBusy} />
+        </div>
+
         {linkableTemplates.length > 0 && (
           <div style={{ ...drawerS.field, marginBottom: 0, position: 'relative' }} ref={linkMenuRef}>
             <label style={drawerS.label}>
@@ -1743,8 +1775,9 @@ function StepDrawer({ drawer, templateId, steps, sections, allTemplates, hidden,
         <button onClick={onCancel} style={drawerS.cancelBtn}>Cancel</button>
         <button
           onClick={submit}
-          disabled={!title.trim() || !section.trim() || saving}
-          style={{ ...drawerS.saveBtn, opacity: !title.trim() || !section.trim() || saving ? 0.5 : 1 }}
+          disabled={!title.trim() || !section.trim() || saving || photoBusy}
+          title={photoBusy ? 'Wait for the photo to finish uploading' : undefined}
+          style={{ ...drawerS.saveBtn, opacity: !title.trim() || !section.trim() || saving || photoBusy ? 0.5 : 1 }}
         >
           <FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />
           {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Create step'}

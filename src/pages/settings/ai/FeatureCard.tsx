@@ -6,6 +6,7 @@ import { saveAiFeature, type AiFeatureView, type AiSettings, type FeatureAiConfi
 import { useToast } from '../../../components/common/Toast.js';
 import { S, SC } from '../cardStyles.js';
 import { ModelPicker } from './ModelPicker.js';
+import { isUsable } from './aiSettingsModel.js';
 
 // Settings → AI → one feature that uses AI: on/off, which provider (the
 // default, or its own) and model, its usage — and a link to the feature's
@@ -80,7 +81,10 @@ export function FeatureCard({ feature: f, providers, defaultLabel, requests, sta
             onChange={e => setDraft({ ...draft, provider: (e.target.value || null) as ProviderId | null, model: null })}
             style={{ ...S.input, cursor: draft.enabled ? 'pointer' : 'default' }}>
             <option value="">Default ({defaultLabel})</option>
-            {providers.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+            {/* Only providers that can be used (have a key) — plus the one already chosen, if its key has since gone. */}
+            {providers.filter(p => isUsable(p) || p.id === draft.provider).map(p => (
+              <option key={p.id} value={p.id}>{p.label}{isUsable(p) ? '' : ' — no API key'}</option>
+            ))}
           </select>
         </label>
         {draft.provider && (() => {
