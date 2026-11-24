@@ -794,6 +794,20 @@ export const TEST_SUITES: TestSuite[] = [
     ],
   },
   {
+    id: 'be-operating-cost-import-json',
+    project: 'Backend',
+    kind: 'Integration',
+    category: 'Finance',
+    file: 'src/tests/integration/operatingCost.importJson.test.ts',
+    area: 'Import P&L — getting the PDF past the host’s firewall',
+    summary: 'The live server’s host (Hostinger) blocks PDF file uploads with a bare 403 before they reach the app — Import P&L showed “Failed to fetch”. The app now sends the PDF as text (base64) inside JSON; these prove that works the same, with the same checks.',
+    cases: [
+      { name: 'reads a P&L sent as base64 JSON exactly like an uploaded file, with or without AI', explains: 'The PDF sent as JSON is read and previewed the same way, by the AI or from its printed text.' },
+      { name: 'refuses a non-PDF or a missing file in the JSON form too', explains: 'Something that isn’t a PDF, or no file at all, gets a clear message — not a crash.' },
+      { name: 'never reads a big JSON body for someone not signed in', explains: 'The larger size allowance only applies after sign-in and the Finance check, so outsiders can’t make the server read big requests.' },
+    ],
+  },
+  {
     id: 'be-uploads-badges',
     project: 'Backend',
     kind: 'Integration',

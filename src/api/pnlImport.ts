@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, withSession } from './client.js';
+import { ApiError, apiFetch } from './client.js';
 
 // Finance → Operating Costs → Import P&L (backend pnlImport.service).
 
@@ -86,16 +86,27 @@ export function fetchImportStatus() {
 /** The server's code when the AI couldn't read the file — the page then offers to read it without AI. */
 export const AI_FAILED = 'AI_FAILED';
 
+/**
+ * A PDF as the JSON the server reads it from. Sent as base64 in JSON, not as a
+ * file upload: the live server's host (Hostinger) has a firewall that answers a
+ * PDF file upload with a bare 403 before it reaches the app.
+ */
+export async function pdfAsJson(file: File): Promise<{ fileName: string; pdfBase64: string }> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new ApiError('Couldn’t open that file.', 0, 'FILE_READ'));
+    reader.readAsDataURL(file);
+  });
+  return { fileName: file.name, pdfBase64: dataUrl.slice(dataUrl.indexOf(',') + 1) };
+}
+
 /** Sends the PDF to be read and checked. Saves nothing. `withoutAi`: read its printed text instead of asking the AI. */
 export async function readPnl(file: File, opts: { withoutAi?: boolean } = {}): Promise<ImportPreview> {
-  const fd = new FormData();
-  if (opts.withoutAi) fd.append('withoutAi', '1'); // fields before the file, so the server has them when it reads it
-  fd.append('file', file);
-  const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
-  const res = await fetch(`${BASE_URL}/api/operating-cost/import/read`, withSession({ method: 'POST', body: fd }));
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(body.message ?? 'Couldn’t read that file.', res.status, body.code, body);
-  return body as ImportPreview;
+  return apiFetch<ImportPreview>('/api/operating-cost/import/read', {
+    method: 'POST',
+    body: JSON.stringify({ ...(await pdfAsJson(file)), ...(opts.withoutAi ? { withoutAi: true } : {}) }),
+  });
 }
 
 export function applyPnlImport(body: ApplyBody) {

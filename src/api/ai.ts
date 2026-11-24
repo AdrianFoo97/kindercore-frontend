@@ -1,4 +1,5 @@
-import { ApiError, apiFetch, withSession } from './client.js';
+import { apiFetch } from './client.js';
+import { pdfAsJson } from './pnlImport.js';
 
 // Settings → AI (admins): the providers, keys and limit every AI feature
 // shares, and each feature's own choices (backend controllers/ai.controller).
@@ -100,11 +101,6 @@ export interface Comparison {
 
 /** Test site only: read one P&L with every provider that has a key. Imports nothing. */
 export async function compareProvidersOnPnl(file: File): Promise<Comparison> {
-  const fd = new FormData();
-  fd.append('file', file);
-  const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
-  const res = await fetch(`${BASE_URL}/api/ai/compare/pnl-reading`, withSession({ method: 'POST', body: fd }));
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(body.message ?? 'Couldn’t compare the providers.', res.status, body.code, body);
-  return body as Comparison;
+  // Sent as JSON, like Import P&L (the host's firewall blocks PDF file uploads).
+  return apiFetch<Comparison>('/api/ai/compare/pnl-reading', { method: 'POST', body: JSON.stringify(await pdfAsJson(file)) });
 }
