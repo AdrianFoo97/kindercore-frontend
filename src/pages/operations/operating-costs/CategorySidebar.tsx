@@ -3,20 +3,23 @@ import { C, SIZE, SHADOW, MOTION, fmtRMCompact } from './shared.js';
 export interface SidebarGroup {
   name: string;
   count: number;
-  total: number;        // sum of the currently-selected period for this group
+  total: number;        // counted toward operating cost, for the selected period
+  excludedTotal: number; // recorded but excluded from operating cost
   filledCount: number;  // how many rows have a non-zero value
 }
 
 interface CategorySidebarProps {
   groups: SidebarGroup[];
   grandTotal: number;
+  /** Recorded spend excluded from operating cost (shown under the total, not in it). */
+  excludedTotal: number;
   periodLabel: string;         // e.g. "APR 2026"
   activeGroupName: string;
   onSelect: (name: string) => void;
 }
 
 export function CategorySidebar({
-  groups, grandTotal, periodLabel, activeGroupName, onSelect,
+  groups, grandTotal, excludedTotal, periodLabel, activeGroupName, onSelect,
 }: CategorySidebarProps) {
   return (
     <aside className="occ-sidebar" style={{
@@ -52,6 +55,11 @@ export function CategorySidebar({
           lineHeight: 1,
           letterSpacing: '-0.02em',
         }}>{fmtRMCompact(grandTotal)}</div>
+        {excludedTotal > 0 && (
+          <div style={{ marginTop: 8, fontSize: 12, color: C.muted, fontVariantNumeric: 'tabular-nums' }}>
+            + {fmtRMCompact(excludedTotal)} not counted
+          </div>
+        )}
       </div>
 
       {/* Category list */}

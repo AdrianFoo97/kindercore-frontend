@@ -293,7 +293,7 @@ export default function SopProposePage() {
     setSteps(
       duplicateSourceSteps.length > 0
         ? [...duplicateSourceSteps].sort((a, b) => a.displayOrder - b.displayOrder).map(st => ({
-            key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '',
+            key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '', linkedTemplateId: st.linkedTemplateId ?? null,
           }))
         : [],
     );
@@ -316,7 +316,7 @@ export default function SopProposePage() {
     setIcon(sourceRevision.icon ?? ALLOWED_SOP_ICONS[0]);
     setCategoryIds(sourceRevision.categoryIdsJson ?? []);
     const seededSteps = sourceRevision.stepsJson.map(st => ({
-      key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '',
+      key: `k${keySeq++}`, section: st.section, title: st.title, detail: st.detail ?? '', linkedTemplateId: st.linkedTemplateId ?? null,
     }));
     setSteps(seededSteps);
     if (currentUser?.id && sourceRevision.proposedByUserId === currentUser.id && sourceRevision.status === 'DRAFT') {
@@ -467,6 +467,10 @@ export default function SopProposePage() {
   // duplicateFrom/fromRevision) — a fixed "back" strands everyone else.
   // The fixed path is only for a page opened directly with no history.
   const goBack = useGoBack(isEditingExisting ? `/operations/sops/${templateId}${contextSuffix}` : `/operations/sops${contextSuffix}`);
+  // The page's own back link: on a two-step form's Steps, back to step 1 (like the footer's Back) —
+  // never out of the form with the work unsaved; otherwise back to wherever they came from.
+  const onWizardSteps = wizardStep === 2 && (!isEditingExisting || needsReasons);
+  const pageBack = () => (onWizardSteps ? setWizardStep(1) : goBack());
 
   // Resending a sent-back idea: the supervisor's comment on each step, shown under it.
   const feedbackOn = (st: { key: string }) => stepFeedback.byKey[st.key]?.comment ?? null;
@@ -474,7 +478,8 @@ export default function SopProposePage() {
 
   const cleanSteps: ProposedStep[] = steps
     .filter(s => s.title.trim())
-    .map(s => ({ section: s.section.trim() || 'General', title: s.title.trim(), detail: (s.detail ?? '').trim() || null }));
+    // A step's link to another guide (from an import or the guide it was copied from) is kept as it is.
+    .map(s => ({ section: s.section.trim() || 'General', title: s.title.trim(), detail: (s.detail ?? '').trim() || null, linkedTemplateId: s.linkedTemplateId ?? null }));
 
   // Step 1's "Next": reasons listed (suggesting an edit) or title + goal (a new guide).
   const step1Ready = needsReasons ? canContinue(reasons) : (!!title.trim() && !!goal.trim());
@@ -546,7 +551,8 @@ export default function SopProposePage() {
       await persistDraft(true);
       qc.invalidateQueries({ queryKey: ['sop-revisions'] });
       showToast('Draft saved');
-      navigate(`/operations/sops/author${contextSuffix}`);
+      // Replacing the form in history (like sending one), so Back doesn't return to it.
+      navigate(`/operations/sops/author${contextSuffix}`, { replace: true });
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to save draft', 'error');
     } finally {
@@ -564,7 +570,7 @@ export default function SopProposePage() {
       qc.invalidateQueries({ queryKey: ['sop-templates'] });
       qc.invalidateQueries({ queryKey: ['sop-steps'] });
       showToast(isEditingExisting ? 'Published — now live' : 'Guide published');
-      navigate(`/operations/sops${contextSuffix}`);
+      navigate(`/operations/sops${contextSuffix}`, { replace: true });
     } catch (e: any) {
       showToast(e?.message ?? 'Failed to publish', 'error');
     } finally {
@@ -685,7 +691,7 @@ export default function SopProposePage() {
             line stays (real, non-redundant information), just without
             the heading floating above it. */}
         {!themeIsTeacher && (
-          <button className="back-btn" onClick={goBack} style={s.backBtn}>
+          <button className="back-btn" onClick={pageBack} style={s.backBtn}>
             <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 6, fontSize: 11 }} />
             {isEditingExisting ? target?.title ?? 'Back' : 'Back'}
           </button>

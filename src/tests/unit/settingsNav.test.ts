@@ -76,11 +76,12 @@ describe('Settings navigation', () => {
     expect(keys(viewer(['OPERATION']))).toEqual(['notifications']);
     expect(keys(viewer(['MARKETING']))).toEqual(expect.arrayContaining(['notifications', 'messages', 'crm', 'packages']));
     expect(keys(viewer(['MARKETING']))).not.toContain('finance');
-    // A Team Lead (HR alone) gets the team-level HR pages, not recruitment, appraisal set-up or pay.
-    const lead = keys(viewer(['HR']));
-    expect(lead).toEqual(expect.arrayContaining(['org-chart', 'career-missions', 'points-rewards']));
-    for (const k of ['recruitment', 'appraisal-forms', 'positions', 'payroll', 'users']) expect(lead, k).not.toContain(k);
-    expect(keys(viewer(['HR'], ['HR_SEE_ALL_STAFF', 'HR_SEE_PAY']))).toEqual(expect.arrayContaining(['recruitment', 'appraisal-forms', 'positions', 'payroll']));
+    // Finance targets follow the reports they drive (Analysis); recording costs (Finance) gets just Operating cost.
+    expect(keys(viewer(['FINANCE']))).toEqual(['notifications', 'operating-cost']);
+    expect(keys(viewer(['ANALYSIS']))).toEqual(['notifications', 'finance']);
+    // A Team Lead (HR alone) gets no HR set-up page — their work is in HRMS.
+    expect(keys(viewer(['HR']))).toEqual(['notifications']);
+    expect(keys(viewer(['HR'], ['HR_SEE_ALL_STAFF', 'HR_SEE_PAY']))).toEqual(expect.arrayContaining(['org-chart', 'points-rewards', 'recruitment', 'appraisal-forms', 'career-missions', 'positions', 'payroll']));
     // Company-wide and Team & access pages stay Admin-only.
     for (const k of ['company', 'integrations', 'ai', 'users', 'roles']) expect(SETTINGS_ACCESS[k], k).toBeUndefined();
     expect(visibleGroups(false).flatMap(g => g.items).length).toBe(SETTINGS_GROUPS.flatMap(g => g.items.filter(i => !i.testServerOnly)).length);

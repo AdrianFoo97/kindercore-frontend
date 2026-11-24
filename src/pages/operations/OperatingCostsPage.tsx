@@ -20,6 +20,7 @@ import { StickySaveBar } from './operating-costs/StickySaveBar.js';
 import { C, SIZE, MONTH_LABELS, cellKey, fmtRMCompact, computeRowState } from './operating-costs/shared.js';
 import ConfirmDialog from '../../components/common/ConfirmDialog.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import { countsTowardOperatingCost } from '../../utils/operatingCostInclusion.js';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -168,30 +169,32 @@ export default function OperatingCostsPage() {
   const hasAnyLastMonth = Object.values(lastMonthValues).some(v => v > 0);
 
   // ── Derived: sidebar groups with per-group totals + filled counts ─────────
+  // Totals count only amounts that count toward operating cost (group,
+  // category and the amount itself all included — operatingCostInclusion);
+  // excluded spend is kept apart so it can be shown as "not counted".
   const sidebarGroups: SidebarGroup[] = useMemo(() => {
     return grouped.map(([name, cats]) => {
       let total = 0;
+      let excludedTotal = 0;
       let filled = 0;
       for (const c of cats) {
-        if (viewMode === 'year') {
-          let any = 0;
-          for (let m = 0; m < 12; m++) {
-            const v = values[cellKey(c.id, m)] ?? 0;
-            total += v;
-            any += v;
-          }
-          if (any > 0) filled++;
-        } else {
-          const v = values[cellKey(c.id, selectedMonth)] ?? 0;
-          total += v;
-          if (v > 0) filled++;
+        const months = viewMode === 'year' ? Array.from({ length: 12 }, (_, m) => m) : [selectedMonth];
+        let any = 0;
+        for (const m of months) {
+          const key = cellKey(c.id, m);
+          const v = values[key] ?? 0;
+          if (countsTowardOperatingCost(!excluded[key], c, groupById.get(c.groupId))) total += v;
+          else excludedTotal += v;
+          any += v;
         }
+        if (any > 0) filled++;
       }
-      return { name, count: cats.length, total, filledCount: filled };
+      return { name, count: cats.length, total, excludedTotal, filledCount: filled };
     });
-  }, [grouped, values, selectedMonth, viewMode]);
+  }, [grouped, values, excluded, groupById, selectedMonth, viewMode]);
 
   const grandTotal = sidebarGroups.reduce((s, g) => s + g.total, 0);
+  const excludedGrandTotal = sidebarGroups.reduce((s, g) => s + g.excludedTotal, 0);
 
   // Active group data + pagination slice
   const activeGroupCategories = useMemo(
@@ -557,6 +560,7 @@ export default function OperatingCostsPage() {
           <CategorySidebar
             groups={sidebarGroups}
             grandTotal={grandTotal}
+            excludedTotal={excludedGrandTotal}
             periodLabel={periodLabel.toUpperCase()}
             activeGroupName={activeGroupName}
             onSelect={setActiveGroupName}

@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronRight, faFileLines, faUserPen, faClock, faPlus, faCopy, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faChevronRight, faFileLines, faUserPen, faClock, faPlus, faCopy, faMagnifyingGlass, faFileImport, faFileArrowDown } from '@fortawesome/free-solid-svg-icons';
 import { fetchRevisions } from '../../api/sop-revisions.js';
 import { fetchTemplates } from '../../api/sop-templates.js';
 import { resolveSopIcon } from '../../utils/sopTemplateIcons.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import FormModal from '../../components/common/FormModal.js';
+import { useSopImport } from './sop-import/useSopImport.js';
 
 const C = {
   bg: '#f8fafc',
@@ -19,6 +22,8 @@ const C = {
   primarySoft: '#eef2ff',
 };
 const RADIUS = 14;
+/** The page's content width — fills a 13-inch laptop screen, centred beyond that. */
+const AUTHOR_PAGE_MAX_WIDTH = 1360;
 const SHADOW = '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06)';
 
 function fmtDate(iso: string) {
@@ -37,6 +42,7 @@ export default function SopAuthorPage() {
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const sopImport = useSopImport();
 
   const { data: drafts = [], isLoading } = useQuery({
     queryKey: ['sop-revisions', 'DRAFT'],
@@ -65,7 +71,9 @@ export default function SopAuthorPage() {
   return (
     <div className="m-pad" style={s.page}>
       <style>{`
-        .sop-draft-row:hover { border-color: ${C.primary}55 !important; box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 4px 16px rgba(90,103,216,0.08) !important; }
+        .sop-draft-row:hover { border-color: ${C.primary}55 !important; }
+        .sop-draft-row:focus-visible, .sop-author-main:focus-visible, .sop-author-link:focus-visible { outline: 2px solid ${C.primary}; outline-offset: 2px; }
+        .sop-author-link:hover { text-decoration: underline; }
         .sop-author-action:hover { border-color: ${C.primary}55 !important; }
         .sop-picker-row:hover { background: ${C.primarySoft} !important; }
         .sop-picker-list::-webkit-scrollbar { width: 6px; }
@@ -74,73 +82,74 @@ export default function SopAuthorPage() {
         .sop-picker-list::-webkit-scrollbar-thumb:hover { background: ${C.mutedSoft}; }
       `}</style>
       <div style={s.inner}>
-        <div style={{ marginBottom: 22 }}>
-          <h1 style={s.heading}>Author Guides</h1>
-        </div>
+        <h1 style={s.heading}>Author Guides</h1>
 
-        <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' as const }}>
-          <button
-            className="sop-author-action"
-            onClick={() => navigate('/operations/sops/propose')}
-            style={s.actionCard}
-          >
-            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 16, color: C.primary }} />
-            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Start a new guide</span>
-          </button>
-          <button
-            className="sop-author-action"
-            onClick={() => setPickerOpen(o => !o)}
-            style={{ ...s.actionCard, ...(pickerOpen ? { borderColor: C.primary } : {}) }}
-          >
-            <FontAwesomeIcon icon={faCopy} style={{ fontSize: 16, color: C.primary }} />
-            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Improve an existing guide</span>
-          </button>
+        {/* Three ways to start a guide — equal choices, each saying what it does. */}
+        <div style={s.actionGrid}>
+          <ActionCard icon={faPlus} title="Start a new guide" text="Write it step by step in the editor."
+            onClick={() => navigate('/operations/sops/propose')} />
+          <ActionCard icon={faCopy} title="Improve an existing guide" text="Copy a published guide and change it."
+            onClick={() => { setSearch(''); setPickerOpen(true); }} />
+          <ActionCard icon={faFileImport} title="Import from a spreadsheet" text="Fill in the template, then import it as a draft."
+            onClick={sopImport.chooseFile} busyLabel={sopImport.busy === 'import' ? 'Importing…' : undefined} disabled={!!sopImport.busy}>
+            <button type="button" className="sop-author-link" onClick={sopImport.downloadTemplate} disabled={!!sopImport.busy} style={s.cardLink}>
+              <FontAwesomeIcon icon={faFileArrowDown} style={{ fontSize: 12 }} />
+              {sopImport.busy === 'template' ? 'Preparing template…' : 'Download template'}
+            </button>
+          </ActionCard>
         </div>
+        {sopImport.ui}
 
         {pickerOpen && (
-          <div style={{ ...s.card, padding: 16, marginBottom: 24 }}>
+          <FormModal title="Improve an existing guide" onClose={() => setPickerOpen(false)}>
             <div style={s.searchWrap}>
               <FontAwesomeIcon icon={faMagnifyingGlass} style={{ fontSize: 12, color: C.mutedSoft }} />
               <input
                 autoFocus
+                aria-label="Search guides"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search guides to improve…"
+                placeholder="Search guides…"
                 style={s.searchInput}
               />
             </div>
             <div style={{ position: 'relative' as const }}>
-              <div ref={pickerListRef} className="sop-picker-list" style={{ marginTop: 10, maxHeight: 280, overflowY: 'auto' as const }}>
+              <div ref={pickerListRef} className="sop-picker-list" style={{ marginTop: 10, maxHeight: 'min(50vh, 360px)', overflowY: 'auto' as const }}>
                 {filteredTemplates.length === 0 ? (
-                  <p style={{ margin: '12px 4px', fontSize: 13, color: C.mutedSoft }}>No guides found.</p>
+                  <p style={{ margin: '12px 4px', fontSize: 13, color: C.muted }}>{search.trim() ? 'No guides match.' : 'No guides yet.'}</p>
                 ) : (
                   filteredTemplates.map(t => (
-                    <div
+                    <button
+                      type="button"
                       key={t.id}
                       className="sop-picker-row"
                       onClick={() => navigate(`/operations/sops/propose?duplicateFrom=${t.id}`)}
                       style={s.pickerRow}
                     >
                       <FontAwesomeIcon icon={resolveSopIcon(t.icon)} style={{ fontSize: 13, color: C.primary, width: 16 }} />
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: C.text, flex: 1 }}>{t.title}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: C.text, flex: 1 }}>{t.title}</span>
                       <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 11, color: C.mutedSoft }} />
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
               {pickerOverflows && <div style={s.scrollFade} />}
             </div>
-          </div>
+          </FormModal>
         )}
 
-        <h2 style={s.sectionHeading}>Drafts in progress</h2>
+        <h2 style={s.sectionHeading}>
+          Drafts in progress
+          {drafts.length > 0 && <span style={s.count}>{drafts.length}</span>}
+        </h2>
 
         {isLoading ? (
           <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
         ) : drafts.length === 0 ? (
           <div style={{ ...s.card, textAlign: 'center', padding: '48px 20px' }}>
             <FontAwesomeIcon icon={faFileLines} style={{ fontSize: 22, color: C.mutedSoft, marginBottom: 10 }} />
-            <p style={{ margin: 0, fontSize: 13, color: C.muted }}>You haven't started any guides yet.</p>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: C.text }}>No drafts in progress.</p>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: C.muted }}>Guides you save without publishing appear here.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -149,11 +158,12 @@ export default function SopAuthorPage() {
               const sections = [...new Set(rev.stepsJson.map(st => st.section))];
 
               return (
-                <div
+                <button
+                  type="button"
                   key={rev.id}
                   className="sop-draft-row"
                   onClick={() => navigate(`/operations/sops/propose?fromRevision=${rev.id}`)}
-                  style={{ ...s.card, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, cursor: 'pointer', transition: 'box-shadow 120ms ease, border-color 120ms ease' }}
+                  style={{ ...s.card, width: '100%', textAlign: 'left', font: 'inherit', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, cursor: 'pointer', transition: 'border-color 120ms ease' }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const, marginBottom: 4 }}>
@@ -174,7 +184,7 @@ export default function SopAuthorPage() {
                     </div>
                   </div>
                   <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: C.mutedSoft, flexShrink: 0, marginTop: 4 }} />
-                </div>
+                </button>
               );
             })}
           </div>
@@ -186,13 +196,28 @@ export default function SopAuthorPage() {
 
 const s: Record<string, React.CSSProperties> = {
   page: { padding: '28px 32px', fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', background: C.bg, minHeight: '100vh', color: C.text },
-  inner: { maxWidth: 900, margin: '0 auto' },
-  heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
-  sectionHeading: { margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: C.text },
+  // Wide enough to fill a 13-inch laptop (~1280–1440px) and still centred on bigger screens.
+  inner: { maxWidth: AUTHOR_PAGE_MAX_WIDTH, margin: '0 auto' },
+  heading: { margin: '0 0 24px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' },
+  sectionHeading: { display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: C.text },
+  count: { fontSize: 12, fontWeight: 700, color: C.muted, background: C.cardBorder, borderRadius: 999, padding: '1px 8px' },
+  actionGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 32 },
   actionCard: {
-    display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', background: C.card,
-    border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS, boxShadow: SHADOW, cursor: 'pointer',
-    transition: 'border-color 120ms ease', flex: '1 1 220px', minWidth: 220,
+    display: 'flex', flexDirection: 'column', gap: 4, padding: '12px 16px', background: C.card,
+    border: `1px solid ${C.cardBorder}`, borderRadius: RADIUS, boxShadow: SHADOW, transition: 'border-color 120ms ease',
+  },
+  actionMain: {
+    display: 'flex', alignItems: 'center', gap: 12, padding: 0, border: 'none', background: 'none',
+    font: 'inherit', textAlign: 'left', cursor: 'pointer', flex: 1,
+  },
+  actionIcon: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8,
+    background: C.primarySoft, color: C.primary, fontSize: 14,
+  },
+  cardLink: {
+    // marginLeft lines it up with the card's text, past the icon.
+    alignSelf: 'flex-start', marginLeft: 44, display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 28, padding: '2px 0', border: 'none',
+    background: 'none', font: 'inherit', fontSize: 13, fontWeight: 600, color: C.primary, cursor: 'pointer',
   },
   searchWrap: {
     display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: C.bg,
@@ -200,7 +225,8 @@ const s: Record<string, React.CSSProperties> = {
   },
   searchInput: { flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13.5, color: C.text },
   pickerRow: {
-    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: 40, padding: '8px', border: 'none', background: 'none',
+    borderRadius: 8, font: 'inherit', textAlign: 'left', cursor: 'pointer',
   },
   scrollFade: {
     position: 'absolute' as const, left: 0, right: 6, bottom: 0, height: 28,
@@ -222,3 +248,23 @@ const s: Record<string, React.CSSProperties> = {
   metaItem: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: C.mutedSoft, fontWeight: 500 },
   metaDot: { width: 3, height: 3, borderRadius: '50%', background: C.mutedSoft, flexShrink: 0 },
 };
+
+/** One way to start a guide: icon, name, one line on what it does; extra actions (children) sit underneath. */
+function ActionCard({ icon, title, text, onClick, disabled, busyLabel, children }: {
+  icon: IconDefinition; title: string; text: string; onClick: () => void;
+  disabled?: boolean; busyLabel?: string; children?: React.ReactNode;
+}) {
+  return (
+    <div className="sop-author-action" style={s.actionCard}>
+      <button type="button" className="sop-author-main" onClick={onClick} disabled={disabled}
+        style={{ ...s.actionMain, cursor: disabled ? 'default' : 'pointer' }}>
+        <span style={{ ...s.actionIcon, flexShrink: 0 }}><FontAwesomeIcon icon={icon} /></span>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{busyLabel ?? title}</span>
+          <span style={{ fontSize: 13, color: C.muted, lineHeight: 1.35 }}>{text}</span>
+        </span>
+      </button>
+      {children}
+    </div>
+  );
+}

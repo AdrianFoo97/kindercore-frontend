@@ -210,11 +210,14 @@ export const SETTINGS_ACCESS: Record<string, SettingsAccess> = {
   messages: [...only('MARKETING'), ...HR_ALL],
   crm: only('MARKETING'), packages: only('MARKETING'),
   students: only('STUDENTS'),
-  'org-chart': only('HR'), 'career-missions': only('HR'), 'mission-categories': only('HR'), 'points-rewards': only('HR'),
+  // HR set-up is for HR Manager and above. A Team Lead's work (their team's records,
+  // missions and points) is in HRMS, so no HR page shows for them here.
+  'org-chart': HR_ALL, 'points-rewards': HR_ALL, 'career-missions': HR_ALL, 'mission-categories': HR_ALL,
   recruitment: HR_ALL, 'staff-onboarding': HR_ALL,
   'appraisal-forms': HR_ALL, 'scoring-forms': HR_ALL, 'rating-scales': HR_ALL, 'score-bands': HR_ALL, 'practice-observations': HR_ALL,
   positions: HR_PAY, payroll: HR_PAY,
-  finance: only('FINANCE'), 'operating-cost': only('FINANCE'),
+  // Finance targets and compensation tiers drive the Profit Sharing / Annual Bonus reports (Analysis).
+  finance: only('ANALYSIS'), 'operating-cost': only('FINANCE'),
   classes: only('TOOLS'), subjects: only('TOOLS'), tasks: only('TOOLS'),
   'how-to-guides': only('OPERATION', 'OPERATION_SOP_APPROVE'),
 };

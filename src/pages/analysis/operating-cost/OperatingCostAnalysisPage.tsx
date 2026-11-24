@@ -13,6 +13,7 @@ import {
   type CategoryRow, type GroupRow, type Outlier, type MonthAmounts,
 } from './model.js';
 import LoadingSpinner from '../../../components/common/LoadingSpinner.js';
+import { countedEntries } from '../../../utils/operatingCostInclusion.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────
 // Operating cost is an expense surface: slate is the base voice. The only
@@ -558,8 +559,10 @@ export default function OperatingCostAnalysisPage() {
   // finance summary are context — the page degrades gracefully without them.)
   const failed = entriesFailed || categoriesFailed;
 
-  const entries = entriesRes?.rows ?? [];
-  const prevEntries = prevEntriesRes?.rows ?? [];
+  // Only amounts that count toward operating cost — the same figures Finance uses
+  // (an excluded group, category or month's amount is recorded but not operating cost).
+  const entries = useMemo(() => countedEntries(entriesRes?.rows ?? [], categories, groups), [entriesRes, categories, groups]);
+  const prevEntries = useMemo(() => countedEntries(prevEntriesRes?.rows ?? [], categories, groups), [prevEntriesRes, categories, groups]);
 
   const elapsed = useMemo(() => elapsedMonths(entries, year, today), [entries, year, today]);
   const recorded = useMemo(() => monthsWithData(entries), [entries]);
