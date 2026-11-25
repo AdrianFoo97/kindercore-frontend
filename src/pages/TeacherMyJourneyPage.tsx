@@ -184,6 +184,10 @@ const s: Record<string, React.CSSProperties> = {
     paddingBottom: 96,
     paddingLeft: 12,
     background: C.bg, minHeight: '100vh',
+    // The path and badges are drawn a little past their box (SVG overflow: visible) — clip
+    // sideways so the page can't slide left/right on a phone. `clip`, not `hidden`: hidden
+    // would make this a scroll box and break the scroll-to-current-position above.
+    overflowX: 'clip',
     fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
     color: C.text,
   },

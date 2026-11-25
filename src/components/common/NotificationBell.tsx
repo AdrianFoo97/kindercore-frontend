@@ -1,46 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import {
-  faBell, faBookOpen, faBug, faBullhorn, faCartShopping, faClipboardCheck, faFileLines, faGear, faListCheck, faScrewdriverWrench,
-  faTriangleExclamation, faUserPlus, faChild, faUserMinus, faReceipt, faChartLine, faBagShopping, faFlag, faStar, faGift, faFileSignature,
-} from '@fortawesome/free-solid-svg-icons';
+import { faBell, faCheckDouble, faChevronLeft, faGear } from '@fortawesome/free-solid-svg-icons';
 import { fetchNotificationSettings, fetchNotifications, markAllNotificationsRead, markNotificationRead, type AppNotification } from '../../api/notifications.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
-import { badgeText, isAppLink, timeAgo } from './notificationDisplay.js';
+import { badgeText, isAppLink } from './notificationDisplay.js';
+import NotificationList from './NotificationList.js';
+import type { NotificationGroup } from './notificationGroups.js';
 
 // The bell in the top bar: important things that need someone to act (a new
 // lead, a job application, staff waiting for approval, an incident). Clicking
-// one marks it read and opens the place to deal with it.
+// one marks it read and opens the place to deal with it. Grouped like
+// Facebook (NotificationList); on a phone the list fills the screen.
 
 /** How often the bell checks for new notifications while the app is open. */
 const POLL_MS = 60_000;
 const QUERY_KEY = ['notifications'];
-
-const KIND_LOOK: Record<string, { icon: IconDefinition; color: string; bg: string }> = {
-  NEW_LEAD: { icon: faBullhorn, color: '#4f5bd5', bg: '#eef2ff' },
-  NEW_STUDENT: { icon: faChild, color: '#4f5bd5', bg: '#eef2ff' },
-  STUDENT_WITHDRAWN: { icon: faUserMinus, color: '#475569', bg: '#f1f5f9' },
-  ITEM_BOUGHT: { icon: faReceipt, color: '#0f766e', bg: '#f0fdfa' },
-  COSTS_RECORDED: { icon: faChartLine, color: '#4f5bd5', bg: '#eef2ff' },
-  NEW_APPLICATION: { icon: faFileLines, color: '#0f766e', bg: '#f0fdfa' },
-  NEW_STAFF_JOIN: { icon: faUserPlus, color: '#7c3aed', bg: '#f5f3ff' },
-  INCIDENT_REPORTED: { icon: faTriangleExclamation, color: '#b45309', bg: '#fffbeb' },
-  APPRAISAL_SIGN_OFF: { icon: faClipboardCheck, color: '#7c3aed', bg: '#f5f3ff' },
-  ONBOARDING_SELF_DONE: { icon: faListCheck, color: '#7c3aed', bg: '#f5f3ff' },
-  FACILITY_REPORTED: { icon: faScrewdriverWrench, color: '#b45309', bg: '#fffbeb' },
-  ITEM_REQUESTED: { icon: faCartShopping, color: '#0f766e', bg: '#f0fdfa' },
-  GUIDE_SUGGESTED: { icon: faBookOpen, color: '#4f5bd5', bg: '#eef2ff' },
-  BUG_REPORTED: { icon: faBug, color: '#b91c1c', bg: '#fef2f2' },
-  MY_REQUEST_UPDATE: { icon: faBagShopping, color: '#0f766e', bg: '#f0fdfa' },
-  MY_REPORT_UPDATE: { icon: faFlag, color: '#b45309', bg: '#fffbeb' },
-  MY_APPRAISAL_READY: { icon: faFileSignature, color: '#7c3aed', bg: '#f5f3ff' },
-  MY_POINTS: { icon: faStar, color: '#a16207', bg: '#fefce8' },
-  MY_REWARD_DELIVERED: { icon: faGift, color: '#7c3aed', bg: '#f5f3ff' },
-};
-const DEFAULT_LOOK = { icon: faBell, color: '#475569', bg: '#f1f5f9' };
 
 /** Where the gear goes: admins → Settings; staff → their teacher-app page; anyone else → the plain page. */
 function notificationSettingsPath(): string {
@@ -59,6 +37,7 @@ export default function NotificationBell({ variant = 'navbar' }: { variant?: 'na
   const { isMobile } = useIsMobile();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   // Which notifications this person's roles give them — none means no bell at all.
   const { data: settings } = useQuery({ queryKey: ['notification-settings'], queryFn: fetchNotificationSettings, staleTime: 5 * 60_000 });
   const hasAny = (settings?.events.length ?? 0) > 0;
@@ -70,12 +49,33 @@ export default function NotificationBell({ variant = 'navbar' }: { variant?: 'na
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !panelRef.current?.contains(t)) dismissRef.current();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') dismissRef.current(); };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [open]);
+  // Phone: the list fills the screen — the page behind it doesn't scroll.
+  useEffect(() => {
+    if (!open || !isMobile) return;
+    const before = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = before; };
+  }, [open, isMobile]);
+  // Phone: the back button (or back swipe) closes the list instead of leaving the page —
+  // opening it adds a history step (same address) that "back" removes.
+  useEffect(() => {
+    if (!open || !isMobile) return;
+    window.history.pushState(window.history.state, '');
+    const onPop = () => dismissRef.current();
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [open, isMobile]);
+  /** The ← on a phone: same as the phone's back button. */
+  const goBack = () => window.history.back();
 
   const openOne = async (n: AppNotification) => {
     setOpen(false);
@@ -84,20 +84,45 @@ export default function NotificationBell({ variant = 'navbar' }: { variant?: 'na
     }
     if (isAppLink(n.link)) navigate(n.link);
   };
+  const openGroup = (g: NotificationGroup) => {
+    setOpen(false);
+    const unreadIds = g.items.filter(n => !n.readAt).map(n => n.id);
+    if (unreadIds.length) void Promise.all(unreadIds.map(markNotificationRead)).finally(() => qc.invalidateQueries({ queryKey: QUERY_KEY }));
+    if (g.link && isAppLink(g.link)) navigate(g.link);
+  };
+  /**
+   * Closing the list without opening anything (← back, the phone's back button, a tap
+   * outside, Escape, the bell again) counts as having seen them all — like Facebook
+   * clearing the badge — so everything is marked read. Opening one marks only that one.
+   */
+  const dismiss = () => {
+    setOpen(false);
+    if (unread > 0) void readAll();
+  };
+  // The listeners above are set up once per opening; they call the latest dismiss through this.
+  const dismissRef = useRef(dismiss);
+  useEffect(() => { dismissRef.current = dismiss; });
   const readAll = async () => {
+    // Shown as read straight away; the server catches up.
+    qc.setQueryData<{ items: AppNotification[]; unread: number }>(QUERY_KEY, d => d && ({
+      unread: 0, items: d.items.map(n => (n.readAt ? n : { ...n, readAt: new Date().toISOString() })),
+    }));
     await markAllNotificationsRead();
     qc.invalidateQueries({ queryKey: QUERY_KEY });
   };
 
   if (!hasAny) return null;
+  const portal = (panel: React.ReactElement) => (isMobile ? createPortal(panel, document.body) : panel);
 
+  // Phone: full screen over everything (drawn at the page's top level, so the top
+  // bar and bottom tabs can't cover it), like Facebook's app. Desktop: a panel under the bell.
   const panelPosition: React.CSSProperties = isMobile
-    ? { position: 'fixed', top: 64, left: 16, right: 16 }
+    ? { position: 'fixed', inset: 0, borderRadius: 0, border: 'none', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top)' }
     : { position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 380 };
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-haspopup="dialog"
+      <button type="button" onClick={() => (open ? dismiss() : setOpen(true))} aria-expanded={open} aria-haspopup="dialog"
         aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} title="Notifications" style={teacherLook ? s.hitTeacher : s.bellBtn}>
         {teacherLook ? (
           <span style={s.bellBtnTeacher}>
@@ -113,23 +138,28 @@ export default function NotificationBell({ variant = 'navbar' }: { variant?: 'na
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Notifications" style={{ ...s.panel, ...panelPosition }}>
+        portal(<div ref={panelRef} role="dialog" aria-modal={isMobile || undefined} aria-label="Notifications" style={{ ...s.panel, ...panelPosition }}>
           <style>{'.notif-row:hover { background: #f1f5f9 !important; } .notif-row:focus-visible { outline: 2px solid #4f5bd5; outline-offset: -2px; }'}</style>
-          <div style={s.header}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Notifications</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <button type="button" onClick={readAll} disabled={unread === 0}
-                style={{ ...s.linkBtn, opacity: unread === 0 ? 0.45 : 1, cursor: unread === 0 ? 'default' : 'pointer' }}>
-                Mark all as read
-              </button>
-              <button type="button" onClick={() => { setOpen(false); navigate(settingsPath); }}
-                aria-label="Notification settings" title="Notification settings"
-                style={{ ...s.linkBtn, width: 28, height: 28, color: '#64748b', cursor: 'pointer' }}>
-                <FontAwesomeIcon icon={faGear} />
-              </button>
-            </span>
-          </div>
-          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+          {isMobile ? (
+            <PhoneHeader unread={unread} onBack={goBack} onReadAll={() => void readAll()}
+              onSettings={() => { setOpen(false); navigate(settingsPath); }} />
+          ) : (
+            <div style={s.header}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Notifications</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button type="button" onClick={readAll} disabled={unread === 0}
+                  style={{ ...s.linkBtn, opacity: unread === 0 ? 0.45 : 1, cursor: unread === 0 ? 'default' : 'pointer' }}>
+                  Mark all as read
+                </button>
+                <button type="button" onClick={() => { setOpen(false); navigate(settingsPath); }}
+                  aria-label="Notification settings" title="Notification settings"
+                  style={{ ...s.linkBtn, width: 28, height: 28, color: '#64748b', cursor: 'pointer' }}>
+                  <FontAwesomeIcon icon={faGear} />
+                </button>
+              </span>
+            </div>
+          )}
+          <div style={isMobile ? { flex: 1, overflowY: 'auto', paddingBottom: 'env(safe-area-inset-bottom)' } : { maxHeight: 420, overflowY: 'auto' }}>
             {isLoading && <p style={s.state}>Loading…</p>}
             {isError && (
               <div style={s.state}>
@@ -143,26 +173,42 @@ export default function NotificationBell({ variant = 'navbar' }: { variant?: 'na
                 <div>You’re all caught up.</div>
               </div>
             )}
-            {data?.items.map(n => <NotificationRow key={n.id} n={n} onOpen={() => openOne(n)} />)}
+            {data && <NotificationList items={data.items} large={isMobile} onOpen={n => void openOne(n)} onOpenGroup={openGroup} />}
           </div>
-        </div>
+        </div>)
       )}
     </div>
   );
 }
 
-function NotificationRow({ n, onOpen }: { n: AppNotification; onOpen: () => void }) {
-  const look = KIND_LOOK[n.kind] ?? DEFAULT_LOOK;
-  const unread = !n.readAt;
+/**
+ * Phone: like the teacher app's other screens — liquid-glass round buttons on
+ * top (back; mark all read; settings), then the page title in the big
+ * left-aligned "magazine" style.
+ */
+function PhoneHeader({ unread, onBack, onReadAll, onSettings }: {
+  unread: number; onBack: () => void; onReadAll: () => void; onSettings: () => void;
+}) {
   return (
-    <button type="button" onClick={onOpen} className="notif-row" style={{ ...s.row, background: unread ? '#f8faff' : '#fff' }}>
-      <span style={{ ...s.icon, color: look.color, background: look.bg }}><FontAwesomeIcon icon={look.icon} /></span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 13, fontWeight: unread ? 700 : 500, color: '#0f172a', lineHeight: 1.4 }}>{n.title}</span>
-        {n.body && <span style={{ display: 'block', fontSize: 12, color: '#64748b', lineHeight: 1.4, marginTop: 2 }}>{n.body}</span>}
-        <span style={{ display: 'block', fontSize: 12, color: '#64748b', marginTop: 4 }}>{timeAgo(n.createdAt)}</span>
-      </span>
-      {unread && <span style={s.dot} aria-label="Unread" />}
+    <div style={{ padding: '4px 4px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <GlassButton icon={faChevronLeft} label="Back" onClick={onBack} />
+        <span style={{ display: 'flex' }}>
+          <GlassButton icon={faCheckDouble} label={unread ? 'Mark all as read' : 'All read'} onClick={onReadAll} disabled={unread === 0} />
+          <GlassButton icon={faGear} label="Notification settings" onClick={onSettings} />
+        </span>
+      </div>
+      <h1 style={{ margin: '8px 12px 4px', fontSize: 30, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>Notifications</h1>
+    </div>
+  );
+}
+
+/** A 44 px tap area around the teacher app's 32 px liquid-glass circle (same as its top bar). */
+function GlassButton({ icon, label, onClick, disabled }: { icon: IconDefinition; label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label}
+      style={{ ...s.hitTeacher, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1 }}>
+      <span style={{ ...s.bellBtnTeacher, fontSize: 14 }}><FontAwesomeIcon icon={icon} /></span>
     </button>
   );
 }
@@ -197,10 +243,4 @@ const s: Record<string, React.CSSProperties> = {
   header: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #eef0f4' },
   linkBtn: { border: 'none', background: 'none', padding: 0, color: '#4f5bd5', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' },
   state: { margin: 0, padding: 16, fontSize: 13, color: '#64748b', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  row: {
-    display: 'flex', alignItems: 'flex-start', gap: 12, width: '100%', padding: '12px 16px', border: 'none',
-    borderBottom: '1px solid #f1f5f9', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-  },
-  icon: { width: 32, height: 32, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 },
-  dot: { width: 8, height: 8, borderRadius: '50%', background: '#4f5bd5', flexShrink: 0, marginTop: 6 },
 };

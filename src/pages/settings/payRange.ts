@@ -24,3 +24,10 @@ export function payRangeLabel(min: number | null | undefined, max: number | null
   const rm = (n: number) => `RM ${n.toLocaleString('en-MY', { maximumFractionDigits: 2 })}`;
   return `${rm(min)} – ${rm(max)}`;
 }
+
+/** "RM 1,800 – 2,400" (one RM, like job ads) — short enough for one line on a phone; null when no range is set. */
+export function payRangeCompact(min: number | null | undefined, max: number | null | undefined): string | null {
+  if (min == null || max == null) return null;
+  const n = (v: number) => v.toLocaleString('en-MY', { maximumFractionDigits: 2 });
+  return min === max ? `RM ${n(min)}` : `RM ${n(min)} – ${n(max)}`;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { payRangeLabel, readPay } from '../../pages/settings/payRange';
+import { payRangeCompact, payRangeLabel, readPay } from '../../pages/settings/payRange';
 
 // Settings → Payroll: basic salary (no allowances) and total pay range, edited in place.
 
@@ -16,5 +16,13 @@ describe('Payroll — basic salary and pay range', () => {
   it('shows the range as RM from – to, or nothing when it isn’t set', () => {
     expect(payRangeLabel(2000, 2600)).toBe('RM 2,000 – RM 2,600');
     expect(payRangeLabel(null, null)).toBeNull();
+  });
+});
+
+describe('Pay range — short form for the career journey', () => {
+  it('writes a range with one RM, like a job ad — and a single amount when both ends match', () => {
+    expect(payRangeCompact(1800, 2400)).toBe('RM 1,800 – 2,400');
+    expect(payRangeCompact(3000, 3000)).toBe('RM 3,000');
+    expect(payRangeCompact(null, 2400)).toBeNull();
   });
 });

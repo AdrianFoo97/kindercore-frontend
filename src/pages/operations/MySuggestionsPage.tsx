@@ -41,7 +41,8 @@ export default function MySuggestionsPage() {
     // Extra room at the bottom on a phone so the floating "+" never covers the last suggestion.
     <div style={{ ...pageStyle(teacher, isMobile), ...(isMobile ? { paddingBottom: 32 + TEACHER_FAB_CLEARANCE } : {}) }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <h1 style={{ fontSize: isMobile ? 26 : 24, fontWeight: 700, margin: '0 0 16px' }}>My guide ideas</h1>
+        {/* Same "magazine" title as the teacher app's other screens (Incident Log, Facilities, Requests). */}
+        <h1 style={{ margin: '0 0 16px', paddingLeft: 4, fontSize: isMobile ? 30 : 24, fontWeight: 800, letterSpacing: '-0.02em' }}>My guide ideas</h1>
 
         {/* Suggesting a new guide lives here, with its follow-up — the floating "+" on a phone
             (same as Incident Log / Facilities / Requests), a full-width button on wider screens. */}

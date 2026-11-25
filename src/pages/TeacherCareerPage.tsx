@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft, faCheck, faClock, faCircleCheck, faCircleNotch, faBookOpen,
-  faClipboardCheck, faCalendarDays, faPeopleArrows, faStar, faRoad,
+  faClipboardCheck, faCalendarDays, faPeopleArrows, faStar, faRoad, faWallet,
   faLightbulb, faMedal, faLock, faChevronRight, faTimes,
   faChartLine, faShieldHalved, faUserCheck, faTriangleExclamation,
   faPlay, faRocket, faFlag, faCircleInfo, faXmark, faThumbtack, faTrophy,
@@ -22,6 +22,7 @@ import { uploadUrl } from '../api/upload.js';
 import { useToast } from '../components/common/Toast.js';
 import { AchievementStrip } from '../components/career/AchievementStrip.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import { payRangeCompact } from './settings/payRange.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 // Slate-based neutral scale + a single primary accent. Lighter borders and
@@ -970,7 +971,7 @@ export function CareerJourneyVertical({
   missionsCompleted, missionsTotal, missionPct, appraisalRequired, appraisalCurrent,
   teacherId,
 }: {
-  ladder: { positionId: string; name: string; titleWeight: number; maxLevel?: number; badgeUrl?: string | null; roleFocus?: string | null; description?: string | null; basicSalary?: number | null }[];
+  ladder: { positionId: string; name: string; titleWeight: number; maxLevel?: number; badgeUrl?: string | null; roleFocus?: string | null; description?: string | null; basicSalary?: number | null; payRangeMin?: number | null; payRangeMax?: number | null }[];
   currentPositionId: string | null;
   currentLevel: number | null;
   nextPositionId: string | null;
@@ -1435,7 +1436,7 @@ function MobileJourneyStack({
   missionsCompleted, missionsTotal, appraisalRequired, appraisalCurrent,
   teacherId,
 }: {
-  ladder: { positionId: string; name: string; titleWeight: number; maxLevel?: number; badgeUrl?: string | null; roleFocus?: string | null; description?: string | null; basicSalary?: number | null }[];
+  ladder: { positionId: string; name: string; titleWeight: number; maxLevel?: number; badgeUrl?: string | null; roleFocus?: string | null; description?: string | null; basicSalary?: number | null; payRangeMin?: number | null; payRangeMax?: number | null }[];
   stateFor: (i: number, p: any) => StageState;
   currentIdx: number;
   currentLevel: number | null;
@@ -2133,7 +2134,7 @@ function PositionDetailSheet({
   missionsCompleted, missionsTotal, appraisalRequired, appraisalCurrent,
   teacherId,
 }: {
-  pos: { positionId: string; name: string; maxLevel?: number; badgeUrl?: string | null; roleFocus?: string | null; description?: string | null; basicSalary?: number | null };
+  pos: { positionId: string; name: string; maxLevel?: number; badgeUrl?: string | null; roleFocus?: string | null; description?: string | null; basicSalary?: number | null; payRangeMin?: number | null; payRangeMax?: number | null };
   state: StageState;
   stageIndex: number;
   totalStages: number;
@@ -2156,6 +2157,7 @@ function PositionDetailSheet({
   const stateBg = state === 'completed' ? `${C.success}1a`
     : (state === 'current' || state === 'next') ? `${C.primary}1a`
     : `${C.mutedSoft}1a`;
+  const payRange = payRangeCompact(pos.payRangeMin, pos.payRangeMax);
 
   return (
     <div
@@ -2262,27 +2264,17 @@ function PositionDetailSheet({
             }}>
               {pos.name}
             </h2>
-            {/* Basic salary — concrete tangible reward of this rank.
-                Sits under the name as a sub-detail of the position. */}
-            {pos.basicSalary != null && pos.basicSalary > 0 && (
-              <div style={{
-                marginTop: 8,
-                display: 'inline-flex', alignItems: 'baseline', gap: 6,
-                fontSize: 13, fontWeight: 600, color: C.muted,
-              }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 800, color: C.mutedSoft,
-                  textTransform: 'uppercase' as const, letterSpacing: '0.08em',
-                }}>
-                  Basic Salary
+            {/* Pay for this rank — its pay range (basic plus allowances and
+                incentives), never the bare basic salary. Hidden until the
+                position has a range (Settings → Employee salary → the position). */}
+            {payRange && (
+              // The monthly pay range: a wallet icon marks it as money and "/ month" says what it is — no label needed.
+              <div aria-label={`Pay: ${payRange} a month`} style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                <FontAwesomeIcon icon={faWallet} aria-hidden style={{ fontSize: 13, color: C.muted }} />
+                <span style={{ fontSize: 15, fontWeight: 800, color: C.text, fontVariantNumeric: 'tabular-nums' as const, letterSpacing: '-0.005em' }}>
+                  {payRange}
                 </span>
-                <span style={{
-                  fontSize: 14, fontWeight: 800, color: C.text,
-                  fontVariantNumeric: 'tabular-nums' as const,
-                  letterSpacing: '-0.005em',
-                }}>
-                  RM {pos.basicSalary.toLocaleString('en-MY', { minimumFractionDigits: 0 })}
-                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.muted }}>/ month</span>
               </div>
             )}
           </div>

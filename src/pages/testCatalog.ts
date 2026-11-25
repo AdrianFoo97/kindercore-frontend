@@ -668,6 +668,20 @@ export const TEST_SUITES: TestSuite[] = [
     ],
   },
   {
+    id: 'fe-notification-groups',
+    project: 'Frontend',
+    kind: 'Unit',
+    category: 'Admin',
+    file: 'src/tests/unit/notificationGroups.test.ts',
+    area: 'Notification bell — grouped like Facebook',
+    summary: 'How the bell groups notifications so a busy day doesn’t become a long list.',
+    cases: [
+      { name: 'puts unread under “New” and read under “Earlier”, one row per kind, newest kind first', explains: 'Ten new job applications show as one row, not ten — and what’s already read sits apart under Earlier.' },
+      { name: 'opens a group on the page its items share — or expands it when they open different pages', explains: 'Tapping “5 new job applications” opens the candidates list; a group that points to different pages (e.g. several students) opens up so you pick one.' },
+      { name: 'sums a group up in words — “5 new job applications · A, B and 3 others”', explains: 'Each group says how many and who, like Facebook — the first two names, then “and N others”.' },
+    ],
+  },
+  {
     id: 'fe-notification-display',
     project: 'Frontend',
     kind: 'Unit',
@@ -2142,10 +2156,11 @@ export const TEST_SUITES: TestSuite[] = [
     category: 'HR',
     file: 'src/tests/unit/payRange.test.ts',
     area: 'Payroll — basic salary and pay range',
-    summary: 'Editing a position’s pay in Settings → Payroll: basic salary and the total pay range, checked as you type.',
+    summary: 'Editing a position’s pay in Settings → Payroll: basic salary and the total pay range, checked as you type — and how the range reads on the career journey.',
     cases: [
       { name: 'reads what is typed, keeping Save off with a reason until it makes sense', explains: 'Save stays off with the reason shown (e.g. “Give both ends of the pay range, or neither”) — what you typed is never changed for you.' },
       { name: 'shows the range as RM from – to, or nothing when it isn’t set', explains: 'The table shows e.g. “RM 2,000 – RM 2,600”, or “Not set”.' },
+      { name: 'writes a range with one RM, like a job ad — and a single amount when both ends match', explains: 'The career journey shows each rank’s pay as e.g. “RM 1,800 – 2,400 / month” on one line, even on a narrow phone.' },
     ],
   },
   {
