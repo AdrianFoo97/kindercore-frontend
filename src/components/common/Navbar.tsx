@@ -17,6 +17,7 @@ import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
 import NotificationBell from './NotificationBell.js';
 import { useSettingsGroups } from '../../pages/settings/useSettingsAccess.js';
+import MyAvatar from './MyAvatar.js';
 
 /** Small uppercase heading that groups items inside a nav dropdown (Tools, Operation). */
 function NavSectionLabel({ label, first, mobile }: { label: string; first?: boolean; mobile: boolean }) {
@@ -839,7 +840,7 @@ export default function Navbar() {
                 <button onClick={() => setProfileOpen(o => !o)} className="nav-link" title={user.name}
                   aria-label="Account menu" aria-expanded={profileOpen}
                   style={{ ...styles.profileChip, ...(navCompact ? { padding: 4 } : {}), border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <div style={styles.avatar}>{user.name.charAt(0).toUpperCase()}</div>
+                  <MyAvatar name={user.name} size={26} style={styles.avatar} />
                   {!navCompact && <span style={styles.userName}>{user.name}</span>}
                 </button>
                 {profileOpen && (
@@ -888,7 +889,7 @@ export default function Navbar() {
           <div style={{ borderTop: '1px solid #e5e7eb', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {user && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ ...styles.avatar, background: '#5a79c8', color: '#fff' }}>{user.name.charAt(0).toUpperCase()}</div>
+                <MyAvatar name={user.name} size={26} style={{ ...styles.avatar, background: '#5a79c8', color: '#fff' }} />
                 <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>{user.name}</span>
               </div>
             )}

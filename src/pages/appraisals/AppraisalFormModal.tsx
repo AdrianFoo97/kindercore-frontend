@@ -5,11 +5,14 @@ import { faXmark } from '@fortawesome/free-solid-svg-icons';
 import { fetchAppraisalOverview, upsertTeacherAppraisal, type TeacherAppraisal } from '../../api/teacher-appraisals.js';
 import { MONTH_LABELS, appraisalYearOptions, selectableMonths } from './appraisalDisplay.js';
 import { useScoreBand } from './useScoreBand.js';
+import UseFormPanel from './UseFormPanel.js';
 
 // Record or edit one staff member's appraisal — the one pop-up used by
 // HR → Appraisals and the staff record's Appraisals tab. Shows their previous
 // mark and 12-month average for comparison; when a caller doesn't already have
 // those (the staff record), the pop-up looks them up for the month itself.
+// Recording a new one from the staff record: "Use a form" (an appraisal form,
+// scored on its own page) or "Enter score" (typed in here).
 
 const MIN_SCORE = 0;
 const MAX_SCORE = 100;
@@ -49,6 +52,9 @@ export function AppraisalFormModal({
   const [notes, setNotes] = useState(existing?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  /** New from the staff record: an appraisal form, or a score typed in. Editing is always the typed score. */
+  const canUseForm = !existing && canChangeMonth;
+  const [mode, setMode] = useState<'form' | 'manual'>(canUseForm ? 'form' : 'manual');
 
   // Look up this person's row for the chosen month when the caller didn't
   // hand us the context (same data and cache as HR → Appraisals).
@@ -119,6 +125,18 @@ export function AppraisalFormModal({
           </div>
         )}
 
+        {canUseForm && (
+          <div role="radiogroup" aria-label="How to record it" style={s.modeTrack}>
+            {([['form', 'Use a form'], ['manual', 'Enter score']] as const).map(([key, label]) => (
+              <button key={key} type="button" role="radio" aria-checked={mode === key} onClick={() => setMode(key)}
+                style={{ ...s.modeBtn, ...(mode === key ? s.modeOn : null) }}>{label}</button>
+            ))}
+          </div>
+        )}
+
+        {mode === 'form' ? (
+          <UseFormPanel teacherId={teacherId} period={period} onClose={onClose} styles={s} />
+        ) : (<>
         {/* For comparison while scoring: last time, and the 12-month trend. */}
         <div style={s.context}>
           <Stat
@@ -163,6 +181,7 @@ export function AppraisalFormModal({
             {saving ? 'Saving…' : existing ? 'Save changes' : alreadyRecorded ? 'Replace appraisal' : 'Record appraisal'}
           </button>
         </div>
+        </>)}
       </div>
     </div>
   );
@@ -179,6 +198,10 @@ function Stat({ label, value, note, color }: { label: string; value: string; not
 }
 
 const s = {
+  // "Use a form / Enter score" — a two-option segmented control.
+  modeTrack: { display: 'flex', gap: 2, padding: 3, marginBottom: 16, background: '#f1f5f9', borderRadius: 10 } as React.CSSProperties,
+  modeBtn: { flex: 1, minHeight: 32, border: 'none', borderRadius: 8, background: 'transparent', color: '#64748b', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' } as React.CSSProperties,
+  modeOn: { background: '#fff', color: '#5a67d8', boxShadow: '0 1px 2px rgba(15,23,42,0.08)' } as React.CSSProperties,
   context: { display: 'flex', gap: 16, padding: '12px 14px', marginBottom: 16, borderRadius: 12, background: '#f8fafc', border: '1px solid #eef0f4' } as React.CSSProperties,
   warn: { padding: '8px 12px', marginBottom: 12, borderRadius: 8, background: '#fef9c3', color: '#854d0e', fontSize: 12, fontWeight: 500 } as React.CSSProperties,
   backdrop: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 } as React.CSSProperties,

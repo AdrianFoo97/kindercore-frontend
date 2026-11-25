@@ -27,6 +27,10 @@ import { TEACHER_CONTENT_TOP } from '../../components/common/TeacherTopBar.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 import StepPhoto from './guidePhotos/StepPhoto.js';
 import StepPhotoField from './guidePhotos/StepPhotoField.js';
+import { useStepsCollapsed } from './guideView/useStepsCollapsed.js';
+import StepsViewToggle from './guideView/StepsViewToggle.js';
+import StepOpenButton from './guideView/StepOpenButton.js';
+import SectionSelect from './guideView/SectionSelect.js';
 
 const C = {
   bg: '#f8fafc',
@@ -178,6 +182,13 @@ export default function SopTemplateStepsPage() {
   const sectionAccent = (section: string) => SECTION_ACCENTS[sections.indexOf(section) % SECTION_ACCENTS.length];
 
   const [sectionFilter, setSectionFilter] = useState<string>('ALL');
+  // "Full" or "Steps only" (titles per section; tap one to open it) — remembered on this device.
+  const stepsView = useStepsCollapsed();
+  /** Steps only: a tap anywhere on a step opens/closes it — except on its own buttons and links (edit, move, "See: …"). */
+  const tapToToggle = (id: string) => (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button, a, input, select, textarea')) return;
+    stepsView.toggleStep(id);
+  };
 
   const sectionCounts = useMemo(() => {
     const map = new Map<string, number>();
@@ -787,33 +798,20 @@ export default function SopTemplateStepsPage() {
               <button
                 type="button"
                 onClick={() => setMoreMenuOpen(o => !o)}
-                // A round frosted-glass circle here (matches the bottom
-                // nav capsule's own liquid-glass look), only once
-                // `scrolled` — at rest, right under the still-visible
-                // title row, a glass chip would be a redundant
-                // background. s.moreBtn itself stays a bordered white
-                // square for the admin-desktop rendering above, which
-                // shares the same style object. Color/size match
-                // TeacherTopBar.tsx's back chevron (#334155) — they sit
-                // in the same row and should read as a matched pair.
+                // Always a round liquid-glass circle — the same as
+                // TeacherTopBar.tsx's back chevron it shares the row with
+                // (32 px, same glass, #334155), so the two read as a pair.
+                // s.moreBtn itself stays a bordered white square for the
+                // admin-desktop rendering above, which shares the style object.
                 style={{
                   ...s.moreBtn,
-                  width: 30, height: 30, borderRadius: '50%',
-                  // Transparent 1px border, not `none` — see
-                  // SopLibraryPage.tsx's moreBtn comment: transitioning
-                  // straight from no-border into a real bordered ring
-                  // flashed a default black edge for a frame first.
-                  // border-box keeps the circle at exactly 30x30 either way.
-                  border: '1px solid transparent', boxSizing: 'border-box' as const, background: 'transparent',
+                  width: 32, height: 32, borderRadius: '50%', boxSizing: 'border-box' as const,
                   color: '#334155', fontSize: 16,
-                  transition: 'background 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
-                  ...(scrolled ? {
-                    border: '1px solid rgba(255,255,255,0.32)',
-                    background: 'rgba(255,255,255,0.22)',
-                    backdropFilter: 'blur(22px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-                    boxShadow: '0 2px 8px rgba(15,23,42,0.08)',
-                  } : null),
+                  border: '1px solid rgba(255,255,255,0.32)',
+                  background: 'rgba(255,255,255,0.22)',
+                  backdropFilter: 'blur(22px) saturate(180%)',
+                  WebkitBackdropFilter: 'blur(22px) saturate(180%)',
+                  boxShadow: '0 2px 10px rgba(15,23,42,0.12)',
                 }}
                 aria-label="More actions"
               >
@@ -1103,14 +1101,15 @@ export default function SopTemplateStepsPage() {
         {!themeIsTeacher && <div style={s.docDivider} />}
 
         <div style={stepsCardStyle}>
-          <div style={s.cardHeader}>
-            <div>
+          {/* Teacher app: no "Steps · 13 steps across 3 sections" heading — the steps speak for themselves. */}
+          {(!themeIsTeacher || canEdit) && <div style={s.cardHeader}>
+            {!themeIsTeacher && <div>
               <h3 style={s.cardTitle}>Steps</h3>
               <div style={s.cardSub}>
                 {`${steps.length} step${steps.length === 1 ? '' : 's'} across ${sections.length} section${sections.length === 1 ? '' : 's'}`}
                 {canEdit ? ' · Drag to reorder' : ''}
               </div>
-            </div>
+            </div>}
             {canEdit && (
               <button
                 onClick={openAddDrawer}
@@ -1120,9 +1119,9 @@ export default function SopTemplateStepsPage() {
                 Add step
               </button>
             )}
-          </div>
+          </div>}
 
-          {steps.length > 0 && (
+          {steps.length > 0 && !themeIsTeacher && (
             <div
               className={isMobile ? 'sop-pill-scroll' : undefined}
               style={{
@@ -1162,6 +1161,16 @@ export default function SopTemplateStepsPage() {
             </div>
           )}
 
+          {/* "Full / Steps only" on the left; in the teacher app, the section dropdown on the right (instead of pills). */}
+          {steps.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 16 }}>
+              <StepsViewToggle collapsed={stepsView.collapsed} onChange={stepsView.setCollapsed} accent={themeIsTeacher ? TEACHER_ACCENT.accent : C.primary} />
+              {themeIsTeacher && sections.length > 1 && (
+                <SectionSelect sections={sections} counts={sectionCounts} total={steps.length} value={sectionFilter} onChange={setSectionFilter} />
+              )}
+            </div>
+          )}
+
           {stepsLoading ? (
             <p style={{ padding: 32, textAlign: 'center', color: C.mutedSoft }}><LoadingSpinner /></p>
           ) : displaySteps.length === 0 ? (
@@ -1194,7 +1203,9 @@ export default function SopTemplateStepsPage() {
                 : undefined;
               const isFirst = i === 0;
               const isLast = i === displaySteps.length - 1;
-              return { st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate, isFirst, isLast };
+              const hasMore = detailLines.length > 0 || !!linkedTemplate || !!st.imageId;
+              const open = stepsView.isOpen(st.id);
+              return { st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate, isFirst, isLast, hasMore, open };
             });
 
             // A table with a "read the detail column" job doesn't survive a
@@ -1205,7 +1216,7 @@ export default function SopTemplateStepsPage() {
             // top-to-bottom instead, at full width, no sideways scrolling.
             return isMobile ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {rows.map(({ st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate, isFirst, isLast }) => (
+                {rows.map(({ st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate, isFirst, isLast, hasMore, open }) => (
                   <React.Fragment key={st.id}>
                     {showHeader && (
                       <div
@@ -1216,7 +1227,8 @@ export default function SopTemplateStepsPage() {
                           // between a title and its own first step — matches
                           // how Career separates "Skill Badges"/"Active
                           // Quests" from whatever's above them.
-                          ...(themeIsTeacher ? { paddingTop: 28 } : null),
+                          // The first sits right under the Full / Steps only switch — a small gap there.
+                          ...(themeIsTeacher ? { paddingTop: isFirst ? 8 : 28 } : null),
                         }}>
                         {themeIsTeacher ? (
                           // Same title treatment as the Career tab's
@@ -1244,7 +1256,8 @@ export default function SopTemplateStepsPage() {
                         )}
                       </div>
                     )}
-                    <div style={{ ...sMobile.stepCard, background: '#fff' }}>
+                    <div onClick={stepsView.collapsed && hasMore ? tapToToggle(st.id) : undefined}
+                      style={{ ...sMobile.stepCard, background: '#fff', ...(stepsView.collapsed && hasMore ? { cursor: 'pointer' } : null) }}>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                         {/* HTML5 drag (the desktop table's grip handle)
                             never fires from a touch gesture, so mobile
@@ -1276,8 +1289,9 @@ export default function SopTemplateStepsPage() {
                         )}
                         <span style={{ ...s.stepNumber, background: `${accent}1c`, color: accent, marginTop: 1 }}>{stepNumber}</span>
                         <span style={{ flex: 1, fontWeight: 600, color: C.text }}>{st.title}</span>
+                        {stepsView.collapsed && hasMore && <StepOpenButton open={open} title={st.title} onClick={() => stepsView.toggleStep(st.id)} />}
                       </div>
-                      {(detailLines.length > 0 || linkedTemplate) && (
+                      {open && (detailLines.length > 0 || linkedTemplate) && (
                         <div style={sMobile.stepCardDetail}>
                           {renderDetailLines(detailLines)}
                           {linkedTemplate && (
@@ -1288,7 +1302,7 @@ export default function SopTemplateStepsPage() {
                           )}
                         </div>
                       )}
-                      {st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} height={180} />}
+                      {open && st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} height={180} />}
                       {canEdit && (
                         <div style={sMobile.stepCardActions}>
                           <button
@@ -1336,7 +1350,7 @@ export default function SopTemplateStepsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map(({ st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate }) => (
+                    {rows.map(({ st, isDrag, isDrop, showHeader, stepNumber, accent, detailLines, linkedTemplate, hasMore, open }) => (
                       <React.Fragment key={st.id}>
                         {showHeader && (
                           <tr>
@@ -1348,11 +1362,13 @@ export default function SopTemplateStepsPage() {
                         )}
                         <tr
                           className="sop-step-row"
+                          onClick={stepsView.collapsed && hasMore ? tapToToggle(st.id) : undefined}
                           onDragOver={onDragOver(st.id)}
                           onDrop={onDrop(st.id)}
                           style={{
                             opacity: isDrag ? 0.45 : 1,
                             background: isDrop ? 'var(--sop-accent-soft)' : undefined,
+                            cursor: stepsView.collapsed && hasMore ? 'pointer' : undefined,
                           }}
                         >
                           <td style={s.tdStep}>
@@ -1370,18 +1386,19 @@ export default function SopTemplateStepsPage() {
                                 </span>
                               )}
                               <span style={{ ...s.stepNumber, background: `${accent}1c`, color: accent }}>{stepNumber}</span>
-                              <span style={{ fontWeight: 600, color: C.text, paddingTop: 2 }}>{st.title}</span>
+                              <span style={{ flex: 1, fontWeight: 600, color: C.text, paddingTop: 2 }}>{st.title}</span>
+                              {stepsView.collapsed && hasMore && <StepOpenButton open={open} title={st.title} onClick={() => stepsView.toggleStep(st.id)} />}
                             </div>
                           </td>
                           <td className="sop-detail-cell" style={s.tdDetail}>
-                            {renderDetailLines(detailLines)}
-                            {linkedTemplate && (
+                            {open && renderDetailLines(detailLines)}
+                            {open && linkedTemplate && (
                               <Link to={`/operations/sops/${linkedTemplate.id}${contextSuffix}`} style={s.linkedChip}>
                                 <FontAwesomeIcon icon={faLink} style={{ fontSize: 9, marginRight: 5 }} />
                                 See: {linkedTemplate.title}
                               </Link>
                             )}
-                            {st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} />}
+                            {open && st.imageId && <StepPhoto imageId={st.imageId} alt={st.title} />}
                           </td>
                           {canEdit && (
                             <td style={s.tdActions}>

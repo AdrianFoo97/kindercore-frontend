@@ -278,6 +278,7 @@ export const TEST_SUITES: TestSuite[] = [
     cases: [
       { name: 'attaches photos to a request — seen by the requester and the shopping-list manager, not by other staff', explains: 'The person who asked and whoever runs the shopping list can open the photos; another teacher gets "not allowed" — so photos never leak to colleagues.' },
       { name: 'refuses a file that isn’t a photo, or more than 3 photos — and still takes a request with none', explains: 'A PDF or a 4th photo is refused, so nothing unexpected is stored; photos stay optional.' },
+      { name: 'lets the requester change the photos while it waits for approval — removing one deletes its file, and 3 is still the most', explains: 'Before approval, the requester can swap or add photos; a removed photo’s file is deleted from the server, the change shows in the request’s history, and a 4th photo is still refused.' },
     ],
   },
   {
@@ -665,6 +666,59 @@ export const TEST_SUITES: TestSuite[] = [
     summary: 'Every notification opens a page guarded by the same access the notification is sent to (read from the app’s real route list).',
     cases: [
       { name: 'opens every notification on a page guarded like the notification', explains: 'Each of the 10 notifications opens a page that needs the same access it’s sent to — e.g. Item requested opens the shopping list, which needs “Manage the shopping list”.' },
+    ],
+  },
+  {
+    id: 'be-profile-photo',
+    project: 'Backend',
+    kind: 'Integration',
+    category: 'Admin',
+    file: 'src/tests/integration/profilePhoto.test.ts',
+    area: 'My Profile — your own photo',
+    summary: 'Each person can set, change or remove their own profile photo — never anyone else’s.',
+    cases: [
+      { name: 'sets, shows and removes your own photo — a colleague still has none, and a replaced photo isn’t kept', explains: 'Your photo is yours alone; changing it removes the old one from the database, and removing it leaves nothing behind.' },
+      { name: 'only takes a photo, and only from someone signed in', explains: 'A PDF is refused, and nobody signed out can read or change a photo.' },
+    ],
+  },
+  {
+    id: 'be-bug-report-media',
+    project: 'Backend',
+    kind: 'Integration',
+    category: 'Admin',
+    file: 'src/tests/integration/tools.bugReportMedia.test.ts',
+    area: 'Report a Bug — photos and videos',
+    summary: 'What can be attached to a bug report: screenshots, or a short screen recording.',
+    cases: [
+      { name: 'takes a screenshot and a short screen recording together', explains: 'A photo and a video can be attached to the same report.' },
+      { name: 'refuses other files, and a photo over 5 MB (videos may be bigger) — keeping nothing it refused', explains: 'Other files and oversized photos are refused, and a refused file isn’t left on the server.' },
+    ],
+  },
+  {
+    id: 'fe-bug-media',
+    project: 'Frontend',
+    kind: 'Unit',
+    category: 'Admin',
+    file: 'src/tests/unit/bugMedia.test.ts',
+    area: 'Report a Bug — photos and videos',
+    summary: 'The report form checks attachments before uploading anything.',
+    cases: [
+      { name: 'takes photos under 5 MB and videos under 50 MB — and names the file that is wrong', explains: 'A too-big or unsupported file is caught on the phone, with a message naming it.' },
+      { name: 'tells a stored video from a photo by its ending', explains: 'Videos play as videos in the bug list instead of showing as a broken picture.' },
+    ],
+  },
+  {
+    id: 'fe-appraisal-bulk',
+    project: 'Frontend',
+    kind: 'Unit',
+    category: 'HR',
+    file: 'src/tests/unit/appraisalBulk.test.ts',
+    area: 'Appraisals — several at once',
+    summary: 'Starting appraisals for several staff at once, and cancelling several together.',
+    cases: [
+      { name: 'offers only live forms that suit every person picked', explains: 'With several people picked, only an appraisal form meant for all their positions can be used.' },
+      { name: 'does each one in turn and keeps going past a failure — saying which didn’t work and why', explains: 'If one person’s appraisal can’t be started or cancelled, the rest still are, and the ones that failed are named with the reason.' },
+      { name: 'names who is picked in a short line', explains: 'The staff picker reads “Amelia and 3 others” instead of a long list.' },
     ],
   },
   {
@@ -2581,7 +2635,7 @@ export const TEST_SUITES: TestSuite[] = [
       { name: 'every signed-in endpoint has a role/module/ownership rule, or an approved reason not to', explains: 'A new endpoint can\'t ship open to every staff member by accident.' },
       { name: 'every read of pay, finance, appraisal or applicant records is written to the access log', explains: 'Each sensitive page records who opened it — and only after the access check has let them in.' },
       { name: 'the approved list has nothing stale', explains: 'The approved list stays accurate as endpoints change.' },
-      { name: 'nothing open to every signed-in user can change data, except filing a bug report, an incident report, a facility issue, a purchase request (or editing your own), a guide proposal (or resending your own) and its step photos, or choosing and reading your own notifications', explains: 'Everything any staff member can reach is read-only, apart from reporting bugs, incidents or facility problems, asking for something to be bought (and editing or withdrawing your own request before approval), suggesting guide improvements (with photos for their steps), and choosing and reading your own notifications.' },
+      { name: 'nothing open to every signed-in user can change data, except filing a bug report, an incident report, a facility issue, a purchase request (or editing your own), a guide proposal (or resending your own) and its step photos, choosing and reading your own notifications, or your own profile photo', explains: 'Everything any staff member can reach is read-only, apart from reporting bugs, incidents or facility problems, asking for something to be bought (and editing or withdrawing your own request before approval), suggesting guide improvements (with photos for their steps), choosing and reading your own notifications, and setting your own profile photo.' },
       { name: 'only shopping-list managers can see the shopping list, approve it, tick items off or see receipts', explains: 'Anyone can ask for something to be bought; only people given "Manage the shopping list" (supervisors) or Admins see the weekly list, approve it, mark items bought or not buying, add notes and open receipt photos.' },
       { name: 'only incident managers can see every incident report or follow one up', explains: 'Anyone can file an incident and see their own; only people given "Manage incident reports" (supervisors, principal) or Admins see them all, edit them, change the status or add to the log.' },
       { name: 'only facility managers can see every facility issue or change its status', explains: 'Anyone can report a broken door or leak and see their own reports; only people given "Manage facility issues" or Admins see them all and mark them In progress or Resolved.' },

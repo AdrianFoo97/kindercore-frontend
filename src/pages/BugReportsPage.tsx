@@ -8,6 +8,7 @@ import { fetchBugReports, resolveBugReport, BugReport, BugReportStatus } from '.
 import { uploadUrl } from '../api/upload.js';
 import { useToast } from '../components/common/Toast.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import { isVideoUrl } from './bugReports/bugMedia.js';
 
 const C = {
   bg: '#f8fafc',
@@ -119,16 +120,22 @@ export default function BugReportsPage() {
                   {report.photoUrls && report.photoUrls.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 8, marginTop: 12 }}>
                       {report.photoUrls.map(url => (
-                        <a key={url} href={uploadUrl(url)} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={uploadUrl(url)}
-                            alt="Attached screenshot"
-                            style={{
-                              width: 64, height: 64, borderRadius: 10, objectFit: 'cover',
-                              border: `1px solid ${C.cardBorder}`,
-                            }}
-                          />
-                        </a>
+                        isVideoUrl(url) ? (
+                          // A screen recording: plays right here.
+                          <video key={url} src={uploadUrl(url)} controls playsInline preload="metadata"
+                            style={{ width: 200, maxWidth: '100%', height: 120, borderRadius: 10, background: '#0f172a', border: `1px solid ${C.cardBorder}` }} />
+                        ) : (
+                          <a key={url} href={uploadUrl(url)} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={uploadUrl(url)}
+                              alt="Attached screenshot"
+                              style={{
+                                width: 64, height: 64, borderRadius: 10, objectFit: 'cover',
+                                border: `1px solid ${C.cardBorder}`,
+                              }}
+                            />
+                          </a>
+                        )
                       ))}
                     </div>
                   )}

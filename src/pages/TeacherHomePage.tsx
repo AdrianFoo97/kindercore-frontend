@@ -22,6 +22,7 @@ import CurrentFocus from './teacherHome/CurrentFocus.js';
 import { focusMissions } from '../utils/focusMissions.js';
 import MissionDetailPopup from './career/MissionDetailPopup.js';
 import { useMissionTargets } from '../hooks/useMissionTargets.js';
+import IdentityHero from './teacherHome/IdentityHero.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher Home — a warm, motivating landing. Answers three things at a
@@ -121,6 +122,7 @@ function pickTeamHeadline(hits: number, elapsed: number, pooled: number): {
   };
 }
 
+
 export default function TeacherHomePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -144,6 +146,7 @@ export default function TeacherHomePage() {
 
   const firstName = (teacher?.name ?? career?.teacher?.name ?? '').trim().split(/\s+/)[0];
   const currentRole = career?.currentPosition?.name ?? null;
+  const badgeUrl = career?.currentPosition?.badgeUrl ?? null;
   const nextRole = career?.nextPosition?.name ?? null;
   const isFinalStage = career?.readiness?.isFinalStage ?? false;
   const mDone = career?.readiness?.missions?.completed ?? 0;
@@ -159,9 +162,7 @@ export default function TeacherHomePage() {
   // the position's maxLevel. Reaching all-filled is the cue to promote.
   const stars = levelStars(career?.teacher?.level, career?.currentPosition?.maxLevel);
 
-  // Never let the bar read as "empty / behind" — keep a friendly floor.
   const pct = mTotal > 0 ? Math.round((mDone / mTotal) * 100) : 0;
-  const barFill = mTotal > 0 ? Math.max(8, pct) : 8;
 
   // This quarter's team pool and this year's annual bonus — worked out on the
   // server (only hit / missed / upcoming per month, the pool and the
@@ -261,85 +262,13 @@ export default function TeacherHomePage() {
         )}
 
         {/* ── Identity hero ────────────────────────────────────── */}
-        {/* Avatar + name + role + tier stars, all on one card. Makes
-            the page feel personal at first glance — the teacher sees
-            themselves before they see any data. */}
-        <button
-          type="button"
-          onClick={() => navigate(`/teachers/${id}/settings`)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 14, width: '100%',
-            textAlign: 'left', font: 'inherit', cursor: 'pointer', color: 'inherit',
-            background: C.card, border: `1px solid ${C.cardBorder}`,
-            borderRadius: 18, padding: '16px 18px', marginBottom: 12,
-            boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <div style={{
-            width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
-            background: myAvatarColor, color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, fontSize: 22, letterSpacing: '-0.01em',
-            boxShadow: '0 0 0 4px rgba(124,58,237,0.10), 0 2px 6px rgba(15,23,42,0.14)',
-          }}>
-            {(firstName || '?').charAt(0).toUpperCase()}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 20, fontWeight: 800, color: C.textStrong,
-              letterSpacing: '-0.02em', lineHeight: 1.15,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {firstName || 'Welcome back'}
-            </div>
-            <div style={{
-              marginTop: 4, display: 'flex', alignItems: 'center',
-              gap: 8, flexWrap: 'wrap',
-            }}>
-              {currentRole && (
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: C.muted }}>
-                  {currentRole}
-                </span>
-              )}
-              {stars.filled > 0 && (
-                <span
-                  style={{ display: 'inline-flex', gap: 2 }}
-                  title={`${stars.filled}-star ${currentRole ?? 'teacher'}`}
-                >
-                  {Array.from({ length: stars.filled }, (_, i) => (
-                    <FontAwesomeIcon
-                      key={i}
-                      icon={faStar}
-                      style={{ fontSize: 11, color: C.pAccent }}
-                    />
-                  ))}
-                </span>
-              )}
-            </div>
-            {/* Career progress — replaces the old Career card. */}
-            {mTotal > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {isFinalStage ? 'Top role reached' : mDone >= mTotal ? 'Ready for what\'s next' : `On the way to ${nextRole ?? 'your next role'}`}
-                  </span>
-                  <span style={{ fontSize: 11.5, fontWeight: 800, color: C.pDeep, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                    {pct}%
-                  </span>
-                </div>
-                <div style={{ height: 6, borderRadius: 999, background: '#efeafe', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', width: `${barFill}%`, borderRadius: 999,
-                    background: 'linear-gradient(90deg, #a78bfa, #7c3aed)',
-                    transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)',
-                  }} />
-                </div>
-              </div>
-            )}
-          </div>
-          <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: C.mutedSoft, flexShrink: 0 }} />
-        </button>
+        {/* Them first: photo in a progress ring toward the next rank, their rank badge worn like a medal. */}
+        <IdentityHero
+          name={firstName} ownPhoto={isOwnHome(id)} avatarColor={myAvatarColor} role={currentRole} stars={stars.filled} badgeUrl={badgeUrl}
+          progress={mTotal > 0 ? {
+            pct,
+            label: isFinalStage ? 'Top role reached' : mDone >= mTotal ? 'Ready for what’s next' : `${pct}% to ${nextRole ?? 'your next role'}`,
+          } : null} />
 
         {/* ── Quick actions ─────────────────────────────────── */}
         {id && <QuickActions teacherId={id} />}
@@ -494,4 +423,14 @@ export default function TeacherHomePage() {
       </div>
     </div>
   );
+}
+
+/** Whether this Home is the signed-in person's own (their teacher record) — only then is it their photo. */
+function isOwnHome(teacherId: string | undefined): boolean {
+  try {
+    const u = JSON.parse(localStorage.getItem('user') ?? 'null') as { teacherId?: string | null } | null;
+    return !!teacherId && u?.teacherId === teacherId;
+  } catch {
+    return false;
+  }
 }

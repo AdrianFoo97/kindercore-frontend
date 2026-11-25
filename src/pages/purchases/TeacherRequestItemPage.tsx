@@ -3,21 +3,20 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCartShopping } from '@fortawesome/free-solid-svg-icons';
-import { fetchMyPurchaseRequests, fetchPurchasePhoto, requestPurchase, updatePurchaseRequest, refreshPurchaseLists } from '../../api/purchaseRequests.js';
+import { fetchMyPurchaseRequests, requestPurchase, updatePurchaseRequest, refreshPurchaseLists } from '../../api/purchaseRequests.js';
 import { TEACHER_CONTENT_TOP } from '../../components/common/TeacherTopBar.js';
 import { useToast } from '../../components/common/Toast.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import PurchaseRequestFields, { TEACHER_PURCHASE_THEME } from './PurchaseRequestFields.js';
-import { PURCHASE_PHOTO_RULES, emptyPurchaseDraft, purchaseDraftProblem, purchaseDraftToInput, purchasePhotoProblem, type PurchaseDraft } from './purchaseDisplay.js';
-import AttachmentPicker from '../../components/common/AttachmentPicker.js';
-import PrivateAttachments from '../../components/common/PrivateAttachments.js';
+import { emptyPurchaseDraft, purchaseDraftProblem, purchaseDraftToInput, purchasePhotoProblem, type PurchaseDraft } from './purchaseDisplay.js';
+import RequestPhotosField from './RequestPhotosField.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // Teacher app → Request an Item (/teachers/:id/purchases/new), or edit one
 // still waiting for approval (/teachers/:id/purchases/:requestId/edit). New
 // requests go onto the supervisor's shopping list; "Requested by" and the
 // submit time are recorded by the server. Photos (e.g. the exact product)
-// can be added to a new request; they stay as sent when it's edited.
+// can be added, and changed while the request waits for approval.
 
 const C = { bg: '#f8fafc', textStrong: '#334155', muted: '#64748b', pAccent: '#7c3aed', pSoft: '#f5f3ff', pBorder: '#ddd6fe' };
 
@@ -31,6 +30,8 @@ export default function TeacherRequestItemPage() {
   const { showToast } = useToast();
   const [draft, setDraft] = useState<PurchaseDraft>(emptyPurchaseDraft);
   const [photos, setPhotos] = useState<File[]>([]);
+  /** Editing: ids of the photos already on the request that are kept. */
+  const [keptIds, setKeptIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export default function TeacherRequestItemPage() {
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     if (!original || loaded) return;
+    setKeptIds((original.photos ?? []).map(p => p.id));
     setDraft({ buyer: original.buyer, item: original.item, quantity: original.quantity, purpose: original.purpose, note: original.note ?? '', link: original.link ?? '' });
     setLoaded(true);
   }, [original, loaded]);
@@ -52,12 +54,15 @@ export default function TeacherRequestItemPage() {
   };
 
   const submit = async () => {
-    const p = purchaseDraftProblem(draft) ?? (editing ? null : purchasePhotoProblem(photos));
+    const p = purchaseDraftProblem(draft) ?? purchasePhotoProblem(photos);
     setProblem(p);
     if (p || submitting || locked) return;
     setSubmitting(true);
     try {
-      if (editing) await updatePurchaseRequest(requestId!, purchaseDraftToInput(draft));
+      if (editing) {
+        const photosChanged = photos.length > 0 || keptIds.length !== (original?.photos?.length ?? 0);
+        await updatePurchaseRequest(requestId!, purchaseDraftToInput(draft), photosChanged ? { keep: keptIds, add: photos } : undefined);
+      }
       else await requestPurchase(purchaseDraftToInput(draft), photos);
       refreshPurchaseLists(qc);
       showToast(editing ? 'Request updated' : 'Request sent', 'success');
@@ -106,14 +111,11 @@ export default function TeacherRequestItemPage() {
               <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: C.textStrong, marginBottom: 6 }}>
                 Photos <span style={{ fontWeight: 500, color: C.muted }}>(optional)</span>
               </span>
-              {editing ? (
-                original?.photos?.length
-                  ? <PrivateAttachments files={original.photos} cacheKey={['purchase-photo', original.id]} load={fileId => fetchPurchasePhoto(original.id, fileId)} />
-                  : <div style={{ fontSize: 13, color: C.muted }}>No photos were added.</div>
-              ) : (
-                <AttachmentPicker files={photos} onChange={setPhotos} rules={PURCHASE_PHOTO_RULES} disabled={submitting}
-                  theme={{ accent: C.pAccent, muted: C.muted, border: '#e2e8f0' }} />
-              )}
+              <RequestPhotosField requestId={editing ? original?.id : undefined}
+                kept={(original?.photos ?? []).filter(p => keptIds.includes(p.id))}
+                onRemoveKept={id => setKeptIds(ids => ids.filter(x => x !== id))}
+                added={photos} onAdded={setPhotos} disabled={submitting}
+                theme={{ accent: C.pAccent, muted: C.muted, border: '#e2e8f0' }} />
             </div>
 
             {problem && <div role="alert" style={{ marginTop: 14, fontSize: 13, fontWeight: 700, color: '#b91c1c' }}>{problem}</div>}

@@ -12,6 +12,7 @@ import { fetchTeachers } from '../api/planner.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 import { User } from '../types/index.js';
 import { useInstallApp } from '../hooks/useInstallApp.js';
+import ProfilePhotoButton from './profile/ProfilePhotoButton.js';
 
 function fmtBirthday(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -111,14 +112,7 @@ export default function TeacherMySettingsPage() {
           borderRadius: 18, padding: '18px', marginBottom: 16,
           boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
         }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
-            background: C.pAccent, color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, fontSize: 24, letterSpacing: '-0.01em',
-          }}>
-            {(currentUser?.name || '?').charAt(0).toUpperCase()}
-          </div>
+          <ProfilePhotoButton name={currentUser?.name || '?'} accent={C.pAccent} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
               fontSize: 18, fontWeight: 800, color: C.textStrong,

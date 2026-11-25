@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBug, faCamera, faSpinner, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faBug, faCamera, faPlay, faSpinner, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { createBugReport } from '../api/bug-reports.js';
 import { uploadBugReportPhotos, uploadUrl } from '../api/upload.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 import { useToast } from '../components/common/Toast.js';
 import { APP_VERSION } from '../version.js';
+import { BUG_MEDIA_ACCEPT, bugFileProblem, isVideoUrl } from './bugReports/bugMedia.js';
 
 const MAX_PHOTOS = 4;
 /** Matches the server's limit on a bug report title. */
@@ -54,12 +55,14 @@ export default function TeacherReportBugPage() {
     const room = MAX_PHOTOS - photoUrls.length;
     if (room <= 0) return;
     const picked = Array.from(files).slice(0, room);
+    const problem = picked.map(bugFileProblem).find(Boolean);
+    if (problem) { showToast(problem, 'error'); return; }
     setUploadingPhotos(true);
     try {
       const { urls } = await uploadBugReportPhotos(picked);
       setPhotoUrls(prev => [...prev, ...urls]);
     } catch (e: any) {
-      showToast(e?.message ?? 'Could not attach that photo', 'error');
+      showToast(e?.message ?? (picked.some(f => f.type.startsWith('video/')) ? 'Could not attach that video' : 'Could not attach that photo'), 'error');
     } finally {
       setUploadingPhotos(false);
     }
@@ -164,24 +167,32 @@ export default function TeacherReportBugPage() {
         <label style={{
           display: 'block', fontSize: 12.5, fontWeight: 700, color: C.textStrong, marginTop: 20, marginBottom: 8,
         }}>
-          Photos (optional)
+          Photos or videos (optional)
         </label>
         <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 10 }}>
           {photoUrls.map(url => (
             <div key={url} style={{ position: 'relative', width: 72, height: 72, flexShrink: 0 }}>
-              <img
-                src={uploadUrl(url)}
-                alt="Attached screenshot"
-                style={{
-                  width: 72, height: 72, borderRadius: 12, objectFit: 'cover',
-                  border: `1.5px solid ${C.cardBorder}`,
-                }}
-              />
+              {isVideoUrl(url) ? (
+                // A short screen recording — the first frame, with a play mark.
+                <span style={{ position: 'relative', display: 'block', width: 72, height: 72, borderRadius: 12, overflow: 'hidden', border: `1.5px solid ${C.cardBorder}`, background: '#0f172a' }}>
+                  <video src={uploadUrl(url)} muted playsInline preload="metadata" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <FontAwesomeIcon icon={faPlay} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', color: '#fff', fontSize: 16 }} />
+                </span>
+              ) : (
+                <img
+                  src={uploadUrl(url)}
+                  alt="Attached screenshot"
+                  style={{
+                    width: 72, height: 72, borderRadius: 12, objectFit: 'cover',
+                    border: `1.5px solid ${C.cardBorder}`,
+                  }}
+                />
+              )}
               <button
                 type="button"
                 onClick={() => setPhotoUrls(prev => prev.filter(u => u !== url))}
                 disabled={submitting}
-                aria-label="Remove photo" title="Remove photo"
+                aria-label={isVideoUrl(url) ? 'Remove video' : 'Remove photo'} title={isVideoUrl(url) ? 'Remove video' : 'Remove photo'}
                 style={{
                   position: 'absolute', top: -6, right: -6, width: 20, height: 20,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -215,7 +226,7 @@ export default function TeacherReportBugPage() {
         <input
           ref={photoFileRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept={BUG_MEDIA_ACCEPT}
           multiple
           style={{ display: 'none' }}
           onChange={e => {

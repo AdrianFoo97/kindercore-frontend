@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faMagnifyingGlass,
-  faClipboardCheck, faChevronRight, faListCheck, faLayerGroup, faClockRotateLeft, } from '@fortawesome/free-solid-svg-icons';
+  faClipboardCheck, faChevronRight, faListCheck, faLayerGroup, faClockRotateLeft, faStar, } from '@fortawesome/free-solid-svg-icons';
 import { fetchTemplates } from '../../api/sop-templates.js';
 import { fetchSteps } from '../../api/sop-steps.js';
 import { fetchCategories } from '../../api/sop-categories.js';
@@ -66,6 +66,9 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+
+/** The favourite star's colour — the same amber as the star on a guide's own page. */
+const FAVOURITE_STAR = '#d97706';
 
 export default function SopLibraryPage() {
   const navigate = useNavigate();
@@ -228,8 +231,9 @@ export default function SopLibraryPage() {
     : s.cardSub;
   const rowStyle: React.CSSProperties = themeIsTeacher
     ? {
-        display: 'flex', gap: 14, alignItems: 'center', padding: 16,
-        border: `1px solid ${C.cardBorder}`, borderRadius: 16, background: C.card,
+        // Compact: a list people scan — less padding, a smaller tile, one line of purpose.
+        display: 'flex', gap: 12, alignItems: 'center', padding: '10px 8px 10px 12px',
+        border: `1px solid ${C.cardBorder}`, borderRadius: 14, background: C.card,
         cursor: 'pointer', boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
       }
     : { ...s.templateRow, ...(isMobile ? sMobile.templateRow : null) };
@@ -320,7 +324,8 @@ export default function SopLibraryPage() {
             margin: '0 0 16px', paddingLeft: 4, fontSize: 30, fontWeight: 800,
             color: '#334155', letterSpacing: '-0.02em',
           }}>
-            Guides
+            {/* An open label takes the title (the top bar's back button returns to all labels). */}
+            {openLabel ? openLabelInfo?.name ?? 'Label' : 'Guides'}
           </h1>
         ) : (
           <div style={{ marginBottom: isMobile ? 16 : 18 }}>
@@ -389,7 +394,7 @@ export default function SopLibraryPage() {
         )}
 
         <div style={listWrapStyle}>
-          {openLabel && (
+          {openLabel && !themeIsTeacher && (
             <SopLabelHeader name={openLabelInfo?.name ?? 'Label'} color={openLabelInfo?.color ?? '#94a3b8'}
               onAllLabels={() => setLibraryParams({ view: 'labels' })} />
           )}
@@ -440,7 +445,7 @@ export default function SopLibraryPage() {
                   {filteredTemplates.length} How-To Guide{filteredTemplates.length === 1 ? '' : 's'}
                 </div>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: themeIsTeacher ? 0 : 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: themeIsTeacher ? 8 : 10, marginTop: themeIsTeacher ? 0 : 12 }}>
                 {pagedTemplates.map(t => {
                   const tMeta = meta[t.id];
                   return (
@@ -452,27 +457,28 @@ export default function SopLibraryPage() {
                     >
                       <div style={{
                         ...s.catIconWrap,
-                        // A bigger square tile + glyph reads clearer as
-                        // the card's visual anchor than the admin
-                        // table's smaller 36px version — matches the
-                        // icon tiles on Home's own cards (42px).
-                        // Square, not stretched to the content column's
-                        // height — that made it a tall rectangle instead.
-                        ...(themeIsTeacher ? { width: 44, height: 44, fontSize: 17 } : null),
+                        // Square, not stretched to the content column's height.
+                        ...(themeIsTeacher ? { width: 38, height: 38, fontSize: 15, borderRadius: 10 } : null),
                       }}>
                         <FontAwesomeIcon icon={resolveSopIcon(t.icon)} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         {themeIsTeacher ? (
                           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' as const, gap: 8 }}>
-                            <span style={{ fontSize: 14.5, fontWeight: 600, color: C.text }}>{t.title}</span>
+                            <span style={{ fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.3 }}>
+                              {t.title}
+                              {/* A favourite: a small star after its name (favourite it from the guide's own page). */}
+                              {favorites.isFavorite(t.id) && (
+                                <FontAwesomeIcon icon={faStar} aria-label="Favourite" title="Favourite" style={{ marginLeft: 6, fontSize: 12, color: FAVOURITE_STAR, verticalAlign: '0.05em' }} />
+                              )}
+                            </span>
                             {(t.categories ?? []).length > 0 && (() => {
                               const visibleCats = t.categories!.slice(0, 3);
                               const extra = t.categories!.length - visibleCats.length;
                               return (
                                 <div style={{ ...s.categoryChipRow, marginTop: 0 }}>
                                   {visibleCats.map(c => (
-                                    <span key={c.id} style={{ ...s.categoryChip, background: `${c.color}1c`, color: c.color }}>
+                                    <span key={c.id} title={c.name} style={{ ...s.categoryChip, background: `${c.color}1c`, color: c.color }}>
                                       {c.name}
                                     </span>
                                   ))}
@@ -491,13 +497,8 @@ export default function SopLibraryPage() {
                         {t.goal && (
                           <p style={{
                             ...s.templateGoal,
-                            // Reserves the full 2-line height (12px * 1.5
-                            // line-height * 2) even when the goal is only
-                            // one line, so the icon tile — vertically
-                            // centered against this whole block — sits at
-                            // the same height on every card, not shifting
-                            // per how long each guide's goal happens to be.
-                            ...(themeIsTeacher ? { minHeight: 36 } : null),
+                            // Teacher app: one line (the full purpose is on the guide itself).
+                            ...(themeIsTeacher ? { marginTop: 2, display: 'block', whiteSpace: 'nowrap', textOverflow: 'ellipsis', WebkitLineClamp: 'unset' } : null),
                           }}>
                             {t.goal}
                           </p>
@@ -541,7 +542,8 @@ export default function SopLibraryPage() {
                           </div>
                         )}
                       </div>
-                      <FavoriteStarButton title={t.title} on={favorites.isFavorite(t.id)} onToggle={on => favorites.toggle(t.id, on)} style={s.shareBtn} />
+                      {/* Teacher app: no star on the list — favourite a guide from its own page (the star by its title). */}
+                      {!themeIsTeacher && <FavoriteStarButton title={t.title} on={favorites.isFavorite(t.id)} onToggle={on => favorites.toggle(t.id, on)} style={s.shareBtn} />}
                       <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 12, color: C.mutedSoft, marginLeft: 4, flexShrink: 0 }} />
                     </div>
                   );
@@ -616,8 +618,9 @@ const s: Record<string, React.CSSProperties> = {
     display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
   },
   categoryChipRow: { display: 'flex', gap: 5, flexWrap: 'wrap' as const, marginTop: 6 },
+  // A long label name is cut with "…" (the full name shows on hover / to screen readers).
   categoryChip: {
-    display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
+    display: 'inline-block', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'middle', padding: '2px 8px',
     borderRadius: 999, fontSize: 10.5, fontWeight: 700,
   },
   metaRow: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' as const },

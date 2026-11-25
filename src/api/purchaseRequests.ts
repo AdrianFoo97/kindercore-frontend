@@ -133,10 +133,10 @@ async function postBought(path: string, details: BoughtDetails = {}): Promise<Pu
   return postForm(path, form, 'Could not save');
 }
 
-async function postForm(path: string, form: FormData, fallback: string): Promise<PurchaseRequest> {
+async function postForm(path: string, form: FormData, fallback: string, method: 'POST' | 'PATCH' = 'POST'): Promise<PurchaseRequest> {
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}${path}`, withSession({ method: 'POST', body: form }));
+    res = await fetch(`${BASE_URL}${path}`, withSession({ method, body: form }));
   } catch {
     throw new ApiError('Unable to connect to server.', 0, 'NETWORK_ERROR');
   }
@@ -149,9 +149,17 @@ export function markNotBuying(id: string, reason: string): Promise<PurchaseReque
   return apiFetch<PurchaseRequest>(`/api/purchase-requests/${id}/not-buying`, { method: 'POST', body: JSON.stringify({ reason }) });
 }
 
-/** The requester edits their own request — only while it's waiting for approval. */
-export function updatePurchaseRequest(id: string, input: PurchaseRequestInput): Promise<PurchaseRequest> {
-  return apiFetch<PurchaseRequest>(`/api/purchase-requests/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+/** A change to a request's photos while editing: which existing ones stay, and new ones to add. */
+export interface PhotoEdit { keep: string[]; add: File[] }
+
+/** The requester edits their own request — only while it's waiting for approval. Multipart only when the photos change. */
+export async function updatePurchaseRequest(id: string, input: PurchaseRequestInput, photos?: PhotoEdit): Promise<PurchaseRequest> {
+  if (!photos) return apiFetch<PurchaseRequest>(`/api/purchase-requests/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+  const form = new FormData();
+  for (const [k, v] of Object.entries(input)) if (v !== null) form.append(k, v);
+  form.append('keepPhotos', JSON.stringify(photos.keep));
+  for (const p of photos.add) form.append('photos', p);
+  return postForm(`/api/purchase-requests/${id}`, form, 'Could not save', 'PATCH');
 }
 
 /** The requester withdraws their own request — only while it's waiting for approval. */

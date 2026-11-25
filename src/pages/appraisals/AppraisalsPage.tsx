@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -7,6 +7,7 @@ import { fetchAppraisalOverview } from '../../api/teacher-appraisals.js';
 import { cancelAppraisal } from '../../api/appraisal-runs.js';
 import ConfirmDialog from '../../components/common/ConfirmDialog.js';
 import NewAppraisalModal from './NewAppraisalModal.js';
+import BulkCancelBar from './BulkCancelBar.js';
 import { getAvatarColor, getInitials } from '../../components/onboarding/avatar.js';
 import SegmentedControl from '../../components/common/SegmentedControl.js';
 import { useToast } from '../../components/common/Toast.js';
@@ -66,6 +67,12 @@ export default function AppraisalsPage() {
   const items = appraisalItems(allStaff.filter(r => matchesPosition(r, position)));
   const counts = tabCounts(items);
   const shown = items.filter(i => inTab(i, tab) && matchesName(i.row, search));
+  // Ticked appraisals, to cancel several at once — only unfinished ones (a done one is part of their record).
+  const cancellable = shown.filter(i => i.run && i.stage !== 'DONE');
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  useEffect(() => { setPicked(new Set()); }, [period.year, period.month, tab, position]);
+  const togglePicked = (id: string) => setPicked(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const allPicked = cancellable.length > 0 && cancellable.every(i => picked.has(i.run!.id));
 
   const changeYear = (year: number) => {
     // Keep the month if that year has it; otherwise jump to the year's last available month.
@@ -127,9 +134,25 @@ export default function AppraisalsPage() {
             {shown.length === 0 ? (
               <div style={s.noneYet}>{search.trim() ? `No one matches “${search.trim()}”.` : `Nothing ${tab === 'ALL' ? '' : APPRAISAL_TABS.find(t => t.key === tab)!.label.toLowerCase()} for ${MONTH_LABELS[period.month]} ${period.year}.`}</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-                {shown.map(item => <AppraisalLine key={item.key} item={item} month={period.month} onOpen={() => open(item)} onCancel={() => setCancelling(item)} />)}
-              </div>
+              <>
+                {picked.size > 0 && (
+                  <BulkCancelBar onClear={() => setPicked(new Set())}
+                    picked={cancellable.filter(i => picked.has(i.run!.id)).map(i => ({ id: i.run!.id, name: i.row.name }))} />
+                )}
+                {cancellable.length > 1 && (
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13, color: '#64748b', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={allPicked} style={{ width: 16, height: 16, accentColor: '#5a67d8' }}
+                      onChange={e => setPicked(e.target.checked ? new Set(cancellable.map(i => i.run!.id)) : new Set())} />
+                    Select all that can be cancelled ({cancellable.length})
+                  </label>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+                  {shown.map(item => (
+                    <AppraisalLine key={item.key} item={item} month={period.month} onOpen={() => open(item)} onCancel={() => setCancelling(item)}
+                      picked={item.run ? picked.has(item.run.id) : false} onPick={item.run && item.stage !== 'DONE' ? () => togglePicked(item.run!.id) : undefined} />
+                  ))}
+                </div>
+              </>
             )}
           </>
         )}
@@ -226,7 +249,11 @@ function Breakdown({ label, average, scores }: { label: string; average: number 
 const pct = (n: number | null, bandOf: (score: number) => Band) => (n != null ? <strong style={{ color: bandOf(n).color }}>{Math.round(n)}%</strong> : <span>—</span>);
 
 /** One appraisal: who, which form and period, their averages so far, where it is, and Start / Continue / View. */
-function AppraisalLine({ item, month, onOpen, onCancel }: { item: AppraisalItem; month: number; onOpen: () => void; onCancel: () => void }) {
+function AppraisalLine({ item, month, onOpen, onCancel, picked, onPick }: {
+  item: AppraisalItem; month: number; onOpen: () => void; onCancel: () => void;
+  /** Ticked for cancelling several at once; onPick only on ones that can be cancelled. */
+  picked: boolean; onPick?: () => void;
+}) {
   const { row, run, manual } = item;
   const bandOf = useScoreBand();
   const avatar = getAvatarColor(row.name);
@@ -234,7 +261,11 @@ function AppraisalLine({ item, month, onOpen, onCancel }: { item: AppraisalItem;
   const verb = actionLabel(item);
   const what = run ? `${run.formName} · ${periodLabel(run.periodType, run.period)}` : 'Recorded by hand';
   return (
-    <div className="m-wrap" style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '14px 16px' }}>
+    <div className="m-wrap" style={{ display: 'flex', alignItems: 'center', gap: 12, background: picked ? '#f8f9ff' : '#fff', border: `1px solid ${picked ? '#5a67d8' : '#e2e8f0'}`, borderRadius: 14, padding: '14px 16px' }}>
+      {onPick && (
+        <input type="checkbox" checked={picked} onChange={onPick} aria-label={`Select ${item.row.name}’s appraisal`}
+          style={{ width: 16, height: 16, flexShrink: 0, accentColor: '#5a67d8', cursor: 'pointer' }} />
+      )}
       <div aria-hidden style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: avatar.bg, color: avatar.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
         {getInitials(row.name)}
       </div>

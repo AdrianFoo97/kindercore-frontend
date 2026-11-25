@@ -118,6 +118,8 @@ interface TopBarState {
 // instead, same as before.
 function teacherSopTopBar(pathname: string, search: string): TopBarState | null {
   if (pathname === '/operations/sops' || pathname === '/operations/sops/') {
+    // A label opened from the Labels tab: a back button returns to the list of labels.
+    if (new URLSearchParams(search).get('label')) return { title: 'Guides', showBack: true, backTo: GO_BACK };
     return { title: 'Guides', showBack: false, backTo: '/operations/sops?app=teacher' };
   }
   // Reached from Home (quick action) or Guides (⋯ menu) — back returns to whichever it was.
