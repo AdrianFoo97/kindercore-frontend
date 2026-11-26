@@ -20,17 +20,12 @@ import { fetchAllowanceTypes } from '../api/allowance.js';
 import { fetchTeacherCareer } from '../api/career-missions.js';
 import { uploadUrl } from '../api/upload.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
-import {
-  PERFORMER_THRESHOLD_KEY,
-  HIGH_PERFORMER_THRESHOLD_KEY,
-  DEFAULT_PERFORMER_THRESHOLD,
-  DEFAULT_HIGH_PERFORMER_THRESHOLD,
-  readScore,
-} from './settings/CompensationSettingsPage.js';
+import { DEFAULT_SCORE_BANDS, tierMarks, tierMarksFrom } from './appraisals/scoreBands.js';
 import { DEFAULT_EXPENSE_RATIO_TARGET } from './FinanceSettingsPage.js';
 import { benefitTiers, type BenefitStatus } from './teacherPay/benefits/benefitsCatalog.js';
 import { formatService } from '../utils/serviceYears.js';
 
+import { latestScore } from './appraisals/scoreBands.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Design tokens — page-scoped so the compensation surface owns its dialect
 // (deep navy + gold) without leaking into the rest of the app.
@@ -99,7 +94,7 @@ export const compensationData = {
   // Level → RM incentive map for the teacher's CURRENT position only.
   // Missing levels default to 0 in lookups (level 0 = no incentive).
   incentiveByLevel: {} as Record<number, number>,
-  appraisalScore: 0,                   // 0–100 · 6-month average from appraisals API
+  appraisalScore: 0,                   // 0–100 · their latest appraised month (same as Home's High Performer)
   yearsOfService: 0,                   // computed from teacher.createdAt
   // Promotion fields — populated from fetchTeacherCareer so MoneyQuests
   // can render a "Get promoted" card with the live readiness gates.
@@ -132,12 +127,13 @@ export function computeMonthlyTotal(): number {
     + compensationData.allowances.reduce((sum, a) => sum + a.amount, 0);
 }
 
-// Tier thresholds come from the SystemSetting table (editable on the
-// Compensation Settings page). Other policy values stay as code
-// constants for now — they can move to settings later.
+// Tier marks come from the score bands (Settings → Performance Management →
+// Score bands: top band = High Performer, next = Performer). Other policy
+// values stay as code constants for now — they can move to settings later.
+const DEFAULT_TIER_MARKS = tierMarks(DEFAULT_SCORE_BANDS);
 export const benefitRules = {
-  minimumAppraisalForEligibility: DEFAULT_PERFORMER_THRESHOLD,
-  highPerformerAppraisalThreshold: DEFAULT_HIGH_PERFORMER_THRESHOLD,
+  minimumAppraisalForEligibility: DEFAULT_TIER_MARKS.performer,
+  highPerformerAppraisalThreshold: DEFAULT_TIER_MARKS.highPerformer,
   medicalQuarterlyAllowance: 50,
   loyaltyIncentiveRate: 0.02,
   loyaltyIncentiveCap: 400,
@@ -369,10 +365,9 @@ export function useCompensationData(id: string | undefined) {
 
   const teacher = (teachers as any[]).find(t => t.id === id);
 
-  benefitRules.minimumAppraisalForEligibility =
-    readScore(settings, PERFORMER_THRESHOLD_KEY, DEFAULT_PERFORMER_THRESHOLD);
-  benefitRules.highPerformerAppraisalThreshold =
-    readScore(settings, HIGH_PERFORMER_THRESHOLD_KEY, DEFAULT_HIGH_PERFORMER_THRESHOLD);
+  const marks = tierMarksFrom(settings as Record<string, unknown> | undefined);
+  benefitRules.minimumAppraisalForEligibility = marks.performer;
+  benefitRules.highPerformerAppraisalThreshold = marks.highPerformer;
 
   if (teacherSalary) {
     const breakdown = teacherSalary.breakdown;
@@ -427,9 +422,11 @@ export function useCompensationData(id: string | undefined) {
     compensationData.yearsOfService = Math.max(0, ms / (1000 * 60 * 60 * 24 * 365.25));
   }
 
-  const liveAverage = appraisalData?.summary?.average;
-  if (typeof liveAverage === 'number') {
-    compensationData.appraisalScore = Math.round(liveAverage);
+  // Their tier is decided by their LATEST appraised month — the same score Home's
+  // High Performer uses, so the two never disagree.
+  const latest = latestScore(appraisalData?.items ?? []);
+  if (latest != null) {
+    compensationData.appraisalScore = Math.round(latest);
   }
   // Dev preview override: ?score=N takes precedence over the live
   // average so we can demo any tier without recording appraisals.

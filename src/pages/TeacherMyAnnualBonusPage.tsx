@@ -4,6 +4,15 @@ import { faCheck, faXmark, faTrophy } from '@fortawesome/free-solid-svg-icons';
 import { useAnnualBonusSummary } from '../hooks/useAnnualBonusSummary.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import { staffMonthState, type StaffMonthState } from './profitSharing/publishState.js';
+
+/** How each month chip reads — a month shows its result only once Finance has published it. Short labels: four chips to a row. */
+const CHIP: Record<StaffMonthState, { label: string | null; title: string; bg: string; border: string }> = {
+  hit: { label: null, title: 'Hit target', bg: '#ecfdf5', border: '#a7f3d0' },
+  missed: { label: null, title: 'Missed target', bg: '#fef2f2', border: '#fecaca' },
+  'not-published': { label: 'Pending', title: 'Not published yet', bg: '#fffbeb', border: '#fde68a' },
+  upcoming: { label: '—', title: 'Upcoming', bg: '#f1f5f9', border: '#eceef2' },
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Annual Bonus — a teacher's own, honest view of this year's bonus
@@ -100,31 +109,35 @@ export default function TeacherMyAnnualBonusPage() {
                 </span>
               </div>
               <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 600, color: C.muted }}>
-                {hitsCount} of 12 months hit target so far
+                {hitsCount} of 12 months hit target so far · only published months count
               </div>
 
               {/* Month-by-month chips — wraps into rows of 4, unlike
                   Team Pool's single row of 3 (a whole year doesn't fit
                   one row on a phone screen). */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 14 }}>
-                {monthlyPools.map(m => (
-                  <div key={m.monthIdx} style={{
-                    borderRadius: 12, padding: '10px 6px', textAlign: 'center',
-                    background: m.isForecast ? C.slateSoft : m.hit ? C.greenSoft : '#fef2f2',
-                    border: `1px solid ${m.isForecast ? C.cardBorder : m.hit ? C.greenBorder : '#fecaca'}`,
-                  }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase' }}>
-                      {MONTH_LABELS_SHORT[m.monthIdx]}
+                {monthlyPools.map(m => {
+                  const state = staffMonthState(m, year, new Date());
+                  const chip = CHIP[state];
+                  return (
+                    <div key={m.monthIdx} title={chip.title} style={{
+                      borderRadius: 12, padding: '10px 6px', textAlign: 'center',
+                      background: chip.bg, border: `1px solid ${chip.border}`,
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase' }}>
+                        {MONTH_LABELS_SHORT[m.monthIdx]}
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 14 }}>
+                        {chip.label ? (
+                          <span style={{ color: state === 'not-published' ? '#b45309' : C.mutedSoft, fontSize: 11, fontWeight: 700 }}>{chip.label}</span>
+                        ) : (
+                          <FontAwesomeIcon icon={state === 'hit' ? faCheck : faXmark} aria-label={chip.title}
+                            style={{ color: state === 'hit' ? C.green : '#dc2626' }} />
+                        )}
+                      </div>
                     </div>
-                    <div style={{ marginTop: 4, fontSize: 14 }}>
-                      {m.isForecast ? (
-                        <span style={{ color: C.mutedSoft, fontSize: 11, fontWeight: 700 }}>—</span>
-                      ) : (
-                        <FontAwesomeIcon icon={m.hit ? faCheck : faXmark} style={{ color: m.hit ? C.green : '#dc2626' }} />
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

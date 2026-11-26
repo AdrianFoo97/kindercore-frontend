@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck, faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faPlus, faStar, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { fetchSettings, patchSetting } from '../../api/settings.js';
 import { useIsMobile } from '../../hooks/useIsMobile.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
+import SettingsNote from './SettingsNote.js';
 import {
   BAND_TONES, DEFAULT_SCORE_BANDS, MAX_BANDS, MAX_LABEL_LENGTH, MIN_BANDS, SCORE_BANDS_KEY, TONE_KEYS,
-  bandFor, bandsFrom, bandsProblem, fromDrafts, scaleSegments, toDrafts, type BandDraft, type BandTone,
+  BAND_TIER_NAMES, bandFor, bandsFrom, bandsProblem, fromDrafts, scaleSegments, toDrafts, type BandDraft, type BandTone,
 } from '../appraisals/scoreBands.js';
 
 const C = { text: '#0f172a', sub: '#334155', muted: '#64748b', border: '#e2e8f0', borderStrong: '#cbd5e1', accent: '#5a67d8', red: '#b91c1c', green: '#047857', soft: '#f8fafc' };
@@ -55,6 +56,7 @@ export default function ScoreBandsPage() {
   return (
     <div className="m-pad">
       <h1>Score bands</h1>
+      <SettingsNote>The top band marks a <strong>High Performer</strong> and the next band a <strong>Performer</strong>, judged on each person’s latest appraisal. Changing them changes Pay tiers, benefits and the gold ring on Home.</SettingsNote>
       <section aria-label="Bands" style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12 }}>
         <ScalePreview drafts={drafts} />
         <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -150,6 +152,7 @@ function BandRow({ draft: d, index: i, drafts, mobile, picking, onPickToggle, on
             </>
           )}
         </div>
+        {i < BAND_TIER_NAMES.length && <TierTag name={BAND_TIER_NAMES[i]} />}
         {onRemove ? (
           <button type="button" onClick={onRemove} aria-label={`Remove ${d.label.trim() || `band ${i + 1}`}`} title="Remove band"
             style={{ width: tap, height: tap, flexShrink: 0, border: 'none', background: 'none', color: C.muted, cursor: 'pointer', borderRadius: 8 }}>
@@ -163,6 +166,19 @@ function BandRow({ draft: d, index: i, drafts, mobile, picking, onPickToggle, on
         </div>
       )}
     </li>
+  );
+}
+
+/** What this band decides — "High Performer" (top) or "Performer" (next). */
+function TierTag({ name }: { name: string }) {
+  return (
+    <span title={`Scores in this band count as ${name}`} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '4px 10px', borderRadius: 999,
+      background: C.soft, border: `1px solid ${C.border}`, fontSize: 12, fontWeight: 700, color: C.sub, whiteSpace: 'nowrap',
+    }}>
+      <FontAwesomeIcon icon={faStar} style={{ fontSize: 10, color: '#b45309' }} />
+      {name}
+    </span>
   );
 }
 

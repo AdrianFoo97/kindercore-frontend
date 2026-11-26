@@ -11,7 +11,7 @@ import { useIsMobile } from '../../hooks/useIsMobile.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { MODULES } from '../../constants/authModules.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faCalendarCheck, faCartShopping, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBars, faClipboardList, faClipboardCheck, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faChalkboardUser, faSliders, faScrewdriverWrench, faChildren, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faFileLines, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faListCheck, faHouse } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCalendarCheck, faCartShopping, faArrowUpRightFromSquare, faUsers, faGraduationCap, faBars, faClipboardList, faClipboardCheck, faUserPlus, faBullhorn, faChartLine, faCoins, faLink, faCopy, faCircleCheck, faMoneyBillTrendUp, faReceipt, faChartPie, faGift, faChalkboardUser, faSliders, faScrewdriverWrench, faChildren, faGears, faIdCard, faStar, faSackDollar, faBookOpen, faBug, faLightbulb, faBell, faFileLines, faInbox, faRightFromBracket, faVial, faDatabase, faSitemap, faCode, faTriangleExclamation, faListCheck, faHouse } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import MessageTemplatesModal from './MessageTemplatesModal.js';
 import FormLinksModal from './FormLinksModal.js';
@@ -513,8 +513,9 @@ export default function Navbar() {
             // and incident follow-up. Headings only appear when both
             // groups are on show — a teacher who only sees Incidents
             // gets a plain one-item menu.
-            const showLibrary = !user?.teacherId;
             const canReviewGuides = hasView('OPERATION_SOP_APPROVE');
+            // Staff read guides from the flat "Guides" link (the staff app); editors also need the library itself.
+            const showLibrary = !user?.teacherId || canReviewGuides;
             const showGuides = showLibrary || canReviewGuides;
             const showPlanner = allowModule(MODULES.TOOLS);
             const canManagePurchases = hasView('OPERATION_PURCHASE_MANAGE');
@@ -851,11 +852,24 @@ export default function Navbar() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{user.name}</div>
                       <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, textTransform: 'capitalize' as const }}>{user.role.toLowerCase()}</div>
                     </div>
+                    {/* Your own choices — personal, so here rather than in Settings. */}
+                    <Link to="/notifications/settings" onClick={() => { setProfileOpen(false); closeAll(); }} className="nav-drop-item"
+                      style={{ ...styles.panelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <FontAwesomeIcon icon={faBell} style={{ fontSize: 12, width: 16, color: '#64748b' }} />
+                      My Notifications
+                    </Link>
                     {allowModule(MODULES.TOOLS) && (
                       <Link to="/tools/bug-reports" onClick={() => { setProfileOpen(false); closeAll(); }} className="nav-drop-item"
                         style={{ ...styles.panelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
                         <FontAwesomeIcon icon={faBug} style={{ fontSize: 12, width: 16, color: '#64748b' }} />
                         Bug Reports
+                      </Link>
+                    )}
+                    {allowModule(MODULES.TOOLS) && (
+                      <Link to="/tools/feature-requests" onClick={() => { setProfileOpen(false); closeAll(); }} className="nav-drop-item"
+                        style={{ ...styles.panelItem, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <FontAwesomeIcon icon={faLightbulb} style={{ fontSize: 12, width: 16, color: '#64748b' }} />
+                        Feature Requests
                       </Link>
                     )}
                     <button onClick={handleLogout} className="nav-drop-item"
@@ -880,12 +894,24 @@ export default function Navbar() {
         <div onClick={closeAll} style={{ position: 'fixed', inset: 0, top: 50, background: 'rgba(0,0,0,0.3)', zIndex: 99 }} />
         <div style={{ position: 'fixed', top: 50, left: 0, right: 0, bottom: 0, background: '#fff', zIndex: 100, overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
           {renderNavItems(true)}
-          {/* Account: Bug Reports, then user info + logout at bottom (same as the desktop account menu) */}
+          {/* Account: My Notifications, Bug Reports, Feature Requests, then user info + logout at bottom (same as the desktop account menu) */}
+          <Link to="/notifications/settings" onClick={closeAll}
+            style={{ padding: '14px 20px', minHeight: 44, boxSizing: 'border-box', fontSize: 15, fontWeight: 500, color: '#374151', borderTop: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+            <FontAwesomeIcon icon={faBell} style={{ fontSize: 13, width: 16, color: '#64748b' }} />
+            My Notifications
+          </Link>
           {allowModule(MODULES.TOOLS) && (
             <Link to="/tools/bug-reports" onClick={closeAll}
               style={{ padding: '14px 20px', minHeight: 44, boxSizing: 'border-box', fontSize: 15, fontWeight: 500, color: '#374151', borderTop: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
               <FontAwesomeIcon icon={faBug} style={{ fontSize: 13, width: 16, color: '#64748b' }} />
               Bug Reports
+            </Link>
+          )}
+          {allowModule(MODULES.TOOLS) && (
+            <Link to="/tools/feature-requests" onClick={closeAll}
+              style={{ padding: '14px 20px', minHeight: 44, boxSizing: 'border-box', fontSize: 15, fontWeight: 500, color: '#374151', borderTop: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+              <FontAwesomeIcon icon={faLightbulb} style={{ fontSize: 13, width: 16, color: '#64748b' }} />
+              Feature Requests
             </Link>
           )}
           <div style={{ borderTop: '1px solid #e5e7eb', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

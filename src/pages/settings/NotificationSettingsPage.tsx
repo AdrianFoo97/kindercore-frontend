@@ -6,8 +6,8 @@ import { fetchNotificationSettings, saveNotificationSettings } from '../../api/n
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 import { groupByCategory, groupBySource } from '../../components/common/notificationDisplay.js';
 
-// Your notifications (Settings → Organisation → Notifications for admins;
-// /notifications/settings for everyone; inside the teacher app via
+// Your notifications — personal, so not in Settings: account menu → My
+// Notifications (/notifications/settings); inside the teacher app via
 // TeacherNotificationSettingsPage). Only what your roles (and, for staff,
 // your own work) give you is listed — by category, then by where it comes
 // from. Your own choice only.
@@ -60,7 +60,7 @@ export default function NotificationSettingsPage({ embedded = false, accent = C.
 
   return (
     <div className={pad}>
-      {!embedded && <h1>Notifications</h1>}
+      {!embedded && <h1 style={{ margin: '0 0 24px', fontSize: 24, fontWeight: 700, color: C.text, letterSpacing: '-0.02em' }}>My Notifications</h1>}
 
       {data.events.length === 0 && (
         <div style={{ ...s.card, textAlign: 'center', color: C.muted, fontSize: 14, padding: 32 }}>

@@ -24,12 +24,14 @@ const DESTINATIONS: { notification: string; path: string; module: string | null;
   { notification: 'Item requested', path: '/operations/shopping-list', module: 'OPERATION', view: 'OPERATION_PURCHASE_MANAGE' },
   { notification: 'Guide change suggested', path: '/hr/sop-revisions/:id', module: 'OPERATION', view: 'OPERATION_SOP_APPROVE' },
   { notification: 'Bug reported', path: '/tools/bug-reports', module: 'TOOLS' },
+  { notification: 'Feature requested', path: '/tools/feature-requests', module: 'TOOLS' },
   // About you: your own staff pages — no module needed (the server checks it's yours).
   { notification: 'Your item requests', path: '/teachers/:id/purchases', module: null },
   { notification: 'Your reports (incident)', path: '/teachers/:id/incidents', module: null },
   { notification: 'Your reports (facility)', path: '/teachers/:id/facilities', module: null },
   { notification: 'Your appraisal', path: '/appraisals/:id', module: null },
   { notification: 'Points and rewards', path: '/teachers/:id/rewards', module: null },
+  { notification: 'School news (opens Home, where the news card is)', path: '/teachers/:id/home', module: null },
   { notification: 'Notification settings in the teacher app', path: '/teachers/:id/settings/notifications', module: null },
 ];
 

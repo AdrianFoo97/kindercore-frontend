@@ -91,6 +91,23 @@ export function bandFor(score: number, bands: ScoreBand[]): Band {
   return { label: band.label, tone: band.tone, ...BAND_TONES[band.tone] };
 }
 
+/**
+ * The marks behind the Pay tier, benefits and the Home gold ring: the top
+ * band's lowest score makes a High Performer, the next band's a Performer.
+ * Changing those bands in Settings → Score bands changes who qualifies.
+ */
+export interface TierMarks { performer: number; highPerformer: number }
+
+/** Bands highest first, as bandsFrom returns them (always at least two). */
+export const tierMarks = (bands: ScoreBand[]): TierMarks => ({ highPerformer: bands[0].min, performer: bands[1].min });
+
+/** The marks from the saved settings (defaults until Score bands is saved). */
+export const tierMarksFrom = (settings: Record<string, unknown> | undefined): TierMarks =>
+  tierMarks(bandsFrom(settings?.[SCORE_BANDS_KEY]));
+
+/** What a band row controls, by position (top first) — labelled on the Score bands page. */
+export const BAND_TIER_NAMES = ['High Performer', 'Performer'] as const;
+
 /** The latest month's score in a history (any order), or null when there's none. */
 export function latestScore(items: { year: number; month: number; score: number }[]): number | null {
   if (!items.length) return null;

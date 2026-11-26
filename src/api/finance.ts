@@ -48,7 +48,13 @@ export function fetchFinanceSummary(year?: number) {
 // Worked out on the server: only hit / missed / upcoming per month, the pool
 // so far and the teacher's own share — never the school's finance figures.
 
-export interface PoolMonthStatus { monthIdx: number; hit: boolean; isForecast: boolean }
+export interface PoolMonthStatus {
+  monthIdx: number;
+  hit: boolean;
+  isForecast: boolean;
+  /** Team pool only: false = Finance hasn't published this month yet, so it isn't shown or counted. */
+  published?: boolean;
+}
 export interface PoolProgress {
   months: PoolMonthStatus[];
   poolAmount: number;

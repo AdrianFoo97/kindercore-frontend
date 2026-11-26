@@ -10,6 +10,7 @@ import { monthPool, settingNum, splitPool } from '../utils/poolMath.js';
 import { FilterPillStyles, PillSelect } from '../components/common/FilterPill.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import PublishMonthsPanel from './profitSharing/PublishMonthsPanel.js';
 
 // ── Design tokens ───────────────────────────────────────────────────────
 const C = {
@@ -325,6 +326,9 @@ export default function ProfitSharingPage() {
             </div>
           </div>
         </header>
+
+        {/* What staff can see on Pay — and, for the Finance Manager, publishing it. */}
+        <PublishMonthsPanel year={year} />
 
         {/* ── Pool Hero ─────────────────────────────────────────── */}
         <PoolCard

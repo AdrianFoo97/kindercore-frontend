@@ -131,4 +131,7 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   // System
   SystemSetting: { domain: 'System', about: 'App-wide settings as key/value pairs — thresholds, finance ratios, message templates, etc.' },
   BugReport: { domain: 'System', about: 'A bug report submitted from the app, triaged by an admin.' },
+  SchoolNews: { domain: 'Students', about: 'School news on every staff member’s Home — first kind: a new child enrols (a package assigned). Shares only the class and start date, never the child’s name; one post per child (unique kind + sourceId); Students staff can hide a post. On/off in Settings → Students → School news.' },
+  ProfitSharePublication: { domain: 'Finance', about: 'Each publish / take-back of one month’s profit-sharing pool (Analysis → Profit Sharing, Finance Manager only). The latest row for a month is its state: staff see that month on Pay only while it’s published, at the amount frozen then. Take-backs carry a reason.' },
+  FeatureRequest: { domain: 'System', about: 'An idea for the app sent by staff from the ⋯ menu (Request a Feature). Admins mark it reviewed in Tools → Feature Requests; the sender doesn’t follow it.' },
 };

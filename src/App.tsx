@@ -82,6 +82,11 @@ import AiSettingsPage from './pages/settings/ai/AiSettingsPage.js';
 import ComparePnlReadingPage from './pages/settings/ai/ComparePnlReadingPage.js';
 import ImportHistoryPage from './pages/operations/pnl-import/ImportHistoryPage.js';
 import TeacherReportBugPage from './pages/TeacherReportBugPage.js';
+import TeacherRequestFeaturePage from './pages/featureRequests/TeacherRequestFeaturePage.js';
+import FeatureRequestsPage from './pages/featureRequests/FeatureRequestsPage.js';
+import ManagerHomePage from './pages/manage/ManagerHomePage.js';
+import ManagerTopBar from './pages/manage/ManagerTopBar.js';
+import { useSignedInUser } from './utils/signedInUser.js';
 import TeacherIncidentsPage from './pages/TeacherIncidentsPage.js';
 import TeacherReportIncidentPage from './pages/TeacherReportIncidentPage.js';
 import IncidentsPage from './pages/IncidentsPage.js';
@@ -125,7 +130,6 @@ import { MODULES } from './constants/authModules.js';
 import NoAccessPage from './pages/NoAccessPage.js';
 import YearRolloverPage from './pages/settings/YearRolloverPage.js';
 import FinanceSettingsPage from './pages/FinanceSettingsPage.js';
-import CompensationSettingsPage from './pages/settings/CompensationSettingsPage.js';
 import PointsRewardsSettingsPage from './pages/settings/PointsRewardsSettingsPage.js';
 import PointsRewardsAddPage from './pages/settings/PointsRewardsAddPage.js';
 import SetupAccountPage from './pages/SetupAccountPage.js';
@@ -151,6 +155,7 @@ import AccessLogPage from './pages/admin/AccessLogPage.js';
 import SettingsLayout from './pages/settings/SettingsLayout.js';
 import TitledSettingsPage from './pages/settings/TitledSettingsPage.js';
 import ScoreBandsPage from './pages/settings/ScoreBandsPage.js';
+import SchoolNewsSettingsPage from './pages/settings/SchoolNewsSettingsPage.js';
 import PracticeObservationSettingsPage from './pages/settings/PracticeObservationSettingsPage.js';
 import OrgChartPage from './pages/settings/OrgChartPage.js';
 import PositionsPage from './pages/settings/PositionsPage.js';
@@ -233,6 +238,7 @@ function ProtectedLayout() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { pathname, search } = useLocation();
   const { isMobile } = useIsMobile();
+  const user = useSignedInUser();
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, left: 0 });
   }, [pathname]);
@@ -244,9 +250,12 @@ function ProtectedLayout() {
   // gate is teacherSurface AND isMobile, not teacherSurface alone.
   const showTeacherChrome = teacherSurface && isMobile;
   const showBottomNavSpace = showTeacherChrome && !!teacherNavMatch(pathname, search);
+  // Staff on a phone, off the staff app = the manager view: a plain header
+  // (back + "Staff app") instead of the admin nav bar — its tiles replace the menus.
+  const managerTeacherId = isMobile && !teacherSurface ? user?.teacherId ?? null : null;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      {!showTeacherChrome && <Navbar />}
+      {managerTeacherId ? <ManagerTopBar teacherId={managerTeacherId} /> : !showTeacherChrome && <Navbar />}
       <div
         ref={scrollRef}
         style={{
@@ -317,8 +326,10 @@ export default function App() {
         <Route path="/join" element={<StaffJoinPage />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/no-access" element={<ErrorBoundary><NoAccessPage /></ErrorBoundary>} />
-          {/* Everyone's own notification choices (admins also have it under Settings). */}
+          {/* Your own notification choices — account menu → My Notifications (staff app: My Profile → Notifications). */}
           <Route path="/notifications/settings" element={<ErrorBoundary><div style={{ maxWidth: 840, margin: '0 auto', padding: '24px 0' }}><NotificationSettingsPage /></div></ErrorBoundary>} />
+          {/* Its old home under Settings — kept so saved links still work. */}
+          <Route path="/settings/notifications" element={<Navigate to="/notifications/settings" replace />} />
           <Route path="/leads" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><LeadsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/leads/import" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><ImportLeadsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/marketing/campaigns" element={<RequireModule module={MODULES.MARKETING}><ErrorBoundary><MarketingCampaignsPage /></ErrorBoundary></RequireModule>} />
@@ -339,6 +350,7 @@ export default function App() {
             <Route path="/settings/packages" element={<ErrorBoundary><SettingsPackagesPage /></ErrorBoundary>} />
             <Route path="/settings/packages" element={<Navigate to="/packages" replace />} />
             <Route path="/settings/onboarding" element={<ErrorBoundary><OnboardingSettingsPage /></ErrorBoundary>} />
+            <Route path="/settings/school-news" element={<ErrorBoundary><SchoolNewsSettingsPage /></ErrorBoundary>} />
             <Route path="/settings/staff-onboarding" element={<ErrorBoundary><OnboardingSettingsPage title="Staff Onboarding" sections={STAFF_ONBOARDING_SECTIONS} /></ErrorBoundary>} />
             <Route path="/settings/calendar" element={<ErrorBoundary><GoogleCalendarSettingsPage /></ErrorBoundary>} />
             <Route path="/settings/attendance-reader" element={<ErrorBoundary><AttendanceReaderSettingsPage /></ErrorBoundary>} />
@@ -378,7 +390,6 @@ export default function App() {
             <Route path="/settings/test/unit-tests" element={<Navigate to="/admin/test-catalog" replace />} />
             <Route path="/settings/users" element={<ErrorBoundary><ManageUsersPage /></ErrorBoundary>} />
             <Route path="/settings/users/invite" element={<ErrorBoundary><InviteMemberPage /></ErrorBoundary>} />
-            <Route path="/settings/notifications" element={<ErrorBoundary><NotificationSettingsPage /></ErrorBoundary>} />
             <Route path="/settings/ai" element={<ErrorBoundary><AiSettingsPage /></ErrorBoundary>} />
             <Route path="/settings/ai/compare/pnl-reading" element={<ErrorBoundary><ComparePnlReadingPage /></ErrorBoundary>} />
             <Route path="/settings/users/:id/access" element={<ErrorBoundary><EditAccessPage /></ErrorBoundary>} />
@@ -399,7 +410,8 @@ export default function App() {
             <Route path="/settings/operating-cost-categories" element={<ErrorBoundary><OperatingCostCategoriesPage /></ErrorBoundary>} />
             <Route path="/settings/operating-cost" element={<ErrorBoundary><SettingsOperatingCostPage /></ErrorBoundary>} />
             <Route path="/settings/finance" element={<ErrorBoundary><FinanceSettingsPage /></ErrorBoundary>} />
-            <Route path="/settings/compensation" element={<ErrorBoundary><CompensationSettingsPage /></ErrorBoundary>} />
+            {/* The tier marks moved to Score bands (top band = High Performer, next = Performer). */}
+            <Route path="/settings/compensation" element={<Navigate to="/settings/score-bands" replace />} />
           </Route>
           <Route path="/students" element={<RequireModule module={MODULES.STUDENTS}><ErrorBoundary><StudentsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/students/import" element={<RequireModule module={MODULES.STUDENTS}><ErrorBoundary><ImportStudentsPage /></ErrorBoundary></RequireModule>} />
@@ -460,6 +472,7 @@ export default function App() {
           <Route path="/teachers/:id/settings" element={<ErrorBoundary><TeacherMySettingsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/settings/notifications" element={<ErrorBoundary><TeacherNotificationSettingsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/settings/report-bug" element={<ErrorBoundary><TeacherReportBugPage /></ErrorBoundary>} />
+          <Route path="/teachers/:id/settings/request-feature" element={<ErrorBoundary><TeacherRequestFeaturePage /></ErrorBoundary>} />
           <Route path="/teachers/:id/incidents" element={<ErrorBoundary><TeacherIncidentsPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/incidents/new" element={<ErrorBoundary><TeacherReportIncidentPage /></ErrorBoundary>} />
           <Route path="/teachers/:id/facilities" element={<ErrorBoundary><TeacherFacilitiesPage /></ErrorBoundary>} />
@@ -495,7 +508,10 @@ export default function App() {
           <Route path="/operations/incidents/:id/edit" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_INCIDENT_MANAGE"><ErrorBoundary><IncidentFormPage /></ErrorBoundary></RequireView></RequireModule>} />
           <Route path="/operations/shopping-list" element={<RequireModule module={MODULES.OPERATION}><RequireView view="OPERATION_PURCHASE_MANAGE"><ErrorBoundary><ShoppingListPage /></ErrorBoundary></RequireView></RequireModule>} />
           <Route path="/operations/facilities" element={<RequireModule module={MODULES.OPERATION}><ErrorBoundary><FacilityIssuesPage /></ErrorBoundary></RequireModule>} />
-          <Route path="/tools/bug-reports"element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/tools/bug-reports" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><BugReportsPage /></ErrorBoundary></RequireModule>} />
+          <Route path="/tools/feature-requests" element={<RequireModule module={MODULES.TOOLS}><ErrorBoundary><FeatureRequestsPage /></ErrorBoundary></RequireModule>} />
+          {/* Manager view (from the staff app's ⋯): tiles for what this person can manage — filtered by their access, each page guarded as usual. */}
+          <Route path="/manage" element={<ErrorBoundary><ManagerHomePage /></ErrorBoundary>} />
           <Route path="/tools/profit-sharing" element={<Navigate to="/analysis/profit-sharing" replace />} />
           <Route path="/operations/operating-costs" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><OperatingCostsPage /></ErrorBoundary></RequireModule>} />
           <Route path="/operations/operating-costs/import" element={<RequireModule module={MODULES.FINANCE}><ErrorBoundary><ImportPnlPage /></ErrorBoundary></RequireModule>} />

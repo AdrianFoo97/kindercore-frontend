@@ -36,7 +36,8 @@ export default function GuidePosterPage() {
   const { isMobile } = useIsMobile();
   const { hasView } = usePermissions();
   const goBack = useGoBack(`/operations/sops/${templateId}${fromTeacherApp ? '?app=teacher' : ''}`);
-  const isAuthor = isAdminUser() || hasView('OPERATION_SOP_APPROVE');
+  // The staff app (?app=teacher) is the same for every position — editing guides lives in the manager view.
+  const isAuthor = !fromTeacherApp && (isAdminUser() || hasView('OPERATION_SOP_APPROVE'));
 
   const templates = useQuery({ queryKey: ['sop-templates'], queryFn: () => fetchTemplates() });
   const steps = useQuery({ queryKey: ['sop-steps', templateId], queryFn: () => fetchSteps(templateId), enabled: !!templateId });

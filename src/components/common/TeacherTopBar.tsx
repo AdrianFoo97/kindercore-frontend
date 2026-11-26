@@ -1,35 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation, useNavigate, NavLink } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faBug, faCircleUser, faMobileScreenButton,
-  faChevronLeft, faCircleExclamation, faCircleInfo, faEllipsisVertical,
-  faBullhorn, faGraduationCap, faUsers, faMoneyBillTrendUp, faChartLine,
+  faChevronLeft, faCircleExclamation, faCircleInfo,
+  faBriefcase,
 } from '@fortawesome/free-solid-svg-icons';
 import { useScrolledPast } from '../../hooks/useScrolledPast.js';
-import { usePermissions } from '../../hooks/usePermissions.js';
-import { useInstallApp } from '../../hooks/useInstallApp.js';
-import { MODULES } from '../../constants/authModules.js';
+import { useManagerAreas, MANAGER_HOME } from '../../pages/manage/useManagerAreas.js';
 import NotificationBell from './NotificationBell.js';
+import StaffMoreMenu from './StaffMoreMenu.js';
 
-// Entry points into the wider admin app — a teacher account that's also
-// been granted admin modules had no way to reach any of them from mobile
-// at all: the floating teacher chrome replaces the real Navbar entirely
-// on a phone-width screen (see App.tsx's showTeacherChrome), and that
-// Navbar is the only place these otherwise live. Deliberately a flat
-// list of single entry links, not a full copy of the Navbar's nested
-// per-module dropdowns (Students/HR/Analysis etc. each have several sub-
-// pages there) — tapping one hands off to the real admin Navbar, which
-// already has its own complete nav (including its own hamburger on a
-// narrow screen) once you land outside a teacher-surface route.
-const ADMIN_MENU_LINKS = [
-  { module: MODULES.MARKETING, to: '/leads', label: 'Leads', icon: faBullhorn },
-  { module: MODULES.STUDENTS, to: '/students', label: 'Students', icon: faGraduationCap },
-  { module: MODULES.HR, to: '/teachers', label: 'HR', icon: faUsers },
-  { module: MODULES.FINANCE, to: '/operations/operating-costs', label: 'Finance', icon: faMoneyBillTrendUp },
-  { module: MODULES.ANALYSIS, to: '/analysis/sales-marketing', label: 'Analysis', icon: faChartLine },
-] as const;
+// The staff app is the same for everyone, whatever their position. Anyone who
+// also manages something gets one extra ⋯ item, "Manager view": the tiles
+// page (pages/manage) for every area their access roles let them open.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher top bar — the single app header for the whole gamified
@@ -91,6 +75,7 @@ const TITLES: Record<string, string> = {
   'leaderboard': 'Leaderboard',
   'settings': 'My Profile',
   'settings/report-bug': 'Report a Bug',
+  'settings/request-feature': 'Request a Feature',
   'settings/notifications': 'Notifications',
 };
 
@@ -307,6 +292,7 @@ const INFO_CONTENT = {
     caveats: [
       'This is a team reward pool, not your personal payout.',
       'The pool grows when the school achieves its monthly targets.',
+      'A month shows here once Finance has checked and published it.',
       'Your final share is based on your weight during payout.',
     ],
   },
@@ -315,6 +301,7 @@ const INFO_CONTENT = {
     caveats: [
       'This is a team reward pool, not your personal payout.',
       'The pool only grows in months the school hits its targets.',
+      'A month shows here once Finance has checked and published it.',
       'Your final share is based on your weight and average appraisal score at actual payout — this page is an estimate, not a guarantee.',
     ],
   },
@@ -365,49 +352,20 @@ export default function TeacherTopBar() {
   const { ref: headerRef, scrolled } = useScrolledPast(4, collapsesOnScroll);
   const collapsed = collapsesOnScroll && scrolled;
 
-  const { hasModule } = usePermissions();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const installApp = useInstallApp();
-  // Two separate refs (not one wrapping element) because the trigger
-  // button lives in-flow in the header while the dropdown itself is
-  // portaled to <body> — a click-outside check needs both DOM nodes.
-  const menuBtnElRef = useRef<HTMLButtonElement | null>(null);
-  const menuDropdownRef = useRef<HTMLDivElement>(null);
-  const visibleAdminLinks = ADMIN_MENU_LINKS.filter(l => hasModule(l.module));
+  const { groups: managerGroups } = useManagerAreas();
+  const canManage = managerGroups.length > 0;
   // Settings lives at /teachers/:id/settings — same :id this bar is
   // already showing chrome for, so pull it straight off the pathname
   // rather than threading it through TopBarState.
   const teacherIdMatch = pathname.match(/^\/teachers\/([^/]+)\//);
   // Off /teachers/:id (e.g. the Guides list), the signed-in teacher's own id.
   const menuTeacherId = teacherIdMatch?.[1] ?? signedInTeacherId();
-  const settingsPath = menuTeacherId ? `/teachers/${menuTeacherId}/settings` : null;
-  // Top-right "⋯", account menu (Settings, plus admin-module entry links
-  // if any) — only on the 5 tab-root pages that don't already have
-  // something of their own living in that exact spot: the Guides list
-  // (SopLibraryPage.tsx) already portals its own "⋯" into this same
-  // right-side slot for "Suggest a new guide", so its menu carries
-  // Settings too instead of a second, competing button stacking on top
-  // of the first. Always shown here, even for a plain teacher with no
-  // admin module grants — TeacherMySettingsPage (which this links to)
-  // carries the actual Logout button; this floating chrome otherwise had
-  // no account affordance anywhere (the real Navbar's Logout never
-  // renders here), so this is the account entry point for everyone now,
-  // not just an admin escape hatch for the few who also have module
-  // grants.
-  // The same ⋯ on every tab root, the Guides list included (its pages below it have their own).
+  // Top-right bell + "⋯" (StaffMoreMenu — the same one the manager view uses):
+  // My Profile (with Logout), Report a Bug, Request a Feature, and "Manager
+  // view" first for anyone who manages something. On every tab root, the
+  // Guides list included (its pages below it have their own).
   const onGuidesList = pathname === '/operations/sops' || pathname === '/operations/sops/';
   const showMoreMenu = !!bar && !bar.showBack && (!pathname.startsWith('/operations/sops') || onGuidesList);
-  useEffect(() => { setMenuOpen(false); }, [pathname]);
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (menuBtnElRef.current?.contains(target)) return;
-      if (menuDropdownRef.current && !menuDropdownRef.current.contains(target)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [menuOpen]);
 
   if (!bar) return null;
 
@@ -506,35 +464,10 @@ export default function TeacherTopBar() {
         </div>
       )}
       {showMoreMenu && (
-        <button className="tap"
-          ref={menuBtnElRef}
-          type="button"
-          onClick={() => setMenuOpen(o => !o)}
-          aria-label={menuOpen ? 'Close menu' : 'Open menu'} title={menuOpen ? 'Close menu' : 'Open menu'}
-          style={{
-            position: 'fixed',
-            right: 8,
-            top: `calc(env(safe-area-inset-top) + ${(TEACHER_TOPBAR_HEIGHT - 32) / 2}px)`,
-            zIndex: 45,
-            width: 32, height: 32, borderRadius: '50%',
-            boxSizing: 'border-box' as const,
-            // Always liquid-glass, on every page, regardless of scroll
-            // position — was conditional on `moreMenuScrolled` before.
-            border: '1px solid rgba(255,255,255,0.32)',
-            background: 'rgba(255,255,255,0.22)',
-            backdropFilter: 'blur(22px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-            boxShadow: '0 2px 10px rgba(15,23,42,0.12)',
-            transition: 'background 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15, cursor: 'pointer', padding: 0, outline: 'none',
-            color: '#334155',
-            WebkitAppearance: 'none' as const,
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <FontAwesomeIcon icon={faEllipsisVertical} />
-        </button>
+        <div style={{ position: 'fixed', right: 8, zIndex: 45, top: `calc(env(safe-area-inset-top) + ${(TEACHER_TOPBAR_HEIGHT - 32) / 2}px)` }}>
+          <StaffMoreMenu teacherId={menuTeacherId} font={FONT}
+            viewSwitch={canManage ? { to: MANAGER_HOME, label: 'Manager view', icon: faBriefcase } : null} />
+        </div>
       )}
       {bar.showBack && (
         <button className="tap"
@@ -821,83 +754,7 @@ export default function TeacherTopBar() {
           )}
         </>
       )}
-      {/* Account menu — small anchored dropdown under the "⋯", same shape
-          as SopLibraryPage's own teacher "⋯" menu (Guides tab) rather
-          than a full-height side drawer: a drawer read as a completely
-          different pattern from the one already shown on Guides, and
-          with most teachers holding zero admin module grants it was
-          usually just a single "Logout" row floating in a wall of empty
-          space. Entry points into the wider admin app (ADMIN_MENU_LINKS)
-          still show first when the account actually has module grants.
-          Portaled to <body> so it isn't clipped to the header's bounds;
-          fixed-positioned at the same right:8 edge as the trigger, just
-          below it. */}
-      {menuOpen && createPortal(
-        <div
-          ref={menuDropdownRef}
-          style={{
-            position: 'fixed',
-            top: `calc(env(safe-area-inset-top) + ${(TEACHER_TOPBAR_HEIGHT - 32) / 2 + 32 + 6}px)`,
-            right: 8,
-            width: 200,
-            background: '#fff',
-            border: '1px solid #eceef2',
-            borderRadius: 10,
-            boxShadow: '0 8px 24px rgba(15,23,42,0.14)',
-            zIndex: 91,
-            overflow: 'hidden',
-            padding: 4,
-            fontFamily: FONT,
-          }}
-        >
-          {visibleAdminLinks.map(l => (
-            <NavLink key={l.to} to={l.to} onClick={() => setMenuOpen(false)} style={{
-              display: 'flex', alignItems: 'center', width: '100%', padding: '8px 10px',
-              borderRadius: 7, color: '#334155', textDecoration: 'none',
-              fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-            }}>
-              <FontAwesomeIcon icon={l.icon} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
-              {l.label}
-            </NavLink>
-          ))}
-          {visibleAdminLinks.length > 0 && (
-            <div style={{ height: 1, background: '#eceef2', margin: '4px 0' }} />
-          )}
-          {/* Profile + Logout live on TeacherMySettingsPage now, not
-              inline here — this is just the entry point to it. */}
-          {settingsPath && (
-            <>
-              {/* Your profile (account details + Logout) and Report a Bug, one tap each. */}
-              {[
-                { to: settingsPath, icon: faCircleUser, label: 'My Profile' },
-                { to: `${settingsPath}/report-bug`, icon: faBug, label: 'Report a Bug' },
-              ].map(item => (
-                <NavLink key={item.label} to={item.to} onClick={() => setMenuOpen(false)} style={{
-                  display: 'flex', alignItems: 'center', width: '100%', padding: '8px 10px', minHeight: 36,
-                  borderRadius: 7, color: '#334155', textDecoration: 'none',
-                  fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-                }}>
-                  <FontAwesomeIcon icon={item.icon} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
-                  {item.label}
-                </NavLink>
-              ))}
-              {/* Android only, while Chrome says the app can be installed. */}
-              {installApp.canInstall && (
-                <button type="button" onClick={() => { setMenuOpen(false); void installApp.install(); }} style={{
-                  display: 'flex', alignItems: 'center', width: '100%', padding: '8px 10px', minHeight: 36,
-                  borderRadius: 7, color: '#334155', background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600, fontFamily: 'inherit', textAlign: 'left',
-                }}>
-                  <FontAwesomeIcon icon={faMobileScreenButton} style={{ width: 14, marginRight: 8, color: '#7c3aed' }} />
-                  Install app
-                </button>
-              )}
-            </>
-          )}
-        </div>,
-        document.body,
-      )}
-      </header>
+            </header>
     </>
   );
 }

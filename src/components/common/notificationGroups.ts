@@ -24,6 +24,7 @@ export const NAMES_SHOWN = 2;
 const NOUN: Record<string, [string, string]> = {
   NEW_LEAD: ['new lead', 'new leads'],
   NEW_STUDENT: ['new student', 'new students'],
+  SCHOOL_NEWS: ['school news', 'school news'],
   STUDENT_WITHDRAWN: ['student withdrawn', 'students withdrawn'],
   ITEM_BOUGHT: ['item bought', 'items bought'],
   COSTS_RECORDED: ['month of costs recorded', 'months of costs recorded'],

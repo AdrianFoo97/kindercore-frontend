@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SCORE_BANDS, bandFor, bandsFrom, bandsProblem, fromDrafts, latestScore, rangeText, scaleSegments, toDrafts } from '../../pages/appraisals/scoreBands';
+import { DEFAULT_SCORE_BANDS, bandFor, bandsFrom, bandsProblem, fromDrafts, latestScore, rangeText, scaleSegments, tierMarks, tierMarksFrom, toDrafts } from '../../pages/appraisals/scoreBands';
 
 // Settings → Score bands: what an appraisal score is called and its colour.
 
@@ -56,5 +56,14 @@ describe('Score bands — the latest appraisal', () => {
   it('reads the latest month’s score from a history in any order', () => {
     expect(latestScore([{ year: 2026, month: 9, score: 70 }, { year: 2026, month: 10, score: 85 }, { year: 2025, month: 11, score: 90 }])).toBe(85);
     expect(latestScore([])).toBeNull();
+  });
+
+  it('makes the top band High Performer and the next band Performer — and follows the bands when they change', () => {
+    expect(tierMarks(DEFAULT_SCORE_BANDS)).toEqual({ highPerformer: 80, performer: 60 });
+    const bands = [{ label: 'Star', min: 90, tone: 'green' }, { label: 'Good', min: 70, tone: 'blue' }, { label: 'Growing', min: 0, tone: 'amber' }];
+    expect(tierMarksFrom({ appraisal_score_bands: bands })).toEqual({ highPerformer: 90, performer: 70 });
+    // Not saved yet (or not a valid set) → the default bands.
+    expect(tierMarksFrom(undefined)).toEqual({ highPerformer: 80, performer: 60 });
+    expect(tierMarksFrom({ appraisal_score_bands: 'junk' })).toEqual({ highPerformer: 80, performer: 60 });
   });
 });

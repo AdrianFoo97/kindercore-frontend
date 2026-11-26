@@ -20,11 +20,10 @@ import type { NotificationGroup } from './notificationGroups.js';
 const POLL_MS = 60_000;
 const QUERY_KEY = ['notifications'];
 
-/** Where the gear goes: admins → Settings; staff → their teacher-app page; anyone else → the plain page. */
+/** Where the gear goes: staff → their teacher-app page; anyone else → My Notifications. */
 function notificationSettingsPath(): string {
   try {
     const u = JSON.parse(localStorage.getItem('user') ?? 'null') as { role?: string; teacherId?: string | null } | null;
-    if (u?.role === 'ADMIN' || u?.role === 'SUPERADMIN') return '/settings/notifications';
     if (u?.teacherId) return `/teachers/${encodeURIComponent(u.teacherId)}/settings/notifications`;
   } catch { /* fall through */ }
   return '/notifications/settings';

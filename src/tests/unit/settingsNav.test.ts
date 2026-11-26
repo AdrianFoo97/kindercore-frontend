@@ -71,16 +71,16 @@ describe('Settings navigation', () => {
   it('shows each person only the settings their access roles cover, and nothing without a role — Admins see everything', () => {
     const viewer = (modules: string[], views: string[] = []) => ({ isAdmin: false, hasAnyModule: modules.length > 0, hasModule: (m: string) => modules.includes(m), hasView: (v: string) => views.includes(v) });
     const keys = (v: ReturnType<typeof viewer>) => visibleGroups(false, SETTINGS_GROUPS, v).flatMap(g => g.items.map(i => i.key));
-    // No access role → nothing at all, not even Notifications.
+    // No access role → nothing. Everyday staff (Operation only) → nothing either: Settings is for managing; your own notifications are in your account menu.
     expect(keys(viewer([]))).toEqual([]);
-    expect(keys(viewer(['OPERATION']))).toEqual(['notifications']);
-    expect(keys(viewer(['MARKETING']))).toEqual(expect.arrayContaining(['notifications', 'messages', 'crm', 'packages']));
+    expect(keys(viewer(['OPERATION']))).toEqual([]);
+    expect(keys(viewer(['MARKETING']))).toEqual(expect.arrayContaining(['messages', 'crm', 'packages']));
     expect(keys(viewer(['MARKETING']))).not.toContain('finance');
     // Finance targets follow the reports they drive (Analysis); recording costs (Finance) gets just Operating cost.
-    expect(keys(viewer(['FINANCE']))).toEqual(['notifications', 'operating-cost']);
-    expect(keys(viewer(['ANALYSIS']))).toEqual(['notifications', 'finance']);
+    expect(keys(viewer(['FINANCE']))).toEqual(['operating-cost']);
+    expect(keys(viewer(['ANALYSIS']))).toEqual(['finance']);
     // A Team Lead (HR alone) gets no HR set-up page — their work is in HRMS.
-    expect(keys(viewer(['HR']))).toEqual(['notifications']);
+    expect(keys(viewer(['HR']))).toEqual([]);
     expect(keys(viewer(['HR'], ['HR_SEE_ALL_STAFF', 'HR_SEE_PAY']))).toEqual(expect.arrayContaining(['org-chart', 'points-rewards', 'recruitment', 'appraisal-forms', 'career-missions', 'positions', 'payroll']));
     // Company-wide and Team & access pages stay Admin-only.
     for (const k of ['company', 'integrations', 'ai', 'users', 'roles']) expect(SETTINGS_ACCESS[k], k).toBeUndefined();

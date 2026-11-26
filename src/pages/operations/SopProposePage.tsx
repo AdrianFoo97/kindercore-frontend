@@ -149,7 +149,8 @@ export default function SopProposePage() {
   // auth.middleware.ts), so they need the same OR here, or a platform admin
   // using "Add How-To Guide" would fall through to "Submit for approval"
   // and need to approve their own submission as a separate step.
-  const canSelfPublish = isAdmin || hasView('OPERATION_SOP_APPROVE');
+  // The staff app (?app=teacher) is the same for every position — editing guides lives in the manager view.
+  const canSelfPublish = !fromTeacherApp && (isAdmin || hasView('OPERATION_SOP_APPROVE'));
 
   const { data: allTemplates = [] } = useQuery({ queryKey: ['sop-templates'], queryFn: () => fetchTemplates() });
   const target = isEditingExisting ? allTemplates.find(t => t.id === templateId) : null;

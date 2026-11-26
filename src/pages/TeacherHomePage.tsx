@@ -16,6 +16,7 @@ import { useAnnualBonusSummary } from '../hooks/useAnnualBonusSummary.js';
 import { useTeamPoolSummary } from '../hooks/useTeamPoolSummary.js';
 import { MyOnboardingCard } from './teacherHome/MyOnboardingCard.js';
 import { MyAppraisalTasksCard } from './teacherHome/MyAppraisalTasksCard.js';
+import { SchoolNewsCard } from './teacherHome/SchoolNewsCard.js';
 import { QuickActions } from './teacherHome/QuickActions.js';
 import { SHOW_TEACHER_POOLS } from '../config/releaseFlags.js';
 import CurrentFocus from './teacherHome/CurrentFocus.js';
@@ -289,6 +290,9 @@ export default function TeacherHomePage() {
 
         {/* Appraisals waiting for them — to score, sign off, or read (only shows when there are some) */}
         {id && <MyAppraisalTasksCard teacherId={id} sectionLabelStyle={sectionLabel} />}
+
+        {/* A new child joining — for everyone to celebrate (only shows when there's recent news) */}
+        <SchoolNewsCard sectionLabelStyle={sectionLabel} />
 
         {/* ── Current Focus ────────────────────────────────────── */}
         <div style={sectionLabel}>Current Focus</div>

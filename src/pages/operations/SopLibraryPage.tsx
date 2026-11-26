@@ -25,7 +25,6 @@ import { TEACHER_TOPBAR_SPACE } from '../../components/common/TeacherTopBar.js';
 import { resolveLibraryView, viewParam, type LibraryView } from './sopFavorites.js';
 import { useSopFavorites } from './useSopFavorites.js';
 import FavoriteStarButton from './FavoriteStarButton.js';
-import TeacherFab, { TEACHER_FAB_CLEARANCE } from '../../components/common/TeacherFab.js';
 import LoadingSpinner from '../../components/common/LoadingSpinner.js';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -94,7 +93,8 @@ export default function SopLibraryPage() {
   // admin chrome (App.tsx's isTeacherSurface, TeacherTopBar.tsx's
   // teacherSopTopBar) and, below, reserves top padding to clear that bar.
   const fromTeacherApp = searchParams.get('app') === 'teacher';
-  const isAdmin = previewingTeacher ? false : realIsAdmin;
+  // The staff app (?app=teacher) is the same for every position — editing guides lives in the manager view.
+  const isAdmin = previewingTeacher || fromTeacherApp ? false : realIsAdmin;
   // Both roles go through the same Basic Info -> Steps wizard now
   // (SopProposePage.tsx) — admin used to get a separate single-step
   // "instant create" form (SopTemplateFormPage.tsx) with no steps editor
@@ -225,9 +225,8 @@ export default function SopLibraryPage() {
   // of this page's own admin convention (everything inside one white
   // sheet with a plain-text counter), which only applies outside the
   // teacher app now.
-  // Teacher app with the floating "+": room under the list so it never covers the last guide.
   const listWrapStyle: React.CSSProperties = themeIsTeacher
-    ? (isAdmin ? { paddingBottom: TEACHER_FAB_CLEARANCE } : {})
+    ? {}
     : { ...s.card, ...(isMobile ? sMobile.card : null) };
   const countLabelStyle: React.CSSProperties = themeIsTeacher
     ? { fontSize: 11, fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 10 }
@@ -387,11 +386,8 @@ export default function SopLibraryPage() {
           )}
         </div>
 
-        {/* The ⋯ in the top bar is the shared one (My Profile / Report a Bug), same as every tab.
-            Supervisors add a guide with the floating "+", like the other list pages. */}
-        {themeIsTeacher && isAdmin && (
-          <TeacherFab label={addSopLabel} onClick={() => navigate(`${addSopPath}${detailPathSuffix}`)} />
-        )}
+        {/* The staff app's Guides list is the same for every position — no "+" here;
+            adding and editing guides is in the manager view (Manage Guides). */}
 
         <div style={listWrapStyle}>
           {openLabel && !themeIsTeacher && (

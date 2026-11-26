@@ -135,7 +135,8 @@ export default function SopTemplateStepsPage() {
   // instead of the admin Navbar (App.tsx's isTeacherSurface), and this
   // page reserves top padding to clear that bar (see pageStyle below).
   const fromTeacherApp = searchParams.get('app') === 'teacher';
-  const isAdmin = previewingTeacher ? false : realIsAdmin;
+  // The staff app (?app=teacher) is the same for every position — editing guides lives in the manager view.
+  const isAdmin = previewingTeacher || fromTeacherApp ? false : realIsAdmin;
   // Carried through every further navigation out of this page (back to
   // the library, into a linked guide, into "Suggest an Improvement") so
   // the same preview/teacher-app context survives the whole visit.

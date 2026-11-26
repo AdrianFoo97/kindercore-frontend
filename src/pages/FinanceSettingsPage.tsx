@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPercent, faCheck, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faPercent } from '@fortawesome/free-solid-svg-icons';
 import { fetchSettings, patchSetting } from '../api/settings.js';
 import { Settings } from '../types/index.js';
-import CompensationSettingsPage from './settings/CompensationSettingsPage.js';
 
 const C = {
   bg: '#f8fafc',
@@ -28,42 +27,18 @@ function readPercent(settings: Settings | undefined, key: string, fallback: numb
   return Number.isFinite(n) && n > 0 && n <= max ? n : fallback;
 }
 
-type TabKey = 'targets' | 'compensation';
-
-const TABS: { key: TabKey; label: string; icon: any }[] = [
-  { key: 'targets', label: 'Finance Targets', icon: faPercent },
-  { key: 'compensation', label: 'Compensation Tiers', icon: faLayerGroup },
-];
-
 export default function FinanceSettingsPage() {
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: fetchSettings,
   });
-  const [tab, setTab] = useState<TabKey>('targets');
-  const active = TABS.find(t => t.key === tab)!;
 
   return (
     <div style={{ padding: 24, background: C.bg, minHeight: '100vh' }}>
-      <style>{`.finance-settings-tab:hover { color: ${C.text} !important; background: #f1f5f9 !important; }`}</style>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: C.text }}>{active.label}</h1>
+        <h1 style={{ margin: '0 0 24px', fontSize: 22, fontWeight: 700, color: C.text }}>Finance Targets</h1>
 
-        <div style={tabS.tabStrip}>
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              className="finance-settings-tab"
-              onClick={() => setTab(t.key)}
-              style={{ ...tabS.tabBtn, ...(tab === t.key ? tabS.tabBtnActive : {}) }}
-            >
-              <FontAwesomeIcon icon={t.icon} style={{ fontSize: 12, width: 14 }} />
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'targets' && (
+        {(
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <PercentSettingCard
               settings={settings}
@@ -95,7 +70,6 @@ export default function FinanceSettingsPage() {
           </div>
         )}
 
-        {tab === 'compensation' && <CompensationSettingsPage embedded />}
       </div>
     </div>
   );

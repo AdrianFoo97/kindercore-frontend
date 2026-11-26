@@ -1,7 +1,7 @@
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faBell, faBookOpen, faBoxesStacked, faBuilding, faChalkboard, faBook, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins,
-  faFileImport, faGears, faRobot, faGraduationCap, faIdBadge, faLayerGroup, faUserTie, faListCheck, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
+  faBookOpen, faBoxesStacked, faBuilding, faChalkboard, faBook, faBullseye, faChalkboardUser, faGift, faTags, faCalendarDays, faClipboardCheck, faClockRotateLeft, faCoins,
+  faFileImport, faBullhorn, faGears, faRobot, faGraduationCap, faIdBadge, faLayerGroup, faUserTie, faListCheck, faMessage, faMoneyBillTrendUp, faPlug, faReceipt, faTrash,
   faStarHalfStroke, faRankingStar, faSitemap, faUserCheck, faUserPlus, faUserShield, faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -71,8 +71,6 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         keywords: ['ai', 'anthropic', 'claude', 'openai', 'gpt', 'api key', 'model', 'p&l reading', 'integration'] },
       { key: 'data', label: 'Data import', to: '/settings/data', icon: faFileImport,
         description: 'Import leads, students and candidates from a spreadsheet.', keywords: ['import', 'excel', 'csv', 'upload'] },
-      { key: 'notifications', label: 'Notifications', to: '/settings/notifications', icon: faBell,
-        description: 'Choose which events the bell tells you about.', keywords: ['bell', 'alerts', 'notify', 'new lead', 'incident'] },
       { key: 'messages', label: 'Message templates', to: '/settings/whatsapp-templates', icon: faMessage,
         description: 'Message templates by group — Common for everyone, Marketing and HR for those modules.', keywords: ['whatsapp', 'template', 'message'] },
     ],
@@ -126,7 +124,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
       { key: 'rating-scales', label: 'Rating scales', to: '/settings/rating-scales', icon: faStarHalfStroke,
         description: 'Named rating levels that appraisal criteria pick from.', keywords: ['appraisals', 'rating', 'scale', 'levels', 'rubric'] },
       { key: 'score-bands', label: 'Score bands', to: '/settings/score-bands', icon: faRankingStar,
-        description: 'What appraisal scores are called and their colours — e.g. 80+ Outstanding.', keywords: ['appraisals', 'score', 'band', 'grade', 'outstanding', 'satisfactory', 'threshold'] },
+        description: 'What appraisal scores are called and their colours — and the marks for High Performer and Performer.', keywords: ['appraisals', 'score', 'band', 'grade', 'outstanding', 'satisfactory', 'threshold', 'high performer', 'performer', 'tier', 'benefits', 'compensation'] },
       { key: 'practice-observations', label: 'Practice observations', to: '/settings/practice-observations', icon: faChalkboardUser,
         description: 'How observation steps are marked — pass / fail or levels — and what passes.', keywords: ['sop', 'observation', 'training', 'certify', 'pass', 'fail', 'level', 'rating', 'marking'] },
     ],
@@ -147,12 +145,14 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         description: 'Checklist for new students — items can have a link button.', keywords: ['enrolment', 'checklist', 'checklists', 'onboarding', 'students', 'link', 'button'] },
       { key: 'attendance-reader', label: 'Attendance reader', to: '/settings/attendance-reader', icon: faIdBadge,
         description: 'Key for the RFID card reader at the door.', keywords: ['rfid', 'card', 'attendance', 'scanner'] },
+      { key: 'school-news', label: 'School news', to: '/settings/school-news', icon: faBullhorn,
+        description: 'Share each new enrolment on every staff member’s Home.', keywords: ['news', 'enrolment', 'celebrate', 'announcement', 'home', 'new student'] },
     ],
   },
   {
     key: 'money', label: 'Money', items: [
-      { key: 'finance', label: 'Finance', to: '/settings/finance', icon: faMoneyBillTrendUp, alsoAt: ['/settings/compensation'],
-        description: 'Finance targets and compensation tiers.', keywords: ['profit share', 'bonus', 'expense ratio', 'target'] },
+      { key: 'finance', label: 'Finance', to: '/settings/finance', icon: faMoneyBillTrendUp,
+        description: 'Expense target, profit-share and annual-bonus percentages.', keywords: ['profit share', 'bonus', 'expense ratio', 'target'] },
       { key: 'operating-cost', label: 'Operating cost', to: '/settings/operating-cost', icon: faReceipt,
         // Tabs: Main categories · Categories · Import rules (P&L import).
         alsoAt: ['/settings/operating-cost-categories', '/settings/operating-cost-main-categories'],
@@ -195,8 +195,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 
 /** One kind of access: a module, plus a function inside it when needed. */
 export interface AccessNeed { module: string; fn?: string }
-/** Who a settings page is for besides Admins: anyone with an access role (any module), or anyone meeting one of the needs. */
-export type SettingsAccess = 'anyRole' | AccessNeed[];
+/** Who a settings page is for besides Admins: anyone meeting one of the needs. */
+export type SettingsAccess = AccessNeed[];
 
 const HR_ALL: AccessNeed[] = [{ module: 'HR', fn: 'HR_SEE_ALL_STAFF' }];
 const HR_PAY: AccessNeed[] = [{ module: 'HR', fn: 'HR_SEE_PAY' }];
@@ -204,19 +204,17 @@ const only = (module: string, fn?: string): AccessNeed[] => [{ module, fn }];
 
 /** Settings pages open to more than Admins (by item key). Anything not here is Admin-only. */
 export const SETTINGS_ACCESS: Record<string, SettingsAccess> = {
-  // Nobody without an access role sees Settings at all — not even this.
-  notifications: 'anyRole',
   // Parents' templates are Marketing's; applicants' are whole-school HR's (the server checks each one on save).
   messages: [...only('MARKETING'), ...HR_ALL],
   crm: only('MARKETING'), packages: only('MARKETING'),
-  students: only('STUDENTS'),
+  students: only('STUDENTS'), 'school-news': only('STUDENTS'),
   // HR set-up is for HR Manager and above. A Team Lead's work (their team's records,
   // missions and points) is in HRMS, so no HR page shows for them here.
   'org-chart': HR_ALL, 'points-rewards': HR_ALL, 'career-missions': HR_ALL, 'mission-categories': HR_ALL,
   recruitment: HR_ALL, 'staff-onboarding': HR_ALL,
   'appraisal-forms': HR_ALL, 'scoring-forms': HR_ALL, 'rating-scales': HR_ALL, 'score-bands': HR_ALL, 'practice-observations': HR_ALL,
   positions: HR_PAY, payroll: HR_PAY,
-  // Finance targets and compensation tiers drive the Profit Sharing / Annual Bonus reports (Analysis).
+  // Finance targets drive the Profit Sharing / Annual Bonus reports (Analysis).
   finance: only('ANALYSIS'), 'operating-cost': only('FINANCE'),
   classes: only('TOOLS'), subjects: only('TOOLS'), tasks: only('TOOLS'),
   'how-to-guides': only('OPERATION', 'OPERATION_SOP_APPROVE'),
@@ -231,7 +229,6 @@ export function canOpenSetting(item: SettingsItem, viewer: SettingsViewer): bool
   if (viewer.isAdmin) return true;
   const access = SETTINGS_ACCESS[item.key];
   if (!access) return false;
-  if (access === 'anyRole') return viewer.hasAnyModule;
   return access.some(n => viewer.hasModule(n.module) && (!n.fn || viewer.hasView(n.fn)));
 }
 
