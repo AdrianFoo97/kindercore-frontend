@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import { CompanyGoalRewards, benefitRules, compensationData, useCompensationData } from './TeacherCompensationPage.js';
 import { TEACHER_CONTENT_TOP } from '../components/common/TeacherTopBar.js';
 import { SHOW_TEACHER_POOLS } from '../config/releaseFlags.js';
-import BenefitsStanding from './teacherPay/benefits/BenefitsStanding.js';
+import TierCard from './teacherPay/tier/TierCard.js';
 import BenefitTierList from './teacherPay/benefits/BenefitTierList.js';
 import { benefitTiers } from './teacherPay/benefits/benefitsCatalog.js';
 import { C } from './teacherPay/benefits/benefitsTheme.js';
@@ -27,7 +27,8 @@ export default function TeacherMyCompensationBenefitsPage() {
     <div style={s.page}>
       <div style={s.inner}>
         <h1 style={s.title}>Benefits & Perks</h1>
-        <BenefitsStanding score={score} rules={benefitRules} />
+        {/* Where they stand — the same Current tier card as the Pay hub. */}
+        <TierCard score={score} rules={benefitRules} style={{ marginBottom: 24 }} />
         {tiers.map(tier => <BenefitTierList key={tier.key} tier={tier} />)}
         {/* Profit sharing / annual bonus explain the pools, held back for a future release. */}
         {SHOW_TEACHER_POOLS && <CompanyGoalRewards eligibility={eligibility} />}

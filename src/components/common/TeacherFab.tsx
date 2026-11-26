@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus } from '@fortawesome/free-solid-svg-icons';
-import { TEACHER_NAV_SPACE } from './TeacherMobileNav.js';
+import { TEACHER_NAV_BOTTOM, TEACHER_NAV_HEIGHT } from './TeacherMobileNav.js';
 
 // Teacher app (phone): the round "+" button pinned to the bottom-right
 // corner, just above the bottom nav — the main "add" action of a list page
@@ -13,12 +13,13 @@ import { TEACHER_NAV_SPACE } from './TeacherMobileNav.js';
 // element pinned when an ancestor is itself a scroll container.
 
 const SIZE = 54;
-const GAP_ABOVE_NAV = 26;
+/** Its gap from the screen's right edge — and the same gap above the bottom bar, so it sits evenly in the corner. */
+const MARGIN = 20;
 /** The violet accent (#7c3aed) as tinted glass — opaque enough for the white + to read clearly. */
 const GLASS_TINT = 'rgba(124,58,237,0.82)';
 
 /** Space to leave under a list so its last card can scroll clear of the button. */
-export const TEACHER_FAB_CLEARANCE = SIZE + GAP_ABOVE_NAV;
+export const TEACHER_FAB_CLEARANCE = SIZE + MARGIN;
 
 export default function TeacherFab({ label, onClick }: { label: string; onClick: () => void }) {
   return createPortal(
@@ -28,7 +29,7 @@ export default function TeacherFab({ label, onClick }: { label: string; onClick:
       aria-label={label}
       title={label}
       style={{
-        position: 'fixed', right: 20, bottom: `calc(${TEACHER_NAV_SPACE} + ${GAP_ABOVE_NAV}px)`,
+        position: 'fixed', right: MARGIN, bottom: `calc(env(safe-area-inset-bottom) + ${TEACHER_NAV_BOTTOM + TEACHER_NAV_HEIGHT + MARGIN}px)`,
         width: SIZE, height: SIZE, borderRadius: '50%', boxSizing: 'border-box',
         border: '1px solid rgba(255,255,255,0.38)',
         background: `linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 55%), ${GLASS_TINT}`,

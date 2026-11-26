@@ -1,34 +1,43 @@
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faCircleCheck, faCircle, faClock, faLock } from '@fortawesome/free-solid-svg-icons';
+import { faChevronDown, faCircleCheck, faCircle, faClock, faLock, faStar } from '@fortawesome/free-solid-svg-icons';
 import type { BenefitItem, BenefitTier } from './benefitsCatalog.js';
-import { C } from './benefitsTheme.js';
+import { C, GOLD } from './benefitsTheme.js';
 
 /**
  * One tier as a simple list. The tier says once whether it's unlocked; each
  * row is just the benefit, what it's worth, and its own extra condition (if
- * any). Tap a row for the full description and conditions.
+ * any). Tap a row for the full description and conditions. The high-performer
+ * tier is dressed in gold — the top of the ladder should feel premium.
  */
 export default function BenefitTierList({ tier }: { tier: BenefitTier }) {
   const [open, setOpen] = useState<string | null>(null);
-  const tone = tier.key === 'high' ? { fg: C.gold, bg: C.goldSoft } : { fg: C.accent, bg: C.accentSoft };
+  const premium = tier.key === 'high';
+  const tone = premium ? { fg: GOLD.deep, bg: GOLD.tile } : { fg: C.accent, bg: C.accentSoft };
   return (
     <section aria-labelledby={`tier-${tier.key}`} style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, margin: '0 4px 10px' }}>
-        <h2 id={`tier-${tier.key}`} style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>
+        <h2 id={`tier-${tier.key}`} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8, fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>
+          {premium && <FontAwesomeIcon icon={faStar} aria-hidden style={{ fontSize: 16, color: GOLD.ring }} />}
           {tier.title}
         </h2>
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '4px 10px', borderRadius: 999,
-          fontSize: 13, fontWeight: 700, color: tier.unlocked ? C.good : C.muted, background: tier.unlocked ? C.goodSoft : C.divider,
+          fontSize: 13, fontWeight: 700,
+          color: tier.unlocked ? (premium ? GOLD.text : C.good) : C.muted,
+          background: tier.unlocked ? (premium ? GOLD.pill : C.goodSoft) : C.divider,
+          border: tier.unlocked && premium ? `1px solid ${GOLD.border}` : '1px solid transparent',
         }}>
-          <FontAwesomeIcon icon={tier.unlocked ? faCircleCheck : faLock} style={{ fontSize: 12 }} />
+          <FontAwesomeIcon icon={tier.unlocked ? (premium ? faStar : faCircleCheck) : faLock} style={{ fontSize: 12, color: tier.unlocked && premium ? GOLD.ring : undefined }} />
           {tier.unlocked ? 'Unlocked' : `From score ${tier.threshold}`}
         </span>
       </div>
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, overflow: 'hidden' }}>
+      <ul style={{
+        listStyle: 'none', margin: 0, padding: 0, borderRadius: 16, overflow: 'hidden',
+        background: premium ? GOLD.wash : C.card, border: `1px solid ${premium ? GOLD.border : C.border}`, boxShadow: premium ? GOLD.glow : undefined,
+      }}>
         {tier.items.map((item, i) => (
-          <BenefitRow key={item.key} item={item} tone={tone} first={i === 0}
+          <BenefitRow key={item.key} item={item} tone={tone} first={i === 0} divider={premium ? GOLD.divider : C.divider}
             open={open === item.key} onToggle={() => setOpen(o => (o === item.key ? null : item.key))} />
         ))}
       </ul>
@@ -36,13 +45,13 @@ export default function BenefitTierList({ tier }: { tier: BenefitTier }) {
   );
 }
 
-function BenefitRow({ item, tone, first, open, onToggle }: {
-  item: BenefitItem; tone: { fg: string; bg: string }; first: boolean; open: boolean; onToggle: () => void;
+function BenefitRow({ item, tone, first, divider, open, onToggle }: {
+  item: BenefitItem; tone: { fg: string; bg: string }; first: boolean; divider: string; open: boolean; onToggle: () => void;
 }) {
   const locked = item.status === 'locked';
   const detailsId = `benefit-${item.key}`;
   return (
-    <li style={{ borderTop: first ? 'none' : `1px solid ${C.divider}` }}>
+    <li style={{ borderTop: first ? 'none' : `1px solid ${divider}` }}>
       <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={detailsId} style={{
         display: 'flex', alignItems: 'center', gap: 12, width: '100%', minHeight: 64, padding: '12px 16px',
         background: 'none', border: 'none', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', color: 'inherit',

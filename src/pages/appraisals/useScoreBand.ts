@@ -11,3 +11,4 @@ export function useScoreBand(): (score: number) => Band {
   const bands = bandsFrom((data as Record<string, unknown> | undefined)?.[SCORE_BANDS_KEY]);
   return (score: number) => bandFor(score, bands);
 }
+

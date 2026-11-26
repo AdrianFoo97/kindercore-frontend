@@ -10,9 +10,11 @@ import { TEACHER_TOPBAR_SPACE } from '../components/common/TeacherTopBar.js';
 import {
   compensationData,
   computeMonthlyTotal, rewardStreamSummary, formatService,
-  eligibilityFromAppraisal, benefitRules, rm,
+  benefitRules, rm,
   useCompensationData,
 } from './TeacherCompensationPage.js';
+import TierCard from './teacherPay/tier/TierCard.js';
+import { tierFor } from './teacherPay/tier/payTier.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NEW teacher-facing compensation experience — a gamified, mobile-first
@@ -72,71 +74,18 @@ const C = {
 // Board — solid to 195px, eases to the page bg by 245px.
 const HERO_BG = '#dbeafe';
 
-// ── Tier model — honest-money "league" derived from the appraisal
-// gates that already govern benefit eligibility. No invented score.
-type TierKey = 'standard' | 'performer' | 'high';
-interface TierInfo {
-  key: TierKey;
-  /** Rung the teacher is on now. */
-  label: string;
-  /** Next rung's label (null when already top). */
-  nextLabel: string | null;
-  /** 0–1 progress toward the next rung. 1 when top tier. */
-  progress: number;
-  /** Appraisal points still needed for the next rung (0 when top). */
-  pointsToNext: number;
-  /** Plain-language description of what the next rung unlocks. */
-  unlockCopy: string;
-  accent: string;
-  accentSoft: string;
-  accentBorder: string;
-}
-
-function deriveTier(): TierInfo {
-  const score = compensationData.appraisalScore;
-  const perfMin = benefitRules.minimumAppraisalForEligibility;
-  const highMin = benefitRules.highPerformerAppraisalThreshold;
-  const elig = eligibilityFromAppraisal(score);
-
-  if (elig === 'high_performer') {
-    return {
-      key: 'high', label: 'High Performer', nextLabel: null,
-      progress: 1, pointsToNext: 0,
-      unlockCopy: 'Top tier reached — all perks unlocked.',
-      accent: C.gold, accentSoft: C.goldSoft, accentBorder: C.goldBorder,
-    };
-  }
-  if (elig === 'eligible') {
-    const span = Math.max(1, highMin - perfMin);
-    return {
-      key: 'performer', label: 'Performer', nextLabel: 'High Performer',
-      progress: Math.max(0, Math.min(1, (score - perfMin) / span)),
-      pointsToNext: Math.max(0, highMin - score),
-      unlockCopy: `Reach ${highMin} appraisal to unlock top-tier perks.`,
-      accent: C.primary, accentSoft: C.primarySoft, accentBorder: C.primaryBorder,
-    };
-  }
-  return {
-    key: 'standard', label: 'Standard', nextLabel: 'Performer',
-    progress: perfMin > 0 ? Math.max(0, Math.min(1, score / perfMin)) : 0,
-    pointsToNext: Math.max(0, perfMin - score),
-    unlockCopy: `Reach ${perfMin} appraisal to unlock standard benefits.`,
-    accent: C.muted, accentSoft: C.slateSoft, accentBorder: '#e2e8f0',
-  };
-}
-
 export default function TeacherPayPage() {
   const { id } = useParams<{ id: string }>();
   const { isMobile } = useIsMobile();
   const { teacher, teacherSalary } = useCompensationData(id);
 
-  const tier = deriveTier();
   // Real appraisal scale + the two configurable thresholds (from the
   // Compensation Settings). The tier bar is drawn against THESE, not
   // even thirds, so the rungs match the actual score ranges.
   const score = compensationData.appraisalScore;
   const perfMin = benefitRules.minimumAppraisalForEligibility;
   const highMin = benefitRules.highPerformerAppraisalThreshold;
+  const tier = tierFor(score, benefitRules);
   const monthly = computeMonthlyTotal();
   const basic = compensationData.basicSalary;
   const levelInc = compensationData.levelIncentive;
@@ -291,131 +240,8 @@ export default function TeacherPayPage() {
           )}
         </div>
 
-        {/* ── Tier card — current tier, next tier, what unlocks it.
-            Plain labels, one simple progress bar. ──────────────── */}
-        <div style={{
-          background: C.card,
-          border: `1px solid ${C.cardBorder}`,
-          borderRadius: 18,
-          padding: '16px 16px 18px',
-          boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
-          marginBottom: 14,
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 10, marginBottom: 14,
-          }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{
-                fontSize: 11, fontWeight: 800, color: C.mutedSoft,
-                textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3,
-              }}>
-                Current Tier
-              </div>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                fontSize: 16, fontWeight: 800, color: tier.accent, letterSpacing: '-0.01em',
-              }}>
-                <FontAwesomeIcon icon={tier.key === 'high' ? faStar : faMedal} style={{ fontSize: 13 }} />
-                {tier.label}
-              </div>
-            </div>
-            {tier.nextLabel && (
-              <div style={{ textAlign: 'right', minWidth: 0 }}>
-                <div style={{
-                  fontSize: 11, fontWeight: 800, color: C.mutedSoft,
-                  textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3,
-                }}>
-                  Next
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, whiteSpace: 'nowrap' }}>
-                  {tier.nextLabel}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Appraisal scale — ONE continuous 0–100 track with the two
-              settings-driven gates as ticks and a "you are here" marker
-              at the actual score. Zones are sized to the real ranges
-              (grey 0→min, purple min→high, gold high→100), so it's
-              never "even" and a score ≥ the high gate is clearly High. */}
-          {(() => {
-            const pct = Math.max(0, Math.min(100, score));
-            const pm = Math.max(0, Math.min(100, perfMin));
-            const hm = Math.max(0, Math.min(100, highMin));
-            return (
-              <>
-                <div style={{ position: 'relative', height: 26 }}>
-                  <div style={{
-                    position: 'absolute', top: '50%', left: 0, right: 0,
-                    transform: 'translateY(-50%)',
-                    height: 10, borderRadius: 999, overflow: 'hidden',
-                  }}>
-                    {/* Fixed gate-zone background — proportional to the
-                        real settings thresholds and never recoloured:
-                        grey 0→min, purple min→high, gold high→100. */}
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
-                      <div style={{ flex: Math.max(1, pm), background: '#e8eaee' }} />
-                      <div style={{ flex: Math.max(1, hm - pm), background: `${C.primary}33` }} />
-                      <div style={{ flex: Math.max(1, 100 - hm), background: `${C.gold}33` }} />
-                    </div>
-                    {/* Progress fill 0→score, solid in the colour of the
-                        gate the score has passed through (grey < min,
-                        purple ≥ min, gold ≥ high = the tier accent). */}
-                    <div style={{
-                      position: 'absolute', top: 0, bottom: 0, left: 0,
-                      width: `${pct}%`, borderRadius: 999,
-                      background: tier.accent,
-                      transition: 'width 500ms cubic-bezier(0.4,0,0.2,1)',
-                    }} />
-                    {/* Gate markers — only for gates the score has
-                        actually PASSED, drawn on the colour fill as a
-                        "crossed this gate" tick. Unreached gates are
-                        already shown by the number below the bar. */}
-                    {[
-                      { pos: pm, gate: perfMin },
-                      { pos: hm, gate: highMin },
-                    ].filter(x => score >= x.gate).map(x => (
-                      <div key={x.gate} style={{
-                        position: 'absolute', top: 0, bottom: 0,
-                        left: `${x.pos}%`, width: 2, transform: 'translateX(-50%)',
-                        background: '#ffffff',
-                        boxShadow: '0 0 0 1px rgba(15,23,42,0.18)',
-                      }} />
-                    ))}
-                  </div>
-                  {/* You-are-here marker — ring uses the current tier
-                      colour; clamped so it never clips at the edges. */}
-                  <div style={{
-                    position: 'absolute', top: '50%',
-                    left: `clamp(16px, ${pct}%, calc(100% - 16px))`,
-                    transform: 'translate(-50%, -50%)',
-                    minWidth: 30, height: 22, padding: '0 7px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    borderRadius: 999, background: C.card,
-                    border: `2px solid ${tier.accent}`,
-                    color: tier.accent, fontSize: 11, fontWeight: 800,
-                    fontVariantNumeric: 'tabular-nums',
-                    boxShadow: '0 1px 3px rgba(15,23,42,0.18)',
-                  }}>
-                    {score}
-                  </div>
-                </div>
-                {/* Gate ticks — the explicit settings values. */}
-                <div style={{ position: 'relative', height: 13, marginTop: 3 }}>
-                  <span style={{ position: 'absolute', left: 0, fontSize: 11, fontWeight: 700, color: C.mutedSoft, fontVariantNumeric: 'tabular-nums' }}>0</span>
-                  <span style={{ position: 'absolute', left: `${pm}%`, transform: 'translateX(-50%)', fontSize: 11, fontWeight: 800, color: C.primary, fontVariantNumeric: 'tabular-nums' }}>{perfMin}</span>
-                  <span style={{ position: 'absolute', left: `${hm}%`, transform: 'translateX(-50%)', fontSize: 11, fontWeight: 800, color: C.goldDeep, fontVariantNumeric: 'tabular-nums' }}>{highMin}</span>
-                  <span style={{ position: 'absolute', right: 0, fontSize: 11, fontWeight: 700, color: C.mutedSoft, fontVariantNumeric: 'tabular-nums' }}>100</span>
-                </div>
-              </>
-            );
-          })()}
-          <div style={{ marginTop: 12, fontSize: 11.5, fontWeight: 600, color: C.muted, lineHeight: 1.45 }}>
-            {tier.unlockCopy}
-          </div>
-        </div>
+        {/* ── Tier card — current tier, next tier, what unlocks it (shared with Benefits & Perks). */}
+        <TierCard score={score} rules={benefitRules} />
 
         {/* ── Spokes ───────────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

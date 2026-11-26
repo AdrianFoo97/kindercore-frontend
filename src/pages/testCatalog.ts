@@ -678,6 +678,7 @@ export const TEST_SUITES: TestSuite[] = [
     summary: 'Each person can set, change or remove their own profile photo — never anyone else’s.',
     cases: [
       { name: 'sets, shows and removes your own photo — a colleague still has none, and a replaced photo isn’t kept', explains: 'Your photo is yours alone; changing it removes the old one from the database, and removing it leaves nothing behind.' },
+      { name: 'sets your display name — shown at sign-in — and blank (or your full name) goes back to the full name', explains: 'People can choose what the app calls them; records keep their full name, and clearing it goes back to the full name.' },
       { name: 'only takes a photo, and only from someone signed in', explains: 'A PDF is refused, and nobody signed out can read or change a photo.' },
     ],
   },
@@ -2399,6 +2400,7 @@ export const TEST_SUITES: TestSuite[] = [
       { name: 'keeps Save disabled until every band has a name and starts lower than the one above', explains: 'Blank or duplicate names, a missing or out-of-range lowest score, bands out of order, or fewer than two bands each keep Save off with the reason shown.' },
       { name: "saves the lowest band from 0 and describes each band's range", explains: 'The last band always catches every score below the others, and each band reads as "80 and above", "60 to under 80", "Under 60".' },
       { name: 'draws the 0–100 scale from the bands, lowest first — and nothing while they can’t be saved', explains: 'The bar at the top of Settings → Score bands shows each band’s share of 0–100 in its colour as you edit (e.g. red 0–60, amber 60–80, green 80–100), and waits while a band is still missing a name or score.' },
+      { name: 'reads the latest month’s score from a history in any order', explains: 'The gold ring follows their most recent appraisal, not an older one.' },
     ],
   },
   {
@@ -2635,7 +2637,7 @@ export const TEST_SUITES: TestSuite[] = [
       { name: 'every signed-in endpoint has a role/module/ownership rule, or an approved reason not to', explains: 'A new endpoint can\'t ship open to every staff member by accident.' },
       { name: 'every read of pay, finance, appraisal or applicant records is written to the access log', explains: 'Each sensitive page records who opened it — and only after the access check has let them in.' },
       { name: 'the approved list has nothing stale', explains: 'The approved list stays accurate as endpoints change.' },
-      { name: 'nothing open to every signed-in user can change data, except filing a bug report, an incident report, a facility issue, a purchase request (or editing your own), a guide proposal (or resending your own) and its step photos, choosing and reading your own notifications, or your own profile photo', explains: 'Everything any staff member can reach is read-only, apart from reporting bugs, incidents or facility problems, asking for something to be bought (and editing or withdrawing your own request before approval), suggesting guide improvements (with photos for their steps), choosing and reading your own notifications, and setting your own profile photo.' },
+      { name: 'nothing open to every signed-in user can change data, except filing a bug report, an incident report, a facility issue, a purchase request (or editing your own), a guide proposal (or resending your own) and its step photos, choosing and reading your own notifications, or your own profile photo and display name', explains: 'Everything any staff member can reach is read-only, apart from reporting bugs, incidents or facility problems, asking for something to be bought (and editing or withdrawing your own request before approval), suggesting guide improvements (with photos for their steps), choosing and reading your own notifications, and setting your own profile photo and display name.' },
       { name: 'only shopping-list managers can see the shopping list, approve it, tick items off or see receipts', explains: 'Anyone can ask for something to be bought; only people given "Manage the shopping list" (supervisors) or Admins see the weekly list, approve it, mark items bought or not buying, add notes and open receipt photos.' },
       { name: 'only incident managers can see every incident report or follow one up', explains: 'Anyone can file an incident and see their own; only people given "Manage incident reports" (supervisors, principal) or Admins see them all, edit them, change the status or add to the log.' },
       { name: 'only facility managers can see every facility issue or change its status', explains: 'Anyone can report a broken door or leak and see their own reports; only people given "Manage facility issues" or Admins see them all and mark them In progress or Resolved.' },

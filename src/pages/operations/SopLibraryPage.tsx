@@ -225,7 +225,10 @@ export default function SopLibraryPage() {
   // of this page's own admin convention (everything inside one white
   // sheet with a plain-text counter), which only applies outside the
   // teacher app now.
-  const listWrapStyle: React.CSSProperties = themeIsTeacher ? {} : { ...s.card, ...(isMobile ? sMobile.card : null) };
+  // Teacher app with the floating "+": room under the list so it never covers the last guide.
+  const listWrapStyle: React.CSSProperties = themeIsTeacher
+    ? (isAdmin ? { paddingBottom: TEACHER_FAB_CLEARANCE } : {})
+    : { ...s.card, ...(isMobile ? sMobile.card : null) };
   const countLabelStyle: React.CSSProperties = themeIsTeacher
     ? { fontSize: 11, fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 10 }
     : s.cardSub;
@@ -387,10 +390,7 @@ export default function SopLibraryPage() {
         {/* The ⋯ in the top bar is the shared one (My Profile / Report a Bug), same as every tab.
             Supervisors add a guide with the floating "+", like the other list pages. */}
         {themeIsTeacher && isAdmin && (
-          <>
-            <TeacherFab label={addSopLabel} onClick={() => navigate(`${addSopPath}${detailPathSuffix}`)} />
-            <div aria-hidden style={{ height: TEACHER_FAB_CLEARANCE }} />
-          </>
+          <TeacherFab label={addSopLabel} onClick={() => navigate(`${addSopPath}${detailPathSuffix}`)} />
         )}
 
         <div style={listWrapStyle}>

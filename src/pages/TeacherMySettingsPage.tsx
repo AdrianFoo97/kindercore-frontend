@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
-  faEnvelope, faBriefcase, faCakeCandles, faPhone, faArrowRightFromBracket, faMobileScreenButton, faBell, faChevronRight,
+  faEnvelope, faBriefcase, faCakeCandles, faIdCard, faPhone, faArrowRightFromBracket, faMobileScreenButton, faBell, faChevronRight,
 } from '@fortawesome/free-solid-svg-icons';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 import { fetchTeacherCareer } from '../api/career-missions.js';
@@ -14,6 +14,8 @@ import { User } from '../types/index.js';
 import { useInstallApp } from '../hooks/useInstallApp.js';
 import ProfilePhotoButton from './profile/ProfilePhotoButton.js';
 
+import DisplayNameEditor from './profile/DisplayNameEditor.js';
+import { shownName, useSignedInUser } from '../utils/signedInUser.js';
 function fmtBirthday(iso: string) {
   return new Date(iso).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -48,8 +50,8 @@ export default function TeacherMySettingsPage() {
   const navigate = useNavigate();
   const { isMobile } = useIsMobile();
 
-  const rawUser = localStorage.getItem('user');
-  const currentUser = rawUser ? (JSON.parse(rawUser) as User) : null;
+  // Kept up to date — a new display name shows straight away.
+  const currentUser = useSignedInUser();
 
   const { data: career } = useQuery({
     queryKey: ['teacher-career', id],
@@ -67,6 +69,8 @@ export default function TeacherMySettingsPage() {
   const teacher = teachers.find(t => t.id === id);
 
   const rows: { icon: IconDefinition; label: string; value: string }[] = [
+    // Their full name — what records use (the name above can be a display name they chose).
+    ...(currentUser?.name ? [{ icon: faIdCard, label: 'Full name', value: currentUser.name }] : []),
     ...(teacher?.dob ? [{ icon: faCakeCandles, label: 'Birthday', value: fmtBirthday(teacher.dob) }] : []),
     ...(teacher?.phone ? [{ icon: faPhone, label: 'Phone', value: teacher.phone }] : []),
     ...(currentUser?.email ? [{ icon: faEnvelope, label: 'Email', value: currentUser.email }] : []),
@@ -112,15 +116,11 @@ export default function TeacherMySettingsPage() {
           borderRadius: 18, padding: '18px', marginBottom: 16,
           boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
         }}>
-          <ProfilePhotoButton name={currentUser?.name || '?'} accent={C.pAccent} />
+          <ProfilePhotoButton name={shownName(currentUser) || '?'} accent={C.pAccent} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 18, fontWeight: 800, color: C.textStrong,
-              letterSpacing: '-0.02em', lineHeight: 1.2,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {currentUser?.name || 'Account'}
-            </div>
+            {currentUser
+              ? <DisplayNameEditor user={currentUser} accent={C.pAccent} textColor={C.textStrong} />
+              : <div style={{ fontSize: 18, fontWeight: 800, color: C.textStrong }}>Account</div>}
             {positionName && (
               <div style={{ fontSize: 13.5, fontWeight: 700, color: C.pAccent, marginTop: 2 }}>
                 {positionName}

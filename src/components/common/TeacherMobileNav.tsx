@@ -35,6 +35,8 @@ const MUTED = '#94a3b8';
 // area. Exported so the shell reserves exactly this much space below
 // the page content so nothing hides under the floating bar.
 export const TEACHER_NAV_HEIGHT = 60;
+/** The floating bar's gap from the bottom of the screen (above the safe area). */
+export const TEACHER_NAV_BOTTOM = 12;
 export const TEACHER_NAV_SPACE = `calc(${TEACHER_NAV_HEIGHT}px + 24px + env(safe-area-inset-bottom))`;
 
 // Any teacher gamified surface: /teachers/:id/<section>[/...spoke].
@@ -142,7 +144,7 @@ export default function TeacherMobileNav() {
         position: 'fixed',
         left: 16,
         right: 16,
-        bottom: 'calc(env(safe-area-inset-bottom) + 12px)',
+        bottom: `calc(env(safe-area-inset-bottom) + ${TEACHER_NAV_BOTTOM}px)`,
         zIndex: 50,
         height: TEACHER_NAV_HEIGHT,
         padding: 6,

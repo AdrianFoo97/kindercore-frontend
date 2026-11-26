@@ -30,3 +30,7 @@ export async function uploadMyPhoto(photo: Blob): Promise<void> {
 }
 
 export const removeMyPhoto = () => apiFetch<{ ok: true }>(PATH, { method: 'DELETE' });
+
+/** The name the app shows you by — null (or blank) goes back to your full name. */
+export const saveMyDisplayName = (displayName: string | null) =>
+  apiFetch<{ displayName: string | null }>('/api/auth/me/display-name', { method: 'PUT', body: JSON.stringify({ displayName }) });

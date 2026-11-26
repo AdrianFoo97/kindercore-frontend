@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SCORE_BANDS, bandFor, bandsFrom, bandsProblem, fromDrafts, rangeText, scaleSegments, toDrafts } from '../../pages/appraisals/scoreBands';
+import { DEFAULT_SCORE_BANDS, bandFor, bandsFrom, bandsProblem, fromDrafts, latestScore, rangeText, scaleSegments, toDrafts } from '../../pages/appraisals/scoreBands';
 
 // Settings → Score bands: what an appraisal score is called and its colour.
 
@@ -49,5 +49,12 @@ describe('Score bands', () => {
       { label: 'Outstanding', tone: 'green', from: 80, to: 100 },
     ]);
     expect(scaleSegments([{ label: 'Top', min: '', tone: 'green' }, { label: 'Rest', min: '', tone: 'red' }])).toBeNull();
+  });
+});
+
+describe('Score bands — the latest appraisal', () => {
+  it('reads the latest month’s score from a history in any order', () => {
+    expect(latestScore([{ year: 2026, month: 9, score: 70 }, { year: 2026, month: 10, score: 85 }, { year: 2025, month: 11, score: 90 }])).toBe(85);
+    expect(latestScore([])).toBeNull();
   });
 });

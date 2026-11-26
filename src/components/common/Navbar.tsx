@@ -19,6 +19,7 @@ import NotificationBell from './NotificationBell.js';
 import { useSettingsGroups } from '../../pages/settings/useSettingsAccess.js';
 import MyAvatar from './MyAvatar.js';
 
+import { shownName, useSignedInUser } from '../../utils/signedInUser.js';
 /** Small uppercase heading that groups items inside a nav dropdown (Tools, Operation). */
 function NavSectionLabel({ label, first, mobile }: { label: string; first?: boolean; mobile: boolean }) {
   const top = first ? 8 : 10;
@@ -37,8 +38,9 @@ export default function Navbar() {
   const { isMobile, isTablet, width } = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const raw = localStorage.getItem('user');
-  const user = raw ? (JSON.parse(raw) as { name: string; role: string; teacherId?: string | null }) : null;
+  // Kept up to date — a new display name (My Profile) shows straight away.
+  const signedIn = useSignedInUser();
+  const user = signedIn ? { ...signedIn, name: shownName(signedIn) } : null;
   // The bell shows for anyone signed in; it hides itself when their roles come with no notifications.
   const showBell = !!user;
   // How much room the row needs depends on which modules this account

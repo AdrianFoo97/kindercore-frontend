@@ -23,6 +23,10 @@ import { focusMissions } from '../utils/focusMissions.js';
 import MissionDetailPopup from './career/MissionDetailPopup.js';
 import { useMissionTargets } from '../hooks/useMissionTargets.js';
 import IdentityHero from './teacherHome/IdentityHero.js';
+import { fetchTeacherAppraisals } from '../api/teacher-appraisals.js';
+import { latestScore } from './appraisals/scoreBands.js';
+import { useIsHighPerformer } from './teacherHome/useHighPerformer.js';
+import { useSignedInUser } from '../utils/signedInUser.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Teacher Home — a warm, motivating landing. Answers three things at a
@@ -147,6 +151,12 @@ export default function TeacherHomePage() {
   const firstName = (teacher?.name ?? career?.teacher?.name ?? '').trim().split(/\s+/)[0];
   const currentRole = career?.currentPosition?.name ?? null;
   const badgeUrl = career?.currentPosition?.badgeUrl ?? null;
+  // Their latest appraisal — a High Performer score (the Pay page's rule) turns the Home ring gold.
+  const { data: appraisalHistory } = useQuery({ queryKey: ['teacher-appraisals', id], queryFn: () => fetchTeacherAppraisals(id!), enabled: !!id });
+  const latestAppraisal = latestScore(appraisalHistory?.items ?? []);
+  const isHighPerformer = useIsHighPerformer();
+  // On their own Home, the name they chose on My Profile (if any).
+  const signedIn = useSignedInUser();
   const nextRole = career?.nextPosition?.name ?? null;
   const isFinalStage = career?.readiness?.isFinalStage ?? false;
   const mDone = career?.readiness?.missions?.completed ?? 0;
@@ -264,11 +274,12 @@ export default function TeacherHomePage() {
         {/* ── Identity hero ────────────────────────────────────── */}
         {/* Them first: photo in a progress ring toward the next rank, their rank badge worn like a medal. */}
         <IdentityHero
-          name={firstName} ownPhoto={isOwnHome(id)} avatarColor={myAvatarColor} role={currentRole} stars={stars.filled} badgeUrl={badgeUrl}
+          name={isOwnHome(id) && signedIn?.displayName ? signedIn.displayName : firstName} ownPhoto={isOwnHome(id)} avatarColor={myAvatarColor} role={currentRole} stars={stars.filled} badgeUrl={badgeUrl}
           progress={mTotal > 0 ? {
             pct,
             label: isFinalStage ? 'Top role reached' : mDone >= mTotal ? 'Ready for what’s next' : `${pct}% to ${nextRole ?? 'your next role'}`,
-          } : null} />
+          } : null}
+          topPerformer={latestAppraisal != null && isHighPerformer(latestAppraisal)} />
 
         {/* ── Quick actions ─────────────────────────────────── */}
         {id && <QuickActions teacherId={id} />}

@@ -2,6 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStar } from '@fortawesome/free-solid-svg-icons';
 import { uploadUrl } from '../../api/upload.js';
 import MyAvatar from '../../components/common/MyAvatar.js';
+import { GOLD } from '../teacherPay/benefits/benefitsTheme.js';
 
 // Teacher Home → the identity card. Their photo inside a progress ring (how
 // close they are to the next rank, like an activity ring), their rank badge
@@ -15,6 +16,10 @@ const AVATAR = RING - STROKE * 2 - 4;
 const BADGE = 26;
 const R = (RING - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
+
+/** A High Performer's ring: one full, solid ring of the Pay page's High Performer gold (progress is in the line below). */
+const GOLD_RING = GOLD.ring;
+const GOLD_GLOW = '0 0 0 2px rgba(234,179,8,0.22), 0 2px 10px rgba(234,179,8,0.30)';
 
 const C = { text: '#1e293b', muted: '#64748b', soft: '#94a3b8', accent: '#7c3aed', deep: '#5b21b6', track: '#ede9fe', card: '#fff', border: '#ede9fe' };
 
@@ -34,20 +39,24 @@ interface Props {
   stars: number;
   badgeUrl: string | null;
   progress: HeroProgress | null;
+  /** Their latest appraisal makes them a High Performer (as on the Pay page): the ring turns gold. */
+  topPerformer?: boolean;
 }
 
-export default function IdentityHero({ name, ownPhoto, avatarColor, role, stars, badgeUrl, progress }: Props) {
+export default function IdentityHero({ name, ownPhoto, avatarColor, role, stars, badgeUrl, progress, topPerformer = false }: Props) {
   const look: React.CSSProperties = { background: avatarColor, color: '#fff', fontWeight: 800, fontSize: 22, letterSpacing: '-0.01em' };
   const pct = Math.max(0, Math.min(100, progress?.pct ?? 0));
   return (
     <section aria-label={`${name || 'You'}${role ? `, ${role}` : ''}${progress ? `, ${progress.label}` : ''}`}
       style={{
         display: 'flex', alignItems: 'center', gap: 16, width: '100%', boxSizing: 'border-box', textAlign: 'left', color: 'inherit',
-        background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: '14px 16px', marginBottom: 12,
-        boxShadow: '0 1px 3px rgba(15,23,42,0.05)',
+        // A High Performer's card is dressed in gold, like the high-performer benefits.
+        background: topPerformer ? GOLD.wash : C.card, border: `1px solid ${topPerformer ? GOLD.border : C.border}`, borderRadius: 18, padding: '14px 16px', marginBottom: 12,
+        boxShadow: topPerformer ? GOLD.glow : '0 1px 3px rgba(15,23,42,0.05)',
       }}>
       {/* Photo in its progress ring, the rank badge worn on its corner like a medal. */}
-      <span style={{ position: 'relative', width: RING, height: RING, flexShrink: 0 }}>
+      <span title={topPerformer ? 'High Performer on the latest appraisal' : undefined}
+        style={{ position: 'relative', width: RING, height: RING, flexShrink: 0, borderRadius: '50%', boxShadow: topPerformer ? GOLD_GLOW : undefined }}>
         <svg width={RING} height={RING} aria-hidden style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
           <defs>
             <linearGradient id="hero-ring" x1="0" y1="0" x2="1" y2="1">
@@ -55,8 +64,8 @@ export default function IdentityHero({ name, ownPhoto, avatarColor, role, stars,
               <stop offset="100%" stopColor={C.accent} />
             </linearGradient>
           </defs>
-          <circle cx={RING / 2} cy={RING / 2} r={R} fill="none" stroke={C.track} strokeWidth={STROKE} />
-          {progress && pct > 0 && (
+          <circle cx={RING / 2} cy={RING / 2} r={R} fill="none" stroke={topPerformer ? GOLD_RING : C.track} strokeWidth={STROKE} />
+          {!topPerformer && progress && pct > 0 && (
             <circle cx={RING / 2} cy={RING / 2} r={R} fill="none" stroke="url(#hero-ring)" strokeWidth={STROKE} strokeLinecap="round"
               strokeDasharray={CIRCUMFERENCE} strokeDashoffset={CIRCUMFERENCE * (1 - pct / 100)} />
           )}
@@ -75,6 +84,11 @@ export default function IdentityHero({ name, ownPhoto, avatarColor, role, stars,
       </span>
 
       <span style={{ flex: 1, minWidth: 0 }}>
+        {topPerformer && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2, fontSize: 11, fontWeight: 800, color: GOLD.deep, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <FontAwesomeIcon icon={faStar} style={{ fontSize: 10, color: GOLD.ring }} /> High Performer
+          </span>
+        )}
         <span style={{ display: 'block', fontSize: 20, fontWeight: 800, color: C.text, letterSpacing: '-0.02em', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {name || 'Welcome back'}
         </span>
@@ -83,7 +97,7 @@ export default function IdentityHero({ name, ownPhoto, avatarColor, role, stars,
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{role}</span>
             {stars > 0 && (
               <span style={{ display: 'inline-flex', gap: 2, flexShrink: 0 }} title={`${stars}-star ${role}`}>
-                {Array.from({ length: stars }, (_, i) => <FontAwesomeIcon key={i} icon={faStar} style={{ fontSize: 10, color: C.accent }} />)}
+                {Array.from({ length: stars }, (_, i) => <FontAwesomeIcon key={i} icon={faStar} style={{ fontSize: 10, color: topPerformer ? GOLD.ring : C.accent }} />)}
               </span>
             )}
           </span>

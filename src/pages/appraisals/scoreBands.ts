@@ -91,6 +91,12 @@ export function bandFor(score: number, bands: ScoreBand[]): Band {
   return { label: band.label, tone: band.tone, ...BAND_TONES[band.tone] };
 }
 
+/** The latest month's score in a history (any order), or null when there's none. */
+export function latestScore(items: { year: number; month: number; score: number }[]): number | null {
+  if (!items.length) return null;
+  return items.reduce((a, b) => (b.year * 12 + b.month > a.year * 12 + a.month ? b : a)).score;
+}
+
 /** "80 and above", "60 to under 80", "Under 60" — for drafts, by position in the list. */
 export function rangeText(drafts: BandDraft[], i: number): string {
   const min = drafts[i].min.trim();

@@ -168,8 +168,9 @@ export default function NotificationBell({ variant = 'navbar' }: { variant?: 'na
               </div>
             )}
             {data && data.items.length === 0 && (
-              <div style={{ ...s.state, padding: '32px 16px' }}>
-                <FontAwesomeIcon icon={faBell} style={{ fontSize: 20, color: '#cbd5e1', marginBottom: 8 }} />
+              // Phone: centred in the screen's free space, a little bigger.
+              <div style={{ ...s.state, padding: '32px 16px', ...(isMobile ? { height: '75%', justifyContent: 'center', fontSize: 15 } : null) }}>
+                <FontAwesomeIcon icon={faBell} style={{ fontSize: isMobile ? 32 : 20, color: '#cbd5e1', marginBottom: isMobile ? 12 : 8 }} />
                 <div>You’re all caught up.</div>
               </div>
             )}
