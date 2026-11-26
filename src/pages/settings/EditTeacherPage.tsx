@@ -15,6 +15,7 @@ import { fetchAllowanceTypes, fetchTeacherAllowances, upsertTeacherAllowances } 
 import { useToast } from '../../components/common/Toast.js';
 import { useDeleteDialog } from '../../components/common/DeleteDialog.js';
 import { AppraisalTab } from '../appraisals/AppraisalTab.js';
+import { useBranch } from '../branches/useBranch.js';
 
 const C = {
   primary: '#5a67d8', primaryLight: '#eef0fa', card: '#fff', text: '#1e293b',
@@ -81,6 +82,8 @@ export default function EditTeacherPage() {
   const { data: teachers = [] } = useQuery({ queryKey: ['planner-teachers'], queryFn: fetchTeachers });
   const { data: classrooms = [] } = useQuery({ queryKey: ['planner-classrooms'], queryFn: fetchClassrooms });
   const { data: subjects = [] } = useQuery({ queryKey: ['planner-subjects'], queryFn: fetchSubjects });
+  // Classes and subjects of every branch — named with their branch so N1 at two branches can be told apart.
+  const { labelOf } = useBranch();
   const { data: allPositions = [] } = useQuery({ queryKey: ['salary-positions'], queryFn: fetchPositions });
   const { data: departmentList = [] } = useQuery({ queryKey: ['departments'], queryFn: fetchDepartments });
   const { data: allIncentives = [] } = useQuery({ queryKey: ['salary-incentives'], queryFn: fetchLevelIncentives });
@@ -826,7 +829,7 @@ export default function EditTeacherPage() {
                     {subjects.map((sub: any) => (
                       <button key={sub.id} onClick={() => setAllowedSubjectIds(p => p.includes(sub.id) ? p.filter(x => x !== sub.id) : [...p, sub.id])}
                         style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, borderRadius: 14, border: 'none', cursor: 'pointer', background: allowedSubjectIds.includes(sub.id) ? sub.color : '#f1f5f9', color: allowedSubjectIds.includes(sub.id) ? '#fff' : C.muted, transition: 'all 0.1s' }}>
-                        {sub.name}
+                        {labelOf(sub.name, sub.branchId)}
                       </button>
                     ))}
                     {subjects.length === 0 && <span style={{ fontSize: 12, color: C.muted, fontStyle: 'italic' }}>No subjects configured</span>}
@@ -839,7 +842,7 @@ export default function EditTeacherPage() {
                     {activeClasses.map((cls: any) => (
                       <button key={cls.id} onClick={() => setAllowedClassroomIds(p => p.includes(cls.id) ? p.filter(x => x !== cls.id) : [...p, cls.id])}
                         style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, borderRadius: 14, border: 'none', cursor: 'pointer', background: allowedClassroomIds.includes(cls.id) ? C.primary : '#f1f5f9', color: allowedClassroomIds.includes(cls.id) ? '#fff' : C.muted, transition: 'all 0.1s' }}>
-                        {cls.name}
+                        {labelOf(cls.name, cls.branchId)}
                       </button>
                     ))}
                     {activeClasses.length === 0 && <span style={{ fontSize: 12, color: C.muted, fontStyle: 'italic' }}>No classes configured</span>}

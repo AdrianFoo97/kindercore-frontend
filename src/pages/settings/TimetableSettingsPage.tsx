@@ -10,6 +10,9 @@ import {
   fetchTasks, createTask, updateTask, deleteTask,
 } from '../../api/planner.js';
 import { Teacher, Classroom, PlannerSubject, PlannerTask } from '../../types/index.js';
+import { inBranch, useBranch } from '../branches/useBranch.js';
+import BranchPicker from '../branches/BranchPicker.js';
+import CopyBranchDialog from '../branches/CopyBranchDialog.js';
 
 const C = {
   primary: '#5a67d8', primaryLight: '#eef0fa', card: '#fff', text: '#1e293b',
@@ -51,6 +54,12 @@ export default function TimetableSettingsPage() {
   const { data: classrooms = [] } = useQuery({ queryKey: ['planner-classrooms'], queryFn: fetchClassrooms });
   const { data: subjects = [] } = useQuery({ queryKey: ['planner-subjects'], queryFn: fetchSubjects });
   const { data: tasks = [] } = useQuery({ queryKey: ['planner-tasks'], queryFn: fetchTasks });
+  // Classes and subjects belong to a branch (tasks and teachers are shared).
+  const { branches, branchId, branchName, pick, labelOf } = useBranch();
+  const perBranch = resourceType === 'classes' || resourceType === 'subjects';
+  /** "Copy to branch…" — picking what to copy happens in the dialog, so the list stays clean. */
+  const [copyOpen, setCopyOpen] = useState(false);
+  const canCopy = perBranch && branches.length > 1 && !!branchId;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -120,15 +129,17 @@ export default function TimetableSettingsPage() {
 
   const items = useMemo(() => {
     if (resourceType === 'teachers') return teachers;
-    if (resourceType === 'classes') return classrooms.filter((c: any) => c.isActive);
-    if (resourceType === 'subjects') return subjects;
+    if (resourceType === 'classes') return classrooms.filter((c: any) => c.isActive && inBranch(c, branchId));
+    if (resourceType === 'subjects') return subjects.filter(s => inBranch(s, branchId));
     return tasks;
-  }, [resourceType, teachers, classrooms, subjects, tasks]);
+  }, [resourceType, teachers, classrooms, subjects, tasks, branchId]);
 
   const title = resourceType === 'teachers' ? 'Teachers' : resourceType === 'classes' ? 'Classes' : resourceType === 'subjects' ? 'Subjects' : 'Tasks';
   // Not title.slice(0, -1) — that made "Classe".
   const singular = { Teachers: 'Teacher', Classes: 'Class', Subjects: 'Subject', Tasks: 'Task' }[title];
   const activeClasses = classrooms.filter((c: any) => c.isActive);
+  /** A subject's "weekly lessons per class" lists only its own branch's classes. */
+  const branchClasses = activeClasses.filter((c: any) => inBranch(c, branchId));
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -137,13 +148,13 @@ export default function TimetableSettingsPage() {
       editingId ? updateTeacherMut.mutate({ id: editingId, data: d }) : createTeacherMut.mutate(d as any);
     } else if (resourceType === 'classes') {
       const d = { name: name.trim(), capacity: capacity ? Number(capacity) : undefined, startMinute: classStartMinute !== '' ? classStartMinute : undefined, endMinute: classEndMinute !== '' ? classEndMinute : undefined, daysOfWeek: classDays.length > 0 ? classDays : undefined };
-      editingId ? updateClassroomMut.mutate({ id: editingId, data: d }) : createClassroomMut.mutate(d);
+      editingId ? updateClassroomMut.mutate({ id: editingId, data: d }) : createClassroomMut.mutate({ ...d, branchId });
     } else if (resourceType === 'subjects') {
       const dd = defaultDuration ? Number(defaultDuration) : undefined;
       const cl: Record<string, number> = {};
       for (const [k, v] of Object.entries(classLessonsMap)) { if (v && Number(v) > 0) cl[k] = Number(v); }
       const clData = Object.keys(cl).length > 0 ? cl : null;
-      editingId ? updateSubjectMut.mutate({ id: editingId, data: { name: name.trim(), color, defaultDuration: dd ?? null, classLessons: clData } }) : createSubjectMut.mutate({ name: name.trim(), color, defaultDuration: dd, classLessons: clData ?? undefined });
+      editingId ? updateSubjectMut.mutate({ id: editingId, data: { name: name.trim(), color, defaultDuration: dd ?? null, classLessons: clData } }) : createSubjectMut.mutate({ name: name.trim(), color, defaultDuration: dd, classLessons: clData ?? undefined, branchId });
     } else {
       editingId ? updateTaskMut.mutate({ id: editingId, data: { name: name.trim(), category, color } }) : createTaskMut.mutate({ name: name.trim(), category, color });
     }
@@ -187,13 +198,28 @@ export default function TimetableSettingsPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* The page title already names the list — just say how many. */}
-          <span style={{ fontSize: 13, color: C.muted }}>{items.length} {(items.length === 1 ? singular : title).toLowerCase()}</span>
+          {perBranch && <BranchPicker branches={branches} value={branchId} onChange={pick} />}
+          <span style={{ fontSize: 13, color: '#64748b' }}>{items.length} {(items.length === 1 ? singular : title).toLowerCase()}</span>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        {canCopy && items.length > 0 && (
+          <button type="button" onClick={() => setCopyOpen(true)} style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: `1px solid ${C.border}`, background: '#fff', color: '#334155', cursor: 'pointer' }}>
+            Copy to branch…
+          </button>
+        )}
         <button onClick={openNew} style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: C.primary, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
           <FontAwesomeIcon icon={faPlus} style={{ fontSize: 11 }} />
           Add {singular}
         </button>
+        </div>
       </div>
+      {copyOpen && branchId && branchName && (
+        <CopyBranchDialog from={{ id: branchId, name: branchName }} branches={branches}
+          kind={resourceType === 'classes' ? 'classes' : 'subjects'}
+          items={items as { id: string; name: string; branchId?: string | null }[]}
+          allItems={resourceType === 'classes' ? classrooms.filter((c: any) => c.isActive) : subjects}
+          onClose={() => setCopyOpen(false)} />
+      )}
 
       {/* Form modal */}
       {formOpen && (
@@ -271,14 +297,14 @@ export default function TimetableSettingsPage() {
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ ...lbl, fontSize: 10 }}>Can teach subjects</label>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                    {subjects.map(s => <button key={s.id} onClick={() => setAllowedSubjectIds(p => p.includes(s.id) ? p.filter(x => x !== s.id) : [...p, s.id])} style={tag(allowedSubjectIds.includes(s.id), s.color)}>{s.name}</button>)}
+                    {subjects.map(s => <button key={s.id} onClick={() => setAllowedSubjectIds(p => p.includes(s.id) ? p.filter(x => x !== s.id) : [...p, s.id])} style={tag(allowedSubjectIds.includes(s.id), s.color)}>{labelOf(s.name, s.branchId)}</button>)}
                     {subjects.length === 0 && <span style={{ fontSize: 11, color: C.muted, fontStyle: 'italic' }}>No subjects configured</span>}
                   </div>
                 </div>
                 <div>
                   <label style={{ ...lbl, fontSize: 10 }}>Can teach classes</label>
                   <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                    {activeClasses.map((c: any) => <button key={c.id} onClick={() => setAllowedClassroomIds(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])} style={tag(allowedClassroomIds.includes(c.id))}>{c.name}</button>)}
+                    {activeClasses.map((c: any) => <button key={c.id} onClick={() => setAllowedClassroomIds(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])} style={tag(allowedClassroomIds.includes(c.id))}>{labelOf(c.name, c.branchId)}</button>)}
                     {activeClasses.length === 0 && <span style={{ fontSize: 11, color: C.muted, fontStyle: 'italic' }}>No classes configured</span>}
                   </div>
                 </div>
@@ -333,11 +359,11 @@ export default function TimetableSettingsPage() {
                   </select>
                 </div>
               </div>
-              {activeClasses.length > 0 && (
+              {branchClasses.length > 0 && (
                 <div style={{ background: '#f8fafc', borderRadius: 10, padding: 14 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Weekly Lessons per Class</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {activeClasses.map((cls: any) => (
+                    {branchClasses.map((cls: any) => (
                       <div key={cls.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', borderRadius: 8, padding: '6px 10px', border: `1px solid ${C.border}` }}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{cls.name}</span>
                         <input style={{ ...inp, width: 42, padding: '4px', fontSize: 12, textAlign: 'center', border: `1px solid ${C.border}`, borderRadius: 6 }} type="number" min="0" value={classLessonsMap[cls.id] || ''} onChange={e => setClassLessonsMap(p => ({ ...p, [cls.id]: e.target.value }))} placeholder="0" />

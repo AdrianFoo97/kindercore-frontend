@@ -24,6 +24,8 @@ import {
   Teacher, Classroom, PlannerSubject, PlannerTask, ScheduleBlock,
 } from '../types/index.js';
 import LoadingSpinner from '../components/common/LoadingSpinner.js';
+import { inBranch, useBranch } from './branches/useBranch.js';
+import BranchPicker from './branches/BranchPicker.js';
 
 // ── Color palette ────────────────────────────────────────────────────────────
 
@@ -1824,15 +1826,20 @@ export default function OperationsPlannerPage() {
     queryFn: fetchTeachers,
   });
 
-  const { data: classrooms = [] } = useQuery({
+  const { data: allClassrooms = [] } = useQuery({
     queryKey: ['planner-classrooms'],
     queryFn: fetchClassrooms,
   });
 
-  const { data: subjects = [] } = useQuery({
+  const { data: allSubjects = [] } = useQuery({
     queryKey: ['planner-subjects'],
     queryFn: fetchSubjects,
   });
+
+  // One branch at a time — its classes and subjects only (Settings → Classes / Subjects). Tasks and staff are shared.
+  const { branches, branchId, pick } = useBranch();
+  const classrooms = useMemo(() => allClassrooms.filter(c => inBranch(c, branchId)), [allClassrooms, branchId]);
+  const subjects = useMemo(() => allSubjects.filter(s => inBranch(s, branchId)), [allSubjects, branchId]);
 
   const { data: plannerTasks = [] } = useQuery({
     queryKey: ['planner-tasks'],
@@ -2556,6 +2563,11 @@ export default function OperationsPlannerPage() {
           saving={saveTimetableMut.isPending}
           onExport={handleExport}
         />
+        {branches.length > 1 && (
+          <div style={{ padding: '8px 16px 0' }}>
+            <BranchPicker branches={branches} value={branchId} onChange={id => { pick(id); setSelectedFilterId('all'); }} />
+          </div>
+        )}
         <ViewModeSelector mode={viewMode} onChange={(m) => { setViewMode(m); setSelectedFilterId('all'); }} />
 
         {/* Filter tabs */}

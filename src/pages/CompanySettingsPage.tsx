@@ -277,7 +277,7 @@ function BranchListEditor({ items, isAdmin, onSaved }: {
     const name = editName.trim();
     const address = editAddress.trim();
     if (name && address) {
-      setList(prev => prev.map((b, i) => i === editingIdx ? withMapsLink({ name, address }) : b));
+      setList(prev => prev.map((b, i) => i === editingIdx ? withMapsLink({ ...b, name, address }) : b)); // keeps its id — its classes stay with it
       mark();
     }
     setEditingIdx(null); setEditName(''); setEditAddress('');

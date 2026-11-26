@@ -50,7 +50,7 @@ export function fetchClassrooms() {
   return apiFetch<Classroom[]>('/api/planner/classrooms');
 }
 
-export function createClassroom(data: { name: string; capacity?: number; startMinute?: number; endMinute?: number; daysOfWeek?: number[] }) {
+export function createClassroom(data: { name: string; branchId?: string | null; capacity?: number; startMinute?: number; endMinute?: number; daysOfWeek?: number[] }) {
   return apiFetch<Classroom>('/api/planner/classrooms', { method: 'POST', body: JSON.stringify(data) });
 }
 
@@ -64,11 +64,17 @@ export function deleteClassroom(id: string) {
 
 // ── Subjects ─────────────────────────────────────────────────────────────────
 
+/** Copy one branch's classes and subjects (all, or just the picked ones) to another — adds only what's missing there. */
+export function copyBranch(fromBranchId: string, toBranchId: string, pick: { classIds?: string[]; subjectIds?: string[] } = {}) {
+  return apiFetch<{ addedClasses: number; addedSubjects: number; skippedClasses: number; skippedSubjects: number }>(
+    '/api/planner/branches/copy', { method: 'POST', body: JSON.stringify({ fromBranchId, toBranchId, ...pick }) });
+}
+
 export function fetchSubjects() {
   return apiFetch<PlannerSubject[]>('/api/planner/subjects');
 }
 
-export function createSubject(data: { name: string; color: string; lessonsPerWeek?: number; defaultDuration?: number; classLessons?: Record<string, number> }) {
+export function createSubject(data: { name: string; branchId?: string | null; color: string; lessonsPerWeek?: number; defaultDuration?: number; classLessons?: Record<string, number> }) {
   return apiFetch<PlannerSubject>('/api/planner/subjects', { method: 'POST', body: JSON.stringify(data) });
 }
 

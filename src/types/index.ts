@@ -67,6 +67,8 @@ export interface LeadsResponse {
 }
 
 export interface CompanyBranch {
+  /** Lasting id — classes and subjects point at it, so renaming a branch keeps them. Given by the server on save. */
+  id?: string;
   name: string;
   address: string;
   /** Google Maps link for the address — made automatically from it (utils/mapsLink). */
@@ -405,6 +407,8 @@ export interface Classroom {
   startMinute: number | null;
   endMinute: number | null;
   daysOfWeek: number[] | null;
+  /** The branch it's at (Settings → Company → Branches). */
+  branchId?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -417,6 +421,8 @@ export interface PlannerSubject {
   lessonsPerWeek: number | null;
   defaultDuration: number | null;
   classLessons: Record<string, number> | null;
+  /** The branch it's taught at. */
+  branchId?: string | null;
   createdAt: string;
 }
 

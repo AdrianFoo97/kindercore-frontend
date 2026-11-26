@@ -122,8 +122,8 @@ export const TABLE_NOTES: Record<string, { domain: Domain; about: string }> = {
   // Planner & timetable
   PlannerTask: { domain: 'Planner & timetable', about: 'A task in the operations planner.' },
   ScheduleBlock: { domain: 'Planner & timetable', about: 'A block on the timetable — who teaches what, where, when.' },
-  Classroom: { domain: 'Planner & timetable', about: 'A classroom timetable blocks can be placed in.' },
-  Subject: { domain: 'Planner & timetable', about: 'A subject that can be scheduled.' },
+  Classroom: { domain: 'Planner & timetable', about: 'A class timetable blocks can be placed in — at one branch (branchId → Settings → Company → Branches).' },
+  Subject: { domain: 'Planner & timetable', about: 'A subject that can be scheduled — at one branch (branchId), with weekly lessons per class of that branch.' },
   SavedTimetable: { domain: 'Planner & timetable', about: 'A saved snapshot of a timetable.' },
   PurchaseRequest: { domain: 'Planner & timetable', about: 'Something staff asked to be bought (item, how many, what for). Sits on the weekly Shopping List until ticked Bought (optional cost + receipt photo) or Not buying (with a reason the requester sees).' },
   FacilityIssue: { domain: 'Planner & timetable', about: 'Something broken or unsafe in the building (door, leak, aircon…) reported by staff, moved Open → In progress → Resolved in Operation → Facilities, with a note the reporter sees.' },
